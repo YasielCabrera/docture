@@ -1,0 +1,62 @@
+---
+title: Testing package
+description: Public API for @docture/testing.
+---
+
+Import from `@docture/testing`. Install Vitest 3 or newer when using the conformance
+suites.
+
+## Generated invoices
+
+```ts
+buildInvoiceData(options?: InvoiceOptions): SyntheticInvoice
+makeInvoicePdf(options?: InvoiceOptions): Promise<SyntheticDocument<SyntheticInvoice>>
+formatMoney(value: number): string
+```
+
+`InvoiceOptions` has `seed`, `lineItemCount`, and `textless`. Defaults are seed `1`, five
+line items, and a normal text-layer PDF. A seed reproduces the same values. `textless`
+creates a PDF without text for scan behavior tests.
+
+`SyntheticDocument<T>` contains PDF `bytes`, `expected` data, and actual `pageCount`.
+`SyntheticInvoice` contains invoice number, dates, currency, seller, buyer, line items,
+subtotal, tax rate, tax, and total. `SyntheticLineItem` contains description, quantity,
+unit price, and amount.
+
+`formatMoney()` returns a two-decimal, US-formatted string. The generators reject only on
+PDFKit stream or allocation failures.
+
+## Test doubles
+
+```ts
+loadedDocument(
+  pageTexts: readonly string[],
+  options?: { loader?: string; geometry?: boolean },
+): LoadedDocument
+
+inMemoryLoader(document: LoadedDocument): DocumentLoader
+fixedStrategy(name: string, data: unknown): ExtractionStrategy
+failingStrategy(name: string, message = "strategy failed"): ExtractionStrategy
+```
+
+`loadedDocument()` creates A4-sized pages and geometry by default. The default loader name
+is `in-memory`. `inMemoryLoader()` accepts every media type and returns the supplied
+document. `fixedStrategy()` returns fixed data after checking the abort signal.
+`failingStrategy()` always throws the configured message.
+
+## Conformance suites
+
+```ts
+describeLoaderConformance(options: LoaderConformanceOptions): void
+describeRasterizerConformance(options: RasterizerConformanceOptions): void
+```
+
+`LoaderConformanceOptions` requires a suite `name` and a fresh loader `create` function.
+Its optional `skip` object can skip geometry, images, multi-page, or scanned checks when a
+loader does not claim that behavior.
+
+`RasterizerConformanceOptions` requires a suite `name` and fresh rasterizer `create`
+function.
+
+The functions register Vitest suites and return `void`. Test failures are reported by
+Vitest. Create functions may return a component or a promise.

@@ -1,0 +1,58 @@
+---
+title: Evaluation package
+description: Public API for @docture/eval.
+---
+
+Import from `@docture/eval`.
+
+## Score one extraction
+
+```ts
+scoreExtraction(
+  expected: unknown,
+  actual: unknown,
+  options?: ScoreOptions,
+): Score
+```
+
+`ScoreOptions.numericTolerance` defaults to `0.01`. `stringSimilarity` defaults to
+`0.9`. `alignArraysBy` optionally sorts object arrays by one key before scoring; arrays
+otherwise use index order.
+
+`Score` contains precision, recall, F1, exact-match status, counts by `FieldStatus`, and
+ordered `FieldResult` values. `FieldStatus` is `match`, `mismatch`, `omission`, or
+`hallucination`. Each `FieldResult` contains the dotted field path, status, expected value,
+and actual value.
+
+The scorer is synchronous and does not throw for ordinary differences. Invalid dates or
+non-numeric values simply fail their comparison.
+
+```ts
+failures(score: Score): readonly FieldResult[]
+hallucinations(score: Score): readonly FieldResult[]
+```
+
+`failures()` returns every non-match. `hallucinations()` returns fields that exist in the
+actual result but not the expected result.
+
+## Record and aggregate runs
+
+```ts
+recordRun(document: string, score: Score, result): RunRecord
+aggregate(records: readonly RunRecord[]): Aggregate
+```
+
+`RunRecord` stores the document id, score, winning method, loader, usage, and attempts.
+`Aggregate` contains document count, mean F1, precision, and recall, exact matches, total
+cost, tokens, and time, plus counts by winning method. Empty input returns zeros.
+
+## Format reports
+
+```ts
+formatScoreboard(records: readonly RunRecord[]): string
+formatFailures(score: Score, limit = 20): string
+```
+
+`formatScoreboard()` returns a stable Markdown table and summary. `formatFailures()`
+returns a plain-text failure list and states when additional failures were omitted. Both
+functions are pure and return strings.

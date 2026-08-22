@@ -1,70 +1,41 @@
 ---
 title: Contracts
-description: A schema that knows its own name.
+description: A schema with a document name and prompt guidance.
 ---
 
-A **contract** is a schema plus the prose that describes it. Nothing more:
+A `Contract` combines a schema with a document name. It may also contain a description
+and hints.
 
 ```ts
-import { contract } from "docture";
-import { z } from "zod";
-
-export const Invoice = contract({
+const Invoice = contract({
   name: "invoice",
-  description: "A commercial invoice with a total and line items.",
+  description: "A commercial invoice.",
+  hints: "Use the amount labelled Grand total.",
   schema: z.object({
-    invoiceNumber: z.string().describe("The invoice number, usually top-right"),
+    invoiceNumber: z.string(),
     total: z.number(),
   }),
-  hints: "Amounts may use a comma as the decimal separator.",
 });
 ```
 
-## Why the wrapper exists
+## When the name is used
 
-In Python, a Pydantic contract is a class, so the class name *is* the document's name
-and the docstring *is* its description. Both are available at run time, for free.
+The contract name can appear in prompts, classification lists, and reports. When an
+extractor has no configured classification list, a named contract is offered to the run
+as a single classification candidate.
 
-TypeScript types are erased. A `z.object({ … })` has no name once it is running, so
-nothing downstream can put "invoice" in a prompt, a classification list, or a report. A
-contract is that pairing made explicit.
-
-## It is always optional
-
-Every call that takes a contract also takes a bare schema. These are the same:
+A bare schema works when no name is needed:
 
 ```ts
-await extractor.extract("invoice.pdf", Invoice);                 // named
-await extractor.extract("invoice.pdf", z.object({ … }));         // not named
+await extractor.extract("invoice.pdf", Invoice);
+await extractor.extract("invoice.pdf", z.object({ total: z.number() }));
 ```
 
-The inferred type of `result.data` is identical either way. Name a schema when
-something reads the name; skip it when nothing does.
+Both calls infer the result type from the schema.
 
-<Callout title="A lone contract classifies itself">
-Extracting against a contract, with no `classifications` wired, offers that contract to
-strategies as its own single-candidate classification. So the name and description you
-already wrote reach the prompt without being repeated in an options bag.
-</Callout>
+## Structural contract
 
-## What accepts a contract
-
-```mermaid
-flowchart LR
-    C["Contract or schema"] --> E["extractor.extract"]
-    C --> D["extractor.extractData"]
-    C --> S["extractor.safeExtract"]
-    C --> B["extractor.extractBatch"]
-    C --> X["classification.extractionContract"]
-```
-
-`ContractLike` is the union of the two, `Contract | FlexibleSchema`. `InferContract<C>` is
-the data type either produces.
-
-## Structural, not branded
-
-`isContract` is a structural check: an object with a string `name` and a `schema`. So a
-hand-written literal is a contract, with no need to have gone through `contract()`:
+Contracts are not branded. Any object with a string `name` and a `schema` is a contract.
 
 ```ts
 const Invoice: Contract<{ total: number }> = {
@@ -73,31 +44,17 @@ const Invoice: Contract<{ total: number }> = {
 };
 ```
 
-That check is unambiguous against every member of the AI SDK's `FlexibleSchema` union: a
-Zod schema has neither field, a `Schema` has no `name`, and a `LazySchema` is a function.
+`isContract()` performs this structural check. `schemaOf()` returns the inner schema or a
+bare schema unchanged. `contractName()` returns the name when one exists.
 
-## Two contracts for one kind
-
-A [classification](/docs/concepts/classification) can recognise a document with one
-contract and extract it with another. Recognising an invoice needs two fields;
-extracting one needs forty, and paying for forty on the classification pass is waste:
+## Convert a contract to a classification
 
 ```ts
-const invoice = defineClassification({
-  name: "invoice",
-  description: "A commercial invoice.",
-  schema: z.object({ invoiceNumber: z.string() }),        // cheap, for recognising
-  extractionContract: FullInvoice,                        // the real payload
-});
+const invoice = classificationOf(Invoice);
 ```
 
-`data` is then typed from `extractionContract`. The narrowing follows the contract that
-actually produced the value, not the one that named it.
+`classificationOf()` copies the contract name, description, schema, and hints. Overrides
+may add a per-kind extractor or a different extraction contract.
 
-## Related
-
-<Cards>
-  <Card title="Schemas and types" href="/docs/concepts/schemas-and-types" description="Zod, Valibot, ArkType, raw JSON Schema." />
-  <Card title="Classification" href="/docs/concepts/classification" description="Deciding what kind of document this is." />
-  <Card title="Bundles and splitters" href="/docs/concepts/bundles-and-splitters" description="One scan, eleven documents." />
-</Cards>
+See [schemas and types](/docs/concepts/schemas-and-types) for schema support and the
+[contracts API](/docs/reference/api/core-contracts) for signatures.

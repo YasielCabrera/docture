@@ -1,10 +1,13 @@
 {
   "title": "Guides",
   "pages": [
+    "sources-and-inputs",
     "with-a-model",
     "without-a-model",
     "scanned-documents",
+    "routing-and-fallback",
     "long-documents",
+    "batches-and-lifecycle",
     "custom-loader",
     "measuring-accuracy",
     "cli"

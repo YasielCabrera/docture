@@ -1,0 +1,58 @@
+---
+title: PaddleOCR loader
+description: Public API, models, and options for @docture/loader-paddleocr.
+---
+
+Import from `@docture/loader-paddleocr`. The package uses `onnxruntime-node`, which ships
+prebuilt native dependencies for supported platforms.
+
+```ts
+new DocumentLoaderPaddleOcr(options?: PaddleOcrConfig)
+new PaddleOcrLoader(options?: PaddleOcrLoaderOptions)
+```
+
+`DocumentLoaderPaddleOcr` and `PaddleOcrLoader` are the same class. `PaddleOcrConfig` and
+`PaddleOcrLoaderOptions` are the same option type.
+
+## Options
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `rasterizer` | none | Required to accept PDFs; direct PNG and JPEG inputs need none. |
+| `model` | `v6Tiny` | Model preset or explicit `PaddleModelFiles`. |
+| `dpi` | `300` | Render and OCR resolution. |
+| `maxPages` | all | Maximum pages to read. |
+| `minConfidence` | `0.5` | Minimum detected-region confidence. |
+| `strategy` | `perLine` | Recognition batching strategy. |
+| `maxSideLength` | `auto` | Maximum detector input edge. |
+| `paddingVertical` | `0.4` | Vertical region padding as a height fraction. |
+| `paddingHorizontal` | `0.6` | Horizontal region padding as a height fraction. |
+| `lineTolerance` | derived, about `0.28` | Region-to-line vertical band. |
+| `concurrency` | `auto` | Concurrent pages, selected for CPU or accelerator. |
+| `imageEngine` | `openCv` | `openCv` or `canvas` preprocessing. |
+| `executionProviders` | `["cpu"]` | Preferred ONNX execution providers. |
+
+The loader is named `paddleocr` and reports text, geometry, and images. Without a
+rasterizer it accepts PNG and JPEG. With one it also accepts PDF. `dispose()` releases the
+ONNX sessions and allows a later load to create fresh sessions.
+
+## Models and related types
+
+`PADDLE_MODELS` is the runtime preset map. `PaddleModel` is its key union:
+
+`v6Tiny`, `v6Small`, `v6Medium`, `v5EnglishMobile`, `v5EnglishMobileInt8`,
+`v5EnglishServer`, `v5Mobile`, `v5Server`, `v5Arabic`, `v5Cyrillic`, `v5Devanagari`,
+`v5EastSlavic`, `v5Greek`, `v5Korean`, `v5Latin`, `v5Tamil`, `v5Telugu`, `v5Thai`,
+`v4EnglishMobile`, `v4Mobile`, `v4Server`, `v4ServerDocument`, `v3Mobile`, and
+`v3Japanese`.
+
+`ModelSource` is a file path, URL string, or `Uint8Array`. `PaddleModelFiles` contains
+`detection`, `recognition`, and `charactersDictionary` sources for offline or custom
+models.
+
+`RecognitionStrategy` is `perBox`, `perLine`, or `crossLine`. All modes return one result
+per detected region. `ImageEngine` is `openCv` or `canvas`.
+
+Model download, file, ONNX initialization, rasterization, recognition, image, and caller
+abort failures reject the load. A requested accelerator that cannot initialize falls back
+to CPU.

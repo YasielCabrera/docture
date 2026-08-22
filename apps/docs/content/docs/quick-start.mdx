@@ -1,160 +1,82 @@
 ---
 title: Quick start
-description: From nothing to typed data, in about five minutes.
+description: Install docture and extract a typed invoice.
 ---
 
-## 1. Install
+This example reads the text layer of a PDF and sends that text to an AI SDK model.
 
-You always need **core**, **a loader**, and **a way to understand the document**.
+## Install
+
+Node 22 or newer is required.
 
 ```package-install
 docture @docture/loader-pdfjs ai @ai-sdk/openai zod
 ```
 
-<Callout title="Why two docture packages?">
-`docture` is a facade: it re-exports `@docture/core` and `@docture/llm` so the pipeline,
-the contracts and the model arrive in one import. Loaders stay separate because they are
-the heavy dependencies. Installing `core` alone pulls no PDF parser, no WASM and no
-ONNX. See [Packages](/docs/reference/packages).
-</Callout>
+`ai` is a peer dependency of `docture`. Install the AI SDK provider that supplies your
+model. This example uses `@ai-sdk/openai`.
 
-## 2. Describe what you want
+## Define the result
 
-A **contract** is a schema that knows its own name. Field names guide the model;
-`.describe()` helps it when a name is not obvious; the contract's `name` and
-`description` are prompt material too.
+Create `invoice.ts`:
 
-```ts title="invoice.ts"
-import { contract } from "docture";
-import { z } from "zod";
+<SourceExample file="invoice.ts" title="invoice.ts" />
 
-export const Invoice = contract({
-  name: "invoice",
-  description: "A commercial invoice with a total and line items.",
-  schema: z.object({
-    invoiceNumber: z.string().describe("The invoice number, usually top-right"),
-    issuedAt: z.string().describe("Issue date, ISO 8601"),
-    total: z.number(),
-    lineItems: z.array(
-      z.object({
-        description: z.string(),
-        quantity: z.number(),
-        amount: z.number(),
-      }),
-    ),
-  }),
-});
+The `contract()` wrapper adds a name and description to a schema. It is optional for
+plain extraction. A bare Zod, Valibot, ArkType, Standard Schema, or JSON Schema value also
+works.
+
+## Build the extractor
+
+Create `extract.ts`:
+
+<SourceExample file="quick-start.ts" title="extract.ts" />
+
+Set the provider credential, then run the file:
+
+```sh
+OPENAI_API_KEY=your-key npx tsx extract.ts
 ```
 
-The wrapper is optional. Every call that takes a contract also takes a bare schema, so
-`z.object({ … })` on its own works exactly the same. Name it when something reads the
-name. See [Contracts](/docs/concepts/contracts).
+## Read the result
 
-Zod is the default in these docs, but Valibot, ArkType and plain JSON Schema all work.
-See [Schemas and types](/docs/concepts/schemas-and-types).
+The schema determines the type of `result.data`. TypeScript rejects fields that are not
+in the schema.
 
-## 3. Extract
+The rest of the result explains the run:
 
-```ts title="extract.ts"
-import { Extractor, LLM } from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { openai } from "@ai-sdk/openai";
-import { Invoice } from "./invoice.js";
+| Field | Meaning |
+|---|---|
+| `method` | Strategy that returned data which passed validation |
+| `loader` | Loader that read the document |
+| `attempts` | Strategies that ran, their status, duration, usage, and errors |
+| `features` | Page count, text length, document form, geometry, and rendering facts |
+| `usage` | Input tokens, output tokens, total tokens, wall time, and optional cost |
+| `validation` | Whether the winning result passed the schema |
 
-const extractor = new Extractor()
-  .loadDocumentLoader(new DocumentLoaderPdfJs())
-  .loadLlm(new LLM(openai("gpt-5")));
+`attempts` does not contain loader failures. If all eligible loaders fail,
+`LoadFailedError.attempts` contains those errors.
 
-try {
-  const result = await extractor.extract("./invoice.pdf", Invoice);
+## Other return forms
 
-  console.log(result.data.invoiceNumber);       // string
-  console.log(result.data.lineItems[0]?.amount); // number | undefined
-  console.log(result.method, result.usage.costUsd);
-} finally {
-  // Releases loaders, engines and workers. Once, and safe to call twice.
-  await extractor.dispose();
+Return only the data:
+
+```ts
+const invoice = await extractor.extractData("invoice.pdf", Invoice);
+invoice.total;
+```
+
+Return failures as values:
+
+```ts
+const outcome = await extractor.safeExtract("invoice.pdf", Invoice);
+
+if (outcome.ok) {
+  console.log(outcome.result.data.total);
+} else {
+  console.error(outcome.error.message);
 }
 ```
 
-```sh
-OPENAI_API_KEY=sk-… npx tsx extract.ts
-```
-
-That is a working extractor.
-
-<Callout title="One object instead of a chain">
-`new Extractor({ loaders: [...], strategies: [...] })` builds exactly the same thing, and
-so does `createExtractor(...)`. Wiring can come from a config file rather than a chain of
-calls.
-</Callout>
-
-## 4. Understand what came back
-
-```ts
-result.data;        // your schema's type, validated
-result.method;      // which strategy answered, "llm"
-result.loader;      // which loader read it, "pdfjs"
-result.attempts;    // every strategy tried, in order, with errors
-result.features;    // what the document turned out to have
-result.usage;       // tokens, cost, wall time
-result.validation;  // { valid, issues }
-```
-
-`result.data` is typed from the contract, so your editor autocompletes every field and a
-typo is a compile error.
-
-When the envelope is more than you need, `extractData` returns just the fields:
-
-```ts
-const invoice = await extractor.extractData("./invoice.pdf", Invoice);
-invoice.total;   // number
-```
-
-And `safeExtract` returns a discriminated union instead of throwing, mirroring Zod's
-`parse` / `safeParse` pairing.
-
-## Where to go from here
-
-```mermaid
-flowchart TB
-    Q{"What do you need?"}
-    Q --> A["Understand the flow"]
-    Q --> B["Avoid paying per document"]
-    Q --> C["Handle scans"]
-    Q --> D["Handle long documents"]
-    Q --> E["Know if it is accurate"]
-    Q --> F["Split a batch of documents"]
-
-    A --> A1["How it works"]
-    B --> B1["Without a model"]
-    C --> C1["Scanned documents"]
-    D --> D1["Long documents"]
-    E --> E1["Measuring accuracy"]
-    F --> F1["Bundles and splitters"]
-```
-
-<Cards>
-  <Card title="How it works" href="/docs/how-it-works" description="The six steps, with diagrams." />
-  <Card title="Without a model" href="/docs/guides/without-a-model" description="Deterministic parsing, zero API cost." />
-  <Card title="Scanned documents" href="/docs/guides/scanned-documents" description="Rendering pages for a vision model." />
-  <Card title="Long documents" href="/docs/guides/long-documents" description="When one request is not enough." />
-  <Card title="Bundles and splitters" href="/docs/concepts/bundles-and-splitters" description="One scan, eleven documents." />
-</Cards>
-
-## Or read a working one
-
-`apps/examples` in the repo is a tour of the library, one folder per concept, on a corpus
-of real documents downloaded off the web: eleven invoices in eleven layouts, one that
-arrives as plain text, two page rasters with no text layer, and a six-page bank statement
-holding two accounts.
-
-```sh
-pnpm --filter @docture/examples fetch
-pnpm --filter @docture/examples quick-start
-pnpm --filter @docture/examples offline      # the eleven that need no API key
-```
-
-No API key for most of it. `01-quick-start` runs on a deterministic parser reading the real
-text layer; `12-accuracy-and-batch` scores itself against ground truth published beside the
-PDFs, and reconciles the statement's 48 transactions against its closing balance.
+Next, read [how it works](/docs/how-it-works) or choose a task from the
+[documentation index](/docs).

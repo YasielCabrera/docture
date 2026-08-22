@@ -1,27 +1,26 @@
 ---
 title: Extract with a model
-description: The default path. Any AI SDK model, configured properly.
+description: Configure text and vision extraction with an AI SDK model.
 ---
 
-## The model is the AI SDK's model
-
-docture does not wrap providers or keep a model registry. You pass an AI SDK
-`LanguageModel` and that is the integration:
+docture accepts the AI SDK `LanguageModel` type. Use a provider instance or an AI Gateway
+model string.
 
 ```ts
 import { llm } from "@docture/llm";
 import { openai } from "@ai-sdk/openai";
-import { anthropic } from "@ai-sdk/anthropic";
 
-llm({ model: openai("gpt-5") })
-llm({ model: anthropic("claude-opus-5") })
-llm({ model: "openai/gpt-5" })   // AI Gateway, no provider package needed
+llm({ model: openai("gpt-5") });
+llm({ model: "openai/gpt-5" });
 ```
 
-`ai` is a **peer dependency**, so there is exactly one copy of the model types in your
-tree and the model you construct is the model that runs.
+The `ai` package is a peer dependency. Install a compatible AI SDK 7 release and the
+provider package used by the application.
 
-## The short form
+## Use the model backend
+
+`LLM` can create a text strategy, vision strategy, classifier, and splitter from one
+model configuration.
 
 ```ts
 import { Extractor, LLM } from "docture";
@@ -32,145 +31,113 @@ const extractor = new Extractor()
   .loadLlm(new LLM(openai("gpt-5")));
 ```
 
-`loadLlm` takes a `ModelBackend`, not a `LanguageModel`, because `@docture/core` does not
-depend on the AI SDK and an architecture test enforces it. `LLM` is that backend. it knows how to turn one model into the extraction strategy, the vision
-strategy, the classifier and the splitter, all configured once.
+Register other model components at the same time:
 
 ```ts
-.loadLlm(new LLM(openai("gpt-5"), { pricing, cache, instructions }), {
-  vision: true,    // also register VisionStrategy, for documents with no text layer
-  classify: true,  // also register LlmClassifier
-})
+const backend = new LLM(openai("gpt-5"), {
+  instructions: "Dates must use YYYY-MM-DD.",
+  cache: fileCache(".docture-cache"),
+  pricing: {
+    "gpt-5": { inputPerMillion: 2, outputPerMillion: 10 },
+  },
+});
+
+extractor.loadLlm(backend, {
+  vision: true,
+  classify: true,
+});
 ```
 
-A backend with no vision refuses `{ vision: true }` at that line, naming itself, rather
-than failing on the first scanned page.
+`vision: true` adds a vision strategy. The selected loader must produce renderable pages
+at runtime. `classify: true` adds an LLM classifier.
 
-Everything below still works through `loadStrategy(llm({ … }))` if you would rather
-build the strategy yourself, and `new Extractor({ loaders, strategies })` /
-`createExtractor(...)` take the same wiring as one object.
+## Complete example
 
-## Guiding the model
+<SourceExample file="with-a-model.ts" title="extract-invoice.ts" />
 
-Three levers, in increasing specificity.
+## Build strategies directly
 
-```mermaid
-flowchart TB
-    A["<b>1. The schema</b><br/>field names + .describe()<br/><i>start here</i>"]
-    B["<b>2. instructions</b><br/>domain rules for every document"]
-    C["<b>3. hints</b><br/>notes for one document kind"]
-    A --> B --> C
+Use direct strategies when each model component needs different settings:
+
+```ts
+import { llm, vision } from "@docture/llm";
+
+const extractor = new Extractor({
+  loaders: [renderableLoader],
+  strategies: [
+    llm({ model: openai("gpt-5-mini"), name: "text" }),
+    vision({ model: openai("gpt-5"), name: "scan", maxPages: 3 }),
+  ],
+});
 ```
+
+`llm()` requires `TEXT_LAYER`. `vision()` requires `RENDERABLE_PAGES`. The pipeline checks
+these facts after loading each document.
+
+## Use the convenience factory
+
+`createLlmExtractor()` builds the usual text strategy and can add a vision strategy or
+classifier.
+
+```ts
+import { createLlmExtractor } from "@docture/llm";
+
+const extractor = createLlmExtractor({
+  loaders: [new DocumentLoaderPdfJs()],
+  model: openai("gpt-5"),
+  before: [knownInvoiceParser],
+  vision: false,
+  classifyWithModel: true,
+});
+```
+
+Strategies in `before` run before the model.
+
+## Guide the extraction
+
+Start with clear field names and schema descriptions. Add `instructions` for rules that
+apply to every document. Use `hints` for rules tied to a classification name.
 
 ```ts
 llm({
   model: openai("gpt-5"),
-  instructions: [
-    "Amounts are in EUR unless the document says otherwise.",
-    "A parenthesised figure is negative.",
-  ].join("\n"),
+  instructions: "Amounts in parentheses are negative.",
   hints: {
-    invoice: "The total is the bottom-right figure, after any VAT line.",
-    receipt: "There is no invoice number; leave it null.",
+    invoice: "Use the amount labelled Grand total.",
   },
 });
 ```
 
-`hints` are keyed by classification name, so they only apply when that kind was decided.
+`system` replaces the default system prompt. `instructions` appends to it. The default
+temperature is `0` and the default retry count is `2`.
 
-The built-in system prompt already covers the basics: use only what the document says,
-never invent, ISO dates, plain numbers, preserve row order. Add to it with `instructions`;
-replace it entirely with `system` only if you really mean to.
-
-## Determinism
-
-`temperature` defaults to **0**, because extraction should give the same answer twice. Do
-not raise it. A document has one correct reading.
-
-## Cost
-
-Token counts come from the provider. Prices do not, so you supply them:
-
-```ts
-llm({
-  model: openai("gpt-5"),
-  pricing: { "gpt-5": { inputPerMillion: 2, outputPerMillion: 10 } },
-});
-
-result.usage.costUsd;  // 0.0043
-```
-
-Without a pricing table, `costUsd` is `undefined` rather than `0`, because `0` would
-read as "this was free". It was not; we just do not know the price.
-
-Keyed by model id, and a table keyed `"gpt-5"` also prices a gateway string of
-`"openai/gpt-5"`.
-
-## Caching
+## Cache responses
 
 ```ts
 import { fileCache, memoryCache } from "@docture/llm";
 
-llm({ model: openai("gpt-5"), cache: fileCache(".docture-cache") });
+llm({ model, cache: memoryCache(500) });
+llm({ model, cache: fileCache(".docture-cache") });
 ```
 
-The key covers the model id, both prompts, and the JSON Schema, so changing your
-schema can never be served an old shape.
+The cache key includes the model id, prompts, JSON Schema, and request variant. A cache hit
+returns the saved token counts with no `costUsd` because no new request ran.
 
-```mermaid
-flowchart LR
-    R["Request"] --> K["key = hash(model + prompts + schema)"]
-    K --> C{"In cache?"}
-    C -->|"Yes"| H["Return it<br/><i>no call, no cost</i>"]
-    C -->|"No"| M["Call the model → store"]
-```
+## Report cost
 
-Worth it for two things: re-running an eval over the same corpus, and making a test suite
-replayable offline.
-
-## Putting a cheap model in front
+Providers report token counts but not a stable price. Supply a pricing table when you need
+`usage.costUsd`:
 
 ```ts
-new Extractor().loadDocumentLoader(new DocumentLoaderPdfJs()).loadStrategy(
-  llm({ model: openai("gpt-5-mini"), name: "cheap" }),
-  llm({ model: openai("gpt-5"), name: "careful" }),
-);
+llm({
+  model,
+  pricing: {
+    "gpt-5": { inputPerMillion: 2, outputPerMillion: 10 },
+  },
+});
 ```
 
-Or, if each model carries its own configuration:
+Without a matching price, `costUsd` is absent. It is not reported as zero.
 
-```ts
-new Extractor()
-  .loadDocumentLoader(new DocumentLoaderPdfJs())
-  .loadLlm(new LLM(openai("gpt-5-mini"), { extraction: { name: "cheap" } }))
-  .loadLlm(new LLM(openai("gpt-5"), { extraction: { name: "careful" } }));
-```
-
-The cheap model goes first. If its answer fails your schema, the careful one gets a turn, and
-and `result.method` tells you which paid off. Tighten the schema (`.min()`, `.regex()`) to
-make the first pass fail loudly rather than quietly returning something plausible.
-
-## Cancelling
-
-```ts
-const controller = new AbortController();
-setTimeout(() => controller.abort(), 30_000);
-
-await extractor.extract("invoice.pdf", Invoice, { signal: controller.signal });
-```
-
-A caller abort stops the run. It does not fall through to the next strategy, because
-you asked it to stop. An internal per-stage deadline (`stageTimeoutMs`) is different: that
-is a failure of that strategy, and the next one still gets a turn.
-
-## Batches
-
-```ts
-for await (const item of extractor.extractBatch(files, Invoice, { concurrency: 4 })) {
-  if (item.outcome.ok) save(item.outcome.result.data);
-  else console.error(files[item.index], item.outcome.error.message);
-}
-```
-
-Results arrive as they finish, and it never rejects. One bad scan in a batch of 500
-does not lose the other 499.
+See [long documents](/docs/guides/long-documents) for multi-request extraction and
+[scanned documents](/docs/guides/scanned-documents) for vision setup.

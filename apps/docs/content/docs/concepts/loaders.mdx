@@ -1,179 +1,71 @@
 ---
 title: Loaders
-description: A loader reads the document. You choose which library does it, and the class name says which.
+description: How bytes become pages, text, positions, and document facts.
 ---
 
-A loader turns bytes into pages of text, and, when it can, text with positions.
-
-```mermaid
-flowchart LR
-    B["bytes"] --> L["DocumentLoaderPdfJs"]
-    L --> D["LoadedDocument<br/><br/>pages · text · form"]
-```
-
-## The library is in the name
-
-There is no `pdfTextLayer()` hiding a choice you did not make. Swapping libraries is
-swapping an import:
+A loader accepts `RawDocument` bytes and returns a `LoadedDocument`.
 
 ```ts
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";           // Mozilla PDF.js
-import { DocumentLoaderMuPdf } from "@docture/loader-mupdf";           // MuPDF (WASM)
-import { DocumentLoaderTesseract } from "@docture/loader-tesseract"; // Tesseract (WASM OCR)
-import { DocumentLoaderPaddleOcr } from "@docture/loader-paddleocr";   // PaddleOCR (ONNX OCR)
-```
-
-Every loader package runs the same conformance suite against its own class. The same
-checks for page numbering, text/page consistency, geometry ordering, scanned documents,
-aborts and disposal. That is what makes two loaders genuinely interchangeable rather than
-just similarly shaped.
-
-<Callout title="Available today">
-All four above are shipped and pass the same suite, a text layer and an OCR pass held to the
-same invariants. That is also what makes **two** OCR engines a real choice rather than a
-migration: see [PaddleOCR or Tesseract](/docs/reference/packages#paddleocr-or-tesseract). The
-others are planned and purely additive: a new package plus one line in its test file. See
-[Packages](/docs/reference/packages).
-</Callout>
-
-## Capabilities
-
-Every loader declares what it can do. Three booleans and a list of media types.
-
-```ts
-new DocumentLoaderPdfJs().capabilities;
-// { text: true, geometry: true, images: false, mimeTypes: ["application/pdf"] }
-```
-
-| | Means |
-|---|---|
-| `text` | produces page text |
-| `geometry` | produces positioned line and word boxes, not just a text blob |
-| `images` | can render pages to images |
-
-These are **types**, not just values. A strategy that needs positioned geometry will not
-accept a loader that cannot produce it:
-
-```ts
-// GeometryLoader requires geometry: true
-const ok: GeometryLoader = new DocumentLoaderPdfJs();   // 
-const no: GeometryLoader = textOnlyLoader;      // Type error
-```
-
-A wiring mistake is a **compile error at the call site**, not a throw halfway through
-someone's 400-page document.
-
-```mermaid
-flowchart LR
-    S["A strategy needing<br/>GEOMETRY"] --> C{"Loader's<br/>capabilities"}
-    C -->|"geometry: true"| OK["Compiles"]
-    C -->|"geometry: false"| NO["Type error<br/><i>before you run anything</i>"]
-```
-
-## What a loader gives you
-
-```ts
-{
-  pages: [
-    {
-      pageNumber: 1,          // 1-based
-      width: 595, height: 842, // PDF points
-      text: "INVOICE\nInvoice Number: INV-2026-4287\n…",
-      lines: [
-        { y: 44, height: 20, text: "INVOICE", spans: [ … ] },
-        { y: 87, height: 10, text: "Invoice Number: INV-2026-4287", spans: [ … ] },
-      ],
-    },
-  ],
-  text: "…",          // every page, joined by a form feed
-  form: "digital",    // "digital" | "scanned" | "mixed" | "unknown"
-  loader: "pdfjs",
+interface DocumentLoader {
+  readonly name: string;
+  readonly capabilities: LoaderCapabilities;
+  load(document: RawDocument, ctx: LoadContext): Promise<LoadedDocument>;
+  dispose?(): Promise<void>;
 }
 ```
 
-### Coordinates
+## Built-in loaders
 
-PDF points, **top-left origin, y increasing downward**. `lines` is sorted top-to-bottom,
-each line's `spans` left-to-right.
+| Loader | Input | Output |
+|---|---|---|
+| `DocumentLoaderData` | Text, Markdown, CSV, HTML, JSON, XML | Text |
+| `DocumentLoaderPdfJs` | PDF | Text and geometry |
+| `DocumentLoaderMuPdf` | PDF | Text and geometry |
+| `DocumentLoaderTesseract` | PNG, JPEG, and PDF with a rasterizer | OCR text, geometry, confidence, images |
+| `DocumentLoaderPaddleOcr` | PNG, JPEG, and PDF with a rasterizer | OCR text, geometry, confidence, images |
 
-```mermaid
-flowchart TB
-    subgraph Page["A page, 595 × 842 pt"]
-        direction TB
-        O["(0,0) top-left"]
-        A["y=44 · INVOICE"]
-        B["y=87 · Invoice Number: INV-2026-4287"]
-        C["y=210 · Description   Qty   Amount"]
-    end
-    O --> A --> B --> C
-```
+The package name identifies the document library. Loader aliases such as `PdfJsLoader`
+and `TesseractJsLoader` are also exported.
 
-Chosen because that is what OCR engines report natively, so no loader flips an axis and
-no parser has to ask which way is up.
+## Capabilities
 
-### `form` tells you what kind of document it was
-
-| | |
-|---|---|
-| `digital` | every page has real text |
-| `scanned` | no page does, it is images |
-| `mixed` | some pages do (a digital invoice with a scanned annex) |
-| `unknown` | the loader does not read text at all |
-
-A scanned PDF yields `form: "scanned"` and empty text rather than nonsense, which is why
-a text-layer strategy is simply not a candidate for it.
-
-## Several loaders, in order
-
-Listing more than one gives you a fallback chain:
+`LoaderCapabilities` reports text, geometry, page-image support, accepted media types,
+and optional custom facts.
 
 ```ts
-createExtractor({
-  loaders: [new DocumentLoaderPdfJs(), new DocumentLoaderMuPdf()],
-  strategies: [ … ],
-});
+new DocumentLoaderPdfJs().capabilities;
+// {
+//   text: true,
+//   geometry: true,
+//   images: false,
+//   mimeTypes: ["application/pdf"]
+// }
 ```
 
-The first that accepts the media type and does not throw wins. A loader that fails is
-recorded in `result.attempts`, so a document that only the second loader could open is
-visible rather than mysterious.
+The boolean properties remain literal types. An API that accepts `GeometryLoader` or
+`ImageLoader` can reject an incompatible loader during typechecking.
 
-Loaders can also cover different formats: one for PDFs, one for `.docx`, one for
-HTML. Media types decide which are even candidates.
+Strategy eligibility is a runtime decision. It uses facts found on the loaded document,
+not only the loader's general capabilities.
 
-## Writing your own
+## Loaded pages
 
-A loader is a plain object. No base class.
+Each page has a 1-based page number, dimensions in PDF points, and text. Geometry loaders
+also return `TextLine` values with positioned `TextSpan` values.
 
-```ts
-import { defineLoader, inferForm } from "@docture/core";
+Coordinates use a top-left origin. Lines are sorted from top to bottom and spans from left
+to right.
 
-export const myLoader = defineLoader({
-  name: "acme",
-  capabilities: {
-    text: true,
-    geometry: false,
-    images: false,
-    mimeTypes: ["text/plain"],
-  },
-  async load(document, ctx) {
-    ctx.signal.throwIfAborted();
-    const text = Buffer.from(document.bytes).toString("utf8");
-    return {
-      pages: [{ pageNumber: 1, width: 0, height: 0, text }],
-      text,
-      form: inferForm([text.trim().length]),
-      loader: "acme",
-    };
-  },
-});
-```
+`LoadedDocument.form` reports `digital`, `scanned`, `mixed`, or `unknown`. The loader name
+appears in `result.loader`.
 
-`defineLoader` is optional. It only pins the capability literals so the compile-time
-check above keeps working. See [Write your own loader](/docs/guides/custom-loader) for a
-loader with real geometry.
+## Selection and failures
 
-<Cards>
-  <Card title="Rasterizers" href="/docs/concepts/rasterizers" description="Rendering pages, as a separate choice." />
-  <Card title="Write your own loader" href="/docs/guides/custom-loader" description="Including positioned geometry." />
-</Cards>
+docture filters loaders by media type, then tries them in declaration order. A later
+loader runs only when an earlier eligible loader throws.
+
+`result.attempts` does not include loaders. `LoadFailedError.attempts` contains loader
+failures when all eligible loaders fail.
+
+See [sources and inputs](/docs/guides/sources-and-inputs) for source forms and
+[loader API pages](/docs/reference/api/loader-pdfjs) for options.

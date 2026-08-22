@@ -1,151 +1,89 @@
 ---
 title: Packages
-description: What to install, and why it is split up this way.
+description: Package choices, dependencies, licences, and import paths.
 ---
 
-## What ships today
+All published packages require Node.js 22 or newer. The Docture packages are MIT
+licensed. Some wrapped libraries use a different licence or ship platform-specific
+artifacts, as noted below.
 
-| Package | Install it for |
-|---|---|
-| `docture` | The usual starting point. Re-exports `core` + `llm` through one import. |
-| `@docture/core` | The pipeline on its own: contracts, typed errors, no model. |
-| `@docture/loader-pdfjs` | Reading PDFs, with `DocumentLoaderPdfJs` |
-| `@docture/loader-mupdf` | Reading **and** rendering PDFs with no native binary, with `DocumentLoaderMuPdf` and `MuPdfRasterizer`. [AGPL](#mupdf-is-agpl-licensed) |
-| `@docture/loader-tesseract` | Reading a document with no text layer, with `DocumentLoaderTesseract` (OCR, WASM) |
-| `@docture/loader-paddleocr` | The same job, different engine: `DocumentLoaderPaddleOcr` (OCR, ONNX). [Which one?](#paddleocr-or-tesseract) |
-| `@docture/raster-canvas` | Rendering pages, with `NapiCanvasRasterizer` |
-| `@docture/llm` | Using a model: `LLM`, `LlmStrategy`, `VisionStrategy`, `LlmClassifier`, `TextSplitter`, `ImageSplitter` |
-| `@docture/eval` | Measuring accuracy |
-| `@docture/testing` | Testing a loader or a consumer |
-| `@docture/cli` | Running all of the above from a terminal, as [`docture`](/docs/guides/cli) |
+## Choose packages
 
-```mermaid
-flowchart TB
-    F["docture<br/><i>facade</i>"] --> C
-    F --> M
-    C["@docture/core<br/><i>@ai-sdk/provider-utils only</i>"]
-    L["@docture/loader-pdfjs<br/><i>+ pdfjs-dist</i>"] --> C
-    U["@docture/loader-mupdf<br/><i>+ mupdf (WASM)</i>"] --> C
-    O["@docture/loader-tesseract<br/><i>+ tesseract.js (WASM)</i>"] --> C
-    P["@docture/loader-paddleocr<br/><i>+ ppu-paddle-ocr, onnxruntime-node</i>"] --> C
-    R["@docture/raster-canvas<br/><i>+ pdfjs-dist, @napi-rs/canvas</i>"] --> C
-    M["@docture/llm<br/><i>peer: ai</i>"] --> C
-    E["@docture/eval"] --> C
-    T["@docture/testing<br/><i>+ pdfkit</i>"] --> C
-```
+| Package | Use it for | Main imports |
+| --- | --- | --- |
+| `docture` | Core and model-based extraction from one entry point | `Extractor`, `contract`, `llm`, `vision` |
+| `@docture/core` | The pipeline, contracts, deterministic components, and `Process` | `Extractor`, `DocumentLoaderData`, `defineStrategy` |
+| `@docture/llm` | Text, vision, classification, and splitting with AI SDK models | `LLM`, `llm`, `vision`, `createLlmExtractor` |
+| `@docture/loader-pdfjs` | PDF text and geometry with PDF.js | `DocumentLoaderPdfJs` |
+| `@docture/loader-mupdf` | PDF text, geometry, and rendering with MuPDF | `DocumentLoaderMuPdf`, `MuPdfRasterizer` |
+| `@docture/loader-tesseract` | OCR through Tesseract.js | `DocumentLoaderTesseract` |
+| `@docture/loader-paddleocr` | OCR through PaddleOCR and ONNX Runtime | `DocumentLoaderPaddleOcr` |
+| `@docture/raster-canvas` | PDF rendering through PDF.js and canvas | `NapiCanvasRasterizer` |
+| `@docture/eval` | Field scoring and run reports | `scoreExtraction`, `recordRun` |
+| `@docture/testing` | Generated PDFs, test doubles, and conformance suites | `makeInvoicePdf`, `fixedStrategy` |
+| `@docture/cli` | The `docture` terminal command | `defineConfig` |
 
-Everything points at `core`, and nothing points sideways. `core` itself depends on one
-light package.
+The facade re-exports the public APIs of `@docture/core` and `@docture/llm`. Adapter,
+evaluation, testing, and CLI exports stay in their own packages.
 
-## A typical install
+## Common installs
+
+Text extraction with a model:
 
 ```package-install
-docture @docture/loader-pdfjs ai @ai-sdk/openai zod
+docture @docture/loader-pdfjs ai zod
 ```
 
-Deterministic only, with no model and no API key.
+Deterministic extraction without a model:
 
 ```package-install
 @docture/core @docture/loader-pdfjs zod
 ```
 
-## Why one package per library
-
-So that installing `core` pulls **no PDF library, no WASM, no ONNX, and not even `ai`**.
-
-The alternative, one package with optional extras, leaks. An extra changes what is
-importable, and a stray import pulls a dependency you did not ask for. Here it is a package
-boundary, and a test walks the import graph to prove nothing heavy is reachable from
-`core`:
-
-```mermaid
-flowchart LR
-    A["pnpm add @docture/core"] --> B["@ai-sdk/provider-utils<br/><i>and nothing else</i>"]
-    C["pnpm add @docture/loader-pdfjs"] --> D["+ pdfjs-dist"]
-    E["Never installed unless asked"] --> F["onnxruntime · WASM · canvas"]
-```
-
-The libraries are real dependencies of their packages, not optional peers, so
-`pnpm add @docture/loader-pdfjs` just works, with no second install and no version drift.
-
-## `ai` is a peer dependency
-
-`@docture/llm` peer-depends on `ai` rather than depending on it, so **your** copy is the one
-in play. Two copies would mean the model you construct is typed by a different `ai` than the
-one that runs it.
+Scanned PDFs with a vision model:
 
 ```package-install
-@docture/llm ai
+docture @docture/loader-pdfjs @docture/raster-canvas ai zod
 ```
 
-## MuPDF is AGPL-licensed
+The command-line tool:
 
-`mupdf` is **AGPL-3.0-or-later**. The adapter in `@docture/loader-mupdf` is MIT like the rest of
-this project, but installing it pulls MuPDF, and distributing software that links MuPDF puts you
-under the AGPL unless you hold a commercial licence from
-[Artifex](https://artifex.com/licensing/).
-
-This is one of the reasons loaders are one package per library. Nothing pulls MuPDF unless you
-ask for it, and `@docture/loader-pdfjs` (Apache-2.0) is the permissive alternative behind the
-same contract. The two pass the same conformance suite, so the swap is an import.
-
-```mermaid
-flowchart LR
-    A["Need a permissive licence"] --> B["DocumentLoaderPdfJs<br/><i>Apache-2.0</i>"]
-    C["Need no native binary,<br/>AGPL is fine"] --> D["DocumentLoaderMuPdf + MuPdfRasterizer<br/><i>AGPL-3.0-or-later</i>"]
+```package-install
+@docture/cli
 ```
 
-## PaddleOCR or Tesseract
+## Runtime dependencies
 
-Two OCR packages, same contract, same conformance suite. Swapping is an import, so this is a
-choice you can defer and then revisit.
+| Package | Relevant dependency | Licence | Runtime note |
+| --- | --- | --- | --- |
+| `@docture/core` | `@ai-sdk/provider-utils` | Apache-2.0 | Schema utilities only. It does not install `ai` or a document parser. |
+| `docture`, `@docture/llm` | `ai` peer dependency | Apache-2.0 | Install a compatible AI SDK 7 release in the application. |
+| `@docture/loader-pdfjs` | `pdfjs-dist` | Apache-2.0 | JavaScript and WASM assets. |
+| `@docture/loader-mupdf` | `mupdf` | AGPL-3.0-or-later | MuPDF runs through WASM. Review AGPL obligations before distribution. |
+| `@docture/loader-tesseract` | `tesseract.js` | Apache-2.0 | OCR runs through WASM and loads language data. |
+| `@docture/loader-paddleocr` | `ppu-paddle-ocr`, `onnxruntime-node` | MIT | ONNX Runtime uses prebuilt native dependencies for the current platform. |
+| `@docture/raster-canvas` | `pdfjs-dist`, `@napi-rs/canvas` | Apache-2.0, MIT | Canvas uses prebuilt native dependencies for the current platform. |
+| `@docture/testing` | `pdfkit`, Vitest peer | MIT | Vitest 3 or newer is required for conformance suites. |
 
-```mermaid
-flowchart LR
-    D{"What are the<br/>documents like?"}
-    D -->|"Clean scans of<br/>printed text"| T["DocumentLoaderTesseract<br/><i>pure WASM · box per word</i>"]
-    D -->|"Photos · rotated<br/>low contrast"| P["DocumentLoaderPaddleOcr<br/><i>ONNX · box per region</i>"]
-    D -->|"Non-Latin script"| P
-    D -->|"No native binary<br/>at any cost"| T
+The package boundary controls what is installed. Installing `@docture/core` does not
+install PDF.js, MuPDF, OCR engines, canvas, ONNX Runtime, or the AI SDK runtime.
+
+## Import conventions
+
+Use the facade when an application needs both core and LLM features:
+
+```ts
+import { Extractor, contract, llm } from "docture";
 ```
 
-| | `DocumentLoaderPaddleOcr` | `DocumentLoaderTesseract` |
-|---|---|---|
-| How | two neural nets: detect regions, then recognize | a line recognizer behind a layout analyser |
-| Geometry | a box per detected region, so coarser | a box per word |
-| Photos, rotation, low contrast | better | poor |
-| Non-Latin scripts | a model per script | traineddata per language |
-| Runtime | `onnxruntime-node`, a prebuilt native binding | pure WASM |
-| First-run download | ~6.5 MB | ~5 MB per language |
+Use package imports for adapters and for applications that do not need the facade:
 
-Neither is a subset of the other. If the documents matter, run both through
-[`@docture/eval`](/docs/guides/measuring-accuracy) and let the score decide. That is what it
-is for.
+```ts
+import { Extractor, defineStrategy } from "@docture/core";
+import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+```
 
-## Planned
+All supported exports come from a package root. Internal `src` and `dist` paths are not
+public entry points.
 
-Each is a new package plus one `describeLoaderConformance` call. Nothing above it changes.
-
-| Planned | Library |
-|---|---|
-| `UnpdfLoader` | `unpdf` |
-| `MammothLoader`, `ExcelJsLoader`, `CheerioLoader` | `mammoth`, `exceljs`, `cheerio` |
-| `AzureDocumentIntelligenceLoader`, `AwsTextractLoader`, … | cloud document AI |
-| Splitters | multi-document bundles |
-
-Want one sooner? [Write your own loader](/docs/guides/custom-loader). It is about fifty
-lines, and the conformance suite tells you when it is right.
-
-## No native binaries
-
-Every package on this page installs with `pnpm add` and nothing else. No compiler, no system
-library, no build step. Two grades of that, worth telling apart:
-
-| | |
-|---|---|
-| **No platform-specific artifact at all** | MuPDF's WASM build, `tesseract.js`, and everything in `core` |
-| **A prebuilt binding, fetched to match your platform** | `@napi-rs/canvas` for rendering, `onnxruntime-node` for `DocumentLoaderPaddleOcr` |
-
-Both install without a toolchain. If you need the stronger guarantee, with nothing
-platform-specific anywhere, `DocumentLoaderMuPdf` renders and `DocumentLoaderTesseract` reads OCR entirely
-in WASM. The model is whichever AI SDK provider you already use.
+See the [API reference](/docs/reference/api) for each public export.

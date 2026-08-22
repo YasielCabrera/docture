@@ -1,0 +1,156 @@
+---
+title: Core documents and loaders
+description: Sources, loaded documents, loaders, geometry, rasterizers, and composition.
+---
+
+Import these APIs from `@docture/core` or `docture`.
+
+## Sources
+
+`DocumentSource` accepts a path string, `URL`, `Uint8Array`, `ArrayBuffer`, `RawDocument`,
+or `LoadedSource`.
+
+`RawDocument` contains `bytes` and optional `mimeType` and `fileName`. `LoadedSource`
+contains `loaded` and optional `mimeType`, `fileName`, and custom `facts`. A loaded source
+skips source resolution and loading.
+
+```ts
+resolveSource(source: DocumentSource, signal?: AbortSignal): Promise<RawDocument>
+sniffMimeType(bytes: Uint8Array): string | undefined
+isLoadedSource(source: DocumentSource): source is LoadedSource
+```
+
+`resolveSource()` reads file paths and `file:` URLs, fetches HTTP and HTTPS URLs, and
+normalizes byte inputs. It throws `UnsupportedSourceError` for unsupported protocols,
+failed HTTP responses, empty input, or a `LoadedSource` passed directly to this low-level
+function. File-system and network errors propagate from the underlying operation.
+`sniffMimeType()` recognizes supported byte signatures without reading the full document.
+
+## Document data loader
+
+```ts
+new DocumentLoaderData(config?: DataLoaderConfig)
+documentLoaderData(config?: DataLoaderConfig): DocumentLoaderData
+```
+
+`DataLoaderConfig` has `name`, `encoding`, `pageDelimiter`, and additional `mimeTypes`.
+Defaults are `DocumentLoaderData`, UTF-8, form feed, and the built-in plain text,
+Markdown, CSV, HTML, JSON, and XML media types.
+
+The loader returns text without geometry or images. Page width and height are `0` because
+the input has no physical page size. `TextDecoder` errors and invalid encoding names
+reject the load.
+
+## Loader contract
+
+`LoaderCapabilities<Text, Geometry, Images>` contains the three literal capability
+booleans, accepted `mimeTypes`, and optional custom `facts`.
+
+`DocumentLoader<C>` has a stable `name`, `capabilities`, `load(document, context)`, and
+optional `dispose()`. `LoadContext` contains `signal` and `logger`.
+
+```ts
+defineLoader<const C extends LoaderCapabilities>(
+  loader: DocumentLoader<C>,
+): DocumentLoader<C>
+
+loaderAccepts(loader: DocumentLoader, mimeType: string): boolean
+```
+
+`defineLoader()` preserves literal capability types. `loaderAccepts()` supports exact
+media types, type wildcards such as `image/*`, and `*/*`.
+
+`TextLoader`, `GeometryLoader`, and `ImageLoader` are capability-specific aliases. They
+produce a compile error only when an API explicitly asks for one of those aliases. Normal
+pipeline eligibility still checks the loaded document at runtime.
+
+## Loaded documents and geometry
+
+`LoadedDocument` contains ordered `pages`, whole-document `text`, inferred `form`, loader
+name, and optional metadata. Pages in `document.text` are joined with a form feed.
+
+`LoadedPage` contains a 1-based `pageNumber`, dimensions in PDF points, page `text`,
+optional positioned `lines`, and optional lazy `image(options)`.
+
+`TextLine` contains its vertical box, joined text, and left-to-right `spans`. `TextSpan`
+contains text, a top-left-origin box, and optional confidence. Coordinates use PDF points,
+with `y` increasing downward.
+
+`DocumentForm` is `"digital" | "scanned" | "mixed" | "unknown"`.
+`DocumentFeatures` contains media type, page and text counts, text, geometry, and rendering
+facts, form, and optional custom facts.
+
+`KnownDocumentFact` is `TEXT_LAYER`, `GEOMETRY`, or `RENDERABLE_PAGES`. `DocumentFact`
+also accepts custom string facts.
+
+| Helper | Signature | Behavior |
+| --- | --- | --- |
+| `inferForm` | `(pageTextLengths: readonly number[]) => DocumentForm` | Infers digital, scanned, mixed, or unknown from per-page text lengths. |
+| `preloadedFeatures` | `(source: LoadedSource) => DocumentFeatures` | Computes features for a source that skipped loading. |
+| `hasFact` | `(features: DocumentFeatures, fact: DocumentFact) => boolean` | Reads a built-in or custom runtime fact. |
+
+`MIN_TEXT_LAYER_CHARS` is `50`, the whole-document trimmed text threshold used for
+`TEXT_LAYER`.
+
+## Geometry helpers
+
+`PositionedWord` contains text, `[xMin, yMin, xMax, yMax]`, and optional confidence.
+
+```ts
+linesFromWords(
+  words: readonly PositionedWord[],
+  options?: LinesFromWordsOptions,
+): TextLine[]
+```
+
+`LinesFromWordsOptions.scale` defaults to `1`. `lineTolerance` defaults to `0.5` median
+word height. Blank words are removed; output lines and spans are sorted in reading order.
+
+```ts
+textFromLines(lines: readonly TextLine[]): string
+imageSize(bytes: Uint8Array): ImageSize | undefined
+```
+
+`textFromLines()` joins line text with newlines. `imageSize()` returns `ImageSize` with
+`widthPx` and `heightPx` for readable PNG and JPEG headers, otherwise `undefined`.
+
+## Rasterizers
+
+`Rasterizer` has a stable `name`, supported `formats`, `rasterize()`, and optional
+`dispose()`. `RasterizeContext` contains `signal` and `logger`.
+
+```ts
+defineRasterizer(rasterizer: Rasterizer): Rasterizer
+```
+
+`defineRasterizer()` is an identity helper. Rasterizer implementations reject on decode,
+render, unsupported format, or abort failures.
+
+`RasterFormat` is `"png" | "jpeg"`. `RasterOptions` contains optional `dpi`, `format`,
+JPEG `quality`, `maxEdge`, and 1-based `pages`. `DEFAULT_RASTER_OPTIONS` is 300 DPI PNG.
+
+`RasterPage` contains page number, bytes, pixel dimensions, format, and point-per-pixel
+`scale`.
+
+## Loader and rasterizer composition
+
+```ts
+withRasterizer<C extends LoaderCapabilities>(
+  loader: DocumentLoader<C>,
+  rasterizer: Rasterizer,
+  options?: WithRasterizerOptions,
+): DocumentLoader<WithImages<C>>
+```
+
+`WithImages<C>` preserves the loader's text and geometry capability types and sets images
+to `true`. `WithRasterizerOptions.defaults` sets default raster options.
+
+The composed loader adds a lazy `image()` function to each page. Calls are memoized by
+page and effective options. Per-call options override composition defaults. Disposal
+settles both components and reports failures with `AggregateError`.
+
+## Logging
+
+`Logger` defines `debug`, `info`, `warn`, `error`, and `child`. `silentLogger` discards
+all messages and is the default. `consoleLogger(bindings?)` writes structured fields to
+the matching console method and returns child loggers with merged bindings.

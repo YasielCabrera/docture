@@ -1,0 +1,106 @@
+---
+title: Sources and inputs
+description: Extract from paths, URLs, bytes, raw documents, and loaded documents.
+---
+
+Every extraction starts with a `DocumentSource`.
+
+## Paths and URLs
+
+```ts
+await extractor.extract("./invoice.pdf", Invoice);
+await extractor.extract(new URL("file:///data/invoice.pdf"), Invoice);
+await extractor.extract(new URL("https://example.com/invoice.pdf"), Invoice);
+```
+
+A string without a URL protocol is a filesystem path. `file:`, `http:`, and `https:` URLs
+are supported. HTTP errors raise `UnsupportedSourceError`.
+
+## Bytes
+
+```ts
+await extractor.extract(uint8Array, Invoice);
+await extractor.extract(arrayBuffer, Invoice);
+```
+
+docture checks known file signatures. If the bytes do not identify the format, the media
+type is `application/octet-stream` and a loader must accept it.
+
+## Raw documents
+
+Use `RawDocument` when you know the media type or want to keep a file name:
+
+```ts
+await extractor.extract(
+  {
+    bytes,
+    mimeType: "application/pdf",
+    fileName: "invoice.pdf",
+  },
+  Invoice,
+);
+```
+
+The declared `mimeType` takes precedence over signature and extension detection.
+
+## Text and data files
+
+`DocumentLoaderData` decodes text without another document library.
+
+```ts
+import { DocumentLoaderData, Extractor } from "@docture/core";
+
+const extractor = new Extractor()
+  .loadDocumentLoader(new DocumentLoaderData())
+  .loadStrategy(parser);
+```
+
+It accepts plain text, Markdown, CSV, HTML, JSON, and XML. It splits pages on form feed by
+default and does not provide geometry or page images.
+
+```ts
+new DocumentLoaderData({
+  encoding: "utf-8",
+  pageDelimiter: "\f",
+  mimeTypes: ["application/x-acme"],
+});
+```
+
+The complete typechecked data-input example uses the same invoice contract as the quick
+start:
+
+<SourceExample file="sources-and-inputs.ts" title="extract-csv.ts" />
+
+## Loaded documents
+
+A `LoadedSource` skips source resolution and loader selection:
+
+```ts
+await extractor.extract(
+  {
+    loaded: document,
+    mimeType: "application/pdf",
+    facts: ["ACME_LAYOUT"],
+  },
+  Invoice,
+);
+```
+
+Text and geometry facts come from the loaded pages. The optional `facts` list adds custom
+document facts. `Process` uses this input form so it can read a bundle once and extract
+several page groups without loading the file again.
+
+## Media type detection
+
+`resolveSource()` applies this order:
+
+1. Declared media type.
+2. Known magic bytes.
+3. File extension.
+4. `application/octet-stream`.
+
+ZIP-based Office formats use the extension because the shared ZIP header cannot identify
+whether the file is DOCX, XLSX, or PPTX.
+
+The low-level `sniffMimeType()` and `resolveSource()` functions are documented in the
+[core documents API](/docs/reference/api/core-documents).

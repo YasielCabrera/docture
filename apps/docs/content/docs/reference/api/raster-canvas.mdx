@@ -1,0 +1,36 @@
+---
+title: Canvas rasterizer
+description: Public API for @docture/raster-canvas.
+---
+
+Import from `@docture/raster-canvas`. The package uses `@napi-rs/canvas`, which ships
+prebuilt native dependencies for supported platforms.
+
+```ts
+new NapiCanvasRasterizer(options?: NapiCanvasRasterizerOptions)
+napiCanvasRasterizer(options?: NapiCanvasRasterizerOptions): Rasterizer
+```
+
+Both forms create a rasterizer named `napi-canvas` that supports PNG and JPEG.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `dpi` | `300` | Render resolution. |
+| `format` | `png` | Output format. |
+| `quality` | `0.9` | JPEG quality from 0 to 1. |
+| `maxEdge` | none | Maximum image edge in pixels. |
+| `password` | none | Password for an encrypted PDF. |
+
+Per-call `RasterOptions` override DPI, format, quality, maximum edge, and selected pages.
+The returned `RasterPage` values preserve requested order and report actual pixel
+dimensions and scale.
+
+PDF.js and the canvas binding load on the first render. Opening, password, page decode,
+out-of-range page, render, encoding, and caller abort failures reject `rasterize()`.
+
+```ts
+const loader = withRasterizer(
+  new DocumentLoaderPdfJs(),
+  new NapiCanvasRasterizer({ dpi: 300 }),
+);
+```

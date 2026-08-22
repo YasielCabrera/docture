@@ -1,143 +1,59 @@
 ---
 title: Rasterizers
-description: Rendering pages to images is its own choice, separate from reading them.
+description: Render document pages to PNG or JPEG independently of text loading.
 ---
 
-A **rasterizer** turns pages into images. It is a separate plugin from a loader, on
-purpose.
+A rasterizer turns document bytes into page images. It is separate from a loader so the
+text library and rendering library can be selected independently.
 
-```mermaid
-flowchart LR
-    B["bytes"] --> R["NapiCanvasRasterizer"]
-    R --> I["page images<br/><i>PNG or JPEG</i>"]
-```
+Two rasterizers ship:
 
-## Why separate?
-
-Reading text and rendering pages are different jobs, and the best library for one is often
-not the best for the other. Bundling them together would mean choosing an OCR engine also
-chooses how pages get rendered. Here the two are independent, and you can mix them:
-
-```mermaid
-flowchart LR
-    subgraph Read["Reading the text"]
-        L1["DocumentLoaderPdfJs"]
-        L2["DocumentLoaderMuPdf"]
-    end
-    subgraph Render["Rendering the pages"]
-        R1["NapiCanvasRasterizer"]
-        R2["MuPdfRasterizer"]
-    end
-    L1 -.->|"any combination"| R2
-    L2 -.-> R1
-```
-
-Both pairs above ship today. `NapiCanvasRasterizer` is pdf.js drawing onto a native canvas
-binding; `MuPdfRasterizer` rasterizes inside WASM and encodes the image itself, so it needs no
-prebuilt binary for your platform, at the cost of blocking the event loop while it works, and
-of MuPDF's [AGPL licence](/docs/reference/packages#mupdf-is-agpl-licensed).
-
-## Composing the two
-
-`withRasterizer` gives a loader the ability to render, and the return type says so.
-
-```ts
-import { withRasterizer } from "@docture/core";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { NapiCanvasRasterizer } from "@docture/raster-canvas";
-
-const loader = withRasterizer(new DocumentLoaderPdfJs(), new NapiCanvasRasterizer({ dpi: 300 }));
-
-loader.capabilities.images;        // true
-new DocumentLoaderPdfJs().capabilities.images;  // false
-loader.name;                       // "pdfjs+napi-canvas"
-```
-
-```mermaid
-flowchart LR
-    A["DocumentLoaderPdfJs<br/>text geometry images"]
-    B["NapiCanvasRasterizer"]
-    A --> C["withRasterizer"]
-    B --> C
-    C --> D["text geometry images <br/><i>the type says so</i>"]
-```
-
-Because `images` becomes `true` in the type, a strategy that requires rendering accepts
-the composition and rejects the bare loader. The compiler checks it.
-
-## Images are lazy
-
-Every page gets an `image()` function. **Nothing renders until you call it**, and asking
-twice for the same page renders once.
-
-```mermaid
-sequenceDiagram
-    participant S as Strategy
-    participant P as Page 4
-    participant R as Rasterizer
-
-    Note over S,R: load() rendered nothing
-    S->>P: image({ dpi: 300 })
-    P->>R: rasterize page 4
-    R->>P: PNG bytes
-    P->>S: bytes
-    S->>P: image({ dpi: 300 }) again
-    P->>S: bytes (memoized, no second render)
-```
-
-That matters at scale: a 200-page document that a strategy looks at two pages of costs
-**two renders**, not 200. Rendering the whole document up front would pay for all 200.
-
-```ts
-const document = await loader.load(raw, ctx);
-const png = await document.pages[3]?.image?.({ dpi: 300 });
-```
-
-To render many pages at once, call the rasterizer directly instead.
-
-## Options
-
-Set defaults on the constructor; override per call.
-
-```ts
-new NapiCanvasRasterizer({ dpi: 300, format: "png" });
-await page.image({ dpi: 150, maxEdge: 1600 });
-```
-
-| Option | Default | |
+| Rasterizer | Engine | Platform code |
 |---|---|---|
-| `dpi` | `300` | 300 for OCR; ~200 is plenty for a vision model |
-| `format` | `"png"` | `"png"` or `"jpeg"` |
-| `quality` | `0.9` | JPEG only, 0 to 1 |
-| `maxEdge` | none | cap the long edge in pixels |
-| `pages` | all | 1-based page numbers |
+| `NapiCanvasRasterizer` | PDF.js and `@napi-rs/canvas` | Native prebuilt canvas binding |
+| `MuPdfRasterizer` | MuPDF | WASM |
 
-### `maxEdge` wins over `dpi`
+MuPDF is AGPL-3.0-or-later. Check the [package reference](/docs/reference/packages) before
+shipping it in an application.
 
-When they conflict, the cap wins. Whoever set it did so to fit a downstream
-limit that overshooting would breach.
-
-```mermaid
-flowchart LR
-    A["dpi: 600<br/>maxEdge: 500"] --> B{"600 DPI would be<br/>7000px long edge"}
-    B --> C["Scaled down to 500px<br/><i>maxEdge respected</i>"]
-```
-
-### Mapping pixels back to points
-
-`RasterPage.scale` is points per pixel, computed from what the rasterizer actually
-produced, so
-it stays correct after a `maxEdge` downscale.
+## Compose with a loader
 
 ```ts
-const page = pages[0];
-page.scale * page.widthPx;  // ~595.28, the page width in points
+const loader = withRasterizer(
+  new DocumentLoaderPdfJs(),
+  new NapiCanvasRasterizer({ dpi: 200 }),
+);
 ```
 
-That is how an OCR loader converts pixel boxes into the PDF-point coordinates the rest of
-the library uses.
+`withRasterizer()` keeps the loader's text and geometry capabilities and changes the image
+capability to `true`. Each loaded page receives an `image()` function.
 
-<Cards>
-  <Card title="Scanned documents" href="/docs/guides/scanned-documents" description="Rendering pages for a vision model." />
-  <Card title="Loaders" href="/docs/concepts/loaders" description="The reading half of the pair." />
-</Cards>
+## Lazy page images
+
+`page.image()` renders one page on demand. The composition memoizes results by page number
+and raster options.
+
+```ts
+const png = await document.pages[0]?.image?.({
+  dpi: 200,
+  format: "png",
+  maxEdge: 2000,
+});
+```
+
+Call `rasterizer.rasterize()` directly when you need several pages in one operation.
+
+## Shipped rasterizer defaults
+
+| Option | Default | Meaning |
+|---|---|---|
+| `dpi` | `300` | Requested render resolution |
+| `format` | `png` | `png` or `jpeg` |
+| `quality` | `0.9` | JPEG quality from 0 to 1 |
+| `maxEdge` | none | Maximum pixel length of the longest edge |
+| `pages` | all | 1-based page numbers to render |
+
+`maxEdge` wins when the requested DPI would exceed the cap. `RasterPage.scale` is points
+per pixel based on the rendered dimensions.
+
+See [scanned documents](/docs/guides/scanned-documents) for OCR and vision setup.

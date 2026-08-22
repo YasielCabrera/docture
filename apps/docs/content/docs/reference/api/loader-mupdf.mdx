@@ -1,0 +1,56 @@
+---
+title: MuPDF loader and rasterizer
+description: Public API for @docture/loader-mupdf.
+---
+
+Import from `@docture/loader-mupdf`. The adapter package is MIT licensed; its `mupdf`
+runtime dependency is AGPL-3.0-or-later.
+
+## Loader
+
+```ts
+new DocumentLoaderMuPdf(options?: MuPdfConfig)
+new MuPdfLoader(options?: MuPdfLoaderOptions)
+```
+
+`DocumentLoaderMuPdf` and `MuPdfLoader` are the same class. `MuPdfConfig` and
+`MuPdfLoaderOptions` are the same option type.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `password` | none | Password for an encrypted PDF. |
+| `maxPages` | all | Maximum pages to read. |
+| `lineTolerance` | core default `0.5` | Vertical band used to group text runs into lines. |
+
+The loader is named `mupdf`, accepts `application/pdf`, and reports text and geometry
+capabilities. Rendering stays in the separate rasterizer.
+
+It returns top-left-origin geometry in PDF points, page text, form-feed-separated document
+text, inferred form, and page-count metadata. MuPDF engine, password, decode, page, and
+abort failures reject the load.
+
+## Rasterizer
+
+```ts
+new MuPdfRasterizer(options?: MuPdfRasterizerOptions)
+muPdfRasterizer(options?: MuPdfRasterizerOptions): Rasterizer
+```
+
+Both forms create a rasterizer named `mupdf` that supports PNG and JPEG.
+
+`MuPdfRasterizerOptions` contains:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `dpi` | `300` | Render resolution. |
+| `format` | `png` | Output format. |
+| `quality` | `0.9` | JPEG quality from 0 to 1. |
+| `maxEdge` | none | Maximum image edge in pixels. |
+| `password` | none | Password for an encrypted PDF. |
+| `annotations` | `true` | Include annotation and form-field appearances. |
+
+Per-call `RasterOptions` override DPI, format, quality, maximum edge, and selected pages.
+The returned `RasterPage` values preserve requested order and include their actual scale.
+
+The rasterizer rejects for an invalid password, unsupported or corrupt PDF, out-of-range
+page, render error, or caller abort. MuPDF loads and renders through WASM.

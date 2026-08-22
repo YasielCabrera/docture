@@ -1,0 +1,88 @@
+---
+title: Batches and lifecycle
+description: Process several sources, stop work, set deadlines, and release components.
+---
+
+## Extract a batch
+
+`extractBatch()` starts up to four documents at once by default. It yields each result as
+soon as that document finishes.
+
+```ts
+for await (const item of extractor.extractBatch(files, Invoice, { concurrency: 4 })) {
+  if (item.outcome.ok) {
+    await save(item.source, item.outcome.result.data);
+  } else {
+    console.error(item.index, item.outcome.error.message);
+  }
+}
+```
+
+The generator does not reject for a document failure. Each item contains the original
+source, its input index, and a `SafeExtraction` outcome.
+
+The complete typechecked batch example is kept with the documentation source:
+
+<SourceExample file="batch-invoices.ts" title="extract-batch.ts" />
+
+## Stop a run
+
+Pass an `AbortSignal` to stop work owned by the caller:
+
+```ts
+const controller = new AbortController();
+
+const pending = extractor.extract("invoice.pdf", Invoice, {
+  signal: controller.signal,
+});
+
+controller.abort();
+await pending;
+```
+
+A caller abort propagates and suppresses fallback. The pipeline does not start another
+loader or strategy after cancellation.
+
+## Set stage deadlines
+
+`stageTimeoutMs` applies to each loader, classifier, and strategy stage:
+
+```ts
+const extractor = new Extractor({
+  loaders,
+  strategies,
+  stageTimeoutMs: 30_000,
+});
+```
+
+You may override it per extraction through `RunOptions`. An internal deadline creates
+`TimeoutError`. Strategy fallback continues after that timeout.
+
+## Log pipeline events
+
+The default logger is silent. Register `consoleLogger` or implement `Logger`:
+
+```ts
+const extractor = new Extractor()
+  .loadLogger(consoleLogger());
+```
+
+Log fields contain component names, codes, ids, and timing data. Built-in components do
+not log document content.
+
+## Release resources
+
+```ts
+try {
+  await runWork(extractor);
+} finally {
+  await extractor.dispose();
+}
+```
+
+`dispose()` releases loaders, strategies, classifiers, workers, and model engines. It is
+idempotent. If several components fail during disposal, docture waits for all of them and
+throws an `AggregateError` containing every failure.
+
+`Process.dispose()` releases its splitter, default extractor, and directly registered
+loaders.

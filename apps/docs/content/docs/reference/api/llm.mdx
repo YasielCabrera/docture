@@ -1,0 +1,143 @@
+---
+title: LLM components
+description: Model backends, text and vision extraction, classification, and splitting.
+---
+
+Import these APIs from `@docture/llm` or `docture`. Install AI SDK 7 in the application.
+All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
+gateway model string.
+
+## Model backend
+
+```ts
+new LLM(languageModel: LanguageModel, options?: LlmOptions)
+model(languageModel: LanguageModel, options?: LlmOptions): LLM
+```
+
+`LLM` implements core's `ModelBackend`. It creates text, vision, classifier, and splitter
+components that share one set of model options. Its `id` defaults to `modelIdOf(model)`.
+
+`LlmOptions` contains `name`, `completion`, `instructions`, `cache`, `pricing`,
+`temperature`, and `maxRetries`. It also accepts `extraction`, `vision`, `classifier`, and
+`splitter` override objects. Splitter mode defaults to `text`; the other value is `image`.
+Completion defaults to `forbidden`, and temperature defaults to `0` in generated
+components.
+
+Model provider errors reject strategy and splitter calls. The pipeline records strategy
+failures and may continue. The LLM classifier converts its own failures to abstentions.
+
+## Text extraction
+
+```ts
+new LlmStrategy(options: LlmStrategyOptions)
+llm(options: LlmStrategyOptions): ExtractionStrategy
+modelIdOf(model: LanguageModel): string
+```
+
+`LlmStrategy` requires `TEXT_LAYER`, is named `llm` by default, and uses classification as
+a hint by default. `modelIdOf()` returns a gateway string, a provider object's `modelId`,
+or `unknown`.
+
+`LlmStrategyOptions` contains:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `model` | required | AI SDK language model. |
+| `name` | `llm` | Strategy name. |
+| `completion` | `forbidden` | Single request, pagination, or concatenation. |
+| `maxCharsPerRequest` | `24000` | Character budget for concatenation. |
+| `system` | `DEFAULT_SYSTEM_PROMPT` | Replacement system prompt. |
+| `instructions` | none | Text appended to the system prompt. |
+| `hints` | `{}` | Guidance keyed by classification name. |
+| `cache` | none | Optional `LlmCache`. |
+| `pricing` | none | Optional prices by model id. |
+| `temperature` | `0` | AI SDK temperature. |
+| `maxRetries` | `2` | AI SDK retry count. |
+| `needsClassification` | `hint` | Core classification requirement. |
+
+Empty text and provider failures reject the strategy. Multi-request results are merged,
+then core validates the complete result.
+
+## Vision extraction
+
+```ts
+new VisionStrategy(options: VisionStrategyOptions)
+vision(options: VisionStrategyOptions): ExtractionStrategy
+```
+
+`VisionStrategy` requires `RENDERABLE_PAGES`, is named `vision` by default, and uses
+classification as a hint by default.
+
+`VisionStrategyOptions` contains the same model, prompt, cache, price, retry, temperature,
+and classification fields as text extraction. Vision-specific options are:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `dpi` | `200` | Render resolution. |
+| `maxEdge` | none | Maximum image edge in pixels. |
+| `format` | `png` | Render format. |
+| `maxPages` | all | Maximum pages sent. |
+| `pageMode` | `together` | One request for all selected pages or one per page. |
+
+The strategy rejects when there are no pages, a page cannot render, the model fails, or
+the caller aborts. Per-page results are merged before core validation.
+
+## LLM classifier
+
+```ts
+new LlmClassifier(options: LlmClassifierOptions)
+llmClassifier(options: LlmClassifierOptions): Classifier
+```
+
+`LlmClassifier` requires `TEXT_LAYER` and is named `llm-classifier` by default.
+`LlmClassifierOptions` contains required `model`, plus `name`, `excerptChars`, `cache`,
+`temperature`, and `maxRetries`. Defaults are 4,000 characters, temperature `0`, and two
+retries.
+
+No candidates, empty text, `UNKNOWN`, an invented candidate name, or a model error returns
+an abstaining signal. The classifier does not reject for model failures.
+
+## LLM splitters
+
+```ts
+new TextSplitter(options: SplitterOptions)
+new ImageSplitter(options: SplitterOptions)
+textSplitter(options: SplitterOptions): TextSplitter
+imageSplitter(options: SplitterOptions): ImageSplitter
+```
+
+`TextSplitter` requires `TEXT_LAYER`. `ImageSplitter` requires `RENDERABLE_PAGES`.
+The class name is the default splitter name.
+
+`SplitterOptions` contains required `model`, plus:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `name` | class name | Splitter name. |
+| `excerptChars` | `1200` | Text from the start of each page. |
+| `instructions` | none | Additional split guidance. |
+| `cache`, `pricing` | none | Shared cache and cost configuration. |
+| `temperature` | `0` | AI SDK temperature. |
+| `maxRetries` | `2` | AI SDK retry count. |
+| `dpi` | `120` | Image splitter render resolution. |
+| `maxEdge` | none | Image edge limit. |
+| `format` | `png` | Image format. |
+| `maxEagerPages` | `40` | Pages sent by an eager split request. |
+
+Unknown model names are reconciled to `UNKNOWN`. Splitter calls reject on model,
+rendering, or abort failures. Pages beyond `maxEagerPages` are not sent to the model. Eager
+results are then normalized so every source page remains in a group.
+
+## Extractor factory
+
+```ts
+createLlmExtractor(options: LlmExtractorOptions): Extractor
+```
+
+`LlmExtractorOptions` extends `ExtractorOptions` without `strategies`. It requires a
+`model` and accepts `completion`, text strategy options under `llm`, deterministic
+strategies under `before`, optional `vision`, and `classifyWithModel`.
+
+`before` strategies are registered before the text model. `vision: true` adds a default
+vision strategy; an object configures it. `classifyWithModel: true` appends an
+`LlmClassifier`. Loader requirements and duplicate component errors follow core rules.

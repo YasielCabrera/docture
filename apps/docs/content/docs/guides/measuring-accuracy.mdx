@@ -1,177 +1,115 @@
 ---
-title: Measuring accuracy
-description: Know whether a change helped. Score field by field, not pass or fail.
+title: Measure accuracy
+description: Score extracted fields and test pipeline behavior.
 ---
 
-"Did that prompt change help?" is unanswerable by eye. `@docture/eval` scores an extraction
-against known-correct data, **field by field**.
-
-```mermaid
-flowchart LR
-    A["Ground truth"] --> C["scoreExtraction"]
-    B["result.data"] --> C
-    C --> D["F1 · precision · recall<br/>+ every field that differed"]
-```
-
-## Scoring one run
+`@docture/eval` compares extracted data with known output one field at a time.
 
 ```ts
 import { formatFailures, scoreExtraction } from "@docture/eval";
 
 const result = await extractor.extract("invoice.pdf", Invoice);
-const score = scoreExtraction(groundTruth, result.data);
+const score = scoreExtraction(expected, result.data);
 
-score.f1;          // 0.985
-score.exactMatch;  // false
+console.log(score.f1);
 console.log(formatFailures(score));
-// 1 field(s) did not match:
-//   omission      taxRate: expected 0.19, got undefined
 ```
 
-## Why field-level, not pass/fail
+## Field results
 
-Whole-document exact match is too blunt to steer by: one misread digit and every document
-scores zero, which tells you nothing about whether a change helped.
+Each leaf field has one status:
 
-```mermaid
-flowchart TB
-    subgraph E["Exact match only"]
-        E1["Before: 0%"] --> E2["After: 0%"]
-        E3["Learned nothing"]
-    end
-    subgraph F["Field-level F1"]
-        F1["Before: 0.72"] --> F2["After: 0.94"]
-        F3["That change helped"]
-    end
-```
+| Status | Meaning |
+|---|---|
+| `match` | Both values are present and equal under the comparator |
+| `mismatch` | Both values are present but differ |
+| `omission` | Expected data is present and extracted data is absent |
+| `hallucination` | Extracted data is present and expected data is absent |
 
-`exactMatch` is still reported, as a stricter secondary signal.
+A mismatch reduces precision and recall. An omission reduces recall. A hallucination
+reduces precision.
 
-## The four buckets
+## Comparators
 
-Every field lands in one, and the distinction matters, because a **hallucination is not a
-typo**.
-
-| | Means | Hurts |
-|---|---|---|
-| `match` | present in both and equal | none |
-| `mismatch` | present in both, different | precision + recall |
-| `omission` | truth has it, extraction does not | recall |
-| `hallucination` | extraction invented it | precision |
+The default numeric tolerance is `0.01`. Dates compare by UTC calendar day. Strings use a
+normalized Levenshtein similarity floor of `0.9`.
 
 ```ts
-import { hallucinations } from "@docture/eval";
-
-hallucinations(score);  // fields that were made up, usually the ones to worry about
-```
-
-## Comparators are chosen for you
-
-Strict equality would fail on things that are actually correct:
-
-```mermaid
-flowchart TB
-    A["1234.56 vs 1234.5599999"] --> A1["match, 1 cent tolerance"]
-    B["2026-01-15 vs 2026-01-15T00:00:00Z"] --> B1["match, compared as days"]
-    C["Northwind Industrial vs Northwind lndustrial"] --> C1["match, 0.9 similarity floor"]
-    D["Acme Ltd vs Globex Inc"] --> D1["mismatch"]
-```
-
-Tighten them when you need exactness:
-
-```ts
-scoreExtraction(truth, actual, { numericTolerance: 0, stringSimilarity: 1 });
-```
-
-## Arrays
-
-Index-aligned by default, because for a table **document order is meaningful** and silently
-reordering rows would hide a real ordering bug.
-
-When order genuinely does not matter, align by a key:
-
-```ts
-scoreExtraction(truth, actual, { alignArraysBy: "id" });
-```
-
-## As a test
-
-The most useful place for this is a test that fails when accuracy regresses:
-
-```ts title="accuracy.test.ts"
-import { expect, it } from "vitest";
-import { makeInvoicePdf } from "@docture/testing";
-import { formatFailures, scoreExtraction } from "@docture/eval";
-
-it("extracts the invoice exactly", async () => {
-  const pdf = await makeInvoicePdf({ seed: 301, lineItemCount: 5 });
-  const result = await extractor.extract(pdf.bytes, Invoice);
-  const score = scoreExtraction(pdf.expected, result.data);
-
-  // Passing formatFailures as the message means a failure names the fields.
-  expect(score.f1, formatFailures(score)).toBe(1);
+scoreExtraction(expected, actual, {
+  numericTolerance: 0,
+  stringSimilarity: 1,
+  alignArraysBy: "id",
 });
 ```
 
-`makeInvoicePdf` generates a real PDF **and its ground truth** from the same values, so:
+Arrays align by index unless `alignArraysBy` names a key field.
 
-- no confidential corpus is needed
-- expected output cannot drift from the bytes
-- `seed` makes it reproducible on every machine
-
-```mermaid
-flowchart LR
-    S["seed: 301"] --> G["makeInvoicePdf"]
-    G --> P["real PDF"]
-    G --> E["ground truth"]
-    P --> X["extract"]
-    X --> C["scoreExtraction"]
-    E --> C
-```
-
-## Scoring a corpus
+## Use a test assertion
 
 ```ts
-import { aggregate, formatScoreboard, recordRun, scoreExtraction } from "@docture/eval";
+const score = scoreExtraction(expected, result.data);
+expect(score.f1, formatFailures(score)).toBe(1);
+```
 
-const records = [];
-for (const [name, pdf] of corpus) {
-  const result = await extractor.extract(pdf.bytes, Invoice);
-  records.push(recordRun(name, scoreExtraction(pdf.expected, result.data), result));
-}
+`formatFailures()` names each wrong field, expected value, actual value, and status.
+
+## Generate a fixture
+
+`@docture/testing` can create an invoice PDF and its expected data from the same seed:
+
+```ts
+import { makeInvoicePdf } from "@docture/testing";
+
+const fixture = await makeInvoicePdf({
+  seed: 301,
+  lineItemCount: 12,
+});
+
+const result = await extractor.extract(fixture.bytes, Invoice);
+const score = scoreExtraction(fixture.expected, result.data);
+```
+
+The seed makes the document reproducible. The generated expected data cannot drift from
+the values used to render the PDF.
+
+The full typechecked scoring example is kept with the documentation:
+
+<SourceExample file="measure-accuracy.ts" title="measure-accuracy.ts" />
+
+## Test routing without a document library
+
+Use test doubles for routing, fallback, and validation tests:
+
+```ts
+const extractor = createExtractor({
+  loaders: [inMemoryLoader(loadedDocument([sampleText]))],
+  strategies: [
+    failingStrategy("known-layout"),
+    fixedStrategy("fallback", {
+      invoiceNumber: "INV-1",
+      issuedAt: "2026-01-15",
+      total: 10,
+      lineItems: [],
+    }),
+  ],
+});
+```
+
+These doubles do not measure extraction quality. Use real documents or generated fixtures
+for accuracy tests.
+
+## Score a corpus
+
+`recordRun()` combines a score with method, loader, usage, and attempts. `aggregate()` and
+`formatScoreboard()` summarize several records.
+
+```ts
+const records = results.map(({ name, score, result }) =>
+  recordRun(name, score, result),
+);
 
 console.log(formatScoreboard(records));
 ```
 
-```
-| Document | F1 | Precision | Recall | Exact | Method | Miss |
-| --- | --- | --- | --- | --- | --- | --- |
-| invoice-302 | 1.000 | 100.0% | 100.0% | yes | invoice-parser | 0 |
-| invoice-303 | 0.985 | 100.0% | 97.1% | no | llm | 1 |
-
-**2 documents** · mean F1 0.993 · 1 exact · 1240 tokens · $0.0043 · 2180ms
-```
-
-Sorted by document name, so a diff between runs is readable in review.
-
-```ts
-const summary = aggregate(records);
-summary.meanF1;
-summary.byMethod;  // { "invoice-parser": 1, llm: 1 }. Was the free path used?
-summary.totalCostUsd;
-```
-
-`byMethod` is the one to watch: if your deterministic parser stops winning, something about
-the documents changed.
-
-## Comparing two setups
-
-```ts
-for (const [label, extractor] of [["mini", cheap], ["full", careful]]) {
-  const score = scoreExtraction(pdf.expected, (await extractor.extract(pdf.bytes, Invoice)).data);
-  console.log(label, score.f1.toFixed(3));
-}
-```
-
-With a `fileCache` on the strategies, re-running to compare **costs nothing** the second
-time.
+Watch `byMethod` when a deterministic parser should handle known layouts. A change from
+the parser to an LLM fallback may keep accuracy stable while increasing cost.

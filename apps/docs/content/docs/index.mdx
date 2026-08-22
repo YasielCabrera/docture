@@ -1,24 +1,15 @@
 ---
-title: What is docture?
-description: A document goes in, typed data comes out. Here is the whole idea in one page.
+title: docture documentation
+description: Extract structured data from documents in TypeScript.
 ---
 
-docture turns a document into structured data that TypeScript knows the shape of.
+docture reads a document and returns data that matches a schema. The schema also supplies
+the TypeScript type of `result.data`.
 
-You describe what you want with a schema. It reads the document, fills the schema, and
-hands it back typed to the leaves.
+You choose how docture reads the document and how it extracts the fields. A loader reads
+PDF text, OCR output, or plain text. A strategy can call a model or run code you wrote.
 
-```mermaid
-flowchart LR
-    A["invoice.pdf"] --> B["docture"]
-    S["Your schema<br/><i>invoiceNumber, total, lineItems</i>"] --> B
-    B --> C["Typed data<br/><i>data.lineItems[0].amount</i>"]
-```
-
-That is the whole job. Everything else in these docs is about *how* it reads the
-document, and about letting you choose.
-
-## The shortest real example
+## Smallest complete example
 
 ```ts
 import { Extractor, LLM, contract } from "docture";
@@ -28,81 +19,78 @@ import { z } from "zod";
 
 const Invoice = contract({
   name: "invoice",
-  description: "A commercial invoice with a total and line items.",
+  description: "A commercial invoice.",
   schema: z.object({
     invoiceNumber: z.string(),
     total: z.number(),
-    lineItems: z.array(z.object({ description: z.string(), amount: z.number() })),
   }),
 });
 
 const extractor = new Extractor()
-  .loadDocumentLoader(new DocumentLoaderPdfJs())   // how to READ the document
-  .loadLlm(new LLM(openai("gpt-5")));              // how to UNDERSTAND it
+  .loadDocumentLoader(new DocumentLoaderPdfJs())
+  .loadLlm(new LLM(openai("gpt-5")));
 
-const result = await extractor.extract("invoice.pdf", Invoice);
-
-result.data.lineItems[0].amount;  // number, inferred from the contract
+try {
+  const result = await extractor.extract("invoice.pdf", Invoice);
+  console.log(result.data.invoiceNumber);
+  console.log(result.data.total);
+} finally {
+  await extractor.dispose();
+}
 ```
 
-Three things to notice, because they are the shape of the whole library.
+Start with the [quick start](/docs/quick-start) for installation and setup.
 
-**A loader reads. A strategy understands.** They are separate, and you pick both.
+## What you install
 
-**`result.data` is typed.** Not `any`, not `unknown`. The actual shape of your schema.
+The `docture` package re-exports `@docture/core` and `@docture/llm`. Loaders and
+rasterizers stay in separate packages because each one brings its own document library.
 
-**`result` is an envelope, not the fields.** It carries which strategy answered, every
-attempt with its error, and what it cost. `extractData` gives you the fields alone.
+| Need | Package |
+|---|---|
+| Core pipeline and model strategies | `docture` |
+| PDF text and positions | `@docture/loader-pdfjs` |
+| MuPDF text and page rendering | `@docture/loader-mupdf` |
+| OCR with Tesseract | `@docture/loader-tesseract` |
+| OCR with PaddleOCR | `@docture/loader-paddleocr` |
+| Page rendering with PDF.js and canvas | `@docture/raster-canvas` |
+| Accuracy scoring | `@docture/eval` |
+| Test fixtures and conformance suites | `@docture/testing` |
+| Terminal commands | `@docture/cli` |
 
-## The five pieces
+See [packages](/docs/reference/packages) before choosing an OCR or rendering package.
+Some packages use WASM. PaddleOCR and the canvas rasterizer use native prebuilt bindings.
 
-Everything you wire together is one of five kinds of thing.
+## What comes back
 
-```mermaid
-flowchart TB
-    subgraph You["You choose"]
-        L["<b>Loader</b><br/>reads the document<br/><i>DocumentLoaderPdfJs</i>"]
-        R["<b>Rasterizer</b><br/>renders pages to images<br/><i>NapiCanvasRasterizer</i>"]
-        S["<b>Strategy</b><br/>produces the data<br/><i>llm, vision, your parser</i>"]
-        C["<b>Classifier</b><br/>says what kind it is<br/><i>optional</i>"]
-        SP["<b>Splitter</b><br/>cuts a bundle into documents<br/><i>optional</i>"]
-    end
-    L --> P["Extractor"]
-    R --> P
-    S --> P
-    C --> P
-    SP --> Q["Process"]
-    P --> D["Typed result"]
-    Q --> D
+`extract()` returns more than the extracted fields:
+
+```ts
+result.data;           // data inferred from the schema
+result.method;         // strategy that produced the valid result
+result.loader;         // loader that read the document
+result.attempts;       // strategy attempts, in order
+result.features;       // facts found on this document
+result.usage;          // tokens, cost when priced, and wall time
+result.validation;     // validation outcome
+result.classification; // present when classification ran
 ```
 
-| | Answers | Example |
-|---|---|---|
-| Loader | "What text and boxes are on these pages?" | `DocumentLoaderPdfJs` |
-| Rasterizer | "What do these pages look like?" | `NapiCanvasRasterizer` |
-| Strategy | "What is the data?" | `LLM(…).extraction()`, `llm(…)`, your own parser |
-| Classifier | "Is this an invoice or a receipt?" | `LlmClassifier(…)` |
-| Splitter | "Where does one document end and the next begin?" | `ImageSplitter`, `TextSplitter` |
+Use `extractData()` when you only need the fields. Use `safeExtract()` when a failure
+should be returned as a value instead of thrown.
 
-Each is a plain object you can write yourself. There is no base class to extend.
+## Choose a path
 
-## Why not just call a model directly?
+| Your input | Start here |
+|---|---|
+| A PDF with selectable text | [Extract with a model](/docs/guides/with-a-model) |
+| A layout you already know | [Extract without a model](/docs/guides/without-a-model) |
+| A scanned PDF or image | [Scanned documents](/docs/guides/scanned-documents) |
+| A path, URL, byte array, or preloaded document | [Sources and inputs](/docs/guides/sources-and-inputs) |
+| A file that contains several documents | [Bundles and splitters](/docs/concepts/bundles-and-splitters) |
+| A document that does not fit one model request | [Long documents](/docs/guides/long-documents) |
+| Many files | [Batches and lifecycle](/docs/guides/batches-and-lifecycle) |
+| A terminal workflow | [Command line](/docs/guides/cli) |
 
-You could. Here is what you would then build yourself, and what docture already handles.
-
-- Getting text with positions out of a PDF, and telling a scan from a digital file.
-- Falling back when one approach fails, and being able to see that it happened.
-- One scan that is really eleven documents, cut up and extracted separately.
-- Documents too long for one request, split and merged without losing fields.
-- Scans, which need rendering to images before a model can read them.
-- Validating the answer against your schema, in one place, whatever produced it.
-- Knowing what it cost.
-
-## Where to go next
-
-<Cards>
-  <Card title="Quick start" href="/docs/quick-start" description="Running in about five minutes." />
-  <Card title="How it works" href="/docs/how-it-works" description="The pipeline, step by step, with diagrams." />
-  <Card title="Loaders" href="/docs/concepts/loaders" description="Choosing how the document gets read." />
-  <Card title="Without a model" href="/docs/guides/without-a-model" description="Deterministic extraction, no API calls." />
-</Cards>
+Read [how it works](/docs/how-it-works) when you need to understand routing or diagnose
+why a component did not run.

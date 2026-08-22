@@ -2,11 +2,11 @@
   "title": "Concepts",
   "pages": [
     "contracts",
+    "schemas-and-types",
     "loaders",
     "rasterizers",
     "strategies",
     "classification",
-    "bundles-and-splitters",
-    "schemas-and-types"
+    "bundles-and-splitters"
   ]
 }

@@ -1,177 +1,64 @@
 ---
 title: Strategies
-description: A strategy produces the data. Order them cheapest-first and let fallback do the rest.
+description: How extraction methods become eligible, run, and return data.
 ---
 
-A **strategy** takes a loaded document and produces the data. It is the "understanding"
-half of the library. The loader only reads.
-
-```mermaid
-flowchart LR
-    D["LoadedDocument"] --> S["Strategy"]
-    Sc["Your schema"] --> S
-    S --> R["data"]
-```
-
-## The three that ship
-
-| | Reads | Costs |
-|---|---|---|
-| `llm(…)` | the document's **text** | a model call |
-| `vision(…)` | the document's **page images** | a model call, usually more |
-| your own | whatever you like | nothing |
-
-## Order is the policy
-
-Strategies run **in the order you declare them**. The first that does not throw wins.
-That is the whole routing rule. There is no hidden precedence to learn.
-
-```ts
-createExtractor({
-  loaders: [new DocumentLoaderPdfJs()],
-  strategies: [
-    myTableParser,                   // free, so try it first
-    llm({ model: openai("gpt-5") }), // costs money, so it is the fallback
-  ],
-});
-```
-
-```mermaid
-sequenceDiagram
-    participant P as Pipeline
-    participant T as myTableParser
-    participant L as llm
-
-    P->>T: extract
-    alt recognises the layout
-        T->>P: data 
-        Note over P,L: llm never runs, nothing spent
-    else does not
-        T--xP: throws
-        P->>L: extract
-        L->>P: data 
-    end
-```
-
-A known layout costs nothing; an unfamiliar one falls through to the model. That is the
-pattern most real projects want.
-
-## A strategy declares what it needs
-
-```ts
-{
-  name: "myTableParser",
-  requires: ["TEXT_LAYER", "GEOMETRY"],
-}
-```
-
-A strategy whose requirements the document fails is **never a candidate**. `requires` is
-about the *document*, not about wiring. An engine, a model client or a rasterizer is a
-**constructor argument** instead, so "no model wired" is a compile error at the wiring
-site rather than a throw partway through a run.
-
-## A strategy must not abstain
-
-Either produce data, or **throw**.
-
-```mermaid
-flowchart LR
-    A{"Can this strategy<br/>read the document?"}
-    A -->|"Yes"| B["return { data }"]
-    A -->|"No"| C["throw <br/><i>the next one gets a turn</i>"]
-    A -->|"Unsure"| D["Never return an empty object"]
-```
-
-Why: an empty result is indistinguishable from a real one for a document that genuinely
-has no rows. A strategy that returns `{}` when it is lost silently claims success and
-blocks the fallback.
-
-## Strategies do not validate
-
-A strategy returns `data: unknown`; the **pipeline** validates it against your schema.
-
-```mermaid
-flowchart LR
-    S["Strategy returns unknown"] --> V{"Fits the schema?"}
-    V -->|"Yes"| W["wins"]
-    V -->|"No"| N["recorded as failed<br/>→ next strategy"]
-```
-
-Two consequences:
-
-- A wrong shape is **recoverable**, not fatal.
-- `validation` means one thing regardless of who answered.
-
-## Writing your own
+An extraction strategy turns a loaded document into unvalidated data. The pipeline
+decides whether the strategy can run, validates its output, and records the attempt.
 
 ```ts
 import { defineStrategy } from "@docture/core";
 
-export const myTableParser = defineStrategy({
-  name: "table-parser",
-  requires: ["TEXT_LAYER", "GEOMETRY"],
-
-  async extract(ctx) {
-    const lines = ctx.document.pages.flatMap((p) => (p.lines ?? []).map((l) => l.text));
-
-    const invoiceNumber = lines
-      .find((l) => l.startsWith("Invoice Number:"))
-      ?.slice("Invoice Number:".length)
-      .trim();
-
-    // Not our layout. Let the next strategy try.
-    if (invoiceNumber === undefined) throw new Error("no 'Invoice Number:' line found");
-
-    return { data: { invoiceNumber /* … */ } };
+const invoiceText = defineStrategy({
+  name: "invoice-text",
+  requires: ["TEXT_LAYER"],
+  needsClassification: "none",
+  async extract({ document }) {
+    const text = document.pages.map((page) => page.text).join("\n");
+    return { data: parseInvoice(text) };
   },
 });
 ```
 
-What `ctx` gives you:
+## Eligibility
 
-| | |
-|---|---|
-| `ctx.document` | pages, text, lines, `form` |
-| `ctx.features` | what the document turned out to have |
-| `ctx.schema` | `jsonSchema` for prompting, `validate`, and the original schema |
-| `ctx.classification` | present when one was decided |
-| `ctx.signal` | abort, check it before slow work |
-| `ctx.logger` | ids and timings only, never document content |
+`requires` lists facts about the loaded document. Core checks these facts at runtime
+before calling `extract()`.
 
-See [Without a model](/docs/guides/without-a-model) for a complete worked parser.
+Common requirements are `TEXT_LAYER`, `GEOMETRY`, and `RENDERABLE_PAGES`. A model,
+OCR engine, or cache is a component dependency, not a document fact. Pass those
+dependencies to the strategy when you create it.
 
-## Reordering without rewriting
+## Classification needs
 
-For anything order alone cannot express, pass a `policy`, a pure function that sees only
-the **eligible** strategies:
+`needsClassification` controls whether a strategy receives a classification result:
 
-```ts
-createExtractor({
-  loaders, strategies,
-  policy: (features, eligible) =>
-    features.pageCount > 20
-      ? [...eligible].reverse()  // long documents: model first
-      : eligible,
-});
-```
+| Value | Behavior |
+| --- | --- |
+| `"required"` | The strategy runs only when classification produced a known name. |
+| `"hint"` | The strategy can run with or without a known name. |
+| `"none"` | Classification is not needed for this strategy. |
 
-A policy cannot widen eligibility: returning a strategy it was not offered is ignored.
+Core classifies only when at least one eligible strategy asks for it.
 
-## Naming two of the same
+## Running and validation
 
-`name` defaults to `"llm"`, so give each one its own when you register two:
+Eligible strategies run in configured order. Returning data does not make a strategy
+the winner. Core first validates that data against the requested schema.
 
-```ts
-strategies: [
-  llm({ model: openai("gpt-5-mini"), name: "cheap" }),
-  llm({ model: openai("gpt-5"), name: "careful" }),
-]
-```
+If validation fails, the attempt is recorded and the next eligible strategy runs. A
+strategy wins only when its returned data passes validation.
 
-Two components under one name is a `DuplicateComponentError` at construction, never a
-silent shadowing.
+Throw when a strategy cannot produce an answer. There is no separate abstain value for
+extraction because an empty object or array may be a valid result.
 
-<Cards>
-  <Card title="With a model" href="/docs/guides/with-a-model" description="Configuring llm() properly." />
-  <Card title="Without a model" href="/docs/guides/without-a-model" description="A complete deterministic parser." />
-</Cards>
+## Strategy context and outcome
+
+`StrategyContext` contains the loaded document, computed document features, resolved
+schema, optional classification, abort signal, and logger.
+
+`StrategyOutcome` contains `data` and may include usage or a classification result. Core
+normalizes usage and performs schema validation after the strategy returns.
+
+See [routing and fallback](/docs/guides/routing-and-fallback) for ordering policies and
+the [strategy API](/docs/reference/api/core-components) for signatures.

@@ -1,0 +1,89 @@
+---
+title: LLM utilities
+description: Prompt, chunking, cache, pricing, merge, and schema helpers.
+---
+
+Import these APIs from `@docture/llm` or `docture`.
+
+## Prompt construction
+
+`DEFAULT_SYSTEM_PROMPT` is the default extraction instruction string.
+
+```ts
+buildPrompt(text: string, options?: BuildPromptOptions): PromptParts
+```
+
+`BuildPromptOptions` has `system`, `instructions`, optional `classification`, and `hints`.
+`system` replaces the default; instructions and hints are appended. `PromptParts` contains
+the final `system` and user `prompt`. The document text is wrapped in document delimiters.
+
+## Chunking
+
+`Chunk` contains text and its 1-based page numbers.
+
+```ts
+chunkByPage(document: LoadedDocument): Chunk[]
+chunkByBudget(document: LoadedDocument, maxChars: number): Chunk[]
+estimateTokens(text: string): number
+```
+
+`chunkByPage()` skips empty pages. `chunkByBudget()` splits only at page boundaries and
+emits an oversized page whole. It returns no chunks for an empty document.
+`estimateTokens()` returns `Math.ceil(text.length / 4)`.
+
+## Cache
+
+`CachedResponse` contains unknown `data` and optional input, output, and total token counts.
+`LlmCache` defines asynchronous `get()` and `set()`, plus optional `clear()`.
+
+`CacheKeyParts` contains `modelId`, system prompt, user prompt, JSON Schema, and optional
+request `variant`.
+
+```ts
+cacheKey(parts: CacheKeyParts): string
+memoryCache(maxEntries = 500): LlmCache
+fileCache(root: string): LlmCache
+```
+
+`cacheKey()` returns a SHA-256 hex digest. `memoryCache()` is a bounded least-recently-used
+process cache. `fileCache()` shards JSON entries below the supplied directory. Missing or
+unreadable disk entries are cache misses; write failures reject `set()`.
+
+## Pricing and usage
+
+`ModelPricing` contains `inputPerMillion` and `outputPerMillion` in US dollars.
+`PricingTable` maps model ids to prices. `RawUsage` contains optional input, output, and
+total token counts.
+
+```ts
+lookupPricing(modelId: string, pricing?: PricingTable): ModelPricing | undefined
+toUsage(
+  raw: RawUsage,
+  wallMs: number,
+  modelId?: string,
+  pricing?: PricingTable,
+): Partial<Usage>
+```
+
+`lookupPricing()` first checks the full id, then an id without its provider prefix.
+`toUsage()` normalizes missing counts to zero and adds `costUsd` only when a price exists.
+
+## Partial results
+
+```ts
+mergePartials(parts: readonly unknown[]): unknown
+```
+
+Arrays concatenate in document order. Plain objects merge recursively. For scalar or
+mismatched values, the first non-null, non-undefined, non-blank value wins. No usable
+parts returns `undefined`.
+
+`JsonSchemaLike` is `Record<string, unknown>`.
+
+```ts
+relaxJsonSchema(schema: unknown): unknown
+```
+
+`relaxJsonSchema()` recursively removes `required` arrays while preserving types,
+descriptions, enums, and nesting. It is used for partial model requests. Core still
+validates the merged data against the original schema.

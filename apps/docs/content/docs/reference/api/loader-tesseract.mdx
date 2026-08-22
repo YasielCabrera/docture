@@ -1,0 +1,41 @@
+---
+title: Tesseract loader
+description: Public API for @docture/loader-tesseract.
+---
+
+Import from `@docture/loader-tesseract`.
+
+```ts
+new DocumentLoaderTesseract(options?: TesseractConfig)
+new TesseractJsLoader(options?: TesseractJsLoaderOptions)
+```
+
+`DocumentLoaderTesseract` and `TesseractJsLoader` are the same class. `TesseractConfig`
+and `TesseractJsLoaderOptions` are the same option type.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `rasterizer` | none | Required to accept PDFs; direct PNG and JPEG inputs need none. |
+| `languages` | `["eng"]` | Tesseract trained-data language codes. |
+| `dpi` | `300` | Render and OCR resolution. |
+| `maxPages` | all | Maximum pages to read. |
+| `pageSegmentation` | `auto` | Layout mode. |
+| `minConfidence` | `0` | Minimum word confidence from 0 to 1. |
+| `lineTolerance` | core default `0.5` | Word-to-line vertical band. |
+| `autoRotate` | `false` | Run skew detection and correction. |
+| `concurrency` | `1` | Tesseract worker count. |
+| `langPath` | jsDelivr | Directory or base URL for trained data. |
+| `cachePath` | platform cache directory | Trained-data cache. |
+| `parameters` | none | Raw Tesseract variables. |
+
+`PageSegmentation` is `auto`, `singleColumn`, `singleBlock`, `singleLine`, or `sparse`.
+
+The loader is named `tesseract` and reports text, geometry, and images. Without a
+rasterizer it accepts PNG and JPEG. With one it also accepts PDF. Pages keep a lazy image
+function, and OCR word confidence is kept on spans.
+
+The engine and worker pool are created on first use and reused. `dispose()` releases them
+and is safe to call more than once.
+
+The load rejects on rasterization, language-data, worker, recognition, image, or caller
+abort failures. Tesseract.js and its OCR engine run through WASM.

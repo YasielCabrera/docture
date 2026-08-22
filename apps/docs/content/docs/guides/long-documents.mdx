@@ -1,145 +1,92 @@
 ---
 title: Long documents
-description: When one request is not enough. Splitting, merging, and the subtlety that makes it work.
+description: Split model extraction into several requests and merge the results.
 ---
 
-Most documents fit in one request. A 200-page statement does not. `completion` decides what
-happens then.
+`completion` controls how `LlmStrategy` handles the document text.
+
+| Mode | Requests | Use it when |
+|---|---|---|
+| `forbidden` | One request | The document fits. This is the default. |
+| `paginate` | One request per page | Each page contains useful standalone rows or fields. |
+| `concatenate` | Page groups under a character budget | Several pages fit together but the full document does not. |
 
 ```ts
 llm({ model, completion: "paginate" });
+
+llm({
+  model,
+  completion: "concatenate",
+  maxCharsPerRequest: 24_000,
+});
 ```
 
-| | What it does | Use when |
-|---|---|---|
-| `"forbidden"` *(default)* | One request, whole document | It fits. Most of the time. |
-| `"paginate"` | One request per page, then merge | Pages are self-contained rows |
-| `"concatenate"` | Pack pages into requests under a budget, then merge | Many small pages |
+`concatenate` splits only at page boundaries. A single page larger than the budget is sent
+whole rather than cut through a table row.
 
-```mermaid
-flowchart TB
-    subgraph F["forbidden, 1 request"]
-        F1["p1 p2 p3 p4"] --> F2["one call"]
-    end
-    subgraph P["paginate, 4 requests"]
-        P1["p1"] --> P2["call"]
-        P3["p2"] --> P4["call"]
-        P5["p3"] --> P6["call"]
-        P7["p4"] --> P8["call"]
-    end
-    subgraph C["concatenate, 2 requests"]
-        C1["p1 + p2"] --> C2["call"]
-        C3["p3 + p4"] --> C4["call"]
-    end
-```
+## Fragment schemas
 
-`concatenate` splits only at **page boundaries**. A table row cut in half yields two
-unparseable fragments and no merge rule recovers from that, so a single page over budget is
-sent whole. One oversized request that might work beats a guaranteed-broken split.
+A page may contain only part of the requested result. For multi-request extraction,
+docture removes `required` from the JSON Schema sent with each fragment. It keeps field
+types and descriptions.
 
-```ts
-llm({ model, completion: "concatenate", maxCharsPerRequest: 24_000 });  // ~6k tokens
-```
+The pipeline merges the partial objects, then validates the merged value against the
+original schema.
 
-## The subtlety that makes it work
+## Merge rules
 
-Here is the problem you would hit building this yourself.
+`mergePartials()` applies these rules:
 
-Split a document and each request sees only **part** of it. Page 2 of an invoice genuinely
-has no invoice number. That is not an error, it is the truth about page 2. But structured
-output validates every response against the schema it was given, so a **strict** schema
-turns that honest partial answer into a hard failure:
-
-```
-No object generated: response did not match schema.
-```
-
-The document was perfectly readable. Every field was there, somewhere.
-
-```mermaid
-flowchart TB
-    subgraph Bad["Strict schema per request"]
-        B1["p1 → { invoiceNumber, rows }"] --> B2["ok"]
-        B3["p2 → { rows }"] --> B4["invoiceNumber missing<br/>whole run fails"]
-    end
-    subgraph Good["Relaxed per request, strict on the merge"]
-        G1["p1 → { invoiceNumber, rows }"] --> G3["merge"]
-        G2["p2 → { rows }"] --> G3
-        G3 --> G4["validate strictly"]
-    end
-```
-
-So: **fragment requests get a schema with `required` stripped**, and only the merged result
-is validated against your schema. Strictness is enforced where the whole document is in
-view, which is the only place it can be enforced correctly.
-
-Types, descriptions and nesting all survive the relaxation. The model still needs those to
-produce the right shape for the fields it *did* find.
-
-A single-request run skips all of this and uses your schema untouched, so nothing is lost
-in the common case.
-
-## The merge rules
-
-```mermaid
-flowchart TB
-    A["<b>Arrays concatenate</b><br/>a table split across pages is one table"]
-    B["<b>Scalars: first present wins</b><br/>the page that read the number keeps it"]
-    C["<b>Objects recurse</b><br/>a nested address merges field by field"]
-```
+- Arrays concatenate in request order.
+- Objects merge recursively.
+- The first present scalar wins.
+- `null`, `undefined`, and an empty string count as absent.
 
 ```ts
 mergePartials([
-  { invoiceNumber: "INV-1", rows: [{ n: "A" }] },
-  { invoiceNumber: null,    rows: [{ n: "B" }] },
+  { invoiceNumber: "INV-1", rows: [{ id: 1 }] },
+  { invoiceNumber: null, rows: [{ id: 2 }] },
 ]);
-// { invoiceNumber: "INV-1", rows: [{ n: "A" }, { n: "B" }] }
+// { invoiceNumber: "INV-1", rows: [{ id: 1 }, { id: 2 }] }
 ```
 
-**"First present wins" is the choice that matters.** The alternative, last wins, lets the
-final chunk, which has the least context, overwrite good values with nulls. `null`,
-`undefined` and `""` all count as absent, because that is how a model reports "not found".
+## Vision pages
 
-## Choosing
-
-```mermaid
-flowchart TB
-    Q{"Does it fit in<br/>one request?"}
-    Q -->|"Yes"| A["forbidden <br/><i>the default</i>"]
-    Q -->|"No"| B{"Are pages<br/>self-contained?"}
-    B -->|"Yes, rows per page"| C["paginate"]
-    B -->|"No, small pages"| D["concatenate"]
-```
-
-Rough guide: at ~4 characters per token, 24,000 characters is about 6,000 tokens. Compare
-your document's `text.length` against your model's practical input budget, and remember
-output has its own limit, which a long `lineItems` array can hit even when the input fits.
-
-## Watching the cost
-
-Splitting multiplies requests, and every request re-sends the instructions:
+Vision extraction uses `pageMode` instead of `completion`:
 
 ```ts
-result.usage.inputTokens;   // summed across every request
-result.usage.costUsd;
-result.attempts[0]?.usage;  // per attempt
+vision({ model, pageMode: "together" }); // default
+vision({ model, pageMode: "perPage" });
 ```
 
-A cache makes iteration free while you tune:
+Per-page vision requests use the same relaxed-schema and merge behavior as text
+pagination.
+
+## Control cost
+
+Every request repeats the system prompt, instructions, and schema. `result.usage` sums
+usage reported by the winning strategy and by earlier strategies that returned usage.
+
+Restrict extraction to known 1-based pages with `RunOptions.pages`:
 
 ```ts
-llm({ model, completion: "paginate", cache: fileCache(".docture-cache") });
+await extractor.extract("invoice.pdf", Invoice, { pages: [1, 2, 3] });
 ```
 
-Cache keys include whether the schema was relaxed, so a `paginate` run and a `forbidden`
-run never share an entry.
+For vision, `maxPages` selects the first pages before rendering. Text completion has no
+separate page-count option; use `pages` when the relevant page numbers are known.
 
-## Cheaper before splitting
+## Complete example
 
-Splitting is not always the answer. Try in this order:
+<SourceExample file="long-invoice.ts" title="extract-long-invoice.ts" />
 
-1. **Narrow the schema.** Ask for fewer fields.
-2. **Limit pages.** `maxPages`, if what you need is at the front.
-3. **Parse deterministically.** A known layout needs no model at all. See
-   [Without a model](/docs/guides/without-a-model).
-4. **Then split.**
+Before splitting, consider a smaller schema or an explicit page list. Add a file cache while
+tuning so unchanged requests do not run again.
+
+```ts
+llm({
+  model,
+  completion: "paginate",
+  cache: fileCache(".docture-cache"),
+});
+```

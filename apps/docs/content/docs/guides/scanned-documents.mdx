@@ -1,234 +1,119 @@
 ---
 title: Scanned documents
-description: No text layer means nothing to read. Render the pages, then either OCR them or let a vision model look at them.
+description: Extract from page images with OCR or a vision model.
 ---
 
-A scanned PDF is **pictures of a document**, not a document. There is no text to extract,
-so a text-layer strategy is not a candidate for it. That is by design, so you get a clear error
-rather than nonsense.
+A scanned PDF has no usable text layer. A text strategy such as `llm()` is not eligible
+until OCR creates text. You can run OCR locally or send rendered pages to a vision model.
 
-Two ways out, and they sit at different layers. Show the pages to a **vision model**, or
-**OCR** them so the document has text after all.
+## Use a vision model
 
-```mermaid
-flowchart LR
-    A["Digital PDF"] --> B["text layer"] --> C["llm reads the text"]
-    D["Scanned PDF"] --> E["no text layer"] --> F["render → vision model"]
-    E --> G["render → OCR → text"] --> C
-```
-
-## Recognising the situation
-
-```ts
-const outcome = await extractor.safeExtract("scan.pdf", Invoice);
-
-if (!outcome.ok && outcome.error.code === "NO_ELIGIBLE_STRATEGY") {
-  outcome.error.features.hasTextLayer;      // false
-  outcome.error.features.hasRenderablePages; // false, nothing can render either
-}
-```
-
-Or ask up front. A loader reports `form`.
-
-```ts
-document.form;  // "scanned"
-```
-
-## Fix one: render, then look
-
-Two additions. A **rasterizer**, composed onto the loader, and a **vision strategy**.
-
-```mermaid
-flowchart TB
-    L["DocumentLoaderPdfJs<br/><i>images </i>"] --> W["withRasterizer"]
-    R["NapiCanvasRasterizer<br/><i>dpi: 200</i>"] --> W
-    W --> C["Loader that can render<br/><i>images </i>"]
-    C --> P["createExtractor"]
-    V["vision({ model })<br/><i>needs RENDERABLE_PAGES</i>"] --> P
-```
+Compose a rasterizer with the PDF loader, then add `vision()`:
 
 ```ts
 import { createExtractor, withRasterizer } from "@docture/core";
+import { llm, vision } from "@docture/llm";
 import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
 import { NapiCanvasRasterizer } from "@docture/raster-canvas";
-import { llm, vision } from "@docture/llm";
-import { openai } from "@ai-sdk/openai";
 
 const model = openai("gpt-5");
+const loader = withRasterizer(
+  new DocumentLoaderPdfJs(),
+  new NapiCanvasRasterizer({ dpi: 200 }),
+);
 
 const extractor = createExtractor({
-  loaders: [withRasterizer(new DocumentLoaderPdfJs(), new NapiCanvasRasterizer({ dpi: 200 }))],
-  strategies: [
-    llm({ model }),      // digital documents: cheaper
-    vision({ model }),   // scans: the fallback
-  ],
+  loaders: [loader],
+  strategies: [llm({ model }), vision({ model })],
 });
 ```
 
-One extractor now handles both. Eligibility picks the right path per document, with no
-branching in your code:
+Digital PDFs use the text strategy first. A scan has no `TEXT_LAYER`, so the text
+strategy is skipped and the vision strategy runs.
 
-```mermaid
-flowchart LR
-    D{"Does this document<br/>have a text layer?"}
-    D -->|"Yes"| A["llm is eligible → runs first"]
-    D -->|"No"| B["llm skipped<br/>vision runs"]
-```
+The complete typechecked setup is available here:
 
-<Callout title="Use a vision-capable model">
-`vision` sends images. A text-only model will reject them. Every current frontier model
-handles images; check yours if it is older or specialised.
-</Callout>
+<SourceExample file="scanned-invoice.ts" title="extract-scan.ts" />
 
-## Fix two: OCR, and no model at all
+`vision()` sends all pages in one request by default. Set `pageMode: "perPage"` when the
+model cannot accept the whole document. `maxPages` limits how many pages it sees.
 
-An OCR loader recognizes the pixels, so the scan arrives at the pipeline as a document **with
-text and positions**, which means every text strategy works on it, including a deterministic
-parser and a cheap text-only model.
+## Use Tesseract OCR
 
-```mermaid
-flowchart LR
-    A["Scanned PDF"] --> R["NapiCanvasRasterizer<br/><i>dpi: 300</i>"]
-    R --> T["DocumentLoaderTesseract<br/><i>or DocumentLoaderPaddleOcr</i>"]
-    T --> D["LoadedDocument<br/><i>text · lines · confidence</i>"]
-    D --> S["llm · a parser · a classifier"]
-```
+Tesseract accepts PNG and JPEG files directly. It needs a rasterizer for PDFs.
 
 ```ts
-import { createExtractor } from "@docture/core";
-import { NapiCanvasRasterizer } from "@docture/raster-canvas";
 import { DocumentLoaderTesseract } from "@docture/loader-tesseract";
 
-const extractor = createExtractor({
-  loaders: [new DocumentLoaderTesseract({ rasterizer: new NapiCanvasRasterizer() })],
-  strategies: [llm({ model })],
+const loader = new DocumentLoaderTesseract({
+  rasterizer: new NapiCanvasRasterizer(),
+  languages: ["eng"],
+  dpi: 300,
 });
 ```
 
-Here the rasterizer is a **constructor argument** rather than a `withRasterizer` composition:
-the loader cannot do its job without one, so it asks for it directly.
+The loader returns text, positioned words, confidence values, and lazy page images.
+Tesseract runs in WASM. Language data is downloaded and cached unless `langPath` points to
+local files.
 
-### Two engines, one contract
-
-`DocumentLoaderPaddleOcr` is the same job done by a different library, and it is a drop-in swap:
-both pass the same conformance suite:
+## Use PaddleOCR
 
 ```ts
 import { DocumentLoaderPaddleOcr } from "@docture/loader-paddleocr";
 
-loaders: [new DocumentLoaderPaddleOcr({ rasterizer: new NapiCanvasRasterizer() })];
-```
-
-Reach for it on **photographs, rotated or low-contrast scans, and non-Latin scripts**, where a
-detect-then-recognize model holds up better than Tesseract's layout analysis. Tesseract stays
-the better bet for clean scans of printed text: it is pure WASM with no native binding, and it
-reports a box per **word** where PaddleOCR reports one per detected **region**, which is
-coarser geometry.
-
-The honest answer is that it depends on your documents, and you can measure it. Swap the
-import and re-run [`eval`](/docs/guides/measuring-accuracy) over the same corpus. Full
-comparison in [PaddleOCR or Tesseract](/docs/reference/packages#paddleocr-or-tesseract).
-
-| | OCR | Vision |
-|---|---|---|
-| Cost | free after a one-off model download (about 5 to 7 MB) | per page, per token |
-| Determinism | same bytes, same text | sampled |
-| Gives you | text **with positions and confidence** | fields, straight from the image |
-| Handwriting, stamps, bad photos | poor | much better |
-| Offline | yes | no |
-
-<Callout type="warn" title="Listing OCR after a text-layer loader is not a fallback">
-Loaders are chosen by **media type**, then declaration order, then the first that does not
-throw. `DocumentLoaderPdfJs` does not throw on a scan. It succeeds with `form: "scanned"`
-and no text, so OCR listed after it never runs.
-
-Either give the two loaders disjoint media types (`[new DocumentLoaderPdfJs(), new DocumentLoaderTesseract()]`
-sends PDFs to the text layer and PNG/JPEG to OCR), or make "no text layer" a thrown error,
-which *is* what hands the document on:
-
-```ts
-const pdfjs = new DocumentLoaderPdfJs();
-const textLayerOrBust = defineLoader({
-  name: pdfjs.name,
-  capabilities: pdfjs.capabilities,
-  async load(document, ctx) {
-    const loaded = await pdfjs.load(document, ctx);
-    if (loaded.form === "scanned") throw new Error("pdfjs: no text layer to read");
-    return loaded;
-  },
+const loader = new DocumentLoaderPaddleOcr({
+  rasterizer: new NapiCanvasRasterizer(),
+  model: "v6Tiny",
+  dpi: 300,
 });
-
-loaders: [textLayerOrBust, new DocumentLoaderTesseract({ rasterizer })];
 ```
 
-`result.loader` and `result.attempts` then say which path each document took.
-</Callout>
+PaddleOCR uses `onnxruntime-node`, which loads a native prebuilt binding. Its detector and
+recognizer models may be selected by name or supplied as local files, URLs, or bytes.
 
-## Choosing a resolution
+## Choose between OCR and vision
 
-```ts
-new NapiCanvasRasterizer({ dpi: 200, maxEdge: 2000, format: "jpeg", quality: 0.85 });
-```
+| Requirement | OCR | Vision model |
+|---|---|---|
+| Run offline | Yes | Provider dependent |
+| Return reusable text and positions | Yes | No |
+| Read handwriting or difficult photographs | Limited | Usually better |
+| Pay model tokens | No | Yes |
+| Feed a deterministic parser | Yes | No |
 
-| | Why |
-|---|---|
-| `dpi: 200` | enough for a model to read body text; 300 is for OCR engines |
-| `maxEdge: 2000` | keeps the image within a model's budget and your token cost predictable |
-| `format: "jpeg"` | much smaller than PNG for a photographic scan |
+Test both paths on your own documents. OCR quality depends on language, resolution,
+rotation, contrast, and page layout.
 
-`maxEdge` wins over `dpi` when they conflict. The cap exists to respect a downstream
-limit.
+## Loader ordering is not OCR fallback
 
-## One request or one per page
+Loaders are selected by media type and declaration order. `DocumentLoaderPdfJs` can load a
+scanned PDF successfully and return empty text. An OCR loader listed after it will not run
+unless the first loader throws.
 
-```ts
-vision({ model, pageMode: "together" });  // default
-vision({ model, pageMode: "perPage" });
-```
+Use one of these setups:
 
-```mermaid
-flowchart TB
-    subgraph T["together (default)"]
-        T1["All pages, one request"]
-        T2["Model sees the whole document<br/>can reconcile a total on p3 with rows on p1"]
-    end
-    subgraph P["perPage"]
-        P1["One request per page, then merge"]
-        P2["Fits an image limit<br/>No page sees the others"]
-    end
-```
+- Send PDFs to a renderable PDF.js loader and use `vision()` for scans.
+- Use an OCR loader as the PDF loader.
+- Wrap the text-layer loader so it throws when `form` is `scanned`, then list OCR next.
 
-Start with `together`. Move to `perPage` when the document exceeds the model's image limit.
-
-Under `perPage` each request gets a **relaxed schema** (required fields dropped) and only
-the merged result is validated strictly. Otherwise a page that legitimately has no invoice
-number would be a hard failure. See [Long documents](/docs/guides/long-documents).
-
-## Limiting pages
-
-A 60-page scan is expensive. If the fields you want are on the first two pages:
-
-```ts
-vision({ model, maxPages: 2 });
-```
-
-## Rendering costs only what you use
-
-Page images are lazy and memoized, so `vision({ maxPages: 2 })` on a 200-page document
-renders **two pages**.
-
-```ts
-new DocumentLoaderPdfJs().capabilities.images;  // false, reading is free
-// Rendering happens only when a strategy calls page.image()
-```
+Failed loader attempts are available only when loading fails. A successful result reports
+the winning loader through `result.loader`.
 
 ## Mixed documents
 
-A digital invoice with a scanned annex reports `form: "mixed"`. Both strategies are
-eligible, `llm` runs first, and if it cannot find what your schema needs, validation fails
-and `vision` gets a turn, which is exactly the behaviour you want.
+A mixed document has usable text on some pages and image-only content on others.
+`features.form` reports `mixed`, but the whole document can still satisfy `TEXT_LAYER`.
+A text strategy may therefore run without reading the image-only pages.
 
-<Cards>
-  <Card title="Rasterizers" href="/docs/concepts/rasterizers" description="Rendering options in full." />
-  <Card title="Long documents" href="/docs/guides/long-documents" description="Splitting and merging." />
-</Cards>
+Use a vision strategy first when every page must be read as an image. Use an OCR loader
+for the PDF when downstream code needs text and positions from every page. If the relevant
+pages are known, pass them through `RunOptions.pages` and select the intended strategy with
+`only`.
+
+## Rendering details
+
+Page images are lazy and memoized by raster options. Calling `page.image()` twice with the
+same options renders once. `maxEdge` caps the longest edge even when the requested DPI
+would produce a larger image.
+
+See [rasterizers](/docs/concepts/rasterizers) for formats and coordinate scaling.

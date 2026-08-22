@@ -1,184 +1,118 @@
 ---
 title: How it works
-description: One call, six steps. What happens between handing over a PDF and getting typed data back.
+description: What happens during an extraction and where failures are reported.
 ---
 
-`extract()` runs six steps. Each one can stop the run with a **named** error, so when
-something goes wrong you are told which step and why.
+`extract()` resolves the input, loads it, records document facts, selects strategies,
+and validates their results.
 
 ```mermaid
-flowchart TB
-    Start(["extract(source, schema)"]) --> S1
-
-    S1["<b>1. Resolve</b><br/>path, URL or bytes → bytes<br/>sniff the media type"]
-    S1 --> S2["<b>2. Load</b><br/>run loaders in order<br/>first one that works wins"]
-    S2 --> S3["<b>3. Inspect</b><br/>text layer? geometry?<br/>renderable? how many pages?"]
-    S3 --> S4["<b>4. Shortlist</b><br/>keep only strategies that<br/>CAN read this document"]
-    S4 --> S5["<b>5. Classify</b><br/><i>only if a strategy asked</i>"]
-    S5 --> S6["<b>6. Extract</b><br/>run strategies in order<br/>validate against the schema"]
-    S6 --> Done(["Typed result"])
-
-    S2 -.-> E1["LoadFailedError"]
-    S4 -.-> E2["NoEligibleStrategyError"]
-    S6 -.-> E3["ExtractionFailedError"]
+flowchart LR
+    A[Source] --> B[Resolve bytes and media type]
+    B --> C[Load document]
+    C --> D[Record document facts]
+    D --> E[Select eligible strategies]
+    E --> F[Classify if requested]
+    F --> G[Run strategies in order]
+    G --> H[Validate result]
+    H --> I[Typed extraction result]
 ```
 
-## 1. Resolve the source
+## Resolve the source
 
-Pass whatever you have. A path, a URL, or raw bytes.
+The source may be a path, URL, byte array, raw document, or loaded document.
 
 ```ts
-await extractor.extract("./invoice.pdf", Invoice);
+await extractor.extract("invoice.pdf", Invoice);
 await extractor.extract(new URL("https://example.com/invoice.pdf"), Invoice);
 await extractor.extract(bytes, Invoice);
+await extractor.extract({ bytes, mimeType: "application/pdf" }, Invoice);
+await extractor.extract({ loaded: document }, Invoice);
 ```
 
-The media type comes from the magic bytes first, then the file extension. A mislabelled
-file is common. A mislabelled header is not.
+For files and byte arrays, docture checks magic bytes before file extensions. An HTTP
+failure, empty input, or unsupported URL protocol raises `UnsupportedSourceError`.
 
-## 2. Load
+## Load the document
 
-Loaders are tried in the order you listed them. The first one that accepts the media type
-and does not throw wins.
+docture filters loaders by media type, then tries them in declaration order. The first
+loader that returns a document wins.
 
-```mermaid
-flowchart LR
-    B["bytes"] --> L1{"DocumentLoaderPdfJs"}
-    L1 -->|"works"| OK["LoadedDocument"]
-    L1 -->|"throws"| L2{"DocumentLoaderMuPdf"}
-    L2 -->|"works"| OK
-    L2 -->|"throws"| ERR["LoadFailedError<br/><i>carrying both failures</i>"]
-```
+If no loader accepts the media type, docture raises `NoEligibleLoaderError`. If eligible
+loaders run and all throw, it raises `LoadFailedError` with the loader attempts.
 
-A `LoadedDocument` is pages. Each page has text, and lines with positions when the loader
-can produce them.
+A successful extraction records only the winning loader in `result.loader`.
 
-```ts
-{
-  pages: [{ pageNumber: 1, width: 595, height: 842, text: "…", lines: [ … ] }],
-  text: "…",             // whole document, pages joined
-  form: "digital",       // or "scanned" | "mixed"
-  loader: "pdfjs",
-}
-```
+## Record document facts
 
-## 3. Inspect what was actually found
+Routing uses facts found on the loaded document:
 
-Not what the loader *claims* it can do. What this document actually has.
-
-| Fact | True when |
+| Fact | Condition |
 |---|---|
-| `TEXT_LAYER` | the document carries real text (≥ 50 characters) |
-| `GEOMETRY` | positioned line and word boxes are available |
-| `RENDERABLE_PAGES` | pages can be turned into images |
+| `TEXT_LAYER` | The document contains at least `MIN_TEXT_LAYER_CHARS` trimmed characters |
+| `GEOMETRY` | Positioned lines are present |
+| `RENDERABLE_PAGES` | Loaded pages have an `image()` function |
 
-## 4. Shortlist the strategies
+`features.form` is `digital`, `scanned`, `mixed`, or `unknown`. Custom loaders may add
+facts through `features.extra`.
 
-Each strategy declares what it needs. A strategy whose needs are not met **never runs**.
+Capabilities such as `GeometryLoader` are useful compile-time types when an API asks for
+one. Strategy requirements are different. The pipeline checks `requires` against the
+loaded document at runtime.
 
-```mermaid
-flowchart TB
-    F["This document:<br/>TEXT_LAYER <br/>GEOMETRY <br/>RENDERABLE_PAGES"]
-    F --> A["llm<br/><i>needs TEXT_LAYER</i>"]
-    F --> B["vision<br/><i>needs RENDERABLE_PAGES</i>"]
-    F --> C["myTableParser<br/><i>needs GEOMETRY</i>"]
-    A --> Y1["shortlisted"]
-    B --> N1["skipped, cannot render"]
-    C --> Y2["shortlisted"]
-```
+## Select strategies
 
-If the shortlist is empty you get `NoEligibleStrategyError`, and it tells you the
-document's facts, so you can see whether you need a rasterizer or the file was a scan.
-
-<Callout>
-This is why a scanned PDF does not produce garbage. A text-layer strategy is simply not a
-candidate for a document with no text.
-</Callout>
-
-## 5. Classify, only if asked
-
-Classification runs **only when a shortlisted strategy wants it**. No strategy asked, no
-model call, no wasted work.
-
-```mermaid
-flowchart LR
-    Q{"Did any shortlisted<br/>strategy ask for<br/>a classification?"}
-    Q -->|"No"| Skip["Skip entirely"]
-    Q -->|"Yes"| Run["Run classifiers"]
-    Run --> V["Best verdict wins<br/><i>or UNKNOWN</i>"]
-```
-
-## 6. Extract
-
-Strategies run in your declared order. The first that returns data **passing your schema**
-wins.
-
-```mermaid
-sequenceDiagram
-    participant P as Pipeline
-    participant D as myTableParser
-    participant L as llm
-
-    P->>D: extract
-    D--xP: throws "layout not recognised"
-    Note over P: recorded in attempts, keep going
-    P->>L: extract
-    L->>P: data
-    P->>P: validate against schema 
-    Note over P: method = "llm"
-```
-
-Every attempt is recorded, whether it won or failed:
+Each strategy may list document facts in `requires`. A strategy missing any required fact
+does not run.
 
 ```ts
-result.method;    // "llm", who answered
-result.attempts;  // [{ strategy: "myTableParser", status: "failed", error: "…" },
-                  //  { strategy: "llm", status: "ok", ms: 1840 }]
+const parser = defineStrategy({
+  name: "invoice-parser",
+  requires: ["TEXT_LAYER", "GEOMETRY"],
+  async extract(ctx) {
+    return { data: parseInvoice(ctx.document) };
+  },
+});
 ```
 
-So "why did the model run when my parser should have handled it?" is answerable from the
-return value. **A fallback is never silent.**
+If no strategy is eligible, docture raises `NoEligibleStrategyError`. The error includes
+the document features and one gap for each rejected strategy.
 
-### Validation happens in exactly one place
+The routing policy receives eligible strategies only. The default policy preserves
+declaration order.
 
-A strategy returns raw data. The **pipeline** validates it against your schema.
+## Classify when requested
 
-```mermaid
-flowchart LR
-    S["Strategy returns<br/>unknown"] --> V{"Matches<br/>the schema?"}
-    V -->|"Yes"| W["It wins"]
-    V -->|"No"| N["Recorded as failed<br/>→ try the next strategy"]
-```
+Classification runs when an eligible strategy sets `needsClassification` to `hint` or
+`required`. A classifier returns a signal or `null` to abstain. The pipeline records a
+thrown classifier as an abstention so another classifier can still answer.
 
-Two consequences worth knowing:
+A strategy that requires classification does not run when the result is `UNKNOWN`.
 
-1. **A wrong shape is recoverable.** A strategy that produces the wrong thing is a failed
-   attempt, not a dead run. The next strategy still gets a turn.
-2. **`validation` means one thing.** It cannot differ depending on who answered.
+## Extract and validate
 
-## Errors, and what each one tells you
+Strategies run in policy order. A strategy can throw to let the next strategy try.
 
-```mermaid
-flowchart TB
-    E{"It failed. Where?"}
-    E --> A["<b>NO_ELIGIBLE_LOADER</b><br/>Nothing handles this file type.<br/><i>→ add a loader</i>"]
-    E --> B["<b>LOAD_FAILED</b><br/>Every loader threw.<br/><i>→ corrupt or encrypted?</i>"]
-    E --> C["<b>NO_ELIGIBLE_STRATEGY</b><br/>Read it, but nothing understands it.<br/><i>→ a scan? add vision + rasterizer</i>"]
-    E --> D["<b>EXTRACTION_FAILED</b><br/>Everything ran and everything threw.<br/><i>→ read attempts</i>"]
-    E --> F["<b>CONTRACT_VIOLATION</b><br/>Data does not fit the schema.<br/><i>→ check issues</i>"]
-```
+Returning data is not enough to win. The pipeline validates the data against the caller's
+schema. Invalid data becomes a failed attempt, then the next strategy runs.
 
-The first three are **wiring** problems; the last two are about this document. Full list
-in [Errors](/docs/reference/errors).
+If no strategy succeeds and at least one returned invalid data, docture raises the first
+`ContractViolationError`. If every strategy threw before validation, it raises
+`ExtractionFailedError`.
 
-## Not throwing
+## Cancellation and deadlines
 
-`safeExtract` is the same run without the throw, the same pairing as Zod's
-`parse` / `safeParse`.
+A caller abort stops the whole run and suppresses fallback. A stage deadline creates a
+`TimeoutError` for that stage, records the failed attempt, and allows fallback.
 
 ```ts
-const outcome = await extractor.safeExtract("invoice.pdf", Invoice);
+const controller = new AbortController();
 
-if (outcome.ok) outcome.result.data.total;
-else            console.error(outcome.error.code);
+await extractor.extract("invoice.pdf", Invoice, {
+  signal: controller.signal,
+  stageTimeoutMs: 30_000,
+});
 ```
+
+See [errors](/docs/reference/errors) for the full error contract and
+[routing and fallback](/docs/guides/routing-and-fallback) for configuration examples.

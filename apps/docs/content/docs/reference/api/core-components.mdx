@@ -1,0 +1,97 @@
+---
+title: Core strategies and pipeline
+description: Strategies, routing, enums, and low-level pipeline functions.
+---
+
+Import these APIs from `@docture/core` or `docture`.
+
+## Extraction strategies
+
+`ExtractionStrategy` has a stable `name`, optional `requires`, optional
+`needsClassification`, `extract(context)`, and optional `dispose()`.
+
+`ClassificationNeed` is `"required" | "hint" | "none"`.
+
+`StrategyContext` contains `document`, runtime `features`, resolved `schema`, optional
+`classification`, `signal`, and `logger`.
+
+`StrategyOutcome` contains unknown `data` and optional `usage` and `classification`. Core
+validates the data after the method returns.
+
+```ts
+defineStrategy(strategy: ExtractionStrategy): ExtractionStrategy
+```
+
+`defineStrategy()` is an identity helper. A strategy throws when it cannot produce data.
+Non-abort errors are recorded and allow fallback. Caller aborts stop the run.
+
+## Routing
+
+```ts
+type RoutingPolicy = (
+  features: DocumentFeatures,
+  eligible: readonly ExtractionStrategy[],
+  classification: { name: string; confidence: number } | undefined,
+) => readonly ExtractionStrategy[]
+```
+
+A policy receives only eligible strategies. Strategies it returns that were not offered
+are ignored. It may reorder or omit eligible strategies.
+
+```ts
+declarationOrder(
+  features: DocumentFeatures,
+  eligible: readonly ExtractionStrategy[],
+): readonly ExtractionStrategy[]
+```
+
+`declarationOrder` is the default and returns candidates in registration order.
+
+## Enums
+
+The enum-like exports are plain objects with matching string-union types.
+
+| Export | Values | Meaning |
+| --- | --- | --- |
+| `CompletionStrategy` | `FORBIDDEN`, `PAGINATE`, `CONCATENATE` | One request, one request per page, or token-budget chunks. |
+| `SplittingStrategy` | `EAGER`, `LAZY` | Whole-bundle or adjacent-page splitting. |
+| `ClassificationStrategy` | `CONSENSUS`, `HIGHER_ORDER`, `CONSENSUS_WITH_THRESHOLD` | Classifier signal selection. |
+
+The runtime values are lowercase strings except `higherOrder` and
+`consensusWithThreshold`.
+
+## Low-level pipeline
+
+Most applications use `Extractor`. The following APIs expose the same stages for custom
+composition.
+
+```ts
+runPipeline<T>(
+  components: PipelineComponents,
+  source: DocumentSource,
+  schema: FlexibleSchema<T>,
+  options?: RunOptions,
+): Promise<ExtractionResult<T>>
+```
+
+`PipelineComponents` requires loader, strategy, classifier, and classification arrays,
+a routing `policy`, and a `logger`. It may set `stageTimeoutMs` and classification
+options. `RunOptions` is documented in [core extraction](/docs/reference/api/core-extraction).
+
+`runPipeline()` resolves and loads the source, computes runtime features, classifies when
+needed, routes strategies, validates returned data, and returns the first validated
+result. It throws the typed failures listed in the [error reference](/docs/reference/errors).
+
+```ts
+loadDocument(
+  loaders: readonly DocumentLoader[],
+  raw: RawDocument,
+  logger: Logger,
+  signal: AbortSignal,
+  stageTimeoutMs: number | undefined,
+): Promise<ReadDocument>
+```
+
+`ReadDocument` contains the loaded `document`, winning `loader`, and loader `attempts`.
+The first accepting loader that succeeds wins. When all accepting loaders fail,
+`LoadFailedError` carries their attempts.

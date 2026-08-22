@@ -1,0 +1,173 @@
+---
+title: Core classification and splitting
+description: Classification types, classifiers, Process, and splitter APIs.
+---
+
+Import these APIs from `@docture/core` or `docture`.
+
+## Classifications
+
+`Classification<Name, S, E>` contains:
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `name` | yes | Literal document kind and result discriminant. |
+| `description` | yes | Recognition guidance. |
+| `schema` | yes | Schema used for this kind. |
+| `hints` | no | Additional recognition or extraction guidance. |
+| `extractor` | no | Extractor used only for this kind. |
+| `extractionContract` | no | Contract used for extraction instead of `schema`. |
+| `image` | no | Reference image path or bytes for supporting classifiers. |
+
+```ts
+defineClassification<
+  const Name extends string,
+  S extends FlexibleSchema,
+  E extends ContractLike = S,
+>(classification: Classification<Name, S, E>): Classification<Name, S, E>
+```
+
+`defineClassification()` preserves the literal name. It does not validate the schema or
+check whether an image exists.
+
+```ts
+classificationOf<S extends FlexibleSchema>(
+  contract: Contract<InferSchema<S>> & { schema: S },
+  overrides?: Omit<Partial<Classification<string, S, S>>, "schema">,
+): Classification<string, S, S>
+extractionContractOf(classification: Classification): ContractLike
+```
+
+`classificationOf()` copies a contract's name, description, schema, and hints, then
+applies overrides. `extractionContractOf()` returns `extractionContract` when present and
+otherwise returns `schema`.
+
+`ClassificationNames<C>` is the union of names in a classification list.
+`ClassifiedExtraction<C>` is the discriminated result union produced by `Process`; each
+member contains `name`, typed `data`, full `result`, and 1-based original `pages`.
+
+## Classifier contract
+
+`Classifier` has a stable `name`, optional runtime `requires`, `classify(context)`, and
+optional `dispose()`.
+
+`ClassifyContext` contains the loaded `document`, runtime `features`, candidate kinds,
+`signal`, and `logger`.
+
+```ts
+defineClassifier(classifier: Classifier): Classifier
+```
+
+The classifier method returns `ClassificationSignal | null`. `null` means abstain.
+Classifier failures are recorded as abstentions unless they are caller aborts.
+
+`ClassificationResponse<C>` contains the selected candidate name or `UNKNOWN`, confidence,
+all signals, and the matched `classification` when known.
+
+`ClassifyOptions` has `strategy?: ConsensusStrategy` and `threshold?: number`.
+`ConsensusStrategy` is `"consensus" | "higherOrder" | "consensusWithThreshold"`. The
+default is `higherOrder` with threshold `0`.
+
+## Classification trees
+
+`ClassificationNode<C>` contains a classification and optional children.
+`ClassificationTree` contains its root nodes.
+
+```ts
+classificationNode(classification, children?): ClassificationNode
+classificationTree(nodes): ClassificationTree
+isClassificationTree(value): value is ClassificationTree
+flattenTree(tree): Classification[]
+```
+
+The construction helpers return the supplied values without external calls.
+`flattenTree()` walks depth-first.
+
+```ts
+extractor.classify<const C extends readonly Classification[]>(
+  source: DocumentSource,
+  classifications?: C,
+  options?: RunOptions,
+): Promise<ClassificationResponse<C>>
+
+extractor.classifyTree(
+  source: DocumentSource,
+  tree: ClassificationTree,
+  options?: RunOptions,
+): Promise<{ leaf: ClassificationResponse; path: readonly ClassificationResponse[] }>
+```
+
+Direct classification uses the first eligible loader and propagates its load failure. A
+`LoadedSource` skips that load. Classifier, timeout, and abort behavior follows the
+classification rules above.
+
+## Splitter contract
+
+`Splitter` has a stable `name`, optional runtime `requires`,
+`belongsToSameDocument(first, second, context)`, optional `splitEager()`, and optional
+`dispose()`.
+
+`SplitContext` contains classifications, signal, logger, and optional `recordUsage()`.
+
+`SplitVerdict` contains `belongsToSameDocument`, first and optional second page
+classifications, and optional confidence.
+
+```ts
+defineSplitter(splitter: Splitter): Splitter
+
+runSplitter(
+  splitter: Splitter,
+  pages: readonly LoadedPage[],
+  strategy: SplittingStrategy,
+  context: SplitContext,
+  options?: RunSplitterOptions,
+): Promise<DocGroups>
+```
+
+`RunSplitterOptions.concurrency` defaults to `4` for lazy seam checks. Eager splitting
+uses `splitEager()` when implemented and otherwise uses the lazy path. The splitter may
+reject on component, abort, or rendering failures.
+
+`DocGroup` contains 1-based `pages`, classification, and optional confidence. `DocGroups`
+is the ordered read-only group list. `UNCLASSIFIED` is the string `UNKNOWN`.
+
+```ts
+pageWindows<T>(pages: readonly T[], size = 2): T[][]
+aggregateDocGroups(verdicts: readonly SplitVerdict[], pageCount: number): DocGroup[]
+```
+
+`pageWindows()` returns overlapping windows and throws when `size` is less than `2`.
+`aggregateDocGroups()` folds seam verdicts, preserves order, and covers the declared page
+count.
+
+## Process
+
+```ts
+new Process()
+  .loadDocumentLoader(...loaders)
+  .loadSplitter(splitter)
+  .loadExtractor(extractor)
+  .loadLogger(logger)
+  .loadFile(source)
+  .split(classifications, strategy?)
+```
+
+`loadSource()` is an alias of `loadFile()`. Wiring and planning methods return the same
+process. `split()` defaults to `SplittingStrategy.EAGER` and does not read the source.
+
+```ts
+extract(options?: ProcessExtractOptions): Promise<ClassifiedExtraction<C>[]>
+splitOnly(options?: RunOptions): Promise<SplitReport>
+dispose(): Promise<void>
+```
+
+`ProcessExtractOptions` extends `RunOptions`. `onUnclassified` defaults to `"throw"`; the
+other value is `"skip"`. Extraction `concurrency` defaults to `4`.
+
+`SplitReport` contains the splitter name, splitting strategy, groups, and splitting
+`Usage`. It is also available as `lastSplit` after a completed split.
+
+Missing source, loaders, splitter, classifications, or extractor configuration throws.
+Unknown groups throw `UnclassifiedGroupError` unless skipping is explicit. `dispose()`
+settles the splitter, default extractor, and process loaders, then reports failures with
+`AggregateError`.

@@ -1,0 +1,100 @@
+---
+title: Routing and fallback
+description: Control loader selection, strategy eligibility, ordering, and validation fallback.
+---
+
+Loader fallback and strategy fallback are separate stages.
+
+## Loader order
+
+docture filters loaders by media type, then tries them in declaration order.
+
+```ts
+const extractor = new Extractor({
+  loaders: [
+    new DocumentLoaderPdfJs(),
+    new DocumentLoaderMuPdf(),
+  ],
+  strategies: [parser],
+});
+```
+
+The second loader runs only if the first eligible loader throws. Empty text is still a
+successful load, so it does not trigger another loader.
+
+`NoEligibleLoaderError` contains media-type gaps. `LoadFailedError.attempts` contains the
+loaders that ran and failed.
+
+## Strategy eligibility
+
+A strategy may require facts about the loaded document:
+
+```ts
+const parser = defineStrategy({
+  name: "table-parser",
+  requires: ["TEXT_LAYER", "GEOMETRY"],
+  async extract(ctx) {
+    return { data: parseRows(ctx.document.pages) };
+  },
+});
+```
+
+Eligibility is a runtime check against `DocumentFeatures`. A rejected strategy does not
+appear in `result.attempts` because it never ran. `NoEligibleStrategyError.gaps` explains
+why each strategy was rejected.
+
+## Strategy order
+
+The default routing policy preserves declaration order:
+
+```ts
+strategies: [knownLayoutParser, llm({ model })];
+```
+
+The parser runs before the model when both are eligible. If it throws or returns data that
+fails validation, the model runs next.
+
+## Custom routing policy
+
+A `RoutingPolicy` receives the features, eligible strategies, and optional classification.
+
+```ts
+const policy: RoutingPolicy = (features, eligible) =>
+  features.pageCount > 20 ? [...eligible].reverse() : eligible;
+```
+
+The policy may reorder or remove eligible strategies. It cannot add an ineligible
+strategy.
+
+## Complete example
+
+<SourceExample file="routing-fallback.ts" title="routing-fallback.ts" />
+
+## Validation fallback
+
+Every strategy returns unvalidated data. The pipeline validates that data against the
+caller's schema.
+
+```ts
+result.attempts;
+// [
+//   { strategy: "table-parser", status: "failed", error: "..." },
+//   { strategy: "llm", status: "ok", ms: 1400 }
+// ]
+```
+
+The winning result always has `validation.valid: true`. If no strategy succeeds, the
+first validation failure takes precedence and the run raises `ContractViolationError`.
+If every strategy threw before validation, the run raises `ExtractionFailedError`.
+
+## Classification requirements
+
+`needsClassification` controls whether a strategy asks for classification:
+
+| Value | Behavior |
+|---|---|
+| `none` | Never asks for classification |
+| `hint` | Uses a result when available and can run on `UNKNOWN` |
+| `required` | Runs only with a known classification |
+
+See [classification](/docs/concepts/classification) for classifiers and consensus rules.

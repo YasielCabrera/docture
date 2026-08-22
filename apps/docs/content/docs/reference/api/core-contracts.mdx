@@ -1,0 +1,73 @@
+---
+title: Core contracts and schemas
+description: Named contracts, supported schemas, inference, and validation.
+---
+
+Import these APIs from `@docture/core` or `docture`.
+
+## Contracts
+
+```ts
+contract<S extends FlexibleSchema>(
+  definition: ContractDefinition<S>,
+): Contract<InferSchema<S>>
+```
+
+`ContractDefinition<S>` has a required `name` and schema `S`, plus optional `description`
+and `hints`. `Contract<T>` stores a `FlexibleSchema<T>` with the same metadata. Contracts
+are structural and are not branded.
+
+```ts
+const Invoice = contract({
+  name: "invoice",
+  description: "A supplier invoice.",
+  hints: "Use the amount labelled Total due.",
+  schema: z.object({ invoiceNumber: z.string(), total: z.number() }),
+});
+```
+
+`ContractLike` is a `Contract` or a bare supported schema. `InferContract<C>` resolves
+the data type produced by either form.
+
+| Helper | Signature | Return and failure behavior |
+| --- | --- | --- |
+| `isContract` | `(value: unknown) => value is Contract` | Checks for a string `name` and a `schema`. It does not validate the schema. |
+| `schemaOf` | `(value: ContractLike) => FlexibleSchema` | Returns a contract's schema or the bare schema unchanged. |
+| `contractName` | `(value: ContractLike) => string \| undefined` | Returns the contract name when present. |
+
+These helpers do not throw for a bare supported schema.
+
+## Schema types
+
+`FlexibleSchema<T>` and `InferSchema<S>` are re-exported from
+`@ai-sdk/provider-utils`. They cover the schema forms supported by the AI SDK, including
+Zod, Valibot, ArkType, and JSON Schema adapters.
+
+`JsonSchemaObject` is the object form stored in a resolved schema. `ValidateResult<T>` is
+either `{ ok: true, data: T }` or `{ ok: false, issues }`.
+
+`ResolvedSchema<T>` contains:
+
+| Field | Meaning |
+| --- | --- |
+| `flexible` | Original `FlexibleSchema<T>`, kept for consumers that accept it directly. |
+| `jsonSchema` | JSON Schema representation used in prompts and model calls. |
+| `validate(value)` | Validates unknown data and returns `ValidateResult<T>`. |
+
+```ts
+resolveSchema<T>(schema: FlexibleSchema<T>): Promise<ResolvedSchema<T>>
+```
+
+`resolveSchema()` performs any asynchronous schema conversion once before extraction.
+It rejects when a schema adapter cannot produce JSON Schema or a validator.
+
+## Validation in the pipeline
+
+Strategies receive `ResolvedSchema` and return unknown data. The pipeline calls its
+validator after each strategy returns. A validation failure records a failed attempt and
+allows the next strategy to run.
+
+The first strategy whose output validates becomes the result. If no strategy succeeds,
+the first validation failure takes precedence and extraction rejects with
+`ContractViolationError` and its `ValidationIssue` values. If every strategy threw before
+validation, extraction rejects with `ExtractionFailedError`.

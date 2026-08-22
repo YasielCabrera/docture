@@ -1,0 +1,75 @@
+---
+title: CLI package
+description: Public library API for @docture/cli.
+---
+
+Install and import from `@docture/cli`. The executable name is `docture`.
+
+## Configuration
+
+```ts
+defineConfig(config: DoctureConfig): DoctureConfig
+```
+
+`defineConfig()` is an identity helper for `docture.config.ts` type inference.
+
+`DoctureConfig` may provide a complete `extractor` or its component parts: `loaders`,
+`strategies`, `classifiers`, `classifications`, `policy`, and `stageTimeoutMs`. When a
+complete extractor is present, component fields are ignored.
+
+When explicit strategies are absent, config may provide `model`, `vision`, `pricing`, and
+`instructions`. It may also provide a default `schema`, model `cacheDir`, and extraction
+`concurrency`. Command-line flags override config defaults.
+
+## Run the CLI in process
+
+```ts
+run(argv: readonly string[], options: RunOptions): Promise<ExitCode>
+```
+
+The CLI `RunOptions` type contains required `io` and optional abort `signal`. `run()`
+returns `0`, `1`, or `2` and writes through the supplied I/O object. It reports user and
+document errors as an exit code instead of rejecting in normal operation.
+
+`ExitCode` is `0 | 1 | 2`: success, command or document failure, and usage or
+configuration failure. The process executable uses exit code `130` for SIGINT.
+
+## I/O
+
+`Io` has `write()` for stdout data, `diagnostic()` for stderr messages, plus `cwd`, `env`,
+and color support. `Style` contains the text styling functions used by the CLI.
+
+```ts
+processIo(): Io
+captureIo(overrides?: Partial<Io>): CapturedIo
+styleFor(color: boolean): Style
+```
+
+`processIo()` binds the interface to the current Node process and honors `NO_COLOR`.
+`captureIo()` defaults to the current directory, an empty environment, and no color. Its
+`CapturedIo` result exposes accumulated `stdout` and `stderr`. `styleFor(false)` returns
+plain text functions; `true` returns ANSI styling.
+
+## Errors
+
+```ts
+new UsageError(message: string, hint?: string)
+new CliError(message: string, hint?: string, options?: { cause?: unknown })
+explain(error: unknown): Explained
+```
+
+`UsageError` has exit code `2`. `CliError` has exit code `1`. `Explained` contains a
+message and optional code and hint. `explain()` adds recovery hints for core
+`DoctureError` codes and converts other thrown values to printable messages.
+
+## Version
+
+```ts
+version(): string
+```
+
+`version()` reads and caches the package version. If package metadata cannot be read, it
+returns `0.0.0` instead of throwing.
+
+See the [CLI guide](/docs/guides/cli) for commands, flags, streams, configuration files,
+and CI use.
