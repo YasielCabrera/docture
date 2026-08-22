@@ -2,6 +2,49 @@
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
 
+/* ---------------------------------------------------------------------------
+ * Tokens
+ *
+ * Fumadocs' neutral preset is pure greyscale, so the site had no accent at all.
+ * One is added here and used for one job: marking what docture extracted. The
+ * boxes on the hero document, the field rules, the arrows into the docs. That is
+ * the whole vocabulary, and nothing else on the page is coloured.
+ *
+ * `brand` flips between modes so text and hairlines keep contrast against the
+ * background. `brand-solid` does NOT flip: it is a filled surface, and the pair
+ * with `brand-on-solid` is the one combination checked for WCAG AA in both modes.
+ *
+ * Radius scale, applied everywhere: 12px for surfaces, 8px for controls.
+ * ------------------------------------------------------------------------- */
+
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+
+  --color-brand: oklch(0.55 0.17 41);
+  --color-brand-solid: oklch(0.55 0.17 41);
+  --color-brand-on-solid: oklch(0.99 0 0);
+
+  --radius-surface: 0.75rem;
+  --radius-control: 0.5rem;
+
+  --ease-out-quint: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark {
+  --color-brand: oklch(0.76 0.15 55);
+}
+
+/* Custom home-page snippets sit outside Fumadocs' CodeBlock wrapper. */
+.dark .docs-home-code.shiki {
+  background-color: var(--shiki-dark-bg) !important;
+  color: var(--shiki-dark) !important;
+}
+.dark .docs-home-code.shiki code span {
+  color: var(--shiki-dark) !important;
+  font-style: var(--shiki-dark-font-style);
+}
+
 /* Mermaid renders inline SVG; centre it and let it breathe. */
 .mermaid-diagram {
   display: flex;

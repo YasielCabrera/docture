@@ -57,6 +57,18 @@ importers:
         specifier: ^19.2.8
         version: 19.2.8(react@19.2.8)
     devDependencies:
+      '@docture/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@docture/loader-pdfjs':
+        specifier: workspace:*
+        version: link:../../packages/loader-pdfjs
+      '@docture/raster-canvas':
+        specifier: workspace:*
+        version: link:../../packages/raster-canvas
+      '@docture/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3
@@ -75,9 +87,15 @@ importers:
       postcss:
         specifier: ^8.5.24
         version: 8.5.25
+      simple-icons:
+        specifier: ^16.28.0
+        version: 16.28.0
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
+      tsx:
+        specifier: ^4.20.6
+        version: 4.20.6
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -184,6 +202,31 @@ importers:
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.20.6)(yaml@2.9.0)
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  packages/docture:
+    dependencies:
+      '@docture/core':
+        specifier: workspace:*
+        version: link:../core
+      '@docture/llm':
+        specifier: workspace:*
+        version: link:../llm
+    devDependencies:
+      '@types/node':
+        specifier: ^24.13.3
+        version: 24.13.3
+      ai:
+        specifier: 7.0.51
+        version: 7.0.51(zod@4.4.3)
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -350,39 +393,14 @@ importers:
         specifier: 4.1.10
         version: 4.1.10(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.20.6)(yaml@2.9.0)
 
-  packages/docture:
+  packages/raster-canvas:
     dependencies:
       '@docture/core':
         specifier: workspace:*
         version: link:../core
-      '@docture/llm':
-        specifier: workspace:*
-        version: link:../llm
-    devDependencies:
-      '@types/node':
-        specifier: ^24.13.3
-        version: 24.13.3
-      ai:
-        specifier: 7.0.51
-        version: 7.0.51(zod@4.4.3)
-      typescript:
-        specifier: 7.0.2
-        version: 7.0.2
-      vitest:
-        specifier: 4.1.10
-        version: 4.1.10(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.20.6)(yaml@2.9.0)
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
-
-  packages/raster-canvas:
-    dependencies:
       '@napi-rs/canvas':
         specifier: 1.0.3
         version: 1.0.3
-      '@docture/core':
-        specifier: workspace:*
-        version: link:../core
       pdfjs-dist:
         specifier: 6.2.108
         version: 6.2.108
@@ -3799,6 +3817,10 @@ packages:
   signal-exit@4.1.0:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
+
+  simple-icons@16.28.0:
+    resolution: {integrity: sha512-sQPR5AtK/ijRjou7zw7mlLp08oB6FH7i0lOy5XJ2zp9mJs/yejgiOn7KvQoe2q4YJIx6VmgUSW5AOefebPt5kg==}
+    engines: {node: '>=0.12.18'}
 
   slash@3.0.0:
     resolution: {integrity: sha512-g9Q1haeby36OSStwb4ntCGGGaKsaVSjQ68fBxoQcutl5fS1vuY18H3wSt3jFyFtrkx+Kz0V1G85A4MyAdDMi2Q==}
@@ -7591,6 +7613,8 @@ snapshots:
   siginfo@2.0.0: {}
 
   signal-exit@4.1.0: {}
+
+  simple-icons@16.28.0: {}
 
   slash@3.0.0: {}
 

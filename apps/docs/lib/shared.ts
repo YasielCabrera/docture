@@ -4,7 +4,7 @@ export const docsRoute = "/docs";
 export const docsContentRoute = "/llms.mdx/docs";
 
 export const gitConfig = {
-  user: "powerhouse",
+  user: "YasielCabrera",
   repo: "docture",
   branch: "main",
 };

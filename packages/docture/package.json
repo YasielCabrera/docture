@@ -1,8 +1,20 @@
 {
   "name": "docture",
-  "version": "0.0.1",
-  "description": "Strongly-typed structured data extraction from any document \u2014 one import for the pipeline, the contracts and the model.",
+  "version": "0.1.0",
+  "description": "Strongly-typed structured data extraction from any document — one import for the pipeline, the contracts and the model.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YasielCabrera/docture.git",
+    "directory": "packages/docture"
+  },
+  "homepage": "https://github.com/YasielCabrera/docture#readme",
+  "bugs": {
+    "url": "https://github.com/YasielCabrera/docture/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"

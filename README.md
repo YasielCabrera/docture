@@ -328,4 +328,5 @@ a corpus needs nothing confidential.
 
 ## 📄 License
 
-MIT. `@docture/loader-mupdf` wraps AGPL-licensed `mupdf` — see that package's README.
+MIT — see [LICENSE](./LICENSE). `@docture/loader-mupdf` wraps AGPL-licensed `mupdf` — see that
+package's README.

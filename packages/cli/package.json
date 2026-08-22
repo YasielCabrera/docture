@@ -1,8 +1,20 @@
 {
   "name": "@docture/cli",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "The docture command line — extract, classify, inspect and score documents without writing a script.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YasielCabrera/docture.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/YasielCabrera/docture/tree/main/packages/cli#readme",
+  "bugs": {
+    "url": "https://github.com/YasielCabrera/docture/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"

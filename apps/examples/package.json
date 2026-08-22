@@ -1,6 +1,6 @@
 {
   "name": "@docture/examples",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "description": "A browsable tour of every docture feature, on real documents.",
   "type": "module",
