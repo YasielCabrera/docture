@@ -1,0 +1,56 @@
+{
+  "name": "@docture/cli",
+  "version": "0.0.1",
+  "description": "The docture command line — extract, classify, inspect and score documents without writing a script.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "docture": "./dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/bin.js",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@docture/core": "workspace:*",
+    "@docture/eval": "workspace:*",
+    "@docture/llm": "workspace:*",
+    "@docture/loader-pdfjs": "workspace:*",
+    "ai": "7.0.51"
+  },
+  "optionalDependencies": {
+    "@docture/raster-canvas": "workspace:*"
+  },
+  "devDependencies": {
+    "@docture/raster-canvas": "workspace:*",
+    "@docture/testing": "workspace:*",
+    "@types/node": "^24.13.3",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10",
+    "zod": "4.4.3"
+  },
+  "keywords": [
+    "cli",
+    "pdf",
+    "extraction",
+    "structured-data",
+    "llm",
+    "docture"
+  ]
+}

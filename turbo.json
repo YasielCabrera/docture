@@ -1,0 +1,35 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "stream",
+  "globalDependencies": ["tsconfig.base.json"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "shared/**", "*/index.ts", "tsconfig.json", "package.json", "content/**", "app/**", "lib/**", "components/**"],
+      // dist/** for the libraries; .next/** and .source/** for the docs app.
+      "outputs": ["dist/**", "*.tsbuildinfo", ".next/**", "!.next/cache/**", ".source/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "test/**", "shared/**", "*/*.ts", "tsconfig*.json", "package.json", "content/**", "app/**", "lib/**", "components/**"],
+      // `tsc -p tsconfig.test.json` is noEmit — the result is the exit code.
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "test/**", "shared/**", "*/*.ts", "vitest.config.ts", "package.json"],
+      "outputs": [],
+      "env": ["RUN_LLM", "RUN_OCR"]
+    },
+    "lint": {
+      "inputs": ["src/**", "test/**", "shared/**", "*/*.ts"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

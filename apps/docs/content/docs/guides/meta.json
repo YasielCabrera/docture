@@ -1,0 +1,12 @@
+{
+  "title": "Guides",
+  "pages": [
+    "with-a-model",
+    "without-a-model",
+    "scanned-documents",
+    "long-documents",
+    "custom-loader",
+    "measuring-accuracy",
+    "cli"
+  ]
+}

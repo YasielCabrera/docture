@@ -1,0 +1,53 @@
+{
+  "name": "@docture/examples",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A browsable tour of every docture feature, on real documents.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "fetch": "tsx shared/fetch.ts",
+    "quick-start": "tsx 01-quick-start/index.ts",
+    "contracts": "tsx 02-contracts-and-schemas/index.ts",
+    "loaders": "tsx 03-loaders-and-sources/index.ts",
+    "capabilities": "tsx 04-capabilities-and-composition/index.ts",
+    "plugins": "tsx 05-your-own-plugins/index.ts",
+    "fallback": "tsx 06-fallback-routing-and-errors/index.ts",
+    "model": "tsx 07-with-a-model/index.ts",
+    "long": "tsx 08-long-documents/index.ts",
+    "scanned": "tsx 09-scanned-and-ocr/index.ts",
+    "classify": "tsx 10-classification/index.ts",
+    "bundles": "tsx 11-bundles-and-splitting/index.ts",
+    "accuracy": "tsx 12-accuracy-and-batch/index.ts",
+    "internals": "tsx 13-under-the-hood/index.ts",
+    "cli": "tsx 15-cli/index.ts",
+    "offline": "pnpm quick-start && pnpm contracts && pnpm loaders && pnpm capabilities && pnpm plugins && pnpm fallback && pnpm long && pnpm classify && pnpm bundles && pnpm accuracy && pnpm internals",
+    "all": "pnpm offline && pnpm model && pnpm scanned && pnpm cli",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "clean": "rm -rf documents *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@docture/cli": "workspace:*",
+    "@docture/core": "workspace:*",
+    "@docture/eval": "workspace:*",
+    "@docture/llm": "workspace:*",
+    "@docture/loader-mupdf": "workspace:*",
+    "@docture/loader-paddleocr": "workspace:*",
+    "@docture/loader-pdfjs": "workspace:*",
+    "@docture/loader-tesseract": "workspace:*",
+    "@docture/raster-canvas": "workspace:*",
+    "@docture/testing": "workspace:*",
+    "docture": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "ai": "7.0.51",
+    "tsx": "4.20.6",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10",
+    "zod": "4.4.3"
+  }
+}

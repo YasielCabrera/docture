@@ -1,0 +1,47 @@
+{
+  "name": "@docture/loader-mupdf",
+  "version": "0.0.1",
+  "description": "MuPdfLoader and MuPdfRasterizer — text, geometry and page rendering for docture, powered by mupdf (MuPDF WASM). Note: mupdf is AGPL-3.0-or-later.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@docture/core": "workspace:*",
+    "mupdf": "1.28.0"
+  },
+  "devDependencies": {
+    "@docture/testing": "workspace:*",
+    "@types/node": "^24.13.3",
+    "@types/pdfkit": "^0.17.6",
+    "pdfkit": "0.19.1",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  },
+  "keywords": [
+    "pdf",
+    "mupdf",
+    "wasm",
+    "text-extraction",
+    "rasterize",
+    "docture"
+  ]
+}

@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Next.js (apps/docs)
+.next/
+next-env.d.ts
+
+# Turborepo
+.turbo/
+
+# Caches produced at runtime
+.docture-cache/
+.models/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Test artifacts
+coverage/
+*.local.*
+# Scratch directories the CLI tests write configs and fixtures into.
+packages/cli/test/.tmp/
+
+# Fumadocs generated content index
+.source/

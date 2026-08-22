@@ -1,0 +1,49 @@
+{
+  "name": "@docture/llm",
+  "version": "0.0.1",
+  "description": "LlmStrategy and VisionStrategy for docture \u2014 structured extraction through any AI SDK LanguageModel.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@docture/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "ai": "^7.0.0"
+  },
+  "devDependencies": {
+    "@docture/testing": "workspace:*",
+    "@types/node": "^24.13.3",
+    "ai": "7.0.51",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10",
+    "zod": "4.4.3",
+    "@docture/loader-pdfjs": "workspace:*"
+  },
+  "keywords": [
+    "llm",
+    "ai-sdk",
+    "extraction",
+    "structured-output",
+    "docture"
+  ]
+}

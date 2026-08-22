@@ -1,0 +1,36 @@
+{
+  "name": "docture-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Strongly-typed structured data extraction from any document.",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:watch": "vitest",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean && rm -rf node_modules/.cache/turbo",
+    "check": "turbo run typecheck test",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "turbo run build && changeset publish",
+    "docs": "turbo run dev --filter @docture/docs"
+  },
+  "devDependencies": {
+    "@changesets/cli": "2.31.1",
+    "@types/node": "^24.13.3",
+    "turbo": "2.10.8",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  },
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "tesseract.js"
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "rootDir": "."
+  },
+  // NOT `[0-9][0-9]-*/**/*.ts`: TypeScript's include globs support `*`, `?` and `**`
+  // but not character classes, so that pattern silently matched nothing and every
+  // example went untypechecked. `*/**/*.ts` covers every subdirectory; node_modules is
+  // excluded by default.
+  "include": ["*/**/*.ts"]
+}

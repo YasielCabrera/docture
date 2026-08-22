@@ -1,0 +1,23 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+
+# Workspace packages resolve to local source, never the registry.
+linkWorkspacePackages: true
+preferWorkspacePackages: true
+
+# Peer deps are declared deliberately here; do not silently install them.
+autoInstallPeers: false
+strictPeerDependencies: false
+
+# Heavy native/WASM engines are only pulled by the loader package that owns them.
+# Approving their build scripts here keeps `pnpm install` non-interactive.
+onlyBuiltDependencies:
+  - "@napi-rs/canvas"
+  - onnxruntime-node
+  - esbuild
+
+# tesseract.js is refused rather than merely unapproved — see
+# `pnpm.ignoredBuiltDependencies` in package.json, which is the location `pnpm
+# ignored-builds` reads. Its only postinstall is an Open Collective donation notice;
+# the WASM engine it actually needs is plain JavaScript and builds nothing.

@@ -1,0 +1,49 @@
+{
+  "name": "docture",
+  "version": "0.0.1",
+  "description": "Strongly-typed structured data extraction from any document \u2014 one import for the pipeline, the contracts and the model.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@docture/core": "workspace:*",
+    "@docture/llm": "workspace:*"
+  },
+  "peerDependencies": {
+    "ai": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "ai": "7.0.51",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10",
+    "zod": "4.4.3"
+  },
+  "keywords": [
+    "pdf",
+    "ocr",
+    "extraction",
+    "structured-data",
+    "llm",
+    "document-intelligence"
+  ]
+}

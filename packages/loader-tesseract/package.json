@@ -1,0 +1,45 @@
+{
+  "name": "@docture/loader-tesseract",
+  "version": "0.0.1",
+  "description": "TesseractJsLoader — OCR text and geometry for docture, powered by tesseract.js (WASM, no native binary).",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@docture/core": "workspace:*",
+    "tesseract.js": "7.0.0"
+  },
+  "devDependencies": {
+    "@docture/raster-canvas": "workspace:*",
+    "@docture/testing": "workspace:*",
+    "@types/node": "^24.13.3",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  },
+  "keywords": [
+    "ocr",
+    "tesseract",
+    "scanned",
+    "pdf",
+    "docture"
+  ]
+}

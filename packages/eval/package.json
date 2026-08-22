@@ -1,0 +1,45 @@
+{
+  "name": "@docture/eval",
+  "version": "0.0.1",
+  "description": "Field-level scoring, hallucination detection and cost reporting for docture extraction runs.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@docture/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@docture/loader-pdfjs": "workspace:*",
+    "@docture/testing": "workspace:*",
+    "@types/node": "^24.13.3",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10",
+    "zod": "4.4.3"
+  },
+  "keywords": [
+    "eval",
+    "scoring",
+    "f1",
+    "extraction",
+    "docture"
+  ]
+}

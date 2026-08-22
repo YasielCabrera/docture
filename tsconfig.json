@@ -1,0 +1,15 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/testing" },
+    { "path": "packages/loader-pdfjs" },
+    { "path": "packages/loader-mupdf" },
+    { "path": "packages/loader-tesseract" },
+    { "path": "packages/loader-paddleocr" },
+    { "path": "packages/raster-canvas" },
+    { "path": "packages/llm" },
+    { "path": "packages/eval" },
+    { "path": "packages/cli" }
+  ]
+}

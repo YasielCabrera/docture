@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "noEmit": true, "composite": false, "incremental": false },
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["test/.tmp/**"],
+  "references": [
+    { "path": "../core" },
+    { "path": "../llm" },
+    { "path": "../loader-pdfjs" },
+    { "path": "../raster-canvas" },
+    { "path": "../eval" },
+    { "path": "../testing" }
+  ]
+}
