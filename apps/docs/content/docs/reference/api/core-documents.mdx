@@ -47,7 +47,9 @@ reject the load.
 booleans, accepted `mimeTypes`, and optional custom `facts`.
 
 `DocumentLoader<C>` has a stable `name`, `capabilities`, `load(document, context)`, and
-optional `dispose()`. `LoadContext` contains `signal` and `logger`.
+optional `dispose()`. `LoadContext` contains `signal`, `logger`, and optional
+`LoadRequest`. A conversion request can set `layout` and `assets`; extraction leaves the
+request absent so custom loaders do not pay conversion-only costs.
 
 ```ts
 defineLoader<const C extends LoaderCapabilities>(
@@ -70,11 +72,18 @@ pipeline eligibility still checks the loaded document at runtime.
 name, and optional metadata. Pages in `document.text` are joined with a form feed.
 
 `LoadedPage` contains a 1-based `pageNumber`, dimensions in PDF points, page `text`,
-optional positioned `lines`, and optional lazy `image(options)`.
+optional positioned `lines`, optional `LayoutBlock` and `LoadedAsset` values, and optional
+lazy `image(options)`. `TextLayoutBlock` and `ImageLayoutBlock` share a `LayoutBox`.
+`LayoutRoleHint` carries tagged semantics when a loader can recover them.
 
 `TextLine` contains its vertical box, joined text, and left-to-right `spans`. `TextSpan`
-contains text, a top-left-origin box, and optional confidence. Coordinates use PDF points,
-with `y` increasing downward.
+contains text, a top-left-origin box, and optional confidence, `TextStyle`, direction, and
+link target. `TextStyle` can carry family, size, weight, slant, monospace, and color facts.
+Coordinates use PDF points, with `y` increasing downward.
+
+`LoadedDocument.metadata` uses `DocumentMetadata` for title, author, subject, keywords,
+language, and other loader facts. `LoadedAsset` contains stable identity, page and box
+provenance, media type, bytes, and optional pixel dimensions and alt text.
 
 `DocumentForm` is `"digital" | "scanned" | "mixed" | "unknown"`.
 `DocumentFeatures` contains media type, page and text counts, text, geometry, and rendering
@@ -94,7 +103,8 @@ also accepts custom string facts.
 
 ## Geometry helpers
 
-`PositionedWord` contains text, `[xMin, yMin, xMax, yMax]`, and optional confidence.
+`PositionedWord` contains text, `[xMin, yMin, xMax, yMax]`, and optional confidence,
+direction, style, and link target.
 
 ```ts
 linesFromWords(

@@ -18,7 +18,7 @@ Read [`pipeline.test.ts`](./pipeline.test.ts) — 13 tests, all offline, ~700ms.
 `index.ts` is a summary of what is in there and why; run it with
 `tsx 14-testing-your-pipeline/index.ts`.
 
-## Why this folder uses generated fixtures when the other fourteen do not
+## Why this folder uses generated fixtures
 
 The other examples run on real documents, downloaded, because a library that reads
 documents is only convincing on documents somebody actually issued.

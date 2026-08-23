@@ -11,9 +11,9 @@ artifacts, as noted below.
 
 | Package | Use it for | Main imports |
 | --- | --- | --- |
-| `docture` | Core and model-based extraction from one entry point | `Extractor`, `contract`, `llm`, `vision` |
-| `@docture/core` | The pipeline, contracts, deterministic components, and `Process` | `Extractor`, `DocumentLoaderData`, `defineStrategy` |
-| `@docture/llm` | Text, vision, classification, and splitting with AI SDK models | `LLM`, `llm`, `vision`, `createLlmExtractor` |
+| `docture` | Core extraction, conversion, and model features from one entry point | `Extractor`, `DocumentConverter`, `contract`, `llm`, `vision` |
+| `@docture/core` | Extraction, deterministic conversion, contracts, and `Process` | `Extractor`, `DocumentConverter`, `DocumentLoaderData`, `defineStrategy` |
+| `@docture/llm` | Text, vision, classification, splitting, and layout assistance with AI SDK models | `LLM`, `llm`, `vision`, `llmLayout` |
 | `@docture/loader-pdfjs` | PDF text and geometry with PDF.js | `DocumentLoaderPdfJs` |
 | `@docture/loader-mupdf` | PDF text, geometry, and rendering with MuPDF | `DocumentLoaderMuPdf`, `MuPdfRasterizer` |
 | `@docture/loader-tesseract` | OCR through Tesseract.js | `DocumentLoaderTesseract` |
@@ -38,6 +38,12 @@ Deterministic extraction without a model:
 
 ```package-install
 @docture/core @docture/loader-pdfjs zod
+```
+
+Deterministic PDF conversion:
+
+```package-install
+@docture/core @docture/loader-pdfjs
 ```
 
 Scanned PDFs with a vision model:
@@ -73,13 +79,13 @@ install PDF.js, MuPDF, OCR engines, canvas, ONNX Runtime, or the AI SDK runtime.
 Use the facade when an application needs both core and LLM features:
 
 ```ts
-import { Extractor, contract, llm } from "docture";
+import { DocumentConverter, Extractor, contract, llm } from "docture";
 ```
 
 Use package imports for adapters and for applications that do not need the facade:
 
 ```ts
-import { Extractor, defineStrategy } from "@docture/core";
+import { DocumentConverter, Extractor, defineStrategy } from "@docture/core";
 import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
 ```
 

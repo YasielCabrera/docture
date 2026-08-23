@@ -1,6 +1,6 @@
 # @docture/llm
 
-Structured extraction through **any AI SDK model**.
+Structured extraction and constrained layout assistance through **any AI SDK model**.
 
 ```sh
 pnpm add @docture/llm ai
@@ -42,6 +42,7 @@ and descriptions get to the provider instead of surviving a round trip through J
 | `llm(…)` / `LlmStrategy` | extract from the document's text |
 | `vision(…)` / `VisionStrategy` | extract from page images, which is what reads a scan |
 | `llmClassifier(…)` / `LlmClassifier` | decide the document kind from a cheap text excerpt |
+| `llmLayout(…)` / `LlmLayoutAnalyzer` | classify and order existing conversion elements without returning text |
 | `TextSplitter` | cut a bundle by reading the page text |
 | `ImageSplitter` | cut a bundle by looking at the pages, so it needs a rasterizer |
 | `createLlmExtractor(…)` | the terse wiring for the common case |

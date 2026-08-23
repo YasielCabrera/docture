@@ -1,5 +1,5 @@
 /**
- * @docture/core — strongly-typed structured data extraction from any document.
+ * @docture/core — strongly typed extraction and grounded document conversion.
  *
  * THIS FILE IS THE SUPPORTED API. It is deliberately small, and an export-surface
  * test asserts the exact list — widening it is a decision, not a side effect.
@@ -22,6 +22,43 @@ export type {
   ExtractorOptions,
   SafeExtraction,
 } from "./extractor.js";
+
+/** Deterministic document conversion with optional constrained layout assistance. */
+export { DocumentConverter, createDocumentConverter } from "./converter.js";
+export type { DocumentConverterOptions } from "./converter.js";
+export type {
+  CodeElement,
+  ConversionAsset,
+  ConversionAssetMode,
+  ConversionBatchItem,
+  ConversionBatchOptions,
+  ConversionFormat,
+  ConversionResult,
+  ConversionWarning,
+  ConversionWarningCode,
+  ConvertedPage,
+  ConvertOptions,
+  DocumentElement,
+  ElementProvenance,
+  FigureElement,
+  HeadingElement,
+  InlineText,
+  LayoutDocument,
+  LayoutPage,
+  ListElement,
+  PageBreakElement,
+  ParagraphElement,
+  SafeConversion,
+  TableElement,
+} from "./domain/conversion.js";
+export { defineLayoutAnalyzer } from "./contracts/layout-analyzer.js";
+export type {
+  LayoutAnalysis,
+  LayoutAnalyzer,
+  LayoutAnalyzerContext,
+  LayoutAnnotation,
+  LayoutElementRole,
+} from "./contracts/layout-analyzer.js";
 
 /** Extracting a bundle that holds more than one document. */
 export { Process } from "./process.js";
@@ -72,15 +109,24 @@ export type {
   GeometryLoader,
   ImageLoader,
   LoadContext,
+  LoadRequest,
   LoaderCapabilities,
   TextLoader,
 } from "./contracts/loader.js";
 export type {
+  DocumentMetadata,
+  ImageLayoutBlock,
+  LayoutBlock,
+  LayoutBox,
+  LayoutRoleHint,
+  LoadedAsset,
   LoadedDocument,
   LoadedPage,
   LoadedSource,
   TextLine,
+  TextLayoutBlock,
   TextSpan,
+  TextStyle,
 } from "./domain/geometry.js";
 
 /**
@@ -179,6 +225,7 @@ export {
   DuplicateComponentError,
   ExtractionFailedError,
   LoadFailedError,
+  NoConvertibleContentError,
   NoEligibleLoaderError,
   NoEligibleStrategyError,
   DoctureError,

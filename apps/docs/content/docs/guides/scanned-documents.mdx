@@ -96,8 +96,9 @@ Use one of these setups:
 - Use an OCR loader as the PDF loader.
 - Wrap the text-layer loader so it throws when `form` is `scanned`, then list OCR next.
 
-Failed loader attempts are available only when loading fails. A successful result reports
-the winning loader through `result.loader`.
+When a later loader succeeds, failed loader attempts appear in `result.attempts`. The
+successful loader appears in `result.loader`. If every eligible loader fails,
+`LoadFailedError.attempts` contains all loader failures.
 
 ## Mixed documents
 

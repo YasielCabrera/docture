@@ -118,7 +118,7 @@ const splitter = defineSplitter({
 groups. Implement optional `splitEager()` when the whole bundle can be classified in one
 request.
 
-## Test loaders and rasterizers
+## Test PDF loaders and rasterizers
 
 ```ts
 import {
@@ -127,15 +127,19 @@ import {
 } from "@docture/testing";
 
 describeLoaderConformance({
-  name: "CsvLoader",
-  create: () => csvLoader,
-  skip: { geometry: true, images: true, multiPage: true },
+  name: "AcmePdfLoader",
+  create: () => new AcmePdfLoader(),
+  skip: { geometry: true, images: true },
 });
 ```
 
-The suites check shared behavior such as page numbering, text consistency, image format,
-scaling, aborts, and disposal. Use skip flags only for capabilities the component does not
-claim.
+`describeLoaderConformance()` is for PDF loaders. It passes generated PDF invoices to the
+loader and checks PDF acceptance, text, page numbering, optional geometry and images,
+aborts, and disposal. It is not suitable for the CSV loader above. Test a non-PDF loader
+with fixtures in the media types it accepts.
+
+`describeRasterizerConformance()` likewise tests rasterizers with PDF input. Use skip flags
+only for optional behavior a PDF loader does not claim.
 
 ## Complete example
 

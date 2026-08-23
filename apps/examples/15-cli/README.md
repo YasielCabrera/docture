@@ -40,7 +40,7 @@ docture extract documents/invoice-odoo.pdf --config 15-cli/docture.config.ts
 
 A config file hands you **the actual library** rather than a description of it — your
 loaders, your strategies, your model instance, constructed by your imports. The CLI is a
-shell over the same API the other fourteen examples use, not a lesser interface with its
+shell over the same API the other examples use, not a lesser interface with its
 own ideas about what is possible.
 
 Anything on the command line still wins over the config: a config is a default, never an

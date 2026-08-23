@@ -24,8 +24,9 @@ ordered `FieldResult` values. `FieldStatus` is `match`, `mismatch`, `omission`, 
 `hallucination`. Each `FieldResult` contains the dotted field path, status, expected value,
 and actual value.
 
-The scorer is synchronous and does not throw for ordinary differences. Invalid dates or
-non-numeric values simply fail their comparison.
+The scorer is synchronous and does not throw for ordinary differences. Date-shaped values
+that both parse are compared by UTC day. Otherwise strings use the normal string
+comparison. A non-numeric value compared with a number does not match.
 
 ```ts
 failures(score: Score): readonly FieldResult[]

@@ -10,7 +10,7 @@ import type { RawDocument } from "../domain/document.js";
 import type { LoadedDocument } from "../domain/geometry.js";
 import type { Logger } from "../domain/logger.js";
 import type { Attempt } from "../domain/result.js";
-import type { DocumentLoader } from "../contracts/loader.js";
+import type { DocumentLoader, LoadRequest } from "../contracts/loader.js";
 import { withDeadline } from "./deadline.js";
 import { eligibleLoaders } from "./eligibility.js";
 import {
@@ -47,6 +47,7 @@ export async function loadDocument(
   logger: Logger,
   signal: AbortSignal,
   stageTimeoutMs: number | undefined,
+  request?: LoadRequest,
 ): Promise<ReadDocument> {
   const mimeType = raw.mimeType ?? "application/octet-stream";
   const { eligible, gaps } = eligibleLoaders(loaders, mimeType);
@@ -65,6 +66,7 @@ export async function loadDocument(
       const document = await loader.load(raw, {
         signal: deadline.signal,
         logger: logger.child({ loader: loader.name }),
+        ...(request === undefined ? {} : { request }),
       });
       attempts.push({ strategy: loader.name, status: "ok", ms: Date.now() - started });
       return { document, loader, attempts };

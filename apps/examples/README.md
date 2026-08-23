@@ -7,7 +7,7 @@ pnpm --filter @docture/examples fetch      # ~2 MB, once
 pnpm --filter @docture/examples quick-start
 ```
 
-Nine of the fifteen need no API key at all, and two more run most of the way without one.
+Ten of the sixteen need no API key at all, and two more run most of the way without one.
 Open a folder, read its `index.ts` top to bottom, run it, and the output tells you what
 happened and why.
 
@@ -20,7 +20,7 @@ happened and why.
 | 03 | [loaders-and-sources](03-loaders-and-sources) | pdf.js vs MuPDF, text documents, every `DocumentSource`, `pages` | — |
 | 04 | [capabilities-and-composition](04-capabilities-and-composition) | typed capabilities, `withRasterizer`, lazy page images | — |
 | 05 | [your-own-plugins](05-your-own-plugins) | `defineStrategy`, `defineLoader`, `defineRasterizer` | — |
-| 06 | [fallback-routing-and-errors](06-fallback-routing-and-errors) | eleven layouts, two parsers, ten typed errors, timeouts | — |
+| 06 | [fallback-routing-and-errors](06-fallback-routing-and-errors) | eleven layouts, two parsers, eleven typed errors, timeouts | — |
 | 07 | [with-a-model](07-with-a-model) | the AI SDK seam, prompts, caching, cost | key |
 | 08 | [long-documents](08-long-documents) | completion strategies, chunking, merging | key¹ |
 | 09 | [scanned-and-ocr](09-scanned-and-ocr) | no text layer, OCR as a loader, vision | key / `RUN_OCR=1`¹ |
@@ -30,6 +30,7 @@ happened and why.
 | 13 | [under-the-hood](13-under-the-hood) | config-driven wiring, read-once, `runPipeline` | — |
 | 14 | [testing-your-pipeline](14-testing-your-pipeline) | doubles, fixtures, conformance, mocking a model | — |
 | 15 | [cli](15-cli) | `inspect`, `extract`, `classify`, `eval`, a config file | —² |
+| 16 | [document-conversion](16-document-conversion) | `DocumentConverter`, TXT/Markdown/HTML, assets, provenance | — |
 
 ¹ Part of the example runs without a key; the rest says what it would have done and skips.
 ² `extract` and `classify` work keyless through the config file in that folder.
@@ -52,7 +53,7 @@ pnpm --filter @docture/examples test      # 41 tests, ~1s
    regular expressions.
 
    The files still run 120–480 lines, because each one covers a whole concept rather than
-   a single call — that is the deliberate choice behind fifteen folders instead of forty.
+   a single call. That is the deliberate choice behind sixteen folders instead of forty.
    A fifth to two fifths of every file is comment, and the comments are the teaching.
 4. **Print the mechanism, not just the answer.** Which strategy answered, what was tried
    first and why it failed, how many requests, how many renders, what it cost. The output
@@ -117,7 +118,7 @@ gap, it is a gap.
 | `DocumentLoaderPdfJs`/`MuPdf`/`Data`, `DocumentSource`, `resolveSource`, `sniffMimeType`, `DocumentFeatures`, `inferForm`, `loaderAccepts` | 03 |
 | `LoaderCapabilities`, `withRasterizer`, `Rasterizer`, `RasterOptions`, both rasterizers, `hasFact` | 04 |
 | `defineStrategy`, `defineLoader`, `defineRasterizer`, `linesFromWords`, `textFromLines`, `imageSize` | 05 |
-| `RoutingPolicy`, `declarationOrder`, `only`, all ten `DoctureError`s, `errorCodeOf`, `isAbortError`, `Logger` | 06 |
+| `RoutingPolicy`, `declarationOrder`, `only`, all eleven `DoctureError`s, `errorCodeOf`, `isAbortError`, `Logger` | 06 |
 | `LLM`, `llm`, `LlmStrategy`, `createLlmExtractor`, prompt exports, cache exports, pricing exports | 07 |
 | `CompletionStrategy`, `chunkByPage`, `chunkByBudget`, `estimateTokens`, `mergePartials`, `relaxJsonSchema` | 08 |
 | `VisionStrategy`, `DocumentLoaderTesseract`, `DocumentLoaderPaddleOcr`, `PADDLE_MODELS` | 09 |
@@ -127,6 +128,7 @@ gap, it is a gap.
 | `runPipeline`, `loadDocument`, `PipelineComponents`, `preloadedFeatures`, `isLoadedSource`, `components` | 13 |
 | all `@docture/testing`, `MockLanguageModelV4` | 14 |
 | `@docture/cli` | 15 |
+| `DocumentConverter`, conversion types, layout types, `LlmLayoutAnalyzer`, rich conversion fixture | 16 |
 
 ## Tests
 

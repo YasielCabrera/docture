@@ -36,6 +36,9 @@ reproducible on every machine.
 
 `textless: true` produces a page of vector marks only, the stand-in for a scan.
 
+`makeRichDocumentPdf()` produces a two-page conversion fixture with columns, typography,
+a list, table, link, code, and embedded raster image.
+
 ## Also
 
 `inMemoryLoader`, `loadedDocument`, `fixedStrategy`, `failingStrategy` are doubles for testing

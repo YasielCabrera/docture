@@ -39,6 +39,13 @@ export interface LoaderCapabilities<
 export interface LoadContext {
   readonly signal: AbortSignal;
   readonly logger: Logger;
+  /** Optional conversion-only data. A loader may ignore fields it cannot provide. */
+  readonly request?: LoadRequest;
+}
+
+export interface LoadRequest {
+  readonly layout?: boolean;
+  readonly assets?: boolean;
 }
 
 export interface DocumentLoader<C extends LoaderCapabilities = LoaderCapabilities> {

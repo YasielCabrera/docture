@@ -1,6 +1,7 @@
 # @docture/core
 
-The contracts, the pipeline, and the typed errors. Bring your own loader and your own model.
+Extraction contracts, grounded document conversion, pipeline orchestration, and typed
+errors. Bring your own loader and model.
 
 ```sh
 pnpm add @docture/core
@@ -33,6 +34,11 @@ from one object, for wiring that comes from a config file.
 **`Extractor`.** The composition root, fluent or declarative. It owns its components and
 disposes them once. `extract` returns the envelope, `extractData` the fields alone,
 `safeExtract` a discriminated union, `extractBatch` an async generator.
+
+**`DocumentConverter`.** The extraction peer for deterministic TXT, Markdown, and HTML.
+It returns page fragments, semantic elements, provenance, warnings, and in-memory raster
+assets. Optional model assistance can classify and order existing IDs but cannot return
+text.
 
 **`Process`.** A bundle of several documents: read once, cut, extract each. Returns a
 discriminated union, so narrowing on `name` narrows `data`.
@@ -80,6 +86,7 @@ as Zod's `parse` / `safeParse`.
 |---|---|
 | `NO_ELIGIBLE_LOADER` | nothing accepts this media type, so it is a wiring gap |
 | `LOAD_FAILED` | every eligible loader threw |
+| `NO_CONVERTIBLE_CONTENT` | the selected loader recovered no indexable text |
 | `NO_ELIGIBLE_STRATEGY` | the document loaded, but nothing wired can read it (carries `features`) |
 | `EXTRACTION_FAILED` | every eligible strategy ran and threw (carries `attempts`) |
 | `CONTRACT_VIOLATION` | a strategy produced data the schema rejects (carries `issues`) |

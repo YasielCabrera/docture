@@ -329,6 +329,9 @@ importers:
         specifier: 1.28.0
         version: 1.28.0
     devDependencies:
+      '@docture/loader-pdfjs':
+        specifier: workspace:*
+        version: link:../loader-pdfjs
       '@docture/testing':
         specifier: workspace:*
         version: link:../testing

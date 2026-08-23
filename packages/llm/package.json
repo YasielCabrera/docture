@@ -1,7 +1,7 @@
 {
   "name": "@docture/llm",
   "version": "0.1.0",
-  "description": "LlmStrategy and VisionStrategy for docture — structured extraction through any AI SDK LanguageModel.",
+  "description": "Model strategies for Docture extraction, classification, splitting, vision, and constrained layout assistance.",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -1,0 +1,145 @@
+---
+title: Convert documents
+description: Recover grounded PDF text and layout as TXT, Markdown, or HTML.
+---
+
+`DocumentConverter` turns the same loaded document used for extraction into indexable
+text, Markdown, or HTML. It does not ask for a schema and it does not paraphrase source
+text.
+
+<SourceExample file="document-conversion.ts" title="convert-document.ts" />
+
+The default format is Markdown. The default asset mode is `referenced`, so image bytes
+stay in `result.assets` and the Markdown points at stable relative names.
+
+## Digital and scanned PDFs
+
+A PDF with a text layer needs only a PDF loader:
+
+```ts
+const converter = new DocumentConverter()
+  .loadDocumentLoader(new DocumentLoaderPdfJs());
+
+const result = await converter.convert("report.pdf");
+```
+
+The default CLI loader is also PDF.js. A scanned PDF has no text layer, so PDF.js returns
+no convertible content and conversion throws `NoConvertibleContentError`. Configure an
+OCR loader explicitly when scans are expected:
+
+```ts
+const converter = new DocumentConverter()
+  .loadDocumentLoader(new DocumentLoaderTesseract({
+    rasterizer: new NapiCanvasRasterizer({ dpi: 300 }),
+    languages: ["eng"],
+  }));
+```
+
+Tesseract reads image files directly. The rasterizer in this example is what lets the
+same OCR loader accept PDF input.
+
+Conversion does not switch loaders or OCR modes after a loader succeeds. This keeps the
+loader choice, cost, and recovered text visible.
+
+## Output formats
+
+```ts
+await converter.convert(source, { format: "text" });
+await converter.convert(source, { format: "markdown" });
+await converter.convert(source, { format: "html" });
+```
+
+- TXT joins pages with form feeds and adds no image placeholders.
+- Markdown uses CommonMark, GFM tables, and `<!-- page: N -->` markers.
+- HTML is a complete escaped HTML5 document. Each page is a numbered `section`.
+
+All three formats read the same semantic elements. Headings, paragraphs, lists, tables,
+code, figures, and page breaks retain page and bounding-box provenance.
+
+## Assets
+
+`assets` accepts `referenced`, `embedded`, or `omit`:
+
+```ts
+const referenced = await converter.convert(source, { assets: "referenced" });
+const embedded = await converter.convert(source, { assets: "embedded" });
+const textOnly = await converter.convert(source, { assets: "omit" });
+```
+
+Referenced output uses stable relative names such as
+`report.assets/page-1-image-1.png`. `result.assets` carries each name, media type,
+position, and `Uint8Array` value. Embedded Markdown and HTML use data URLs. Omit mode
+does not ask the loader for asset bytes.
+
+V1 copies embedded raster figures. It does not reconstruct vector art or produce a
+pixel-matched HTML rendering of the page.
+
+## Deterministic and model-assisted layout
+
+Core first applies deterministic reading-order and structure rules using tagged hints,
+geometry, and typography. Uncertain structures remain paragraphs. It does not
+dehyphenate text, remove headers or footers, generate captions, or change substantive
+characters.
+
+Optional model assistance can refine roles and ordering:
+
+```ts
+const converter = new DocumentConverter()
+  .loadDocumentLoader(new DocumentLoaderPdfJs())
+  .loadLlm(new LLM(openai("gpt-5")));
+```
+
+The model response schema contains element IDs, roles, levels, and order only. It has no
+text field. Core rejects unknown IDs, duplicate IDs, and invalid order permutations. A
+failed or invalid response leaves deterministic conversion in place and adds a warning
+and failed attempt.
+
+## Serverless and in-memory use
+
+The library never writes files:
+
+```ts
+const result = await converter.convert(pdfBytes, {
+  format: "html",
+  assets: "embedded",
+});
+
+return new Response(result.content, {
+  headers: { "content-type": result.mimeType },
+});
+```
+
+This works in a request handler, queue worker, or indexing job without a temporary output
+directory. Chunking, embeddings, and index writes remain application concerns.
+
+## Result provenance
+
+`ConversionResult` contains whole-document `content`, MIME type, page fragments,
+semantic elements, in-memory assets, loader and method names, document features,
+attempts, warnings, model usage, and wall time.
+
+```ts
+for (const page of result.pages) {
+  for (const element of page.elements) {
+    console.log(element.kind, element.provenance.pageNumber, element.provenance.box);
+  }
+}
+```
+
+Use `safeConvert()` for a non-throwing result and `convertBatch()` for bounded parallel
+conversion. Call `dispose()` when the converter owns loaders or a model analyzer.
+
+## CLI
+
+The CLI always requires an output directory:
+
+```sh
+docture convert reports/*.pdf --out converted/
+docture convert report.pdf -o converted/ --format html --assets embedded
+docture convert report.pdf -o converted/ --assist-layout --model openai/gpt-5
+```
+
+It writes `<out>/<stem>.md`, `.html`, or `.txt`. Referenced assets go under
+`<out>/<stem>.assets/`. Basename collisions are rejected before any document is loaded.
+In a batch, successful outputs remain on disk if another input fails, and the process
+returns exit code `1`.

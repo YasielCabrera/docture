@@ -28,10 +28,11 @@ try {
 | --- | --- | --- | --- |
 | `NO_ELIGIBLE_LOADER` | `NoEligibleLoaderError` | `mimeType`, `gaps` | No configured loader accepts the media type. Add or configure a loader. |
 | `LOAD_FAILED` | `LoadFailedError` | `attempts` | Every eligible loader failed. Inspect its loader attempts for corrupt, encrypted, or unsupported input. |
+| `NO_CONVERTIBLE_CONTENT` | `NoConvertibleContentError` | `features` | The selected loader returned no indexable text. Configure an OCR loader explicitly for a scan. |
 | `NO_ELIGIBLE_STRATEGY` | `NoEligibleStrategyError` | `features`, `gaps` | The document loaded, but no requested strategy satisfies its runtime requirements. Add a suitable strategy or rasterizer. |
 | `EXTRACTION_FAILED` | `ExtractionFailedError` | `attempts` | Every eligible strategy failed. The attempts contain each strategy error and code. |
 | `CONTRACT_VIOLATION` | `ContractViolationError` | `strategy`, `issues` | Strategy output did not pass the requested schema. Adjust the schema, parser, or prompt. |
-| `UNSUPPORTED_SOURCE` | `UnsupportedSourceError` | `cause` when supplied | The source cannot be read, fetched, or interpreted. Check the protocol, response, and bytes. |
+| `UNSUPPORTED_SOURCE` | `UnsupportedSourceError` | `cause` when supplied | The source uses an unsupported protocol, an HTTP request failed, the input is empty, or a loaded source was passed to `resolveSource()`. |
 | `TIMEOUT` | `TimeoutError` | `stage`, `ms` | A library-owned stage deadline elapsed. A later loader or strategy may still run. |
 | `DUPLICATE_COMPONENT` | `DuplicateComponentError` | no additional public fields | Two registered components share a name. Rename or remove one component. |
 | `SPLIT_FAILED` | `SplitFailedError` | `reason`, `gaps` | Splitting was not configured or the splitter requirements were not met. |
@@ -43,6 +44,7 @@ try {
 abstract class DoctureError extends Error
 new NoEligibleLoaderError(mimeType: string, gaps: readonly Ineligibility[])
 new LoadFailedError(attempts: readonly Attempt[])
+new NoConvertibleContentError(features: DocumentFeatures)
 new NoEligibleStrategyError(features: DocumentFeatures, gaps: readonly Ineligibility[])
 new ExtractionFailedError(attempts: readonly Attempt[])
 new ContractViolationError(strategy: string, issues: readonly ValidationIssue[])
@@ -62,8 +64,10 @@ new UnclassifiedGroupError(
 
 ## Loader and strategy attempts
 
-`LoadFailedError.attempts` contains loader attempts. A successful
-`ExtractionResult.attempts` and extraction errors contain strategy attempts only.
+`LoadFailedError.attempts` contains every eligible loader failure when loading never
+succeeds. After loader fallback succeeds, `ExtractionResult.attempts` contains the failed
+loaders followed by the strategy attempts. The successful loader is recorded only in
+`result.loader`.
 
 ```ts
 try {
@@ -78,8 +82,10 @@ try {
 ```
 
 An `Attempt` has `strategy`, `status`, elapsed `ms`, and optional `error`, `errorCode`,
-and `usage`. The field is named `strategy` for both pipeline stages for compatibility;
-on `LoadFailedError`, it contains the loader name.
+and `usage`. The field is named `strategy` for both pipeline stages for compatibility. On
+a loader attempt, it contains the loader name. `ExtractionFailedError.attempts` contains
+strategy attempts only. `ContractViolationError` exposes the first invalid strategy and
+its issues, not the full attempt history.
 
 A strategy that returns invalid data records a failed strategy attempt. Core continues
 to the next strategy. If no strategy succeeds, the first validation failure is raised as
@@ -91,8 +97,9 @@ to the next strategy. If no strategy succeeds, the first validation failure is r
 A caller abort is not wrapped in `DoctureError`. It propagates and stops fallback. This
 includes an `AbortError` and a caller-provided `AbortSignal.timeout()` error.
 
-A `TimeoutError` is created by `stageTimeoutMs`. It records a failed stage and allows the
-next eligible loader or strategy to run.
+A `TimeoutError` is created by `stageTimeoutMs`. Loader and strategy deadlines record a
+failed attempt and allow fallback. A classifier deadline is recorded as an abstaining
+signal so the remaining classifiers can run.
 
 Use `isAbortError(error)` to recognize caller aborts. Use `errorCodeOf(error)` to read a
 Docture code without an `instanceof` chain. `messageOf(error)` returns an error message

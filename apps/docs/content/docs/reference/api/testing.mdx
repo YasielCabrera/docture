@@ -12,6 +12,8 @@ suites.
 buildInvoiceData(options?: InvoiceOptions): SyntheticInvoice
 makeInvoicePdf(options?: InvoiceOptions): Promise<SyntheticDocument<SyntheticInvoice>>
 formatMoney(value: number): string
+makeRichDocumentPdf(): Promise<SyntheticDocument<RichDocumentExpected>>
+richDocumentExpected(): RichDocumentExpected
 ```
 
 `InvoiceOptions` has `seed`, `lineItemCount`, and `textless`. Defaults are seed `1`, five
@@ -23,8 +25,13 @@ creates a PDF without text for scan behavior tests.
 subtotal, tax rate, tax, and total. `SyntheticLineItem` contains description, quantity,
 unit price, and amount.
 
-`formatMoney()` returns a two-decimal, US-formatted string. The generators reject only on
-PDFKit stream or allocation failures.
+`formatMoney()` returns a two-decimal, US-formatted string. `buildInvoiceData()` and
+`formatMoney()` are synchronous. `makeInvoicePdf()` is asynchronous and rejects if PDF
+generation fails.
+
+`makeRichDocumentPdf()` produces a deterministic two-page fixture with multiple columns,
+typography, a list, table, link, code block, and embedded raster image.
+`RichDocumentExpected` contains each source string and structural expectation.
 
 ## Test doubles
 
@@ -52,11 +59,12 @@ describeRasterizerConformance(options: RasterizerConformanceOptions): void
 ```
 
 `LoaderConformanceOptions` requires a suite `name` and a fresh loader `create` function.
-Its optional `skip` object can skip geometry, images, multi-page, or scanned checks when a
-loader does not claim that behavior.
+The suite is specific to PDF loaders. It asserts `application/pdf` acceptance and reads
+generated invoice PDFs. Its optional `skip` object can skip geometry, images, multi-page,
+or scanned checks when a PDF loader does not claim that behavior.
 
 `RasterizerConformanceOptions` requires a suite `name` and fresh rasterizer `create`
-function.
+function. The suite renders generated PDFs.
 
 The functions register Vitest suites and return `void`. Test failures are reported by
 Vitest. Create functions may return a component or a promise.

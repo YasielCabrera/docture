@@ -24,11 +24,13 @@ import type {
   Classifier,
   CompletionStrategy,
   ExtractionStrategy,
+  LayoutAnalyzer,
   ModelBackend,
   Splitter,
 } from "@docture/core";
 import type { LlmCache } from "./cache.js";
 import { LlmClassifier, type LlmClassifierOptions } from "./classifier.js";
+import { LlmLayoutAnalyzer, type LlmLayoutAnalyzerOptions } from "./layout.js";
 import type { PricingTable } from "./pricing.js";
 import { ImageSplitter, TextSplitter, type SplitterOptions } from "./split.js";
 import { LlmStrategy, modelIdOf, type LlmStrategyOptions } from "./strategy.js";
@@ -56,6 +58,8 @@ export interface LlmOptions {
   readonly vision?: Shared<VisionStrategyOptions>;
   /** Overrides for the classifier. */
   readonly classifier?: Shared<LlmClassifierOptions>;
+  /** Overrides for conversion layout assistance. */
+  readonly layout?: Shared<LlmLayoutAnalyzerOptions>;
   /** Overrides for the splitter, and which kind to build. */
   readonly splitter?: Shared<SplitterOptions> & { readonly mode?: "text" | "image" };
 }
@@ -106,6 +110,10 @@ export class LLM implements ModelBackend {
 
   classifier(): Classifier {
     return new LlmClassifier({ ...this.#shared, ...this.#options.classifier });
+  }
+
+  layout(): LayoutAnalyzer {
+    return new LlmLayoutAnalyzer({ ...this.#shared, ...this.#options.layout });
   }
 
   /**

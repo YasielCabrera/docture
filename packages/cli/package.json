@@ -1,7 +1,7 @@
 {
   "name": "@docture/cli",
   "version": "0.1.0",
-  "description": "The docture command line — extract, classify, inspect and score documents without writing a script.",
+  "description": "The Docture command line for extraction, PDF conversion, classification, inspection, and evaluation.",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -1,7 +1,7 @@
 {
   "name": "@docture/loader-mupdf",
   "version": "0.1.0",
-  "description": "MuPdfLoader and MuPdfRasterizer — text, geometry and page rendering for docture, powered by mupdf (MuPDF WASM). Note: mupdf is AGPL-3.0-or-later.",
+  "description": "MuPDF loader and rasterizer for Docture extraction and conversion. MuPDF is AGPL-3.0-or-later.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -41,6 +41,7 @@
     "mupdf": "1.28.0"
   },
   "devDependencies": {
+    "@docture/loader-pdfjs": "workspace:*",
     "@docture/testing": "workspace:*",
     "@types/node": "^24.13.3",
     "@types/pdfkit": "^0.17.6",
@@ -53,6 +54,7 @@
     "mupdf",
     "wasm",
     "text-extraction",
+    "pdf-conversion",
     "rasterize",
     "docture"
   ]

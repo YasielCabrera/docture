@@ -180,6 +180,56 @@ export const EXTRACT: CommandSpec = {
   ],
 };
 
+export const CONVERT: CommandSpec = {
+  name: "convert",
+  summary: "Convert PDFs to TXT, Markdown, or HTML",
+  args: "<file...>",
+  description:
+    "Recovers grounded document text and layout for indexing and RAG. Outputs and\n" +
+    "referenced images are written beneath the required --out directory.",
+  flags: [
+    {
+      name: "out",
+      type: "string",
+      short: "o",
+      placeholder: "<directory>",
+      describe: "Output directory. Required",
+    },
+    {
+      name: "format",
+      type: "string",
+      placeholder: "<fmt>",
+      describe: "md | html | txt",
+      defaultLabel: "md",
+    },
+    {
+      name: "assets",
+      type: "string",
+      placeholder: "<mode>",
+      describe: "referenced | embedded | omit",
+      defaultLabel: "referenced",
+    },
+    {
+      name: "assist-layout",
+      type: "boolean",
+      describe: "Use --model to refine roles and reading order without changing text",
+    },
+    { name: "timeout", type: "string", placeholder: "<ms>", describe: "Per-stage deadline. Omit for none" },
+    { name: "concurrency", type: "string", placeholder: "<n>", describe: "Documents in flight at once", defaultLabel: "4" },
+    ...MODEL,
+    ...COMMON,
+  ],
+  examples: [
+    "docture convert report.pdf --out converted/",
+    "docture convert corpus/*.pdf -o converted/ --format html --assets embedded",
+    "docture convert report.pdf -o converted/ --assist-layout -m openai/gpt-5",
+  ],
+  notes: [
+    "The default PDF.js loader reads digital PDFs. Configure an OCR loader explicitly for scans.",
+    "Model assistance can classify and reorder known elements, but its schema contains no text field.",
+  ],
+};
+
 export const CLASSIFY: CommandSpec = {
   name: "classify",
   summary: "Decide what kind of document this is, without extracting",
@@ -285,7 +335,7 @@ export const EVAL: CommandSpec = {
   ],
 };
 
-export const COMMANDS: readonly CommandSpec[] = [EXTRACT, CLASSIFY, INSPECT, EVAL];
+export const COMMANDS: readonly CommandSpec[] = [EXTRACT, CONVERT, CLASSIFY, INSPECT, EVAL];
 
 export function findCommand(name: string): CommandSpec | undefined {
   return COMMANDS.find((c) => c.name === name);

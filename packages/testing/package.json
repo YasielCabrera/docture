@@ -1,7 +1,7 @@
 {
   "name": "@docture/testing",
   "version": "0.0.2",
-  "description": "Loader conformance suite, in-memory doubles, and deterministic synthetic PDF fixtures for docture.",
+  "description": "Conformance suites, doubles, and deterministic extraction and conversion PDF fixtures for Docture.",
   "license": "MIT",
   "repository": {
     "type": "git",

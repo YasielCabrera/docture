@@ -48,7 +48,9 @@ Core folds the pairwise verdicts into ordered `DocGroup` values. Page numbers ar
 `SplittingStrategy.LAZY` checks adjacent page pairs with bounded concurrency. It is a
 better fit when the full bundle cannot be sent in one request.
 
-A one-page source is one group. No seam or model request is needed.
+A one-page source is one group and does not call the splitter. With one candidate kind,
+`Process` assigns that kind without classification. With several candidates, it may call
+the default extractor's classifiers to name the group.
 
 ## Process lifecycle
 

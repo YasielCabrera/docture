@@ -20,7 +20,8 @@
  */
 
 import { createRequire } from "node:module";
-import { join } from "node:path";
+import { access } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { LanguageModel } from "ai";
 import { UsageError } from "./cli/errors.js";
@@ -62,15 +63,40 @@ function packageFor(provider: string): { readonly package: string; readonly expo
  * `import()` here would resolve against this file, which under pnpm means the
  * CLI's own dependencies — not the user's. Resolving through a `require` rooted at
  * the cwd is what makes `docture` installed in a project use that project's
- * provider. The plain import is kept as a fallback for a globally-installed CLI
- * that happens to be able to see one.
+ * provider. If that resolution fails, the caller uses the AI Gateway.
  */
 async function importFrom(cwd: string, specifier: string): Promise<Record<string, unknown>> {
-  try {
-    const resolved = createRequire(join(cwd, "__docture__.js")).resolve(specifier);
-    return (await import(pathToFileURL(resolved).href)) as Record<string, unknown>;
-  } catch {
-    return (await import(specifier)) as Record<string, unknown>;
+  const resolved = createRequire(join(cwd, "__docture__.js")).resolve(specifier);
+  if (!(await isVisibleFromProject(cwd, specifier))) {
+    throw new Error(`${specifier} is outside the working project's dependency tree.`);
+  }
+  return (await import(pathToFileURL(resolved).href)) as Record<string, unknown>;
+}
+
+/**
+ * Test runners and workspace import hooks can make packages elsewhere in a monorepo
+ * appear globally resolvable. Accept only dependencies below the working project,
+ * stopping at its nearest package.json boundary.
+ */
+async function isVisibleFromProject(cwd: string, specifier: string): Promise<boolean> {
+  let directory = resolve(cwd);
+
+  while (true) {
+    try {
+      await access(join(directory, "node_modules", specifier));
+      return true;
+    } catch {
+      // Keep looking until the working project's package boundary.
+    }
+
+    try {
+      await access(join(directory, "package.json"));
+      return false;
+    } catch {
+      const parent = dirname(directory);
+      if (parent === directory) return false;
+      directory = parent;
+    }
   }
 }
 

@@ -2,7 +2,7 @@
  * The candidate document kinds `docture classify --classifications` points at.
  *
  * One export, an array of `Classification`. Same objects the library takes — the CLI is
- * a thin shell over the same API the other fourteen examples use.
+ * a thin shell over the same API the other examples use.
  */
 
 import { defineClassification } from "docture";

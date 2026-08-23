@@ -62,7 +62,8 @@ The classifier method returns `ClassificationSignal | null`. `null` means abstai
 Classifier failures are recorded as abstentions unless they are caller aborts.
 
 `ClassificationResponse<C>` contains the selected candidate name or `UNKNOWN`, confidence,
-all signals, and the matched `classification` when known.
+all signals, and the matched `classification` when known. If the candidate list is empty,
+core allows a free-form classifier name and leaves `classification` absent.
 
 `ClassifyOptions` has `strategy?: ConsensusStrategy` and `threshold?: number`.
 `ConsensusStrategy` is `"consensus" | "higherOrder" | "consensusWithThreshold"`. The
@@ -97,9 +98,10 @@ extractor.classifyTree(
 ): Promise<{ leaf: ClassificationResponse; path: readonly ClassificationResponse[] }>
 ```
 
-Direct classification uses the first eligible loader and propagates its load failure. A
-`LoadedSource` skips that load. Classifier, timeout, and abort behavior follows the
-classification rules above.
+Direct classification uses the first eligible loader and propagates its load failure. It
+does not run the extraction pipeline's loader fallback or loader deadline. A `LoadedSource`
+skips that load. `stageTimeoutMs` applies to its classifiers. A classifier deadline becomes
+an abstention, while a caller abort thrown by a classifier propagates.
 
 ## Splitter contract
 
@@ -166,6 +168,10 @@ other value is `"skip"`. Extraction `concurrency` defaults to `4`.
 
 `SplitReport` contains the splitter name, splitting strategy, groups, and splitting
 `Usage`. It is also available as `lastSplit` after a completed split.
+
+For a one-page source, `Process` does not call the splitter. With one configured
+classification it assigns that kind directly. With several classifications, it asks the
+configured extractor to classify the page.
 
 Missing source, loaders, splitter, classifications, or extractor configuration throws.
 Unknown groups throw `UnclassifiedGroupError` unless skipping is explicit. `dispose()`

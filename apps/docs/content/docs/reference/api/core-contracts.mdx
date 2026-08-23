@@ -41,7 +41,8 @@ These helpers do not throw for a bare supported schema.
 
 `FlexibleSchema<T>` and `InferSchema<S>` are re-exported from
 `@ai-sdk/provider-utils`. They cover the schema forms supported by the AI SDK, including
-Zod, Valibot, ArkType, and JSON Schema adapters.
+Zod, Valibot, ArkType, lazy schemas, and AI SDK `Schema` objects. A raw JSON Schema object
+must first be wrapped with `jsonSchema()` from `ai`.
 
 `JsonSchemaObject` is the object form stored in a resolved schema. `ValidateResult<T>` is
 either `{ ok: true, data: T }` or `{ ok: false, issues }`.
@@ -59,7 +60,8 @@ resolveSchema<T>(schema: FlexibleSchema<T>): Promise<ResolvedSchema<T>>
 ```
 
 `resolveSchema()` performs any asynchronous schema conversion once before extraction.
-It rejects when a schema adapter cannot produce JSON Schema or a validator.
+It rejects when a schema adapter cannot produce JSON Schema. A schema without a validator,
+including a plain JSON Schema wrapped by the AI SDK, accepts the returned value unchanged.
 
 ## Validation in the pipeline
 

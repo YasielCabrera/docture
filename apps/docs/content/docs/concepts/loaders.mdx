@@ -64,8 +64,9 @@ appears in `result.loader`.
 docture filters loaders by media type, then tries them in declaration order. A later
 loader runs only when an earlier eligible loader throws.
 
-`result.attempts` does not include loaders. `LoadFailedError.attempts` contains loader
-failures when all eligible loaders fail.
+When fallback reaches a working loader, `result.attempts` starts with the failed loaders.
+The successful loader is recorded in `result.loader`, not as an attempt. If every eligible
+loader fails, `LoadFailedError.attempts` contains all of their failures.
 
 See [sources and inputs](/docs/guides/sources-and-inputs) for source forms and
 [loader API pages](/docs/reference/api/loader-pdfjs) for options.

@@ -7,9 +7,8 @@
 
 # docture
 
-docture extracts structured data from documents using LLMs, typed end to end from your
-schema. You pick the PDF or OCR library, you pick the model, and the result comes back
-matching the schema you wrote.
+docture extracts structured data from documents and converts PDFs to grounded TXT,
+Markdown, or HTML. You pick the PDF or OCR library and, when needed, the model.
 
 **TL;DR Document intelligence for TypeScript.**
 
@@ -19,6 +18,7 @@ matching the schema you wrote.
 - **Any schema library**: Zod, Valibot, ArkType, or raw JSON Schema — whatever the AI SDK takes.
 - **Any AI SDK model**: a provider instance, a gateway model string, or your own provider.
 - **Pluggable loaders**: pdf.js, MuPDF, Tesseract, PaddleOCR. Each in its own package, each named after the library it wraps.
+- **Grounded conversion**: deterministic TXT, CommonMark, GFM tables, and escaped HTML with page and box provenance.
 - **Typed capabilities**: a strategy that needs page geometry will not accept a loader that cannot produce it. Compile error, not a runtime surprise on page 200.
 - **Classification**: each kind carries its own schema, so narrowing on `name` narrows `data`.
 - **Splitting**: one PDF holding several unrelated documents comes back as one typed result each.
@@ -78,6 +78,31 @@ the questions you ask when a number looks wrong. When you only want the fields:
 const invoice = await extractor.extractData("invoice.pdf", Invoice);
 invoice.total; // number
 ```
+
+### Document Conversion
+
+Convert a digital PDF without a schema or model:
+
+```ts
+import { DocumentConverter } from "docture";
+import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+
+const converter = new DocumentConverter()
+  .loadDocumentLoader(new DocumentLoaderPdfJs());
+
+const converted = await converter.convert("report.pdf", {
+  format: "markdown",
+  assets: "referenced",
+});
+
+converted.content;
+converted.pages;
+converted.assets;
+```
+
+TXT joins pages with form feeds. Markdown includes invisible page markers and GFM
+tables. HTML is a complete escaped document with page-numbered sections. A scanned PDF
+needs an explicitly configured OCR loader.
 
 ### Classification
 
@@ -178,7 +203,7 @@ const extractor = new Extractor()
 const outcome = await extractor.safeExtract("invoice.pdf", Invoice);
 
 if (!outcome.ok) {
-  switch (errorCodeOf(outcome.error)) {    // ten literal codes, no string matching
+  switch (errorCodeOf(outcome.error)) {    // eleven literal codes, no string matching
     case "NO_ELIGIBLE_STRATEGY": break;
     case "CONTRACT_VIOLATION": break;
     case "TIMEOUT": break;
@@ -212,7 +237,7 @@ stdout is the data, so it pipes into `jq`. stderr is the story:
 ✓ invoice.pdf → llm via pdfjs · 2.1s · 3,412 tokens · $0.0041
 ```
 
-`extract`, `classify`, `inspect` (no model, no API key) and `eval`. See
+`extract`, `convert`, `classify`, `inspect` (no model, no API key) and `eval`. See
 [`@docture/cli`](packages/cli).
 
 ## 🧩 Models
@@ -242,6 +267,7 @@ once.
 - **Classifications**: what kind of document this is, each carrying its own schema.
 - **Splitters**: cut a bundle into its constituent documents.
 - **Extractor**: routes one document through loaders and strategies, in declared order.
+- **DocumentConverter**: normalizes text, layout, links, and raster figures, then exports TXT, Markdown, or HTML.
 - **Process**: splits a file, then runs an `Extractor` over each document that comes out.
 
 Every plugin is a plain object with no base class, produced by a `define*` helper. Writing
@@ -274,7 +300,7 @@ makes them interchangeable in fact rather than in principle.
 ## 📚 Documentation
 
 - **Docs site**: [`apps/docs`](apps/docs), Fumadocs on Next.js. `pnpm docs` → http://localhost:3100
-- **Examples**: [`apps/examples`](apps/examples), fifteen runnable folders, one per concept, on real invoices and a real bank statement. Eleven run with no API key.
+- **Examples**: [`apps/examples`](apps/examples), sixteen runnable folders covering extraction and conversion. Twelve run with no API key.
 - **Architecture**: [`packages/core/ARCHITECTURE.md`](packages/core/ARCHITECTURE.md) for the layering.
 
 ```bash

@@ -23,6 +23,7 @@
  */
 
 import type { Classifier } from "./classifier.js";
+import type { LayoutAnalyzer } from "./layout-analyzer.js";
 import type { Splitter } from "./splitter.js";
 import type { ExtractionStrategy } from "./strategy.js";
 
@@ -41,6 +42,8 @@ export interface ModelBackend {
   classifier?(): Classifier;
   /** A splitter driven by this model, for `Process`. */
   splitter?(): Splitter;
+  /** A constrained layout analyzer for document conversion. */
+  layout?(): LayoutAnalyzer;
 }
 
 export interface LoadLlmOptions {

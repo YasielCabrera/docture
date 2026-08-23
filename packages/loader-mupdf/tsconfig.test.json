@@ -6,5 +6,9 @@
     "incremental": false
   },
   "include": ["src/**/*.ts", "test/**/*.ts"],
-  "references": [{ "path": "../core" }, { "path": "../testing" }]
+  "references": [
+    { "path": "../core" },
+    { "path": "../testing" },
+    { "path": "../loader-pdfjs" }
+  ]
 }

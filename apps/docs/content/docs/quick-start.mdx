@@ -23,8 +23,9 @@ Create `invoice.ts`:
 <SourceExample file="invoice.ts" title="invoice.ts" />
 
 The `contract()` wrapper adds a name and description to a schema. It is optional for
-plain extraction. A bare Zod, Valibot, ArkType, Standard Schema, or JSON Schema value also
-works.
+plain extraction. A bare Zod, Valibot, ArkType, or other Standard Schema value also works.
+Wrap a JSON Schema object with the AI SDK's `jsonSchema()` helper before passing it to the
+library. The CLI performs that wrapping when it reads a `.json` schema file.
 
 ## Build the extractor
 
@@ -49,13 +50,14 @@ The rest of the result explains the run:
 |---|---|
 | `method` | Strategy that returned data which passed validation |
 | `loader` | Loader that read the document |
-| `attempts` | Strategies that ran, their status, duration, usage, and errors |
+| `attempts` | Failed loaders followed by strategies that ran, with status, duration, usage, and errors |
 | `features` | Page count, text length, document form, geometry, and rendering facts |
 | `usage` | Input tokens, output tokens, total tokens, wall time, and optional cost |
 | `validation` | Whether the winning result passed the schema |
 
-`attempts` does not contain loader failures. If all eligible loaders fail,
-`LoadFailedError.attempts` contains those errors.
+When loader fallback succeeds, `attempts` includes each failed loader before the strategy
+attempts. The successful loader is recorded in `result.loader`. If all eligible loaders
+fail, `LoadFailedError.attempts` contains their errors and no extraction strategies run.
 
 ## Other return forms
 

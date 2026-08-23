@@ -41,7 +41,8 @@ loader that returns a document wins.
 If no loader accepts the media type, docture raises `NoEligibleLoaderError`. If eligible
 loaders run and all throw, it raises `LoadFailedError` with the loader attempts.
 
-A successful extraction records only the winning loader in `result.loader`.
+A successful extraction records the winning loader in `result.loader`. If earlier loaders
+failed, their failed attempts appear before the strategy attempts in `result.attempts`.
 
 ## Record document facts
 
@@ -102,8 +103,9 @@ If no strategy succeeds and at least one returned invalid data, docture raises t
 
 ## Cancellation and deadlines
 
-A caller abort stops the whole run and suppresses fallback. A stage deadline creates a
-`TimeoutError` for that stage, records the failed attempt, and allows fallback.
+A caller abort stops the whole run and suppresses fallback. A loader or strategy deadline
+creates a `TimeoutError`, records a failed attempt, and allows fallback. A classifier
+deadline is recorded as an abstaining classification signal so other classifiers can run.
 
 ```ts
 const controller = new AbortController();

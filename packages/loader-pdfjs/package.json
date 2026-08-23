@@ -1,7 +1,7 @@
 {
   "name": "@docture/loader-pdfjs",
   "version": "0.1.0",
-  "description": "PdfJsLoader — text-layer and geometry extraction for docture, powered by pdfjs-dist (Mozilla PDF.js).",
+  "description": "PDF.js loader for Docture extraction and conversion, including text, layout, links, and raster assets.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -50,6 +50,7 @@
     "pdf",
     "pdfjs",
     "text-extraction",
+    "pdf-conversion",
     "docture"
   ]
 }

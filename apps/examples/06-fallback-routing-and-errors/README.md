@@ -1,6 +1,6 @@
 # 06-fallback-routing-and-errors — Fallback, routing and errors
 
-> the fallback chain over eleven real layouts, `RoutingPolicy`, `only`, all ten typed errors, timeouts, cancellation, logging, duplicate names.
+> the fallback chain over eleven real layouts, `RoutingPolicy`, `only`, all eleven typed errors, timeouts, cancellation, logging, duplicate names.
 
 **Needs:** `pnpm fetch`. No API key — and the missing key is itself one of the rungs this example reports.
 
@@ -38,7 +38,7 @@ candidates.
 
 ## Every failure is typed
 
-Ten error classes, each with a literal `code`, so a `switch` over `DoctureErrorCode` is
+Eleven error classes, each with a literal `code`, so a `switch` over `DoctureErrorCode` is
 checked for exhaustiveness by the compiler. Add an error to the library and the `advise`
 function in this example stops compiling until it is handled — which is the difference
 between a typed failure contract and a documented one.

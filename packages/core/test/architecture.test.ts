@@ -173,6 +173,8 @@ describe("the public API is an exact list", () => {
     // entry points
     "Extractor",
     "createExtractor",
+    "DocumentConverter",
+    "createDocumentConverter",
     "Process",
     // contracts (named schemas)
     "contract",
@@ -205,6 +207,7 @@ describe("the public API is an exact list", () => {
     "DEFAULT_RASTER_OPTIONS",
     // strategies
     "defineStrategy",
+    "defineLayoutAnalyzer",
     "resolveSchema",
     // classification
     "classificationNode",
@@ -228,6 +231,7 @@ describe("the public API is an exact list", () => {
     "DuplicateComponentError",
     "ExtractionFailedError",
     "LoadFailedError",
+    "NoConvertibleContentError",
     "NoEligibleLoaderError",
     "NoEligibleStrategyError",
     "DoctureError",

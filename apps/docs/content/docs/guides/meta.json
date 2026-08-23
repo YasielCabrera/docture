@@ -4,6 +4,7 @@
     "sources-and-inputs",
     "with-a-model",
     "without-a-model",
+    "document-conversion",
     "scanned-documents",
     "routing-and-fallback",
     "long-documents",

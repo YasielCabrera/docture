@@ -1,6 +1,6 @@
 ---
 title: Command line
-description: Extract, classify, inspect, and evaluate documents from a terminal.
+description: Extract, convert, classify, inspect, and evaluate documents from a terminal.
 ---
 
 The executable comes from `@docture/cli`, not the `docture` facade package.
@@ -23,11 +23,34 @@ npx @docture/cli --help
 | Command | Job |
 |---|---|
 | `extract <file...>` | Extract data that matches a schema |
+| `convert <file...>` | Convert PDFs to TXT, Markdown, or HTML |
 | `classify <file...>` | Choose a document classification without extracting it |
 | `inspect <file...>` | Show loaded text, geometry, and document facts without a model |
 | `eval <file...>` | Extract and compare results with ground truth |
 
 Run `docture <command> --help` for the flags accepted by that command.
+
+## Convert
+
+```sh
+docture convert reports/*.pdf --out converted/
+```
+
+`--out <directory>` is required. Markdown and referenced assets are the defaults. Use
+`--format md|html|txt` and `--assets referenced|embedded|omit` to change them.
+Referenced images are written to `<out>/<stem>.assets/`. The document is written as
+`<out>/<stem>.md`, `.html`, or `.txt`.
+
+```sh
+docture convert report.pdf \
+  --out converted/ \
+  --assist-layout \
+  --model openai/gpt-5
+```
+
+Layout assistance can classify and reorder known elements but cannot return text. The
+default PDF.js loader reads digital PDFs. Configure an OCR loader for scanned PDFs.
+One failed batch input leaves successful outputs in place and returns exit code `1`.
 
 ## Extract
 
@@ -51,8 +74,9 @@ Extracted data goes to stdout. Diagnostics go to stderr. This keeps pipelines va
 docture extract invoice.pdf -s ./invoice.ts -m openai/gpt-5 | jq .total
 ```
 
-Use `--full` to include method, loader, attempts, usage, features, and validation in the
-output. Use `--format ndjson` to stream one batch result per line.
+Use `--full` to include method, loader, attempts, usage, features, and classification in
+the output. The CLI does not include the redundant successful `validation` object. Use
+`--format ndjson` to stream one batch result per line.
 
 ## Models and vision
 
@@ -103,6 +127,10 @@ and rendering support.
 
 The CLI finds the nearest `docture.config.ts`, `.mts`, `.js`, or `.mjs` while walking up
 from the working directory. Command flags override configuration defaults.
+
+Node 22.18 or newer can import erasable TypeScript config and schema modules directly.
+Earlier Node 22 releases need `--experimental-strip-types`, or compiled `.js` or `.mjs`
+files. JSON Schema files do not require TypeScript support.
 
 ## Evaluate in CI
 

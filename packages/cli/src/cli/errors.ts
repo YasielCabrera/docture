@@ -56,6 +56,8 @@ const HINTS: Readonly<Record<DoctureErrorCode, string>> = {
     "wire another loader in docture.config.ts.",
   LOAD_FAILED:
     "The file could not be read — it may be corrupt, truncated, or password-protected.",
+  NO_CONVERTIBLE_CONTENT:
+    "The selected loader found no indexable text. Configure an OCR loader in docture.config.ts for scanned PDFs.",
   NO_ELIGIBLE_STRATEGY:
     "The document loaded but nothing wired can read it. A scan has no text layer: " +
     "add --vision to render the pages and send them to a vision model.",

@@ -45,7 +45,8 @@ loader or strategy after cancellation.
 
 ## Set stage deadlines
 
-`stageTimeoutMs` applies to each loader, classifier, and strategy stage:
+During extraction, `stageTimeoutMs` applies to each loader, classifier, and strategy
+stage:
 
 ```ts
 const extractor = new Extractor({
@@ -55,8 +56,9 @@ const extractor = new Extractor({
 });
 ```
 
-You may override it per extraction through `RunOptions`. An internal deadline creates
-`TimeoutError`. Strategy fallback continues after that timeout.
+You may override it per extraction through `RunOptions`. A loader or strategy deadline
+creates a failed attempt with `TIMEOUT`, then fallback continues. A classifier deadline
+becomes an abstaining signal so the remaining classifiers can answer.
 
 ## Log pipeline events
 

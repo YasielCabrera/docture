@@ -8,7 +8,7 @@
  * logic had been copy-pasted into three loaders and drifted in all three.)
  */
 
-import type { TextLine, TextSpan } from "./geometry.js";
+import type { TextLine, TextSpan, TextStyle } from "./geometry.js";
 
 /** One word as a producer reports it: text plus an axis-aligned box. */
 export interface PositionedWord {
@@ -17,6 +17,9 @@ export interface PositionedWord {
   readonly box: readonly [number, number, number, number];
   /** 0–1, when the producer knows. */
   readonly confidence?: number;
+  readonly direction?: TextSpan["direction"];
+  readonly style?: TextStyle;
+  readonly href?: string;
 }
 
 export interface LinesFromWordsOptions {
@@ -67,6 +70,9 @@ export function linesFromWords(
         width: (xMax - xMin) * scale,
         height: (yMax - yMin) * scale,
         ...(w.confidence === undefined ? {} : { confidence: w.confidence }),
+        ...(w.direction === undefined ? {} : { direction: w.direction }),
+        ...(w.style === undefined ? {} : { style: w.style }),
+        ...(w.href === undefined ? {} : { href: w.href }),
       };
       return span;
     });

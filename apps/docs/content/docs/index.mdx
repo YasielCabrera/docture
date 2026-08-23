@@ -1,10 +1,10 @@
 ---
 title: docture documentation
-description: Extract structured data from documents in TypeScript.
+description: Extract structured data or convert PDFs to grounded text in TypeScript.
 ---
 
-docture reads a document and returns data that matches a schema. The schema also supplies
-the TypeScript type of `result.data`.
+docture reads documents for strongly typed structured extraction and grounded conversion
+to TXT, Markdown, or HTML.
 
 You choose how docture reads the document and how it extracts the fields. A loader reads
 PDF text, OCR output, or plain text. A strategy can call a model or run code you wrote.
@@ -69,7 +69,7 @@ Some packages use WASM. PaddleOCR and the canvas rasterizer use native prebuilt 
 result.data;           // data inferred from the schema
 result.method;         // strategy that produced the valid result
 result.loader;         // loader that read the document
-result.attempts;       // strategy attempts, in order
+result.attempts;       // failed loaders, then strategy attempts
 result.features;       // facts found on this document
 result.usage;          // tokens, cost when priced, and wall time
 result.validation;     // validation outcome
@@ -84,6 +84,7 @@ should be returned as a value instead of thrown.
 | Your input | Start here |
 |---|---|
 | A PDF with selectable text | [Extract with a model](/docs/guides/with-a-model) |
+| A PDF to index or use in RAG | [Convert documents](/docs/guides/document-conversion) |
 | A layout you already know | [Extract without a model](/docs/guides/without-a-model) |
 | A scanned PDF or image | [Scanned documents](/docs/guides/scanned-documents) |
 | A path, URL, byte array, or preloaded document | [Sources and inputs](/docs/guides/sources-and-inputs) |

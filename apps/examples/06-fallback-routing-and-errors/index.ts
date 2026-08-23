@@ -26,6 +26,7 @@ import {
   LoadFailedError,
   NoEligibleLoaderError,
   NoEligibleStrategyError,
+  NoConvertibleContentError,
   SplitFailedError,
   TimeoutError,
   UnclassifiedGroupError,
@@ -220,6 +221,8 @@ async function main(): Promise<void> {
         return "wire a loader that accepts this media type";
       case "LOAD_FAILED":
         return "every loader threw; the bytes are probably not what they claim";
+      case "NO_CONVERTIBLE_CONTENT":
+        return "the selected loader found no indexable text; configure OCR for a scan";
       case "NO_ELIGIBLE_STRATEGY":
         return "the document lacks a fact every strategy requires — OCR or render it";
       case "EXTRACTION_FAILED":
@@ -249,6 +252,7 @@ async function main(): Promise<void> {
   const ERRORS = [
     ["NoEligibleLoaderError", "NO_ELIGIBLE_LOADER"],
     ["LoadFailedError", "LOAD_FAILED"],
+    ["NoConvertibleContentError", "NO_CONVERTIBLE_CONTENT"],
     ["NoEligibleStrategyError", "NO_ELIGIBLE_STRATEGY"],
     ["ExtractionFailedError", "EXTRACTION_FAILED"],
     ["ContractViolationError", "CONTRACT_VIOLATION"],
@@ -271,10 +275,11 @@ async function main(): Promise<void> {
   // Every one of these classes is a real export, and every one extends `DoctureError`.
   // `instanceof DoctureError` catches the family; `switch (error.code)` splits it.
   field(
-    "all ten are exported",
+    "all eleven are exported",
     [
       NoEligibleLoaderError,
       LoadFailedError,
+      NoConvertibleContentError,
       NoEligibleStrategyError,
       ExtractionFailedError,
       ContractViolationError,

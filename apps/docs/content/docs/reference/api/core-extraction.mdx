@@ -34,7 +34,7 @@ and `loadLogger()`. Duplicate names throw `DuplicateComponentError`. The `compon
 getter returns read-only copies of the current registrations.
 
 `ModelBackend` is the core interface accepted by `loadLlm()`. It provides `id` and
-`extraction()`, and may provide `vision()`, `classifier()`, and `splitter()`.
+`extraction()`, and may provide `vision()`, `classifier()`, `splitter()`, and `layout()`.
 `LoadLlmOptions` has `vision?: boolean` and `classify?: boolean`, both `false` by default.
 Requesting an unsupported component throws `TypeError`.
 
@@ -87,14 +87,16 @@ caller abort failures. See the [error reference](/docs/reference/errors).
 | `data` | `T` | Validated extracted data. |
 | `method` | `string` | Winning strategy name. |
 | `loader` | `string` | Loader that produced the document. |
-| `attempts` | `readonly Attempt[]` | Strategy attempts only, in run order. |
+| `attempts` | `readonly Attempt[]` | Failed loaders, if any, followed by strategy attempts in run order. |
 | `classification` | `ClassificationResult?` | Classification when a strategy requested it. |
 | `features` | `DocumentFeatures` | Runtime facts from the loaded document. |
 | `usage` | `Usage` | Total model usage, cost when known, and elapsed time. |
 | `validation` | `ValidationOutcome` | Final schema validation result. It is valid on success. |
 
 `AttemptStatus` is `"ok" | "failed" | "skipped"`. An `Attempt` contains `strategy`,
-`status`, `ms`, and optional `error`, `errorCode`, and `usage`.
+`status`, `ms`, and optional `error`, `errorCode`, and `usage`. Loader attempts use the
+historical `strategy` field for the loader name. A successful loader is represented by
+`result.loader` and is not duplicated in `attempts`.
 
 `Usage` contains `inputTokens`, `outputTokens`, `totalTokens`, optional `costUsd`, and
 `wallMs`. `EMPTY_USAGE` is the zero-valued usage object.

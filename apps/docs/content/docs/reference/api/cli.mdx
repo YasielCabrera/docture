@@ -13,9 +13,10 @@ defineConfig(config: DoctureConfig): DoctureConfig
 
 `defineConfig()` is an identity helper for `docture.config.ts` type inference.
 
-`DoctureConfig` may provide a complete `extractor` or its component parts: `loaders`,
+`DoctureConfig` may provide a complete `extractor` or `converter`, or its component parts: `loaders`,
 `strategies`, `classifiers`, `classifications`, `policy`, and `stageTimeoutMs`. When a
-complete extractor is present, component fields are ignored.
+complete composition root is present, its component fields are ignored. Conversion may
+also provide a `layoutAnalyzer`.
 
 When explicit strategies are absent, config may provide `model`, `vision`, `pricing`, and
 `instructions`. It may also provide a default `schema`, model `cacheDir`, and extraction

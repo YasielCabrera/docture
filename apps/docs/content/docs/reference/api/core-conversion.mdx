@@ -1,0 +1,89 @@
+---
+title: Core conversion
+description: DocumentConverter, normalized layout, exports, assets, and model assistance.
+---
+
+Import these APIs from `@docture/core` or `docture`.
+
+## DocumentConverter
+
+```ts
+new DocumentConverter(options?: DocumentConverterOptions)
+createDocumentConverter(options: DocumentConverterOptions): DocumentConverter
+```
+
+`DocumentConverterOptions` accepts loaders in first-success order, one optional
+`layoutAnalyzer`, a logger, and a per-stage timeout. The factory requires at least one
+loader. A fluent converter may be created empty before `loadDocumentLoader()` is called.
+
+The wiring methods are `loadDocumentLoader()`, `loadLayoutAnalyzer()`, `loadLlm()`, and
+`loadLogger()`. `components` returns the registered loaders and optional analyzer.
+Duplicate loader names or a second analyzer throw `DuplicateComponentError`.
+
+## Conversion calls
+
+```ts
+convert(source: DocumentSource, options?: ConvertOptions): Promise<ConversionResult>
+safeConvert(source: DocumentSource, options?: ConvertOptions): Promise<SafeConversion>
+convertBatch(
+  sources: readonly DocumentSource[],
+  options?: ConversionBatchOptions,
+): AsyncGenerator<ConversionBatchItem>
+```
+
+`ConvertOptions` has `format`, `assets`, `signal`, `logger`, and `stageTimeoutMs`.
+`ConversionFormat` is `"text" | "markdown" | "html"`; Markdown is the default.
+`ConversionAssetMode` is `"referenced" | "embedded" | "omit"`; referenced is the
+default.
+
+`SafeConversion` is `{ ok: true, result } | { ok: false, error }`.
+`ConversionBatchOptions` adds `concurrency`, default `4`. A `ConversionBatchItem` contains
+the original source, input index, and safe outcome. Items are yielded as they finish.
+
+`dispose()` settles every disposable loader and analyzer once. Multiple teardown failures
+reject with `AggregateError`.
+
+## Result
+
+`ConversionResult` contains:
+
+| Field | Meaning |
+| --- | --- |
+| `content` | Whole-document output. |
+| `format`, `mimeType` | Selected format and output media type. |
+| `pages` | `ConvertedPage` fragments and semantic elements. |
+| `assets` | In-memory `ConversionAsset` values. Empty in omit mode. |
+| `loader`, `method` | Selected loader and deterministic or assisted method. |
+| `attempts`, `warnings` | Loader and analyzer history plus degraded-layout warnings. |
+| `features` | Runtime document facts. |
+| `usage` | Model tokens, optional cost, and complete wall time. |
+
+`ConversionWarning` has a `ConversionWarningCode`, message, and optional page number.
+Codes cover degraded or ambiguous layout, unsupported assets, unsafe links, analyzer
+failure, and invalid analyzer output.
+
+## Semantic layout
+
+`LayoutDocument` contains `LayoutPage` values. Each page contains `DocumentElement`
+values. The union includes `HeadingElement`, `ParagraphElement`, `ListElement`,
+`TableElement`, `CodeElement`, `FigureElement`, and `PageBreakElement`.
+
+Every element has an ID and `ElementProvenance`. Provenance contains page number,
+`LayoutBox`, and loader source IDs. Text elements use `InlineText` runs for link
+annotations. A `ConvertedPage` contains format-specific content and the same elements.
+
+`ConversionAsset` extends the loader's `LoadedAsset` with its stable relative `reference`.
+
+## Layout analyzer contract
+
+```ts
+defineLayoutAnalyzer(analyzer: LayoutAnalyzer): LayoutAnalyzer
+```
+
+`LayoutAnalyzer.analyze(context)` receives a `LayoutDocument`, signal, and logger. It
+returns `LayoutAnalysis` with `LayoutAnnotation` values, warnings, and optional usage.
+An annotation can contain an existing element ID, `LayoutElementRole`, heading level,
+group label, and page-local order. The contract has no text property.
+
+Core validates IDs and order before applying an analysis. `LayoutAnalyzerContext` and
+`LayoutAnalysis` are public for custom analyzers.

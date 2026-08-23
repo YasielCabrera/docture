@@ -38,6 +38,9 @@ export type { VisionStrategyOptions } from "./vision.js";
 export { LlmClassifier, llmClassifier } from "./classifier.js";
 export type { LlmClassifierOptions } from "./classifier.js";
 
+export { LlmLayoutAnalyzer, llmLayout } from "./layout.js";
+export type { LlmLayoutAnalyzerOptions } from "./layout.js";
+
 export { createLlmExtractor } from "./extractor.js";
 export type { LlmExtractorOptions } from "./extractor.js";
 

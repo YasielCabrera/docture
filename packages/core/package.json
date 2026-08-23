@@ -1,7 +1,7 @@
 {
   "name": "@docture/core",
   "version": "0.1.0",
-  "description": "Strongly-typed structured data extraction from any document — contracts, pipeline and typed errors. Bring your own loader and model.",
+  "description": "Structured extraction and deterministic TXT, Markdown, and HTML conversion for documents. Bring your own loader and model.",
   "license": "MIT",
   "repository": {
     "type": "git",

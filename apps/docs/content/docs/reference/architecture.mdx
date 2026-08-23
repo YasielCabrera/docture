@@ -9,7 +9,7 @@ parser or model runtime.
 
 ```mermaid
 flowchart TB
-  A[Application or CLI] --> B[Extractor or Process]
+  A[Application or CLI] --> B[Extractor, DocumentConverter, or Process]
   B --> C[Core pipeline]
   C --> D[Component contracts]
   D --> E[Domain types]
@@ -23,10 +23,11 @@ flowchart TB
 
 | Layer | Responsibility |
 | --- | --- |
-| `domain` | Sources, loaded pages, document facts, contracts, results, usage, and split groups. |
-| `contracts` | Loader, rasterizer, strategy, classifier, splitter, model, and extractor interfaces. |
+| `domain` | Sources, loaded pages, semantic layout, document facts, contracts, results, usage, and split groups. |
+| `contracts` | Loader, rasterizer, strategy, classifier, splitter, layout analyzer, model, and extractor interfaces. |
 | `pipeline` | Source resolution, loading, feature inspection, classification, routing, attempts, validation, deadlines, and errors. |
 | `Extractor` | Component registration, defaults, batches, classification entry points, and disposal. |
+| `DocumentConverter` | Shared loading, deterministic layout analysis, text-format export, batches, and disposal. |
 | `Process` | Load-once bundle splitting and extraction by classification. |
 
 `DocumentLoaderData` is the only loader in core because it uses `TextDecoder` and no
@@ -53,6 +54,11 @@ groups.
 `DocumentExtractor` lets classifications refer to an extractor without depending on the
 concrete `Extractor` class.
 
+`LayoutAnalyzer` is the optional assistance boundary for conversion. Its annotations
+contain existing element IDs, roles, grouping, and order, but no text. Core validates the
+IDs and ordering before applying them, so the analyzer cannot add, remove, or rewrite
+source text.
+
 ## Data flow
 
 For a normal extraction, core resolves the source, tries eligible loaders in order,
@@ -67,6 +73,11 @@ failed attempt, so the next strategy can run. The first validated result becomes
 For a bundle, `Process` loads once, splits the in-memory pages, and passes each page group
 back to an extractor as a `LoadedSource`. Original page numbers remain intact.
 
+For conversion, core uses the same source resolution and first-success loader routing.
+The loader receives optional requests for layout and asset data. Deterministic analysis
+turns the loaded blocks into semantic elements, optional validated annotations refine
+their roles and order, and the exporter produces TXT, Markdown, or HTML in memory.
+
 ## Tested invariants
 
 The test suites enforce these behaviors:
@@ -78,14 +89,15 @@ The test suites enforce these behaviors:
 4. Eligibility is based on facts computed from the loaded document.
 5. Classification runs only when an eligible strategy needs it.
 6. A strategy wins only after its data passes schema validation.
-7. Strategy attempts are recorded in run order. Loader attempts are attached to loading
-   errors.
+7. Strategy attempts are recorded in run order. Failed loaders remain visible when loader
+   fallback succeeds, and all loader failures are attached to `LoadFailedError` otherwise.
 8. Caller aborts stop fallback. Library deadlines allow fallback.
 9. Classifier failures become abstentions unless they are caller aborts.
 10. Split groups preserve every page, and unknown groups fail unless the caller chooses to
     skip them.
 11. `Extractor.dispose()` is idempotent and reports all disposal failures.
 12. The facade re-exports the public core and LLM APIs.
+13. Conversion assistance cannot carry text or reference unknown element IDs.
 
 Loader and rasterizer packages run shared conformance suites. Type tests cover generic
 inference and APIs that explicitly require capability-specific loader types. Generated

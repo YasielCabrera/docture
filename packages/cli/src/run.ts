@@ -13,6 +13,7 @@ import { commandHelp, topLevelHelp } from "./cli/help.js";
 import { styleFor, type Io } from "./cli/io.js";
 import { COMMANDS, findCommand } from "./cli/specs.js";
 import { classifyCommand } from "./commands/classify.js";
+import { convertCommand } from "./commands/convert.js";
 import { evalCommand } from "./commands/eval.js";
 import { extractCommand } from "./commands/extract.js";
 import { inspectCommand } from "./commands/inspect.js";
@@ -22,6 +23,7 @@ type Handler = (parsed: Parsed, io: Io, signal: AbortSignal) => Promise<ExitCode
 
 const HANDLERS: Readonly<Record<string, Handler>> = {
   extract: extractCommand,
+  convert: convertCommand,
   classify: classifyCommand,
   inspect: inspectCommand,
   eval: evalCommand,

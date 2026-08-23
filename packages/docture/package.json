@@ -1,7 +1,7 @@
 {
   "name": "docture",
   "version": "0.1.0",
-  "description": "Strongly-typed structured data extraction from any document — one import for the pipeline, the contracts and the model.",
+  "description": "Structured extraction and deterministic TXT, Markdown, and HTML document conversion through one import.",
   "license": "MIT",
   "repository": {
     "type": "git",

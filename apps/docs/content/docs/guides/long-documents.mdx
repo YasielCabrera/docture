@@ -9,7 +9,7 @@ description: Split model extraction into several requests and merge the results.
 |---|---|---|
 | `forbidden` | One request | The document fits. This is the default. |
 | `paginate` | One request per page | Each page contains useful standalone rows or fields. |
-| `concatenate` | Page groups under a character budget | Several pages fit together but the full document does not. |
+| `concatenate` | Page groups formed from a character budget | Several pages fit together but the full document does not. |
 
 ```ts
 llm({ model, completion: "paginate" });
@@ -21,8 +21,9 @@ llm({
 });
 ```
 
-`concatenate` splits only at page boundaries. A single page larger than the budget is sent
-whole rather than cut through a table row.
+`concatenate` groups pages using their text lengths and splits only at page boundaries.
+The inserted separators are not counted toward the budget. A single page larger than the
+budget is sent whole rather than cut through a table row.
 
 ## Fragment schemas
 

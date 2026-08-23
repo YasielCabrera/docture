@@ -6,7 +6,7 @@
  * Needs: nothing. No download, no key, no network — which is the whole point of this
  * example. A test corpus that needs a network is a test corpus that fails on a plane.
  *
- * The other fourteen examples run on real documents, downloaded, because a library that
+ * Most other examples run on downloaded real documents, because a library that
  * reads documents is only convincing on documents somebody actually issued. Tests are
  * the exception: there you want the SAME bytes every time, generated from the same
  * values as the expected output, so the answer key cannot drift from the document.

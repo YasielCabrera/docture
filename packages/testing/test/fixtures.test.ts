@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildInvoiceData, formatMoney, makeInvoicePdf } from "../src/index.js";
+import { buildInvoiceData, formatMoney, makeInvoicePdf, makeRichDocumentPdf } from "../src/index.js";
 
 describe("makeInvoicePdf", () => {
   it("produces a real PDF", async () => {
@@ -50,5 +50,15 @@ describe("makeInvoicePdf", () => {
   it("formats money the way the PDF renders it", () => {
     expect(formatMoney(1234.5)).toBe("1,234.50");
     expect(formatMoney(0.05)).toBe("0.05");
+  });
+});
+
+describe("makeRichDocumentPdf", () => {
+  it("contains the layout features and source text conversion tests need", async () => {
+    const fixture = await makeRichDocumentPdf();
+    expect(Buffer.from(fixture.bytes.subarray(0, 5)).toString()).toBe("%PDF-");
+    expect(fixture.pageCount).toBe(2);
+    expect(fixture.expected.sourceText).toContain(fixture.expected.linkText);
+    expect(fixture.expected.table).toHaveLength(3);
   });
 });

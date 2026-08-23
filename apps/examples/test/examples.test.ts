@@ -42,6 +42,17 @@ import { pageRange } from "../shared/print.js";
 import { invoiceChain } from "../06-fallback-routing-and-errors/index.js";
 import { headingClassifier } from "../10-classification/index.js";
 import { ACCOUNT_KINDS, accountSplitter, bundleProcess } from "../11-bundles-and-splitting/index.js";
+import { convertRichFixture } from "../16-document-conversion/index.js";
+
+describe("document conversion", () => {
+  it("runs the documented conversion example without a model or filesystem output", async () => {
+    const result = await convertRichFixture();
+    expect(result.format).toBe("markdown");
+    expect(result.pages).toHaveLength(2);
+    expect(result.content).toContain("Document Conversion Fixture");
+    expect(result.assets.length).toBeGreaterThan(0);
+  });
+});
 
 /**
  * Checked at module load, not in `beforeAll`: `it.runIf` is evaluated while Vitest is

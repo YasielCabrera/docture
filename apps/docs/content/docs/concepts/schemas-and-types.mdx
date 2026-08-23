@@ -12,7 +12,18 @@ The same schema has three jobs:
 ## Supported schemas
 
 docture uses the AI SDK `FlexibleSchema` type. It accepts Zod, Valibot, ArkType, other
-Standard Schema implementations, AI SDK schemas, lazy schemas, and JSON Schema.
+Standard Schema implementations, AI SDK schemas, and lazy schemas. To use JSON Schema in
+the library API, wrap the object with `jsonSchema()` from `ai`:
+
+```ts
+import { jsonSchema } from "ai";
+
+const Invoice = jsonSchema({
+  type: "object",
+  properties: { total: { type: "number" } },
+  required: ["total"],
+});
+```
 
 ```ts
 const Invoice = z.object({
@@ -54,14 +65,16 @@ If no strategy succeeds and at least one returned invalid data, docture throws t
 `ContractViolationError` with field paths and messages. If every strategy threw before
 validation, it throws `ExtractionFailedError`.
 
-Plain JSON Schema describes a shape but does not carry a validator in the AI SDK schema
-wrapper. docture passes such data through after model generation. Use a schema library
-with runtime validation when the pipeline must check the result.
+The default `jsonSchema()` wrapper describes a shape but does not carry a validator.
+docture therefore accepts the returned value unchanged after model generation. Supply a
+validator to `jsonSchema()` or use a schema library with runtime validation when the
+pipeline must check the result. The CLI wraps `.json` schema files without a validator and
+prints a warning before extraction.
 
 ## Partial model requests
 
-Long-document and per-page vision modes remove `required` from the JSON Schema sent with
-each fragment. The pipeline merges partial values and validates the final result against
-the original schema.
+When long-document or per-page vision modes create more than one request, they remove
+`required` from the JSON Schema sent with each fragment. The pipeline merges partial
+values and validates the final result against the original schema.
 
 See [long documents](/docs/guides/long-documents) for the merge behavior.

@@ -14,20 +14,24 @@
  */
 
 import {
+  createDocumentConverter,
   createExtractor,
   withRasterizer,
   type Classification,
   type CompletionStrategy,
   type Classifier,
   type DocumentLoader,
+  type DocumentConverter,
   type ExtractionStrategy,
   type Extractor,
   type Rasterizer,
+  type LayoutAnalyzer,
 } from "@docture/core";
 import {
   fileCache,
   llm,
   llmClassifier,
+  llmLayout,
   vision,
   type LlmCache,
   type PricingTable,
@@ -55,6 +59,7 @@ export interface WiringFlags {
   readonly maxChars?: number;
   readonly timeoutMs?: number;
   readonly classify?: boolean;
+  readonly assistLayout?: boolean;
   readonly classificationsPath?: string;
 }
 
@@ -91,6 +96,20 @@ export interface Wiring {
   /** Likely misconfigurations, printed whether or not `--verbose` is on. */
   readonly warnings: readonly string[];
   dispose(): Promise<void>;
+}
+
+export interface ConversionWiring {
+  readonly converter: DocumentConverter;
+  readonly concurrency: number;
+  readonly notes: readonly string[];
+  readonly warnings: readonly string[];
+  dispose(): Promise<void>;
+}
+
+export interface ConversionWiringInput {
+  readonly io: Io;
+  readonly config?: LoadedConfig;
+  readonly flags: WiringFlags;
 }
 
 /** Only a PDF renderer is bundled, so only a PDF loader is worth composing one onto. */
@@ -315,6 +334,83 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
     notes,
     warnings,
     dispose: () => extractor.dispose(),
+  };
+}
+
+/** Build the conversion peer from the same loader, model, cache, and timeout rules. */
+export async function buildConversionWiring(
+  input: ConversionWiringInput,
+): Promise<ConversionWiring> {
+  const { config, flags, io } = input;
+  const notes: string[] = [];
+  const warnings: string[] = [];
+  if (config !== undefined) notes.push(`config ${config.path}`);
+
+  const supplied = config?.config.converter;
+  if (supplied !== undefined) {
+    const converter = typeof supplied === "function" ? await supplied() : supplied;
+    notes.push("converter from config");
+    if (flags.model !== undefined || flags.assistLayout === true) {
+      warnings.push(
+        "--model and --assist-layout are ignored because the config supplies a built converter.",
+      );
+    }
+    return {
+      converter,
+      concurrency: config?.config.concurrency ?? 4,
+      notes,
+      warnings,
+      dispose: () => converter.dispose(),
+    };
+  }
+
+  const loaders = config?.config.loaders ?? [new DocumentLoaderPdfJs()];
+  notes.push(
+    config?.config.loaders === undefined
+      ? "loaders [pdfjs] (default)"
+      : `loaders [${loaders.map((loader) => loader.name).join(", ")}] from config`,
+  );
+
+  let layoutAnalyzer: LayoutAnalyzer | undefined = config?.config.layoutAnalyzer;
+  if (flags.assistLayout === true) {
+    const model = await chooseModel(flags, config, io, notes, warnings);
+    if (model === undefined) {
+      throw new UsageError(
+        "--assist-layout needs a model.",
+        "Pass --model <provider>/<model-id>, or set `model` in docture.config.ts.",
+      );
+    }
+    const cacheDir = flags.cacheDir ?? configCacheDir(config);
+    const cache = cacheDir === undefined ? undefined : fileCache(cacheDir);
+    const pricing = await loadPricing(flags.pricingPath, config, io.cwd);
+    const instructions = flags.instructions ?? config?.config.instructions;
+    layoutAnalyzer = llmLayout({
+      model,
+      ...(cache === undefined ? {} : { cache }),
+      ...(pricing === undefined ? {} : { pricing }),
+      ...(instructions === undefined ? {} : { instructions }),
+      ...(flags.temperature === undefined ? {} : { temperature: flags.temperature }),
+    });
+    if (cacheDir !== undefined) notes.push(`cache ${cacheDir}`);
+    notes.push(`layout analyzer ${layoutAnalyzer.name}`);
+  } else if (flags.model !== undefined) {
+    warnings.push("--model has no effect without --assist-layout.");
+  } else if (layoutAnalyzer !== undefined) {
+    notes.push(`layout analyzer ${layoutAnalyzer.name} from config`);
+  }
+
+  const stageTimeoutMs = flags.timeoutMs ?? config?.config.stageTimeoutMs;
+  const converter = createDocumentConverter({
+    loaders,
+    ...(layoutAnalyzer === undefined ? {} : { layoutAnalyzer }),
+    ...(stageTimeoutMs === undefined ? {} : { stageTimeoutMs }),
+  });
+  return {
+    converter,
+    concurrency: config?.config.concurrency ?? 4,
+    notes,
+    warnings,
+    dispose: () => converter.dispose(),
   };
 }
 

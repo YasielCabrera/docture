@@ -4,6 +4,7 @@
   "pages": [
     "index",
     "core-extraction",
+    "core-conversion",
     "core-contracts",
     "core-documents",
     "core-components",

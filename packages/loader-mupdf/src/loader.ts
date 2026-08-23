@@ -22,10 +22,14 @@ import {
   type DocumentLoader,
   type LoadContext,
   type LoadedDocument,
+  type LoadedAsset,
   type LoadedPage,
+  type ImageLayoutBlock,
+  type LayoutBlock,
   type LoaderCapabilities,
   type PositionedWord,
   type RawDocument,
+  type TextLine,
 } from "@docture/core";
 import {
   loadMuPdf,
@@ -76,9 +80,10 @@ export class MuPdfLoader implements DocumentLoader<LoaderCapabilities<true, true
           // abort that landed during `await loadMuPdf()` above — and it keeps the loop
           // correct for whatever MuPDF makes async later.
           ctx.signal.throwIfAborted();
-          pages.push(this.readPage(pdf, index));
+          pages.push(this.readPage(pdf, index, ctx));
         }
 
+        const metadata = ctx.request?.layout === true ? metadataFrom(pdf) : undefined;
         return {
           pages,
           // Form feed between pages: a page break is not a line break, and a parser
@@ -86,6 +91,7 @@ export class MuPdfLoader implements DocumentLoader<LoaderCapabilities<true, true
           text: pages.map((p) => p.text).join("\f"),
           form: inferForm(pages.map((p) => p.text.trim().length)),
           loader: this.name,
+          ...(metadata === undefined ? {} : { metadata }),
           meta: { pageCount, pagesRead: pages.length },
         };
       } finally {
@@ -96,7 +102,7 @@ export class MuPdfLoader implements DocumentLoader<LoaderCapabilities<true, true
     });
   }
 
-  private readPage(pdf: MuPdfDocument, index: number): LoadedPage {
+  private readPage(pdf: MuPdfDocument, index: number, ctx: LoadContext): LoadedPage {
     const page = pdf.loadPage(index);
     try {
       // MuPDF normalizes a page to a top-left origin at (0, 0) — a CropBox starting at
@@ -104,13 +110,29 @@ export class MuPdfLoader implements DocumentLoader<LoaderCapabilities<true, true
       // this package needs neither an axis flip nor an origin offset: what MuPDF reports
       // is already the convention this library standardises on.
       const [x0, y0, x1, y1] = page.getBounds();
-      const stext = page.toStructuredText("preserve-whitespace");
+      const stext = page.toStructuredText(
+        ctx.request?.layout === true
+          ? "preserve-whitespace,preserve-images"
+          : "preserve-whitespace",
+      );
       try {
-        const lines = linesFromWords(wordsFrom(stext), {
+        const links = ctx.request?.layout === true ? linksFrom(page) : [];
+        const rich = wordsAndImagesFrom(stext, index + 1, ctx.request?.assets === true, links);
+        const lines = linesFromWords(rich.words, {
           ...(this.options.lineTolerance === undefined
             ? {}
             : { lineTolerance: this.options.lineTolerance }),
         });
+
+        const blocks: LayoutBlock[] = [
+          ...lines.map((line, lineIndex) => ({
+            id: `p${index + 1}-text-${lineIndex + 1}`,
+            kind: "text" as const,
+            ...boxFromLine(line),
+            lines: [line],
+          })),
+          ...rich.imageBlocks,
+        ];
 
         return {
           pageNumber: index + 1,
@@ -118,6 +140,8 @@ export class MuPdfLoader implements DocumentLoader<LoaderCapabilities<true, true
           height: y1 - y0,
           text: textFromLines(lines),
           lines,
+          ...(ctx.request?.layout === true ? { blocks } : {}),
+          ...(ctx.request?.assets === true ? { assets: rich.assets } : {}),
         };
       } finally {
         stext.destroy();
@@ -138,21 +162,52 @@ export class MuPdfLoader implements DocumentLoader<LoaderCapabilities<true, true
  * What a MuPDF line boundary does tell us is a WORD boundary, since two runs are separate
  * words even when no space was drawn between them.
  */
-function wordsFrom(stext: MuPdfStructuredText): PositionedWord[] {
+interface LinkArea {
+  readonly box: readonly [number, number, number, number];
+  readonly href: string;
+}
+
+interface RichPageData {
+  readonly words: readonly PositionedWord[];
+  readonly imageBlocks: readonly ImageLayoutBlock[];
+  readonly assets: readonly LoadedAsset[];
+}
+
+function wordsAndImagesFrom(
+  stext: MuPdfStructuredText,
+  pageNumber: number,
+  includeAssets: boolean,
+  links: readonly LinkArea[],
+): RichPageData {
   const words: PositionedWord[] = [];
+  const imageBlocks: ImageLayoutBlock[] = [];
+  const assets: LoadedAsset[] = [];
   let text = "";
   let box: [number, number, number, number] | undefined;
+  let style: PositionedWord["style"];
+  let direction: PositionedWord["direction"];
 
   const flush = (): void => {
-    if (box !== undefined && text.trim() !== "") words.push({ text, box });
+    if (box !== undefined && text.trim() !== "") {
+      const href = links.find((link) => intersects(box!, link.box))?.href;
+      words.push({
+        text,
+        box,
+        ...(style === undefined ? {} : { style }),
+        ...(direction === undefined ? {} : { direction }),
+        ...(href === undefined ? {} : { href }),
+      });
+    }
     text = "";
     box = undefined;
+    style = undefined;
+    direction = undefined;
   };
 
   stext.walk({
     beginLine: flush,
     endLine: flush,
-    onChar(character, _origin, _font, _size, quad) {
+    onChar(character, _origin, font, size, quad, _color, bidi) {
       if (character.trim() === "") {
         flush();
         return;
@@ -166,6 +221,14 @@ function wordsFrom(stext: MuPdfStructuredText): PositionedWord[] {
       const bottom = Math.max(uly, ury, lly, lry);
 
       text += character;
+      style ??= {
+        fontFamily: font.getName(),
+        fontSize: size,
+        bold: font.isBold(),
+        italic: font.isItalic(),
+        monospace: font.isMono(),
+      };
+      direction ??= bidi % 2 === 0 ? "ltr" : "rtl";
       box =
         box === undefined
           ? [left, top, right, bottom]
@@ -176,9 +239,97 @@ function wordsFrom(stext: MuPdfStructuredText): PositionedWord[] {
               Math.max(box[3], bottom),
             ];
     },
+    onImageBlock(bbox, _transform, image) {
+      flush();
+      const imageNumber = imageBlocks.length + 1;
+      const id = `p${pageNumber}-image-${imageNumber}`;
+      const [x0, y0, x1, y1] = bbox;
+      imageBlocks.push({
+        id,
+        kind: "image",
+        assetId: id,
+        x: x0,
+        y: y0,
+        width: x1 - x0,
+        height: y1 - y0,
+      });
+      if (!includeAssets) return;
+      const pixmap = image.toPixmap();
+      try {
+        assets.push({
+          id,
+          pageNumber,
+          name: `${id}.png`,
+          mimeType: "image/png",
+          bytes: new Uint8Array(pixmap.asPNG()),
+          x: x0,
+          y: y0,
+          width: x1 - x0,
+          height: y1 - y0,
+          widthPx: pixmap.getWidth(),
+          heightPx: pixmap.getHeight(),
+        });
+      } finally {
+        pixmap.destroy();
+      }
+    },
   });
 
   // The last word on the page has no boundary after it.
   flush();
-  return words;
+  return { words, imageBlocks, assets };
+}
+
+function boxFromLine(line: TextLine): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  const spans = line.spans;
+  const x = spans.length === 0 ? 0 : Math.min(...spans.map((span) => span.x));
+  const right = spans.length === 0 ? 0 : Math.max(...spans.map((span) => span.x + span.width));
+  return { x, y: line.y, width: right - x, height: line.height };
+}
+
+function intersects(
+  a: readonly [number, number, number, number],
+  b: readonly [number, number, number, number],
+): boolean {
+  return a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+}
+
+function linksFrom(page: ReturnType<MuPdfDocument["loadPage"]>): LinkArea[] {
+  const links = page.getLinks();
+  try {
+    return links.map((link) => ({ box: link.getBounds(), href: link.getURI() }));
+  } finally {
+    for (const link of links) link.destroy();
+  }
+}
+
+function metadataFrom(pdf: MuPdfDocument): LoadedDocument["metadata"] {
+  const title = pdf.getMetaData("info:Title");
+  const author = pdf.getMetaData("info:Author");
+  const subject = pdf.getMetaData("info:Subject");
+  const rawKeywords = pdf.getMetaData("info:Keywords");
+  const language = pdf.asPDF()?.getLanguage() ?? undefined;
+  if (
+    title === undefined &&
+    author === undefined &&
+    subject === undefined &&
+    rawKeywords === undefined &&
+    language === undefined
+  ) {
+    return undefined;
+  }
+  return {
+    ...(title === undefined ? {} : { title }),
+    ...(author === undefined ? {} : { author }),
+    ...(subject === undefined ? {} : { subject }),
+    ...(rawKeywords === undefined
+      ? {}
+      : { keywords: rawKeywords.split(/[,;]/u).map((keyword) => keyword.trim()).filter(Boolean) }),
+    ...(language === undefined ? {} : { language }),
+  };
 }

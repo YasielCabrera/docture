@@ -31,8 +31,9 @@ reduces precision.
 
 ## Comparators
 
-The default numeric tolerance is `0.01`. Dates compare by UTC calendar day. Strings use a
-normalized Levenshtein similarity floor of `0.9`.
+The default numeric tolerance is `0.01`. Date-shaped values that both parse as dates
+compare by UTC calendar day. Other strings use a normalized Levenshtein similarity floor
+of `0.9`.
 
 ```ts
 scoreExtraction(expected, actual, {

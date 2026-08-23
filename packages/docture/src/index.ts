@@ -1,5 +1,5 @@
 /**
- * `docture` — the whole library through one import.
+ * `docture` — extraction and document conversion through one import.
  *
  * The packages underneath are split so that installing a pipeline does not install
  * a PDF parser, a WASM OCR engine and a model client you were never going to use.

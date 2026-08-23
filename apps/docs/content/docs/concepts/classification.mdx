@@ -43,8 +43,10 @@ the classifier name, proposed document name, confidence, and an optional note.
 Core runs every eligible classifier and keeps all returned signals. A thrown classifier
 error is recorded as an abstention unless the error is an abort.
 
-Names are matched to candidates without regard to letter case. A name that is not in
-the candidate list cannot win, but its signal remains visible in the result.
+Names are matched to candidates without regard to letter case. With a nonempty candidate
+list, a name outside that list cannot win, but its signal remains visible in the result.
+With no candidates, core allows a classifier to return a free-form name and cannot attach
+a matched `classification` object.
 
 ## Choosing a verdict
 

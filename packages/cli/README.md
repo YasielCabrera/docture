@@ -1,6 +1,6 @@
 # @docture/cli
 
-Extraction from a terminal.
+Extraction and grounded document conversion from a terminal.
 
 ```sh
 npx docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5
@@ -28,11 +28,22 @@ still tells you which strategy answered and what it cost:
 | | |
 |---|---|
 | `extract <file...>` | Extract structured data |
+| `convert <file...>` | Convert PDFs to TXT, Markdown, or HTML |
 | `classify <file...>` | Decide what kind of document it is, without extracting |
 | `inspect <file...>` | What the loaders see. **No model, no API key** |
 | `eval <file...>` | Score against ground truth, and gate CI on the number |
 
 `docture <command> --help` for the flags.
+
+## Conversion
+
+```sh
+docture convert reports/*.pdf --out converted/
+```
+
+Conversion requires an output directory. Markdown and referenced raster assets are the
+defaults. Use `--format md|html|txt`, `--assets referenced|embedded|omit`, and optional
+`--assist-layout --model <provider/id>`. A scan needs an OCR loader in the config.
 
 ## The schema
 
@@ -166,6 +177,7 @@ dropping it.
 | `schema` | used when `--schema` is omitted |
 | `cacheDir`, `concurrency`, `stageTimeoutMs` | run defaults |
 | `extractor` | a built `Extractor`. Total control; everything above is ignored |
+| `converter`, `layoutAnalyzer` | a built `DocumentConverter`, or its optional layout refinement |
 
 ## Accuracy
 

@@ -28,18 +28,61 @@ export interface PdfJsModule {
   Util: {
     transform(a: readonly number[], b: readonly number[]): number[];
   };
+  OPS: Readonly<Record<string, number>>;
+  ImageKind: Readonly<Record<string, number>>;
 }
 
 export interface PdfJsDocument {
   readonly numPages: number;
   getPage(pageNumber: number): Promise<PdfJsPage>;
+  getMetadata(): Promise<{ info: Readonly<Record<string, unknown>>; metadata?: unknown }>;
+  getMarkInfo(): Promise<{ Marked: boolean } | null>;
   cleanup(): Promise<void>;
 }
 
+export interface PdfJsViewport {
+  readonly width: number;
+  readonly height: number;
+  readonly transform: number[];
+  convertToViewportPoint(x: number, y: number): number[];
+}
+
+export interface PdfJsImageData {
+  readonly width: number;
+  readonly height: number;
+  readonly kind?: number;
+  readonly data?: Uint8Array | Uint8ClampedArray;
+}
+
+export interface PdfJsObjects {
+  get(id: string, callback?: (value: PdfJsImageData | null) => void): PdfJsImageData | null | undefined;
+}
+
 export interface PdfJsPage {
-  getViewport(options: { scale: number }): { width: number; height: number; transform: number[] };
-  getTextContent(): Promise<{ items: readonly PdfJsTextItem[] }>;
+  readonly objs: PdfJsObjects;
+  getViewport(options: { scale: number }): PdfJsViewport;
+  getTextContent(options?: { includeMarkedContent?: boolean; disableNormalization?: boolean }): Promise<{
+    items: readonly (PdfJsTextItem | PdfJsMarkedContent)[];
+    styles: Readonly<Record<string, { fontFamily: string; vertical?: boolean }>>;
+    lang: string | null;
+  }>;
+  getAnnotations(): Promise<readonly Readonly<Record<string, unknown>>[]>;
+  getStructTree(): Promise<PdfJsStructTree | null>;
+  getOperatorList(): Promise<{
+    fnArray: readonly number[];
+    argsArray: readonly (readonly unknown[])[];
+  }>;
   cleanup(): boolean;
+}
+
+export interface PdfJsMarkedContent {
+  readonly type: string;
+  readonly id?: string;
+}
+
+export interface PdfJsStructTree {
+  readonly role: string;
+  readonly children: readonly (PdfJsStructTree | { readonly type: string; readonly id: string })[];
 }
 
 export interface PdfJsTextItem {
@@ -48,6 +91,8 @@ export interface PdfJsTextItem {
   readonly width?: number;
   readonly height?: number;
   readonly hasEOL?: boolean;
+  readonly dir?: string;
+  readonly fontName?: string;
 }
 
 let cached: Promise<{ pdfjs: PdfJsModule; standardFontDataUrl: string }> | undefined;

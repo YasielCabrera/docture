@@ -1,6 +1,6 @@
 ---
 title: LLM components
-description: Model backends, text and vision extraction, classification, and splitting.
+description: Model backends, extraction, classification, splitting, and layout assistance.
 ---
 
 Import these APIs from `@docture/llm` or `docture`. Install AI SDK 7 in the application.
@@ -14,17 +14,35 @@ new LLM(languageModel: LanguageModel, options?: LlmOptions)
 model(languageModel: LanguageModel, options?: LlmOptions): LLM
 ```
 
-`LLM` implements core's `ModelBackend`. It creates text, vision, classifier, and splitter
-components that share one set of model options. Its `id` defaults to `modelIdOf(model)`.
+`LLM` implements core's `ModelBackend`. It creates text, vision, classifier, splitter,
+and layout components that share one set of model options. Its `id` defaults to
+`modelIdOf(model)`.
 
 `LlmOptions` contains `name`, `completion`, `instructions`, `cache`, `pricing`,
 `temperature`, and `maxRetries`. It also accepts `extraction`, `vision`, `classifier`, and
-`splitter` override objects. Splitter mode defaults to `text`; the other value is `image`.
+`splitter` and `layout` override objects. Splitter mode defaults to `text`; the other
+value is `image`.
 Completion defaults to `forbidden`, and temperature defaults to `0` in generated
 components.
 
 Model provider errors reject strategy and splitter calls. The pipeline records strategy
 failures and may continue. The LLM classifier converts its own failures to abstentions.
+
+## Layout assistance
+
+```ts
+new LlmLayoutAnalyzer(options: LlmLayoutAnalyzerOptions)
+llmLayout(options: LlmLayoutAnalyzerOptions): LayoutAnalyzer
+new LLM(model).layout(): LayoutAnalyzer
+```
+
+`LlmLayoutAnalyzer` is named `llm-layout` by default. Its options contain the required
+model plus optional name, instructions, cache, pricing, temperature, and retries.
+
+The model sees existing element IDs, roles, boxes, and grounded content. Its strict
+response schema accepts annotations only: ID, role, optional heading level, group, and order.
+It contains no text field. Core validates known IDs and page-local permutations before
+using the response. Calls support response caching and report token and cost usage.
 
 ## Text extraction
 
@@ -94,8 +112,9 @@ llmClassifier(options: LlmClassifierOptions): Classifier
 `temperature`, and `maxRetries`. Defaults are 4,000 characters, temperature `0`, and two
 retries.
 
-No candidates, empty text, `UNKNOWN`, an invented candidate name, or a model error returns
-an abstaining signal. The classifier does not reject for model failures.
+No candidates or empty text returns `null`. An `UNKNOWN` answer, an invented candidate
+name, or a model error returns a signal whose name is `null`. The classifier does not
+reject for model failures.
 
 ## LLM splitters
 

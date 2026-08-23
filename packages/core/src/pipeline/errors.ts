@@ -13,6 +13,7 @@ import type { Attempt, ValidationIssue } from "../domain/result.js";
 export type DoctureErrorCode =
   | "NO_ELIGIBLE_LOADER"
   | "LOAD_FAILED"
+  | "NO_CONVERTIBLE_CONTENT"
   | "NO_ELIGIBLE_STRATEGY"
   | "EXTRACTION_FAILED"
   | "CONTRACT_VIOLATION"
@@ -56,6 +57,18 @@ export class LoadFailedError extends DoctureError {
   constructor(readonly attempts: readonly Attempt[]) {
     super(
       `Every loader failed: ${attempts.map((a) => `${a.strategy} (${a.error ?? "unknown"})`).join("; ")}.`,
+    );
+  }
+}
+
+/** The selected loader succeeded, but recovered no text that can be indexed. */
+export class NoConvertibleContentError extends DoctureError {
+  override readonly code = "NO_CONVERTIBLE_CONTENT" as const;
+  constructor(readonly features: DocumentFeatures) {
+    super(
+      `The loader recovered no convertible text ` +
+        `(textLength=${features.textLength}, form=${features.form}). ` +
+        `Configure an OCR loader explicitly for scanned documents.`,
     );
   }
 }

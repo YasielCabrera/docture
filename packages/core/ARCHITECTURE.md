@@ -14,6 +14,7 @@ Dependencies point **downward only**. The rule is enforced by
 ```
         ┌──────────────────────────────────────────┐
         │  extractor.ts  wiring + lifecycle         │   the composition roots
+        │  converter.ts  document → text formats    │
         │  process.ts    bundle → documents         │
         └───────┬──────────────────────────────────┘
                 │
@@ -21,7 +22,8 @@ Dependencies point **downward only**. The rule is enforced by
         │  contracts/    loader · rasterizer ·      │   the plugin interfaces
         │                strategy · classifier ·    │
         │                splitter · model ·         │
-        │                extractor · compose        │
+        │                extractor · layout ·       │
+        │                compose                    │
         └───────┬──────────────────────────────────┘
                 │
         ┌───────▼──────────────────────────────────┐
@@ -38,10 +40,11 @@ Dependencies point **downward only**. The rule is enforced by
 
 | Layer | Owns | Changes when |
 |---|---|---|
-| `domain/` | what a document, a page, a line, a contract, a doc-group, a result and a usage figure *are*; the closed vocabularies; the word-to-line grouper; the image-header size reader | the vocabulary changes |
+| `domain/` | what a document, a page, a line, a semantic element, a contract, a doc-group, a result and a usage figure *are*; the closed vocabularies; the word-to-line grouper; the image-header size reader | the vocabulary changes |
 | `pipeline/` | eligibility → route → attempt → record; schema resolution; source resolution; the load stage; deadlines; typed failures | the orchestration contract changes |
 | `contracts/` | the plugin interfaces, plus `withRasterizer` composition | an interface changes shape |
 | `extractor.ts` | which components a pipeline has, and who disposes them | the default wiring changes |
+| `converter.ts` and `conversion/` | conversion wiring, deterministic layout analysis, and TXT, Markdown, and HTML export | document conversion changes |
 | `process.ts` | reading a bundle once, cutting it, and routing each document to an extractor | multi-document handling changes |
 
 Two of these exist purely to keep core free of the AI SDK, which
@@ -50,6 +53,9 @@ Two of these exist purely to keep core free of the AI SDK, which
 - `contracts/model.ts` declares `ModelBackend`. `extractor.loadLlm(...)` takes one of
   these, so core accepts a model without importing one. `@docture/llm`'s `LLM` is the
   implementation.
+- `contracts/layout-analyzer.ts` declares `LayoutAnalyzer`. `DocumentConverter` can use
+  one for constrained role, grouping, and ordering assistance without importing the AI
+  SDK. Deterministic analysis remains the fallback and owns all source text.
 - `contracts/extractor.ts` declares `DocumentExtractor`, above the class that implements
   it, so a `Classification` can carry its own extractor without `contracts/` depending on
   the composition root.
@@ -85,6 +91,12 @@ DocumentSource (path | URL | bytes | RawDocument | LoadedSource)
          ├─ validate against the caller's schema      ← the ONE place this happens
          └─ all failed         → ContractViolationError, else ExtractionFailedError
 ```
+
+Conversion shares source resolution and first-success loading with extraction. It asks
+the winning loader for optional layout and asset data, rejects documents without
+indexable text, applies deterministic layout analysis, optionally overlays validated
+layout annotations, and exports the resulting elements. Layout annotations can refer
+only to existing element IDs and cannot carry text.
 
 ---
 
@@ -124,6 +136,10 @@ types precisely so they can behave differently. See
 
 **Disposal uses `allSettled` + `AggregateError`.** One engine's broken teardown cannot
 hide another's, and `dispose()` is idempotent.
+
+**Conversion text is loader-owned.** The deterministic analyzer may classify, group,
+and order source blocks, but it does not paraphrase or synthesize their text. Optional
+model assistance is restricted to existing IDs, semantic roles, grouping, and ordering.
 
 ---
 

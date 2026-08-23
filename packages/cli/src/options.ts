@@ -59,6 +59,7 @@ export function wiringFlags(parsed: Parsed): WiringFlags {
     ...(maxChars === undefined ? {} : { maxChars }),
     ...(timeoutMs === undefined ? {} : { timeoutMs }),
     ...(boolFlag(parsed, "classify") ? { classify: true } : {}),
+    ...(boolFlag(parsed, "assist-layout") ? { assistLayout: true } : {}),
     ...(classificationsPath === undefined ? {} : { classificationsPath }),
   };
 }

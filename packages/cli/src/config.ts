@@ -31,10 +31,12 @@ import type {
   Classification,
   Classifier,
   DocumentLoader,
+  DocumentConverter,
   Extractor,
   ExtractionStrategy,
   FlexibleSchema,
   RoutingPolicy,
+  LayoutAnalyzer,
 } from "@docture/core";
 import type { PricingTable } from "@docture/llm";
 import type { LanguageModel } from "ai";
@@ -47,6 +49,10 @@ export interface DoctureConfig {
    * below are ignored — the escape hatch for a pipeline the flags cannot describe.
    */
   readonly extractor?: Extractor | (() => Extractor | Promise<Extractor>);
+  /** A fully-built converter used by `docture convert`. */
+  readonly converter?:
+    | DocumentConverter
+    | (() => DocumentConverter | Promise<DocumentConverter>);
 
   readonly loaders?: readonly DocumentLoader[];
   /** Given these, the CLI builds no strategies of its own and `--model` is unused. */
@@ -55,6 +61,8 @@ export interface DoctureConfig {
   readonly classifications?: readonly Classification[];
   readonly policy?: RoutingPolicy;
   readonly stageTimeoutMs?: number;
+  /** Deterministic conversion refinement used unless --assist-layout supplies one. */
+  readonly layoutAnalyzer?: LayoutAnalyzer;
 
   /** Used when `strategies` is absent. A model instance, or a `provider/id` string. */
   readonly model?: LanguageModel;

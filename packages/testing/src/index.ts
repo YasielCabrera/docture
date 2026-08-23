@@ -24,5 +24,7 @@ export type {
   SyntheticInvoice,
   SyntheticLineItem,
 } from "./fixtures/invoice.js";
+export { makeRichDocumentPdf, richDocumentExpected } from "./fixtures/rich-document.js";
+export type { RichDocumentExpected } from "./fixtures/rich-document.js";
 
 export { failingStrategy, fixedStrategy, inMemoryLoader, loadedDocument } from "./doubles.js";
