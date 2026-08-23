@@ -1,6 +1,6 @@
 {
   "name": "@docture/loader-tesseract",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "TesseractJsLoader — OCR text and geometry for docture, powered by tesseract.js (WASM, no native binary).",
   "license": "MIT",
   "repository": {

@@ -1,6 +1,6 @@
 {
   "name": "docture",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Structured extraction and deterministic TXT, Markdown, and HTML document conversion through one import.",
   "license": "MIT",
   "repository": {

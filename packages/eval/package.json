@@ -1,6 +1,6 @@
 {
   "name": "@docture/eval",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Field-level scoring, hallucination detection and cost reporting for docture extraction runs.",
   "license": "MIT",
   "repository": {

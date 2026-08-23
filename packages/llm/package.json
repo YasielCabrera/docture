@@ -1,6 +1,6 @@
 {
   "name": "@docture/llm",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Model strategies for Docture extraction, classification, splitting, vision, and constrained layout assistance.",
   "license": "MIT",
   "repository": {

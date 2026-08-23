@@ -1,6 +1,6 @@
 {
   "name": "@docture/loader-paddleocr",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "PaddleOcrLoader — OCR text and geometry for docture, powered by PaddleOCR's ONNX models via ppu-paddle-ocr.",
   "license": "MIT",
   "repository": {

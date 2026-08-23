@@ -1,6 +1,6 @@
 {
   "name": "@docture/loader-mupdf",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MuPDF loader and rasterizer for Docture extraction and conversion. MuPDF is AGPL-3.0-or-later.",
   "license": "MIT",
   "repository": {

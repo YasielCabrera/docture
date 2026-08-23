@@ -1,5 +1,13 @@
 # @docture/core
 
+## 0.2.0
+
+### Minor Changes
+
+- a490eef: Add deterministic PDF conversion to TXT, Markdown, and HTML, including normalized
+  semantic layout, provenance, links, raster assets, constrained model assistance, and
+  the `docture convert` command.
+
 ## 0.1.0
 
 ### Minor Changes

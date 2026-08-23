@@ -1,6 +1,6 @@
 {
   "name": "@docture/raster-canvas",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "NapiCanvasRasterizer — render PDF pages to PNG/JPEG for docture, using pdfjs-dist and @napi-rs/canvas.",
   "license": "MIT",
   "repository": {

@@ -1,5 +1,12 @@
 # @docture/raster-canvas
 
+## 0.0.3
+
+### Patch Changes
+
+- Updated dependencies [a490eef]
+  - @docture/core@0.2.0
+
 ## 0.0.2
 
 ### Patch Changes

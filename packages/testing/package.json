@@ -1,6 +1,6 @@
 {
   "name": "@docture/testing",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "Conformance suites, doubles, and deterministic extraction and conversion PDF fixtures for Docture.",
   "license": "MIT",
   "repository": {

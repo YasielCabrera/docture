@@ -1,6 +1,6 @@
 {
   "name": "@docture/loader-pdfjs",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "PDF.js loader for Docture extraction and conversion, including text, layout, links, and raster assets.",
   "license": "MIT",
   "repository": {
