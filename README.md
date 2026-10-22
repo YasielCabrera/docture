@@ -68,8 +68,10 @@ const result = await extractor.extract("invoice.pdf", Invoice);
 result.data.lineItems[0].amount; // number — inferred, no cast
 result.method;                   // which strategy answered
 result.attempts;                 // everything tried, in order, with its error
-result.usage.costUsd;            // what it cost
+result.usage.costUsd;
 ```
+
+`costUsd` requires a matching pricing table for model calls. Response-cache hits do not add a new charge.
 
 `extract` returns the envelope because "which strategy answered and what did it cost" are
 the questions you ask when a number looks wrong. When you only want the fields:

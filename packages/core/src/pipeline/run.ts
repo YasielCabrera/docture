@@ -16,10 +16,9 @@ import type { LoadedDocument } from "../domain/geometry.js";
 import type { Logger } from "../domain/logger.js";
 import { silentLogger } from "../domain/logger.js";
 import {
-  EMPTY_USAGE,
+  sumUsage,
   type Attempt,
   type ExtractionResult,
-  type Usage,
   type ValidationOutcome,
 } from "../domain/result.js";
 import type { Classification, Classifier } from "../contracts/classifier.js";
@@ -37,12 +36,14 @@ import {
   ContractViolationError,
   ExtractionFailedError,
   NoEligibleStrategyError,
+  PageSelectionError,
+  ModelOutputError,
   TimeoutError,
   errorCodeOf,
   isAbortError,
   messageOf,
 } from "./errors.js";
-import { documentFeatures, preloadedFeatures } from "./features.js";
+import { documentFeatures, inferForm, preloadedFeatures } from "./features.js";
 import { loadDocument } from "./read.js";
 import { resolveSchema } from "./schema.js";
 import { resolveSource } from "./source.js";
@@ -75,21 +76,6 @@ export interface RunOptions {
   readonly logger?: Logger;
 }
 
-function addUsage(total: Usage, part: Partial<Usage> | undefined): Usage {
-  if (part === undefined) return total;
-  const costUsd =
-    part.costUsd === undefined && total.costUsd === undefined
-      ? undefined
-      : (total.costUsd ?? 0) + (part.costUsd ?? 0);
-  return {
-    inputTokens: total.inputTokens + (part.inputTokens ?? 0),
-    outputTokens: total.outputTokens + (part.outputTokens ?? 0),
-    totalTokens: total.totalTokens + (part.totalTokens ?? 0),
-    wallMs: total.wallMs,
-    ...(costUsd === undefined ? {} : { costUsd }),
-  };
-}
-
 function failedAttempt(name: string, ms: number, error: unknown): Attempt {
   const code = errorCodeOf(error);
   return {
@@ -109,12 +95,18 @@ function failedAttempt(name: string, ms: number, error: unknown): Attempt {
  * report can still say "the invoice was pages 4–6 of the scan".
  */
 function selectPages(document: LoadedDocument, pages: readonly number[]): LoadedDocument {
+  const known = new Set(document.pages.map((page) => page.pageNumber));
+  const missingPages = [...new Set(pages)].filter((number) => !known.has(number));
+  if (pages.length === 0 || missingPages.length > 0) {
+    throw new PageSelectionError(missingPages, document.pages.length);
+  }
   const wanted = new Set(pages);
   const kept = document.pages.filter((page) => wanted.has(page.pageNumber));
   return {
     ...document,
     pages: kept,
     text: kept.map((page) => page.text).join("\f"),
+    form: document.form === "mixed" ? inferForm(kept.map((page) => page.text.trim().length)) : document.form,
   };
 }
 
@@ -140,21 +132,21 @@ export async function runPipeline<T>(
   let document: LoadedDocument;
   let loaderName: string;
   let loadAttempts: readonly Attempt[];
-  let features: DocumentFeatures;
+  let featuresFor: (selected: LoadedDocument) => DocumentFeatures;
 
   if (preloaded !== undefined) {
     document = preloaded.loaded;
     loaderName = preloaded.loaded.loader;
     loadAttempts = [];
-    features = preloadedFeatures(preloaded);
+    featuresFor = (selected) => preloadedFeatures({ ...preloaded, loaded: selected });
   } else {
     const raw = await resolveSource(source, signal);
     const loaded = await loadDocument(components.loaders, raw, logger, signal, stageTimeoutMs);
     document = loaded.document;
     loaderName = loaded.loader.name;
     loadAttempts = loaded.attempts;
-    features = documentFeatures(
-      loaded.document,
+    featuresFor = (selected) => documentFeatures(
+      selected,
       loaded.loader,
       raw.mimeType ?? "application/octet-stream",
     );
@@ -164,8 +156,8 @@ export async function runPipeline<T>(
   // `LoadedPage` objects carry over, so a lazy `page.image()` stays memoized.
   if (options.pages !== undefined) {
     document = selectPages(document, options.pages);
-    features = { ...features, pageCount: document.pages.length, textLength: document.text.trim().length };
   }
+  const features = featuresFor(document);
 
   const requested =
     options.only === undefined
@@ -218,7 +210,7 @@ export async function runPipeline<T>(
   const plan = ordered.filter((s) => routable.includes(s));
 
   const attempts: Attempt[] = [];
-  let usage = EMPTY_USAGE;
+  let usage = sumUsage((classification?.signals ?? []).map((signal) => signal.usage), 0);
   let firstViolation: ContractViolationError | undefined;
 
   for (const strategy of plan) {
@@ -237,7 +229,7 @@ export async function runPipeline<T>(
         ...(classification === undefined ? {} : { classification }),
       };
       const outcome = await strategy.extract(ctx);
-      usage = addUsage(usage, outcome.usage);
+      usage = sumUsage([usage, outcome.usage], usage.wallMs);
 
       const validation = await resolved.validate(outcome.data);
       if (!validation.ok) {
@@ -271,16 +263,21 @@ export async function runPipeline<T>(
         ...(finalClassification === undefined ? {} : { classification: finalClassification }),
       };
     } catch (error) {
+      const failedUsage = error instanceof ModelOutputError ? error.usage : undefined;
       const failure = deadline.expired()
         ? new TimeoutError(`extract:${strategy.name}`, stageTimeoutMs ?? 0)
         : error;
       // The caller cancelled: stop, do not try the next strategy.
       if (isAbortError(failure)) throw failure;
+      usage = sumUsage([usage, failedUsage], usage.wallMs);
       logger.warn("strategy failed", {
         strategy: strategy.name,
         errorCode: errorCodeOf(failure),
       });
-      attempts.push(failedAttempt(strategy.name, Date.now() - started, failure));
+      attempts.push({
+        ...failedAttempt(strategy.name, Date.now() - started, failure),
+        ...(failedUsage === undefined ? {} : { usage: failedUsage }),
+      });
     } finally {
       deadline.release();
     }

@@ -99,13 +99,18 @@ historical `strategy` field for the loader name. A successful loader is represen
 `result.loader` and is not duplicated in `attempts`.
 
 `Usage` contains `inputTokens`, `outputTokens`, `totalTokens`, optional `costUsd`, and
-`wallMs`. `EMPTY_USAGE` is the zero-valued usage object.
+`wallMs`. Optional `cacheReadTokens` and `cacheWriteTokens` are subsets of input tokens
+reported by the provider. `EMPTY_USAGE` is the zero-valued usage object.
+
+`sumUsage(parts, wallMs)` combines partial usage records. Missing counts add zero.
+Optional cache counts and costs appear when at least one part reports them. The caller
+supplies elapsed `wallMs`. Missing totals are not derived by this reducer.
 
 `ValidationIssue` contains a dotted `path` and `message`. `ValidationOutcome` contains
 `valid` and `issues`.
 
 `ClassificationSignal` contains `classifier`, proposed `name` or `null`, `confidence`, and
-an optional `note`. `ClassificationResult<Name>` contains the selected name or `UNKNOWN`,
+optional `note` and `usage`. `ClassificationResult<Name>` contains the selected name or `UNKNOWN`,
 confidence, and every signal.
 
 ## Batches

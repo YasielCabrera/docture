@@ -69,7 +69,7 @@ function unionBox(boxes: readonly LayoutBox[]): LayoutBox {
   return { x, y, width: right - x, height: bottom - y };
 }
 
-function candidatesFor(page: LoadedPage): { candidates: Candidate[]; degraded: boolean } {
+function candidatesFor(page: LoadedPage): { candidates: Candidate[]; source: "blocks" | "lines" | "text" } {
   const textBlocks = (page.blocks ?? []).filter(
     (block): block is TextLayoutBlock => block.kind === "text",
   );
@@ -88,18 +88,33 @@ function candidatesFor(page: LoadedPage): { candidates: Candidate[]; degraded: b
         ...(block.role === undefined ? {} : { role: block.role }),
         ...(block.level === undefined ? {} : { level: block.level }),
       })),
-      degraded: false,
+      source: "blocks",
+    };
+  }
+
+  if (page.lines !== undefined && page.lines.length > 0) {
+    return {
+      candidates: page.lines.map((line, index) => ({
+        id: `p${page.pageNumber}-line-${index + 1}`,
+        pageNumber: page.pageNumber,
+        box: boxOfLines([line]),
+        lines: [line],
+      })),
+      source: "lines",
     };
   }
 
   return {
-    candidates: (page.lines ?? []).map((line, index) => ({
-      id: `p${page.pageNumber}-line-${index + 1}`,
-      pageNumber: page.pageNumber,
-      box: boxOfLines([line]),
-      lines: [line],
-    })),
-    degraded: true,
+    candidates: page.text
+      .split(/\r?\n\s*\r?\n/u)
+      .filter((text) => text.trim().length > 0)
+      .map((text, index) => ({
+        id: `p${page.pageNumber}-paragraph-${index + 1}`,
+        pageNumber: page.pageNumber,
+        box: { x: 0, y: 0, width: 0, height: 0 },
+        lines: [{ text, y: 0, height: 0, spans: [] }],
+      })),
+    source: "text",
   };
 }
 
@@ -475,7 +490,7 @@ function analyzeTextCandidates(candidates: readonly Candidate[]): DocumentElemen
         if (next === undefined) break;
         const nextText = next.lines.map((line) => line.text).join("\n");
         const nextKind = listKind(nextText);
-        if (next.role !== "list-item" && nextKind !== kind) break;
+        if (next.role !== "list-item" && (nextKind === undefined || nextKind !== kind)) break;
         grouped.push(next);
         const text = stripListMarker(nextText);
         const marker = originalListMarker(nextText);
@@ -552,11 +567,12 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
   const pages: LayoutPage[] = document.pages.map((page, pageIndex) => {
     const sourceCandidates = candidatesFor(page);
     const candidates = splitColumnCandidates(sourceCandidates.candidates, page.width);
-    const { degraded } = sourceCandidates;
-    if (degraded) {
+    if (sourceCandidates.source !== "blocks") {
       warnings.push({
         code: "LAYOUT_DEGRADED",
-        message: `Page ${page.pageNumber} has lines but no loader-provided layout blocks.`,
+        message: sourceCandidates.source === "lines"
+          ? `Page ${page.pageNumber} has lines but no loader-provided layout blocks.`
+          : `Page ${page.pageNumber} has no loader-provided layout blocks or lines.`,
         pageNumber: page.pageNumber,
       });
     }

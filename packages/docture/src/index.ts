@@ -24,8 +24,11 @@
  *
  * const result = await extractor.extract("invoice.pdf", Invoice);
  * result.data.total;      // number — inferred, no cast
- * result.usage.costUsd;   // what it cost
+ * result.usage.costUsd;
  * ```
+ *
+ * `costUsd` requires a matching pricing table for model calls. Response-cache hits
+ * do not add a new charge.
  *
  * Loaders stay in their own packages on purpose — they are the heavy dependencies,
  * and which one you want is a real decision. Everything else is here.

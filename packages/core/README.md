@@ -89,6 +89,8 @@ as Zod's `parse` / `safeParse`.
 | `NO_CONVERTIBLE_CONTENT` | the selected loader recovered no indexable text |
 | `NO_ELIGIBLE_STRATEGY` | the document loaded, but nothing wired can read it (carries `features`) |
 | `EXTRACTION_FAILED` | every eligible strategy ran and threw (carries `attempts`) |
+| `PAGE_OUT_OF_RANGE` | page selection is empty or names absent pages (carries `missingPages`, `pageCount`) |
+| `MODEL_OUTPUT_FAILED` | a billed model response failed its schema (carries `usage` when reported and the SDK `cause`) |
 | `CONTRACT_VIOLATION` | a strategy produced data the schema rejects (carries `issues`) |
 | `TIMEOUT` | one of our per-stage deadlines elapsed, retryable, unlike a caller's abort |
 | `UNSUPPORTED_SOURCE` | the source could not be read at all |

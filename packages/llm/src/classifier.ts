@@ -13,12 +13,16 @@
 import { generateObject, type LanguageModel } from "ai";
 import { z } from "zod/v4";
 import {
+  ModelOutputError,
+  type Usage,
   type ClassificationSignal,
   type Classifier,
   type ClassifyContext,
 } from "@docture/core";
 import { modelIdOf } from "./strategy.js";
-import { cacheKey, type LlmCache } from "./cache.js";
+import { cacheKey, storedUsage, type LlmCache } from "./cache.js";
+import { toUsage, type PricingTable } from "./pricing.js";
+import { modelOutputError } from "./failure.js";
 
 export interface LlmClassifierOptions {
   readonly model: LanguageModel;
@@ -26,6 +30,8 @@ export interface LlmClassifierOptions {
   /** Characters of document text to send. Default 4000 — the front matter decides it. */
   readonly excerptChars?: number;
   readonly cache?: LlmCache;
+  readonly pricing?: PricingTable;
+  readonly instructions?: string;
   readonly temperature?: number;
   readonly maxRetries?: number;
 }
@@ -59,6 +65,7 @@ export class LlmClassifier implements Classifier {
       "Choose exactly one name from the list, or UNKNOWN if none of them fit.",
       "Judge only on evidence in the excerpt. Do not guess to be helpful:",
       "a wrong confident answer is worse than UNKNOWN.",
+      ...(this.options.instructions === undefined ? [] : ["", this.options.instructions]),
     ].join("\n");
 
     const prompt = [
@@ -70,8 +77,10 @@ export class LlmClassifier implements Classifier {
       "</excerpt>",
     ].join("\n");
 
+    const modelId = modelIdOf(this.options.model);
+    let usage: Partial<Usage> | undefined;
+    const startedAt = Date.now();
     try {
-      const modelId = modelIdOf(this.options.model);
       const key = cacheKey({
         modelId,
         system,
@@ -81,32 +90,31 @@ export class LlmClassifier implements Classifier {
       });
 
       const cached = await this.options.cache?.get(key);
-      const verdict =
-        cached !== undefined
-          ? (cached.data as z.infer<typeof verdictSchema>)
-          : await (async () => {
-              const response = await generateObject({
-                model: this.options.model,
-                schema: verdictSchema,
-                system,
-                prompt,
-                temperature: this.options.temperature ?? 0,
-                maxRetries: this.options.maxRetries ?? 2,
-                abortSignal: ctx.signal,
-              });
-              await this.options.cache?.set(key, {
-                data: response.object,
-                usage: {
-                  inputTokens: response.usage.inputTokens ?? 0,
-                  outputTokens: response.usage.outputTokens ?? 0,
-                  totalTokens: response.usage.totalTokens ?? 0,
-                },
-              });
-              return response.object;
-            })();
+      let verdict: z.infer<typeof verdictSchema>;
+      if (cached !== undefined) {
+        usage = toUsage(cached.usage, 0);
+        verdict = verdictSchema.parse(cached.data);
+      } else {
+        const started = Date.now();
+        const response = await generateObject({
+          model: this.options.model,
+          schema: verdictSchema,
+          system,
+          prompt,
+          temperature: this.options.temperature ?? 0,
+          maxRetries: this.options.maxRetries ?? 2,
+          abortSignal: ctx.signal,
+        });
+        usage = toUsage(response.usage, Date.now() - started, modelId, this.options.pricing);
+        await this.options.cache?.set(key, {
+          data: response.object,
+          usage: storedUsage(response.usage),
+        });
+        verdict = response.object;
+      }
 
       if (verdict.name === "UNKNOWN") {
-        return { classifier: this.name, name: null, confidence: 0, note: verdict.reason };
+        return { classifier: this.name, name: null, confidence: 0, note: verdict.reason, usage };
       }
 
       // A model that returns a name outside the candidate list has not classified —
@@ -118,6 +126,7 @@ export class LlmClassifier implements Classifier {
           name: null,
           confidence: 0,
           note: `returned "${verdict.name}", which is not a candidate`,
+          usage,
         };
       }
 
@@ -126,14 +135,20 @@ export class LlmClassifier implements Classifier {
         name: verdict.name,
         confidence: verdict.confidence,
         note: verdict.reason,
+        usage,
       };
     } catch (error) {
+      const failure = modelOutputError(error, {
+        modelId, pricing: this.options.pricing, wallMs: Date.now() - startedAt,
+      });
+      usage ??= failure instanceof ModelOutputError ? failure.usage : undefined;
       // Never throw: see the class comment.
       return {
         classifier: this.name,
         name: null,
         confidence: 0,
         note: `failed: ${error instanceof Error ? error.message : String(error)}`,
+        ...(usage === undefined ? {} : { usage }),
       };
     }
   }

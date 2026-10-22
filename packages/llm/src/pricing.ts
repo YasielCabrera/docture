@@ -13,6 +13,8 @@ import type { Usage } from "@docture/core";
 export interface ModelPricing {
   readonly inputPerMillion: number;
   readonly outputPerMillion: number;
+  readonly cacheReadPerMillion?: number;
+  readonly cacheWritePerMillion?: number;
 }
 
 /** Keyed by model id, e.g. `"gpt-5"` or `"openai/gpt-5"`. */
@@ -22,6 +24,11 @@ export interface RawUsage {
   readonly inputTokens?: number | undefined;
   readonly outputTokens?: number | undefined;
   readonly totalTokens?: number | undefined;
+  readonly inputTokenDetails?: {
+    readonly noCacheTokens?: number | undefined;
+    readonly cacheReadTokens?: number | undefined;
+    readonly cacheWriteTokens?: number | undefined;
+  } | undefined;
 }
 
 /**
@@ -42,17 +49,31 @@ export function toUsage(
   const totalTokens = raw.totalTokens ?? inputTokens + outputTokens;
 
   const rate = modelId === undefined ? undefined : lookupPricing(modelId, pricing);
+  const cacheReadTokens = raw.inputTokenDetails?.cacheReadTokens;
+  const cacheWriteTokens = raw.inputTokenDetails?.cacheWriteTokens;
+  const noCacheTokens = raw.inputTokenDetails?.noCacheTokens ??
+    Math.max(0, inputTokens - (cacheReadTokens ?? 0) - (cacheWriteTokens ?? 0));
+  const standardPricing =
+    (rate?.cacheReadPerMillion === undefined && rate?.cacheWritePerMillion === undefined) ||
+    raw.inputTokenDetails === undefined;
   const costUsd =
     rate === undefined
       ? undefined
-      : (inputTokens / 1_000_000) * rate.inputPerMillion +
-        (outputTokens / 1_000_000) * rate.outputPerMillion;
+      : standardPricing
+        ? (inputTokens / 1_000_000) * rate.inputPerMillion +
+          (outputTokens / 1_000_000) * rate.outputPerMillion
+        : (noCacheTokens * rate.inputPerMillion +
+        (cacheReadTokens ?? 0) * (rate.cacheReadPerMillion ?? rate.inputPerMillion) +
+        (cacheWriteTokens ?? 0) * (rate.cacheWritePerMillion ?? rate.inputPerMillion) +
+        outputTokens * rate.outputPerMillion) / 1_000_000;
 
   return {
     inputTokens,
     outputTokens,
     totalTokens,
     wallMs,
+    ...(cacheReadTokens === undefined ? {} : { cacheReadTokens }),
+    ...(cacheWriteTokens === undefined ? {} : { cacheWriteTokens }),
     ...(costUsd === undefined ? {} : { costUsd }),
   };
 }

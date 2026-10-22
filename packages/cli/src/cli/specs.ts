@@ -47,7 +47,7 @@ const MODEL: readonly FlagSpec[] = [
     name: "pricing",
     type: "string",
     placeholder: "<path>",
-    describe: "JSON of { \"model-id\": { inputPerMillion, outputPerMillion } } — enables cost reporting",
+    describe: "JSON prices by model id with inputPerMillion and outputPerMillion; optional cacheReadPerMillion and cacheWritePerMillion default to inputPerMillion",
   },
   {
     name: "cache",

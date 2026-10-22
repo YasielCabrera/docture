@@ -17,11 +17,12 @@ import type {
 import { isLoadedSource, type DocumentSource, type RawDocument } from "./domain/document.js";
 import type { LoadedDocument } from "./domain/geometry.js";
 import { silentLogger, type Logger } from "./domain/logger.js";
-import type { Attempt, Usage } from "./domain/result.js";
+import { sumUsage, type Attempt, type Usage } from "./domain/result.js";
 import { withDeadline } from "./pipeline/deadline.js";
 import {
   DuplicateComponentError,
   NoConvertibleContentError,
+  ModelOutputError,
   TimeoutError,
   errorCodeOf,
   isAbortError,
@@ -61,13 +62,10 @@ function safeStem(fileName: string | undefined): string {
 function usageFrom(partial: Partial<Usage> | undefined): Usage {
   const inputTokens = partial?.inputTokens ?? 0;
   const outputTokens = partial?.outputTokens ?? 0;
-  return {
-    inputTokens,
-    outputTokens,
+  return sumUsage([{
+    ...partial,
     totalTokens: partial?.totalTokens ?? inputTokens + outputTokens,
-    ...(partial?.costUsd === undefined ? {} : { costUsd: partial.costUsd }),
-    wallMs: partial?.wallMs ?? 0,
-  };
+  }], partial?.wallMs ?? 0);
 }
 
 function failedAttempt(name: string, ms: number, error: unknown): Attempt {
@@ -200,15 +198,20 @@ export class DocumentConverter {
           });
         }
       } catch (error) {
+        const failedUsage = error instanceof ModelOutputError ? error.usage : undefined;
         const failure = deadline.expired()
           ? new TimeoutError(`layout:${analyzer.name}`, stageTimeoutMs ?? 0)
           : error;
         if (isAbortError(failure)) throw failure;
+        modelUsage = usageFrom(failedUsage);
         warnings.push({
           code: "LAYOUT_ANALYZER_FAILED",
           message: `Layout analyzer "${analyzer.name}" failed; deterministic layout was kept: ${messageOf(failure)}.`,
         });
-        attempts.push(failedAttempt(analyzer.name, Date.now() - analyzerStarted, failure));
+        attempts.push({
+          ...failedAttempt(analyzer.name, Date.now() - analyzerStarted, failure),
+          ...(failedUsage === undefined ? {} : { usage: failedUsage }),
+        });
       } finally {
         deadline.release();
       }

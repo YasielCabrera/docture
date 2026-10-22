@@ -36,7 +36,7 @@ const result = await extractor.extract("invoice.pdf", Invoice);
 
 result.data.lineItems[0].amount;  // number, inferred from the contract
 result.method;                    // which strategy answered
-result.usage.costUsd;             // what it cost`,
+result.usage.costUsd;`,
   },
   {
     id: "classify",

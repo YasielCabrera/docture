@@ -37,7 +37,7 @@ import { isLoadedSource } from "./domain/document.js";
 import { SplittingStrategy } from "./domain/enums.js";
 import type { LoadedDocument } from "./domain/geometry.js";
 import type { Logger } from "./domain/logger.js";
-import { EMPTY_USAGE, type Usage } from "./domain/result.js";
+import { EMPTY_USAGE, sumUsage, type Usage } from "./domain/result.js";
 import { silentLogger } from "./domain/logger.js";
 import { hasFact } from "./domain/document.js";
 import { UNCLASSIFIED, type DocGroups } from "./domain/split.js";
@@ -370,17 +370,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
       signal,
       logger,
       recordUsage: (part) => {
-        const costUsd =
-          part.costUsd === undefined && usage.costUsd === undefined
-            ? undefined
-            : (usage.costUsd ?? 0) + (part.costUsd ?? 0);
-        usage = {
-          inputTokens: usage.inputTokens + (part.inputTokens ?? 0),
-          outputTokens: usage.outputTokens + (part.outputTokens ?? 0),
-          totalTokens: usage.totalTokens + (part.totalTokens ?? 0),
-          wallMs: usage.wallMs,
-          ...(costUsd === undefined ? {} : { costUsd }),
-        };
+        usage = sumUsage([usage, part], usage.wallMs);
       },
     };
 

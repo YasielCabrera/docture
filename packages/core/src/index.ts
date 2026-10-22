@@ -100,7 +100,7 @@ export type {
   ValidationIssue,
   ValidationOutcome,
 } from "./domain/result.js";
-export { EMPTY_USAGE } from "./domain/result.js";
+export { EMPTY_USAGE, sumUsage } from "./domain/result.js";
 
 // ── Writing a loader ────────────────────────────────────────────────────────────
 export { defineLoader, loaderAccepts } from "./contracts/loader.js";
@@ -229,6 +229,8 @@ export {
   NoEligibleLoaderError,
   NoEligibleStrategyError,
   DoctureError,
+  PageSelectionError,
+  ModelOutputError,
   SplitFailedError,
   TimeoutError,
   UnclassifiedGroupError,

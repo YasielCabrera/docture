@@ -10,7 +10,11 @@ export interface Usage {
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly totalTokens: number;
-  /** Undefined when no model ran, or when the provider reports no cost. */
+  /** Provider prompt-cache reads, included in inputTokens. */
+  readonly cacheReadTokens?: number;
+  /** Provider prompt-cache writes, included in inputTokens. */
+  readonly cacheWriteTokens?: number;
+  /** Absent when no model ran or no matching price was configured. */
   readonly costUsd?: number;
   readonly wallMs: number;
 }
@@ -21,6 +25,26 @@ export const EMPTY_USAGE: Usage = {
   totalTokens: 0,
   wallMs: 0,
 };
+
+/** Sum counts and reported costs. The caller supplies elapsed wall time. */
+export function sumUsage(parts: readonly (Partial<Usage> | undefined)[], wallMs: number): Usage {
+  const sum = (field: keyof Usage): number | undefined => {
+    const values = parts.map((part) => part?.[field]).filter((value): value is number => value !== undefined);
+    return values.length === 0 ? undefined : values.reduce((total, value) => total + value, 0);
+  };
+  const costUsd = sum("costUsd");
+  const cacheReadTokens = sum("cacheReadTokens");
+  const cacheWriteTokens = sum("cacheWriteTokens");
+  return {
+    inputTokens: sum("inputTokens") ?? 0,
+    outputTokens: sum("outputTokens") ?? 0,
+    totalTokens: sum("totalTokens") ?? 0,
+    wallMs,
+    ...(costUsd === undefined ? {} : { costUsd }),
+    ...(cacheReadTokens === undefined ? {} : { cacheReadTokens }),
+    ...(cacheWriteTokens === undefined ? {} : { cacheWriteTokens }),
+  };
+}
 
 export type AttemptStatus = "ok" | "failed" | "skipped";
 
@@ -63,6 +87,8 @@ export interface ClassificationSignal {
   readonly name: string | null;
   readonly confidence: number;
   readonly note?: string;
+  /** Usage of this classifier, including paid abstentions. */
+  readonly usage?: Partial<Usage>;
 }
 
 export interface ExtractionResult<T> {

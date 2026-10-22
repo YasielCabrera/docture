@@ -38,7 +38,12 @@ const backend = new LLM(openai("gpt-5"), {
   instructions: "Dates must use YYYY-MM-DD.",
   cache: fileCache(".docture-cache"),
   pricing: {
-    "gpt-5": { inputPerMillion: 2, outputPerMillion: 10 },
+    "gpt-5": {
+      inputPerMillion: 2,
+      outputPerMillion: 10,
+      cacheReadPerMillion: 0.2,
+      cacheWritePerMillion: 2.5,
+    },
   },
 });
 
@@ -138,6 +143,10 @@ llm({
 ```
 
 Without a matching price, `costUsd` is absent. It is not reported as zero.
+
+Cache reads and writes use their optional rates. A missing cache rate falls back to
+`inputPerMillion`. Provider-reported cache counts appear as `cacheReadTokens` and
+`cacheWriteTokens` in usage, included in `inputTokens`.
 
 See [long documents](/docs/guides/long-documents) for multi-request extraction and
 [scanned documents](/docs/guides/scanned-documents) for vision setup.

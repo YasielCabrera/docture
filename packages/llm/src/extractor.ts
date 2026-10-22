@@ -77,6 +77,14 @@ export function createLlmExtractor(options: LlmExtractorOptions): Extractor {
     ...rest
   } = options;
 
+  const shared = {
+    ...(llmOptions?.cache === undefined ? {} : { cache: llmOptions.cache }),
+    ...(llmOptions?.pricing === undefined ? {} : { pricing: llmOptions.pricing }),
+    ...(llmOptions?.temperature === undefined ? {} : { temperature: llmOptions.temperature }),
+    ...(llmOptions?.maxRetries === undefined ? {} : { maxRetries: llmOptions.maxRetries }),
+    ...(llmOptions?.instructions === undefined ? {} : { instructions: llmOptions.instructions }),
+  };
+
   const strategies = [
     ...(before ?? []),
     llm({
@@ -86,14 +94,14 @@ export function createLlmExtractor(options: LlmExtractorOptions): Extractor {
     }),
     ...(visionOption === undefined || visionOption === false
       ? []
-      : [vision({ model, ...(visionOption === true ? {} : visionOption) })]),
+      : [vision({ model, ...shared, ...(visionOption === true ? {} : visionOption) })]),
   ];
 
   return createExtractor({
     ...rest,
     strategies,
     ...(classifyWithModel === true
-      ? { classifiers: [...(classifiers ?? []), llmClassifier({ model })] }
+      ? { classifiers: [...(classifiers ?? []), llmClassifier({ model, ...shared })] }
       : classifiers === undefined
         ? {}
         : { classifiers }),

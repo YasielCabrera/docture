@@ -9,9 +9,10 @@ import type {
   LayoutAnalyzerContext,
   LayoutAnnotation,
 } from "@docture/core";
-import { cacheKey, type LlmCache } from "./cache.js";
+import { cacheKey, storedUsage, type LlmCache } from "./cache.js";
 import { toUsage, type PricingTable } from "./pricing.js";
 import { modelIdOf } from "./strategy.js";
+import { modelOutputError } from "./failure.js";
 
 export interface LlmLayoutAnalyzerOptions {
   readonly model: LanguageModel;
@@ -137,6 +138,10 @@ export class LlmLayoutAnalyzer implements LayoutAnalyzer {
       temperature: this.options.temperature ?? 0,
       maxRetries: this.options.maxRetries ?? 2,
       abortSignal: ctx.signal,
+    }).catch((error: unknown) => {
+      throw modelOutputError(error, {
+        modelId, pricing: this.options.pricing, wallMs: Date.now() - started,
+      });
     });
     const usage = toUsage(
       response.usage,
@@ -147,17 +152,7 @@ export class LlmLayoutAnalyzer implements LayoutAnalyzer {
     if (key !== undefined) {
       await this.options.cache?.set(key, {
         data: response.object,
-        usage: {
-          ...(response.usage.inputTokens === undefined
-            ? {}
-            : { inputTokens: response.usage.inputTokens }),
-          ...(response.usage.outputTokens === undefined
-            ? {}
-            : { outputTokens: response.usage.outputTokens }),
-          ...(response.usage.totalTokens === undefined
-            ? {}
-            : { totalTokens: response.usage.totalTokens }),
-        },
+        usage: storedUsage(response.usage),
       });
     }
     return { annotations: annotationsOf(response.object.annotations), usage };

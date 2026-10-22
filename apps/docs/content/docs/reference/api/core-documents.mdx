@@ -101,6 +101,11 @@ also accepts custom string facts.
 `MIN_TEXT_LAYER_CHARS` is `50`, the whole-document trimmed text threshold used for
 `TEXT_LAYER`.
 
+Page selection recomputes these features from the selected document and uses the same
+50-character threshold. A short digital selection can therefore have `form: "digital"`
+and `hasTextLayer: false`. A `Process` group below the threshold needs a strategy that
+does not require `TEXT_LAYER`; otherwise extraction fails with `NO_ELIGIBLE_STRATEGY`.
+
 ## Geometry helpers
 
 `PositionedWord` contains text, `[xMin, yMin, xMax, yMax]`, and optional confidence,

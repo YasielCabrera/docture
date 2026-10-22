@@ -12,7 +12,7 @@ import type { ClassificationResult, ClassificationSignal } from "../domain/resul
 import type { Classification, Classifier } from "../contracts/classifier.js";
 import { withDeadline } from "./deadline.js";
 import { eligibleClassifiers } from "./eligibility.js";
-import { isAbortError, messageOf } from "./errors.js";
+import { ModelOutputError, isAbortError, messageOf } from "./errors.js";
 
 /** How to pick a winner when classifiers disagree. */
 export type ConsensusStrategy = "consensus" | "higherOrder" | "consensusWithThreshold";
@@ -123,6 +123,7 @@ export async function classifyDocument(
         name: null,
         confidence: 0,
         note: `threw: ${messageOf(error)}`,
+        ...(error instanceof ModelOutputError && error.usage !== undefined ? { usage: error.usage } : {}),
       });
     } finally {
       deadline.release();

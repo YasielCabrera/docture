@@ -257,6 +257,14 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
     ? await chooseModel(flags, config, io, notes, warnings)
     : undefined;
 
+  const instructions = flags.instructions ?? config?.config.instructions;
+  const shared = {
+    ...(instructions === undefined ? {} : { instructions }),
+    ...(cache === undefined ? {} : { cache }),
+    ...(pricing === undefined ? {} : { pricing }),
+    ...(flags.temperature === undefined ? {} : { temperature: flags.temperature }),
+  };
+
   let strategies: readonly ExtractionStrategy[] = fromConfig;
 
   if (fromConfig.length > 0) {
@@ -270,14 +278,6 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
       );
     }
   } else if (model !== undefined) {
-    const instructions = flags.instructions ?? config?.config.instructions;
-    const shared = {
-      ...(instructions === undefined ? {} : { instructions }),
-      ...(cache === undefined ? {} : { cache }),
-      ...(pricing === undefined ? {} : { pricing }),
-      ...(flags.temperature === undefined ? {} : { temperature: flags.temperature }),
-    };
-
     strategies = [
       llm({
         model,
@@ -299,7 +299,7 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
   }
 
   if (flags.classify === true && model !== undefined) {
-    classifiers.push(llmClassifier({ model }));
+    classifiers.push(llmClassifier({ model, ...shared }));
     notes.push("classifier llm");
   }
 

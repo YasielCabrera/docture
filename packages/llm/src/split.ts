@@ -17,11 +17,11 @@
  * ```
  */
 
-import { createHash } from "node:crypto";
 import { generateObject, type LanguageModel } from "ai";
 import { z } from "zod/v4";
 import {
   UNCLASSIFIED,
+  ModelOutputError,
   type Classification,
   type DocGroups,
   type LoadedPage,
@@ -30,9 +30,10 @@ import {
   type SplitVerdict,
   type Splitter,
 } from "@docture/core";
-import { cacheKey, type LlmCache } from "./cache.js";
+import { cacheKey, storedUsage, fingerprint, type ContentPart, type LlmCache } from "./cache.js";
 import { toUsage, type PricingTable } from "./pricing.js";
 import { modelIdOf } from "./strategy.js";
+import { modelOutputError } from "./failure.js";
 
 export interface SplitterOptions {
   readonly model: LanguageModel;
@@ -52,38 +53,6 @@ export interface SplitterOptions {
   readonly format?: RasterFormat;
   /** Cap the pages an EAGER split sends in one request. Default 40. */
   readonly maxEagerPages?: number;
-}
-
-/**
- * What goes into one user message.
- *
- * A `file` part, not the deprecated `image` part — same bytes, and the shape the AI
- * SDK carries forward. `VisionStrategy` sends pages the same way.
- */
-type ContentPart =
-  | { readonly type: "text"; readonly text: string }
-  | { readonly type: "file"; readonly data: Uint8Array; readonly mediaType: string };
-
-/**
- * A stable digest of the message content, for the cache key.
- *
- * Image bytes are hashed rather than embedded: the key must change when the picture
- * does, and a base64 page at 120 dpi is a bad thing to keep in memory just to name a
- * cache entry.
- */
-function fingerprint(content: readonly ContentPart[]): string {
-  const hash = createHash("sha256");
-  for (const part of content) {
-    if (part.type === "text") {
-      hash.update("t:");
-      hash.update(part.text);
-    } else {
-      hash.update("f:");
-      hash.update(part.mediaType);
-      hash.update(part.data);
-    }
-  }
-  return hash.digest("hex");
 }
 
 const seamSchema = z.object({
@@ -286,6 +255,14 @@ abstract class ModelSplitter implements Splitter {
       temperature: this.options.temperature ?? 0,
       maxRetries: this.options.maxRetries ?? 2,
       abortSignal: ctx.signal,
+    }).catch((error: unknown) => {
+      const failure = modelOutputError(error, {
+        modelId: modelIdOf(this.options.model), pricing: this.options.pricing, wallMs: Date.now() - started,
+      });
+      if (failure instanceof ModelOutputError && failure.usage !== undefined) {
+        ctx.recordUsage?.(failure.usage);
+      }
+      throw failure;
     });
 
     ctx.recordUsage?.(
@@ -302,17 +279,7 @@ abstract class ModelSplitter implements Splitter {
         data: result.object,
         // `LanguageModelUsage` leaves every count optional; `CachedResponse` wants
         // them present-or-absent, not present-and-undefined.
-        usage: {
-          ...(result.usage.inputTokens === undefined
-            ? {}
-            : { inputTokens: result.usage.inputTokens }),
-          ...(result.usage.outputTokens === undefined
-            ? {}
-            : { outputTokens: result.usage.outputTokens }),
-          ...(result.usage.totalTokens === undefined
-            ? {}
-            : { totalTokens: result.usage.totalTokens }),
-        },
+        usage: storedUsage(result.usage),
       });
     }
     // `generateObject`'s return type widens to include the array form for a schema

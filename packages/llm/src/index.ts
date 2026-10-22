@@ -49,8 +49,8 @@ export { DEFAULT_SYSTEM_PROMPT, buildPrompt, chunkByBudget, chunkByPage, estimat
 export type { BuildPromptOptions, Chunk, PromptParts } from "./prompt.js";
 
 // Response caching — an eval re-scoring a corpus should not pay twice.
-export { cacheKey, fileCache, memoryCache } from "./cache.js";
-export type { CacheKeyParts, CachedResponse, LlmCache } from "./cache.js";
+export { cacheKey, fileCache, fingerprint, memoryCache } from "./cache.js";
+export type { CacheKeyParts, CachedResponse, ContentPart, LlmCache } from "./cache.js";
 
 // Cost accounting. Without a pricing table, `costUsd` is honestly absent.
 export { lookupPricing, toUsage } from "./pricing.js";

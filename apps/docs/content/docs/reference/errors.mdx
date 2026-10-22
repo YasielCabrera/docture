@@ -31,6 +31,8 @@ try {
 | `NO_CONVERTIBLE_CONTENT` | `NoConvertibleContentError` | `features` | The selected loader returned no indexable text. Configure an OCR loader explicitly for a scan. |
 | `NO_ELIGIBLE_STRATEGY` | `NoEligibleStrategyError` | `features`, `gaps` | The document loaded, but no requested strategy satisfies its runtime requirements. Add a suitable strategy or rasterizer. |
 | `EXTRACTION_FAILED` | `ExtractionFailedError` | `attempts` | Every eligible strategy failed. The attempts contain each strategy error and code. |
+| `PAGE_OUT_OF_RANGE` | `PageSelectionError` | `missingPages`, `pageCount` | The page selection is empty or names pages absent from the document. Select existing 1-based pages. |
+| `MODEL_OUTPUT_FAILED` | `ModelOutputError` | `usage` when reported, `cause` | A billed model response failed its requested schema. Inspect the schema and instructions. Failed extraction attempts retain the call's usage. |
 | `CONTRACT_VIOLATION` | `ContractViolationError` | `strategy`, `issues` | Strategy output did not pass the requested schema. Adjust the schema, parser, or prompt. |
 | `UNSUPPORTED_SOURCE` | `UnsupportedSourceError` | `cause` when supplied | The source uses an unsupported protocol, an HTTP request failed, the input is empty, or a loaded source was passed to `resolveSource()`. |
 | `TIMEOUT` | `TimeoutError` | `stage`, `ms` | A library-owned stage deadline elapsed. A later loader or strategy may still run. |
@@ -47,6 +49,8 @@ new LoadFailedError(attempts: readonly Attempt[])
 new NoConvertibleContentError(features: DocumentFeatures)
 new NoEligibleStrategyError(features: DocumentFeatures, gaps: readonly Ineligibility[])
 new ExtractionFailedError(attempts: readonly Attempt[])
+new PageSelectionError(missingPages: readonly number[], pageCount: number)
+new ModelOutputError(message: string, options?: { cause?: unknown; usage?: Partial<Usage> })
 new ContractViolationError(strategy: string, issues: readonly ValidationIssue[])
 new UnsupportedSourceError(message: string, options?: { cause?: unknown })
 new TimeoutError(stage: string, ms: number)

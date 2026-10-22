@@ -36,9 +36,9 @@ export interface ScoreOptions {
   /** Absolute tolerance for numbers. Default 0.01 — one cent. */
   readonly numericTolerance?: number;
   /**
-   * Minimum similarity for two strings to count as a match, 0–1. Default 0.9,
-   * which forgives an OCR character slip in a long name without accepting a
-   * different name.
+   * Minimum similarity for two strings to count as a match, 0–1. Default 0.9.
+   * Digits must match in order before similarity applies, so an OCR letter slip
+   * in a name or address can match while a changed identifier digit cannot.
    */
   readonly stringSimilarity?: number;
   /**
@@ -61,11 +61,11 @@ function isPresent(value: unknown): boolean {
 /** Flatten to leaf paths. Objects recurse; arrays index; everything else is a leaf. */
 function flatten(value: unknown, prefix = "", out = new Map<string, unknown>()): Map<string, unknown> {
   if (Array.isArray(value)) {
-    if (value.length === 0) out.set(prefix, []);
+    if (value.length === 0) out.set(prefix, value);
     else value.forEach((element, i) => flatten(element, `${prefix}[${i}]`, out));
   } else if (value !== null && typeof value === "object") {
     const entries = Object.entries(value as Record<string, unknown>);
-    if (entries.length === 0) out.set(prefix, {});
+    if (entries.length === 0) out.set(prefix, value);
     else {
       for (const [key, child] of entries) {
         flatten(child, prefix === "" ? key : `${prefix}.${key}`, out);
@@ -79,6 +79,12 @@ function flatten(value: unknown, prefix = "", out = new Map<string, unknown>()):
 
 function normalizeString(value: string): string {
   return value.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+function isEmptyPlainObject(value: unknown): boolean {
+  if (value === null || typeof value !== "object") return false;
+  const prototype = Object.getPrototypeOf(value);
+  return (prototype === Object.prototype || prototype === null) && Object.keys(value).length === 0;
 }
 
 /** Levenshtein distance, two rows at a time. */
@@ -110,25 +116,46 @@ function similarity(a: string, b: string): number {
   return 1 - levenshtein(a, b) / longest;
 }
 
-/** A date-ish leaf: the path says so, or the value is ISO-shaped. */
 function looksLikeDate(path: string, value: unknown): boolean {
   if (typeof value !== "string") return false;
-  return /date|at$|_at|issued|due/i.test(path) || /^\d{4}-\d{2}-\d{2}/.test(value);
+  const leaf = path.slice(path.lastIndexOf(".") + 1).replace(/\[\d+\]/g, "");
+  const words = leaf.replace(/([a-z\d])([A-Z])/g, "$1_$2").toLowerCase().split(/[_-]/);
+  return (
+    words.some((word) => /^(?:dates?|birthdate|startdate|enddate|issued|due)$/.test(word)) ||
+    words.at(-1) === "at" ||
+    /^\d{4}-\d{2}-\d{2}(?:$|[T ])/i.test(value.trim())
+  );
+}
+
+const MONTHS = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+];
+
+function calendarDay(year: number, month: number, day: number): number | undefined {
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const maxDay = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+  if (maxDay === undefined || day < 1 || day > maxDay) return undefined;
+  return year * 10_000 + month * 100 + day;
 }
 
 function toDay(value: unknown): number | undefined {
   if (typeof value !== "string") return undefined;
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) return undefined;
-  const date = new Date(parsed);
-  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, " ");
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[t ](?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:z|[+-](?:[01]\d|2[0-3])(?::?[0-5]\d)?)?)?$/.exec(normalized);
+  if (iso) return calendarDay(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+
+  const named = /^(?:([a-z]+)\.? (\d{1,2}),?|(\d{1,2}) ([a-z]+)\.?,?) (\d{4})$/.exec(normalized);
+  if (!named) return undefined;
+  const name = named[1] ?? named[4];
+  const month = MONTHS.findIndex((entry) => entry === name || entry.slice(0, 3) === name) + 1;
+  return calendarDay(Number(named[5]), month, Number(named[2] ?? named[3]));
 }
 
 /**
  * Are two leaves equal? The comparator is chosen by type, then by path.
  *
  * Numbers get a tolerance because 1234.56 and 1234.5599999 are the same money.
- * Dates are compared as days, so "2026-01-15" matches "2026-01-15T00:00:00Z".
  * Strings get a similarity floor, so one OCR slip in a company name is not a miss.
  */
 function leavesMatch(
@@ -156,8 +183,14 @@ function leavesMatch(
     const a = normalizeString(expected);
     const b = normalizeString(actual);
     if (a === b) return true;
+    if (a.replace(/\D/g, "") !== b.replace(/\D/g, "")) return false;
     return similarity(a, b) >= options.stringSimilarity;
   }
+
+  if (Array.isArray(expected) && Array.isArray(actual)) {
+    return expected.length === 0 && actual.length === 0;
+  }
+  if (isEmptyPlainObject(expected) && isEmptyPlainObject(actual)) return true;
 
   return expected === actual;
 }
@@ -182,8 +215,10 @@ function realign(value: unknown, key: string): unknown {
     return sorted.map((element) => realign(element, key));
   }
   if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value);
+    if (entries.length === 0) return value;
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, realign(v, key)]),
+      entries.map(([k, v]) => [k, realign(v, key)]),
     );
   }
   return value;

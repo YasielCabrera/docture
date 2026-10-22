@@ -10,6 +10,7 @@
 
 import { generateObject, jsonSchema, type LanguageModel } from "ai";
 import {
+  sumUsage,
   type ClassificationNeed,
   type ExtractionStrategy,
   type LoadedPage,
@@ -18,12 +19,13 @@ import {
   type StrategyOutcome,
   type Usage,
 } from "@docture/core";
-import { cacheKey, type LlmCache } from "./cache.js";
+import { cacheKey, storedUsage, fingerprint, type ContentPart, type LlmCache } from "./cache.js";
 import { mergePartials } from "./merge.js";
 import { buildPrompt } from "./prompt.js";
 import { modelIdOf } from "./strategy.js";
 import { toUsage, type PricingTable } from "./pricing.js";
 import { relaxJsonSchema } from "./relax.js";
+import { modelOutputError } from "./failure.js";
 
 export interface VisionStrategyOptions {
   readonly model: LanguageModel;
@@ -56,17 +58,6 @@ const MEDIA_TYPES: Readonly<Record<RasterFormat, string>> = {
   png: "image/png",
   jpeg: "image/jpeg",
 };
-
-function sumUsage(parts: readonly Partial<Usage>[], wallMs: number): Partial<Usage> {
-  const costs = parts.map((p) => p.costUsd).filter((c): c is number => c !== undefined);
-  return {
-    inputTokens: parts.reduce((sum, p) => sum + (p.inputTokens ?? 0), 0),
-    outputTokens: parts.reduce((sum, p) => sum + (p.outputTokens ?? 0), 0),
-    totalTokens: parts.reduce((sum, p) => sum + (p.totalTokens ?? 0), 0),
-    wallMs,
-    ...(costs.length === 0 ? {} : { costUsd: costs.reduce((sum, c) => sum + c, 0) }),
-  };
-}
 
 export class VisionStrategy implements ExtractionStrategy {
   readonly name: string;
@@ -142,12 +133,17 @@ export class VisionStrategy implements ExtractionStrategy {
       ctx.signal.throwIfAborted();
       const images = await this.render(group);
 
+      const content: ContentPart[] = [
+        { type: "text", text: prompt },
+        ...images.map((data) => ({ type: "file" as const, data, mediaType })),
+      ];
+
       // The page numbers are part of the key: the same prompt over page 2 is a
       // different request from the same prompt over page 1.
       const key = cacheKey({
         modelId,
         system,
-        prompt,
+        prompt: fingerprint(content),
         jsonSchema: ctx.schema.jsonSchema,
         variant:
           `vision:${format}:${this.options.dpi ?? 200}:` +
@@ -158,11 +154,7 @@ export class VisionStrategy implements ExtractionStrategy {
       const cached = await this.options.cache?.get(key);
       if (cached !== undefined) {
         parts.push(cached.data);
-        usages.push({
-          inputTokens: cached.usage.inputTokens ?? 0,
-          outputTokens: cached.usage.outputTokens ?? 0,
-          totalTokens: cached.usage.totalTokens ?? 0,
-        });
+        usages.push(toUsage(cached.usage, 0));
         continue;
       }
 
@@ -174,21 +166,19 @@ export class VisionStrategy implements ExtractionStrategy {
         messages: [
           {
             role: "user",
-            content: [
-              { type: "text", text: prompt },
-              // A `file` part, not the deprecated `image` part. Same bytes; this is
-              // the shape the AI SDK carries forward.
-              ...images.map((image) => ({
-                type: "file" as const,
-                data: image,
-                mediaType,
-              })),
-            ],
+            content,
           },
         ],
         temperature: this.options.temperature ?? 0,
         maxRetries: this.options.maxRetries ?? 2,
         abortSignal: ctx.signal,
+      }).catch((error: unknown) => {
+        throw modelOutputError(error, {
+          modelId,
+          pricing: this.options.pricing,
+          wallMs: Date.now() - startedAt,
+          completed: usages,
+        });
       });
 
       parts.push(response.object);
@@ -198,11 +188,7 @@ export class VisionStrategy implements ExtractionStrategy {
 
       await this.options.cache?.set(key, {
         data: response.object,
-        usage: {
-          inputTokens: response.usage.inputTokens ?? 0,
-          outputTokens: response.usage.outputTokens ?? 0,
-          totalTokens: response.usage.totalTokens ?? 0,
-        },
+        usage: storedUsage(response.usage),
       });
     }
 

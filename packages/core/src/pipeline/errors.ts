@@ -8,7 +8,7 @@
  */
 
 import type { DocumentFact, DocumentFeatures } from "../domain/document.js";
-import type { Attempt, ValidationIssue } from "../domain/result.js";
+import type { Attempt, Usage, ValidationIssue } from "../domain/result.js";
 
 export type DoctureErrorCode =
   | "NO_ELIGIBLE_LOADER"
@@ -16,6 +16,8 @@ export type DoctureErrorCode =
   | "NO_CONVERTIBLE_CONTENT"
   | "NO_ELIGIBLE_STRATEGY"
   | "EXTRACTION_FAILED"
+  | "PAGE_OUT_OF_RANGE"
+  | "MODEL_OUTPUT_FAILED"
   | "CONTRACT_VIOLATION"
   | "UNSUPPORTED_SOURCE"
   | "TIMEOUT"
@@ -28,6 +30,28 @@ export abstract class DoctureError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options as ErrorOptions);
     this.name = new.target.name;
+  }
+}
+
+export class PageSelectionError extends DoctureError {
+  override readonly code = "PAGE_OUT_OF_RANGE" as const;
+  constructor(
+    readonly missingPages: readonly number[],
+    readonly pageCount: number,
+  ) {
+    super(missingPages.length === 0
+      ? `Page selection is empty. The document has ${pageCount} pages.`
+      : `Pages ${missingPages.join(", ")} do not exist. The document has ${pageCount} pages.`);
+  }
+}
+
+/** A billed model response did not satisfy its requested schema. */
+export class ModelOutputError extends DoctureError {
+  override readonly code = "MODEL_OUTPUT_FAILED" as const;
+  readonly usage?: Partial<Usage>;
+  constructor(message: string, options: { cause?: unknown; usage?: Partial<Usage> } = {}) {
+    super(message, options);
+    if (options.usage !== undefined) this.usage = options.usage;
   }
 }
 

@@ -193,6 +193,7 @@ describe("the public API is an exact list", () => {
     "preloadedFeatures",
     // results
     "EMPTY_USAGE",
+    "sumUsage",
     // loaders
     "defineLoader",
     "loaderAccepts",
@@ -234,6 +235,8 @@ describe("the public API is an exact list", () => {
     "NoConvertibleContentError",
     "NoEligibleLoaderError",
     "NoEligibleStrategyError",
+    "PageSelectionError",
+    "ModelOutputError",
     "DoctureError",
     "SplitFailedError",
     "TimeoutError",

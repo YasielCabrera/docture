@@ -51,6 +51,8 @@ export class CliError extends Error {
  * compile error here rather than a silently unhelpful message.
  */
 const HINTS: Readonly<Record<DoctureErrorCode, string>> = {
+  PAGE_OUT_OF_RANGE: "Select existing 1-based page numbers and at least one page.",
+  MODEL_OUTPUT_FAILED: "The model response did not satisfy the schema. Adjust the schema or instructions.",
   NO_ELIGIBLE_LOADER:
     "No loader accepts this file type. `docture inspect <file>` shows what was tried; " +
     "wire another loader in docture.config.ts.",

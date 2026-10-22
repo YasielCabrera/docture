@@ -33,14 +33,19 @@ emits an oversized page whole. It returns no chunks for an empty document.
 
 ## Cache
 
-`CachedResponse` contains unknown `data` and optional input, output, and total token counts.
+`CachedResponse` contains unknown `data` and raw token counts, including optional
+`inputTokenDetails` for provider cache reads and writes.
 `LlmCache` defines asynchronous `get()` and `set()`, plus optional `clear()`.
 
 `CacheKeyParts` contains `modelId`, system prompt, user prompt, JSON Schema, and optional
 request `variant`.
 
+`ContentPart` is a text part with `text`, or a file part with byte `data` and `mediaType`.
+`fingerprint()` hashes these parts in order, including file bytes and media types.
+
 ```ts
 cacheKey(parts: CacheKeyParts): string
+fingerprint(content: readonly ContentPart[]): string
 memoryCache(maxEntries = 500): LlmCache
 fileCache(root: string): LlmCache
 ```
@@ -51,9 +56,11 @@ unreadable disk entries are cache misses; write failures reject `set()`.
 
 ## Pricing and usage
 
-`ModelPricing` contains `inputPerMillion` and `outputPerMillion` in US dollars.
-`PricingTable` maps model ids to prices. `RawUsage` contains optional input, output, and
-total token counts.
+`ModelPricing` contains `inputPerMillion` and `outputPerMillion` in US dollars, plus
+optional `cacheReadPerMillion` and `cacheWritePerMillion`. Each missing cache rate uses
+the input rate. `PricingTable` maps model ids to prices. `RawUsage` contains optional
+input, output, and total token counts, plus `inputTokenDetails` with optional
+`noCacheTokens`, `cacheReadTokens`, and `cacheWriteTokens`.
 
 ```ts
 lookupPricing(modelId: string, pricing?: PricingTable): ModelPricing | undefined

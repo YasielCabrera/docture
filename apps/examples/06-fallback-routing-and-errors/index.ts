@@ -227,6 +227,10 @@ async function main(): Promise<void> {
         return "the document lacks a fact every strategy requires — OCR or render it";
       case "EXTRACTION_FAILED":
         return "every strategy threw; read `attempts` for each reason";
+      case "PAGE_OUT_OF_RANGE":
+        return "select at least one existing page number";
+      case "MODEL_OUTPUT_FAILED":
+        return "the model response failed its schema; usage includes the billed call";
       case "CONTRACT_VIOLATION":
         return "data came back the wrong shape; `issues` names the field";
       case "UNSUPPORTED_SOURCE":
@@ -252,6 +256,8 @@ async function main(): Promise<void> {
   const ERRORS = [
     ["NoEligibleLoaderError", "NO_ELIGIBLE_LOADER"],
     ["LoadFailedError", "LOAD_FAILED"],
+    ["PageSelectionError", "PAGE_OUT_OF_RANGE"],
+    ["ModelOutputError", "MODEL_OUTPUT_FAILED"],
     ["NoConvertibleContentError", "NO_CONVERTIBLE_CONTENT"],
     ["NoEligibleStrategyError", "NO_ELIGIBLE_STRATEGY"],
     ["ExtractionFailedError", "EXTRACTION_FAILED"],
