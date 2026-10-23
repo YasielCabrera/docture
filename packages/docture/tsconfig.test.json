@@ -9,7 +9,75 @@
     "types": [
       "node",
       "vitest/globals"
-    ]
+    ],
+    "paths": {
+      "docture": [
+        "./src/index.ts"
+      ],
+      "docture/llm": [
+        "./src/llm/index.ts"
+      ],
+      "docture/eval": [
+        "./src/eval/index.ts"
+      ],
+      "docture/llm/text": [
+        "./src/llm/text.ts"
+      ],
+      "docture/llm/vision": [
+        "./src/llm/vision.ts"
+      ],
+      "docture/llm/classifier": [
+        "./src/llm/classifier.ts"
+      ],
+      "docture/llm/layout": [
+        "./src/llm/layout.ts"
+      ],
+      "docture/llm/split": [
+        "./src/llm/split.ts"
+      ],
+      "docture/llm/cache": [
+        "./src/llm/entries/cache.ts"
+      ],
+      "docture/llm/pricing": [
+        "./src/llm/pricing.ts"
+      ],
+      "docture/llm/prompt": [
+        "./src/llm/prompt.ts"
+      ],
+      "docture/llm/merge": [
+        "./src/llm/merge.ts"
+      ],
+      "docture/llm/relax": [
+        "./src/llm/relax.ts"
+      ],
+      "docture/llm/extractor": [
+        "./src/llm/extractor.ts"
+      ],
+      "docture/loaders/pdfjs": [
+        "./src/loaders/pdfjs/index.ts"
+      ],
+      "docture/loaders/mupdf": [
+        "./src/loaders/mupdf/index.ts"
+      ],
+      "docture/loaders/tesseract": [
+        "./src/loaders/tesseract/index.ts"
+      ],
+      "docture/loaders/paddleocr": [
+        "./src/loaders/paddleocr/index.ts"
+      ],
+      "docture/raster/canvas": [
+        "./src/raster/canvas/index.ts"
+      ],
+      "docture/testing/doubles": [
+        "./src/testing/doubles.ts"
+      ],
+      "docture/testing/conformance": [
+        "./src/testing/conformance/index.ts"
+      ],
+      "docture/testing/fixtures": [
+        "./src/testing/fixtures/index.ts"
+      ]
+    }
   },
   "include": [
     "src/**/*.ts",

@@ -2,12 +2,55 @@
 
 A browsable tour of the library, one folder per concept, on **real documents**.
 
+Use Node.js 22 or later. From the repository root, install the workspace before running
+an example:
+
 ```sh
-pnpm --filter @docture/examples fetch      # ~2 MB, once
+pnpm install
+```
+
+The two published packages are `docture` and `@docture/cli`. The private
+`@docture/examples` workspace installs all optional engines as development dependencies
+so you can run the whole tour. Installing `docture` in your application installs no PDF,
+OCR, raster, or model engine. Add the peers for the integrations you use.
+The tour's shared runner imports `LLM` for optional model paths, so its keyless scripts
+still use the examples workspace's `ai` installation. Your own deterministic pipeline
+can import the root API without a model engine.
+
+| Import | Add to your application |
+|---|---|
+| `docture` | `pnpm add docture` |
+| `docture/llm`, `docture/llm/text`, `docture/llm/vision`, `docture/llm/classifier`, `docture/llm/layout`, `docture/llm/split`, `docture/llm/extractor` | `pnpm add ai@^7.0.0 zod@^4` |
+| `docture/loaders/pdfjs` | `pnpm add pdfjs-dist@6.2.108` |
+| `docture/loaders/mupdf` | `pnpm add mupdf@1.28.0` |
+| `docture/loaders/tesseract` | `pnpm add tesseract.js@7.0.0` |
+| `docture/loaders/paddleocr` | `pnpm add ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0` |
+| `docture/raster/canvas` | `pnpm add pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10` |
+| `docture/testing/fixtures` | `pnpm add -D pdfkit@0.19.1` |
+| `docture/testing/conformance` | `pnpm add -D 'vitest@>=3' pdfkit@0.19.1` |
+
+The core API comes from `docture`. Evaluation comes from `docture/eval`, and test doubles
+come from `docture/testing/doubles`. Those entrypoints need no engine peer. LLM utilities
+also have narrow entrypoints: `docture/llm/cache`, `docture/llm/pricing`,
+`docture/llm/prompt`, `docture/llm/merge`, and `docture/llm/relax`. Use the broad
+`docture/llm` entrypoint for `LLM` and the complete model API, or a narrow entrypoint for
+the feature you use. The export map in
+[`packages/docture/package.json`](../../packages/docture/package.json) is authoritative.
+
+`pnpm add @docture/cli` installs the CLI with required `ai` and `pdfjs-dist` dependencies.
+Its default renderer, `@napi-rs/canvas@1.0.10`, is optional. If optional dependencies were
+omitted, install canvas explicitly before using rendering flags such as `--vision`.
+
+Download the corpus once, then start the tour. Use `run fetch` because `pnpm fetch`
+is pnpm's own dependency command:
+
+```sh
+pnpm --filter @docture/examples run fetch      # ~2 MB, once
 pnpm --filter @docture/examples quick-start
 ```
 
-Ten of the sixteen need no API key at all, and two more run most of the way without one.
+The offline script runs twelve examples without an API key. Other scripts print explicit
+skips for model calls and opt-in OCR when their setup is missing.
 Open a folder, read its `index.ts` top to bottom, run it, and the output tells you what
 happened and why.
 
@@ -20,7 +63,7 @@ happened and why.
 | 03 | [loaders-and-sources](03-loaders-and-sources) | pdf.js vs MuPDF, text documents, every `DocumentSource`, `pages` | — |
 | 04 | [capabilities-and-composition](04-capabilities-and-composition) | typed capabilities, `withRasterizer`, lazy page images | — |
 | 05 | [your-own-plugins](05-your-own-plugins) | `defineStrategy`, `defineLoader`, `defineRasterizer` | — |
-| 06 | [fallback-routing-and-errors](06-fallback-routing-and-errors) | eleven layouts, two parsers, eleven typed errors, timeouts | — |
+| 06 | [fallback-routing-and-errors](06-fallback-routing-and-errors) | eleven layouts, two parsers, fourteen typed errors, timeouts | — |
 | 07 | [with-a-model](07-with-a-model) | the AI SDK seam, prompts, caching, cost | key |
 | 08 | [long-documents](08-long-documents) | completion strategies, chunking, merging | key¹ |
 | 09 | [scanned-and-ocr](09-scanned-and-ocr) | no text layer, OCR as a loader, vision | key / `RUN_OCR=1`¹ |
@@ -36,10 +79,15 @@ happened and why.
 ² `extract` and `classify` work keyless through the config file in that folder.
 
 ```sh
-pnpm --filter @docture/examples offline   # the eleven that run without a key
+pnpm --filter @docture/examples offline   # twelve examples without model calls
 pnpm --filter @docture/examples all       # everything; skips loudly where a key is missing
-pnpm --filter @docture/examples test      # 41 tests, ~1s
+pnpm --filter @docture/examples test      # deterministic tests, including provider mocks
+pnpm --filter @docture/examples typecheck
 ```
+
+The `loaders` script makes one HTTP request to demonstrate a URL source, even after the
+corpus is downloaded. Here, `offline` means no model calls or OCR model downloads.
+Unset `AI_GATEWAY_API_KEY` to run the key-missing branches.
 
 ## How these are written
 
@@ -72,7 +120,7 @@ Downloaded rather than committed, for the same reason the library's own fixtures
 generated: a repo should not carry third-party documents it does not own. `documents/` is
 gitignored.
 
-`pnpm fetch` verifies every arrival against the manifest in
+`pnpm run fetch` verifies every arrival against the manifest in
 [`shared/documents.ts`](shared/documents.ts) — page count and text length for a PDF, PNG
 magic bytes and portrait page dimensions for a page image. A sample replaced upstream
 fails **there**, loudly, rather than confusingly three examples later.
@@ -92,7 +140,7 @@ which publishes ground truth beside each sample, and
 personal data — the statement is made out to "JOHN TEST", the Odoo invoice is demo data,
 and the Sammy Maystone invoice says so on its own last line.
 
-Adding one: append to `DOCUMENTS`, then `DOCTURE_RECORD=1 pnpm fetch` prints the manifest
+Adding one: append to `DOCUMENTS`, then `DOCTURE_RECORD=1 pnpm run fetch` prints the manifest
 entry with the real measured numbers, rather than you guessing them.
 
 ### Two honest limitations
@@ -108,8 +156,8 @@ entry with the real measured numbers, rather than you guessing them.
 
 ## Feature coverage
 
-Every export in the public `index.ts` files appears in exactly one example. If you find a
-gap, it is a gap.
+The tour covers the following public APIs. Imports use `docture` and its exported
+subpaths; `@docture/cli` is the separate command-line package.
 
 | Surface | Example |
 |---|---|
@@ -118,17 +166,17 @@ gap, it is a gap.
 | `DocumentLoaderPdfJs`/`MuPdf`/`Data`, `DocumentSource`, `resolveSource`, `sniffMimeType`, `DocumentFeatures`, `inferForm`, `loaderAccepts` | 03 |
 | `LoaderCapabilities`, `withRasterizer`, `Rasterizer`, `RasterOptions`, both rasterizers, `hasFact` | 04 |
 | `defineStrategy`, `defineLoader`, `defineRasterizer`, `linesFromWords`, `textFromLines`, `imageSize` | 05 |
-| `RoutingPolicy`, `declarationOrder`, `only`, all eleven `DoctureError`s, `errorCodeOf`, `isAbortError`, `Logger` | 06 |
+| `RoutingPolicy`, `declarationOrder`, `only`, all fourteen `DoctureError`s, `errorCodeOf`, `isAbortError`, `Logger` | 06 |
 | `LLM`, `llm`, `LlmStrategy`, `createLlmExtractor`, prompt exports, cache exports, pricing exports | 07 |
 | `CompletionStrategy`, `chunkByPage`, `chunkByBudget`, `estimateTokens`, `mergePartials`, `relaxJsonSchema` | 08 |
 | `VisionStrategy`, `DocumentLoaderTesseract`, `DocumentLoaderPaddleOcr`, `PADDLE_MODELS` | 09 |
 | all `Classification*`, `defineClassifier`, `LlmClassifier`, `ClassificationStrategy`, tree exports | 10 |
 | `Process`, `defineSplitter`, `runSplitter`, `TextSplitter`, `ImageSplitter`, `SplittingStrategy`, `DocGroups`, `pageWindows`, `aggregateDocGroups`, `UNCLASSIFIED` | 11 |
-| all `@docture/eval`, `extractBatch`, `BatchItem`/`BatchOptions`, `safeExtract` | 12 |
+| `docture/eval`, `extractBatch`, `BatchItem`/`BatchOptions`, `safeExtract` | 12 |
 | `runPipeline`, `loadDocument`, `PipelineComponents`, `preloadedFeatures`, `isLoadedSource`, `components` | 13 |
-| all `@docture/testing`, `MockLanguageModelV4` | 14 |
+| `docture/testing/doubles`, `docture/testing/fixtures`, `docture/testing/conformance`, `MockLanguageModelV4` | 14 |
 | `@docture/cli` | 15 |
-| `DocumentConverter`, conversion types, layout types, `LlmLayoutAnalyzer`, rich conversion fixture | 16 |
+| `DocumentConverter`, conversion types, layout types, rich conversion fixture | 16 |
 
 ## Tests
 

@@ -13,8 +13,9 @@ const examples = [
     label: "Extract",
     note: "A loader reads. A strategy understands. You pick both.",
     lang: "ts",
-    code: `import { Extractor, LLM, contract } from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+    code: `import { Extractor, contract } from "docture";
+import { LLM } from "docture/llm";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
@@ -70,7 +71,8 @@ decided.signals;     // every classifier's verdict, including abstentions`,
     label: "Split",
     note: "One scan is routinely several documents. The bundle is read once, however many come out.",
     lang: "ts",
-    code: `import { Process, SplittingStrategy, TextSplitter } from "docture";
+    code: `import { Process, SplittingStrategy } from "docture";
+import { TextSplitter } from "docture/llm/split";
 
 const documents = await new Process()
   .loadSplitter(new TextSplitter({ model: openai("gpt-5") }))
@@ -114,12 +116,13 @@ if (!outcome.ok) {
     label: "Terminal",
     note: "stdout is the data, so it pipes into jq. stderr is the story.",
     lang: "bash",
-    code: `npx docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5
+    code: `npm install --save-dev @docture/cli @ai-sdk/openai zod@^4
+npx docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5
 
 # ✓ invoice.pdf → llm via pdfjs · 2.1s · 3,412 tokens · $0.0041
 
 npx docture inspect scan.pdf            # no model, no API key
-npx docture classify unknown.pdf --candidates ./kinds.ts`,
+npx docture classify unknown.pdf --classifications ./kinds.ts`,
   },
 ] as const;
 

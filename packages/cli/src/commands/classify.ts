@@ -6,7 +6,7 @@
  * extraction to discover the router sent a receipt down the invoice path.
  */
 
-import type { ClassificationResult } from "@docture/core";
+import type { ClassificationResult } from "docture";
 import { boolFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { explain, UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io } from "../cli/io.js";

@@ -97,7 +97,7 @@ export function mapPublishedTruth(raw: unknown): PublishedTruth {
   };
 }
 
-/** Read and map the truth file that `pnpm fetch` downloaded beside a document. */
+/** Read and map the truth file that `pnpm run fetch` downloaded beside a document. */
 export async function readPublishedTruth(path: string): Promise<PublishedTruth> {
   return mapPublishedTruth(JSON.parse(await readFile(path, "utf8")));
 }

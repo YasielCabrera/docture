@@ -2,7 +2,7 @@
 
 > `LLM` and `loadLlm`, gateway string vs provider instance, the prompt printed, pricing, caching, two models at once.
 
-**Needs:** `pnpm fetch` **and** `AI_GATEWAY_API_KEY`. Skips loudly without a key.
+**Needs:** `pnpm run fetch` **and** `AI_GATEWAY_API_KEY`. Skips loudly without a key.
 
 ```sh
 pnpm --filter @docture/examples model
@@ -24,16 +24,31 @@ DOCTURE_MODEL=anthropic/claude-opus-5 AI_GATEWAY_API_KEY=... pnpm ... model
 The one place a mock model *does* belong is a test — see
 [`14-testing-your-pipeline`](../14-testing-your-pipeline).
 
+## Imports and installs
+
+Import `Extractor` from `docture`, `LLM` from `docture/llm`, and the PDF loader
+from `docture/loaders/pdfjs`. Text extraction also has the narrow
+`docture/llm/text` entrypoint. Install the AI SDK explicitly.
+
+For a separate application:
+
+```sh
+pnpm add docture ai@^7.0.0 pdfjs-dist@6.2.108 zod
+```
+
+The tour workspace already installs these dependencies. See the
+[workspace setup](../README.md) before running this folder.
+
 ## What you learn
 
 The document is `invoice-aws`, deliberately: example 06 showed that neither hand-written
 parser can read it. This is the layout nobody wrote a parser for, which in production is
 most of them.
 
-`loadLlm` takes a `ModelBackend`, not a `LanguageModel`. That indirection is the whole
-reason `@docture/core` does not depend on the AI SDK — and a test in `packages/core`
-enforces it. `LLM` is the implementation of that seam, and one `LLM` knows how to become
-four things: the text strategy, the vision strategy, the classifier and the splitter.
+`loadLlm` takes a `ModelBackend`. The `docture` root entrypoint uses that interface
+without loading the AI SDK. `LLM` from `docture/llm` implements it and needs the optional
+`ai` peer. One `LLM` can create the text strategy, vision strategy, classifier, and
+splitter.
 
 ## Three knobs, three scopes
 

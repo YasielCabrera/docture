@@ -9,7 +9,7 @@
 
 import { access } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { LLM } from "@docture/llm";
+import { LLM } from "docture/llm";
 import { documentOf, pathOf } from "./documents.js";
 
 /** A setup step the reader has not run yet. Not a failure. */
@@ -86,7 +86,7 @@ export async function requireDocument(id: string): Promise<string> {
       `the sample document "${id}" has not been downloaded`,
       `This example reads ${documentOf(id).file}, which is gitignored because the repo ` +
         `should not carry documents it does not own.\n\n` +
-        `Run this once:\n  pnpm --filter @docture/examples fetch`,
+        `Run this once:\n  pnpm --filter @docture/examples run fetch`,
     );
   }
   return path;

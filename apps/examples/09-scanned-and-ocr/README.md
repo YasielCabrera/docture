@@ -2,7 +2,7 @@
 
 > the no-text-layer diagnosis, OCR as a loader, two OCR engines, vision, where the rasterizer goes.
 
-**Needs:** `pnpm fetch`. The diagnosis runs with no key. OCR is behind `RUN_OCR=1`; vision needs `AI_GATEWAY_API_KEY`.
+**Needs:** `pnpm run fetch`. The diagnosis runs with no key. OCR is behind `RUN_OCR=1`; vision needs `AI_GATEWAY_API_KEY`.
 
 ```sh
 pnpm --filter @docture/examples scanned
@@ -17,7 +17,21 @@ RUN_OCR=1 pnpm --filter @docture/examples scanned    # + real OCR
 
 OCR is opt-in because the first run downloads a WASM engine and language models — tens of
 megabytes — which is not something `pnpm offline` should pay for. This matches the
-`RUN_OCR=1` convention in `packages/loader-tesseract/test/`.
+`RUN_OCR=1` convention in `packages/docture/test/loaders/tesseract/`.
+
+## Imports and installs
+
+OCR loaders come from `docture/loaders/tesseract` and `docture/loaders/paddleocr`.
+Rasterizers come from `docture/loaders/mupdf` and `docture/raster/canvas`. Vision
+comes from `docture/llm/vision`, also re-exported by `docture/llm`. Install the engines
+you choose explicitly. To use every path in a separate application:
+
+```sh
+pnpm add docture ai@^7.0.0 pdfjs-dist@6.2.108 mupdf@1.28.0 tesseract.js@7.0.0 ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0 @napi-rs/canvas@1.0.10 zod
+```
+
+The tour workspace already installs these dependencies. See the
+[workspace setup](../README.md) before running this folder.
 
 ## Be honest about the fixture
 
@@ -73,12 +87,15 @@ something discovered on page 40:
 ```ts
 .loadDocumentLoader(
   new DocumentLoaderPdfJs(),                    // PDFs with a text layer
-  new DocumentLoaderTesseract({ rasterizer }),  // PNG/JPEG, and scans
+  new DocumentLoaderTesseract({ rasterizer }),  // PNG/JPEG in this wiring
 )
 ```
 
 Loader choice is by media type and then declaration order — **never** a fallback on empty
-text. So a born-digital PDF costs nothing extra and a scan falls to OCR.
+text. PDF.js remains the selected loader for PDFs, including scans. In this wiring Tesseract
+handles standalone PNG and JPEG images. For scanned PDFs, choose
+`new DocumentLoaderTesseract({ rasterizer })` as the PDF loader or retry with an OCR
+extractor after inspecting the text-layer result.
 
 ## What to read next
 

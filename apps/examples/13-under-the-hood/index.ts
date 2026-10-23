@@ -3,7 +3,7 @@
  *
  *     pnpm --filter @docture/examples internals
  *
- * Needs: `pnpm fetch`. No API key.
+ * Needs: `pnpm run fetch`. No API key.
  *
  * `Extractor` is a composition root, and a convenient one. Everything it does is
  * available a layer down, which matters in three situations: wiring that comes from a
@@ -19,21 +19,9 @@
  */
 
 import { readFile } from "node:fs/promises";
-import {
-  Extractor,
-  contract,
-  createExtractor,
-  declarationOrder,
-  isLoadedSource,
-  loadDocument,
-  preloadedFeatures,
-  runPipeline,
-  silentLogger,
-  type LoadedSource,
-  type PipelineComponents,
-} from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { DocumentLoaderMuPdf } from "@docture/loader-mupdf";
+import { Extractor, contract, createExtractor, declarationOrder, isLoadedSource, loadDocument, preloadedFeatures, runPipeline, silentLogger, type LoadedSource, type PipelineComponents } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { DocumentLoaderMuPdf } from "docture/loaders/mupdf";
 import { z } from "zod";
 import { Invoice } from "../shared/contracts.js";
 import { odooInvoiceParser } from "../shared/parsers/odoo.js";

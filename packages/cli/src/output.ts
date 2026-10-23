@@ -9,7 +9,7 @@
  * a test run, not like a log.
  */
 
-import type { Attempt, ExtractionResult, Usage } from "@docture/core";
+import type { Attempt, ExtractionResult, Usage } from "docture";
 import type { Style } from "./cli/io.js";
 
 export function formatMs(ms: number): string {

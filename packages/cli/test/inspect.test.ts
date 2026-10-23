@@ -9,7 +9,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { makeInvoicePdf } from "@docture/testing";
+import { makeInvoicePdf } from "docture/testing/fixtures";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { cleanup, cli, tempDir, writeFixture } from "./harness.js";
 
@@ -119,8 +119,8 @@ describe("inspect", () => {
     await writeFixture(
       dir,
       "docture.config.mjs",
-      `import { createExtractor } from "@docture/core";
-import { PdfJsLoader } from "@docture/loader-pdfjs";
+      `import { createExtractor } from "docture";
+import { PdfJsLoader } from "docture/loaders/pdfjs";
 
 export default {
   extractor: createExtractor({ loaders: [new PdfJsLoader()], strategies: [] }),

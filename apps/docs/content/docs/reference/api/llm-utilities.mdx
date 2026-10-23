@@ -3,9 +3,16 @@ title: LLM utilities
 description: Prompt, chunking, cache, pricing, merge, and schema helpers.
 ---
 
-Import these APIs from `@docture/llm` or `docture`.
+Import these APIs from the narrow entries listed below, which need no model runtime.
+They are also available from `docture/llm`, whose model exports require `ai@^7` and a supported Zod release.
+
+```sh
+npm install docture
+```
 
 ## Prompt construction
+
+Import from `docture/llm/prompt`.
 
 `DEFAULT_SYSTEM_PROMPT` is the default extraction instruction string.
 
@@ -18,6 +25,8 @@ buildPrompt(text: string, options?: BuildPromptOptions): PromptParts
 the final `system` and user `prompt`. The document text is wrapped in document delimiters.
 
 ## Chunking
+
+Import from `docture/llm/prompt`.
 
 `Chunk` contains text and its 1-based page numbers.
 
@@ -32,6 +41,8 @@ emits an oversized page whole. It returns no chunks for an empty document.
 `estimateTokens()` returns `Math.ceil(text.length / 4)`.
 
 ## Cache
+
+Import from `docture/llm/cache`.
 
 `CachedResponse` contains unknown `data` and raw token counts, including optional
 `inputTokenDetails` for provider cache reads and writes.
@@ -56,6 +67,8 @@ unreadable disk entries are cache misses; write failures reject `set()`.
 
 ## Pricing and usage
 
+Import from `docture/llm/pricing`.
+
 `ModelPricing` contains `inputPerMillion` and `outputPerMillion` in US dollars, plus
 optional `cacheReadPerMillion` and `cacheWritePerMillion`. Each missing cache rate uses
 the input rate. `PricingTable` maps model ids to prices. `RawUsage` contains optional
@@ -77,6 +90,8 @@ toUsage(
 
 ## Partial results
 
+Import from `docture/llm/merge`.
+
 ```ts
 mergePartials(parts: readonly unknown[]): unknown
 ```
@@ -84,6 +99,10 @@ mergePartials(parts: readonly unknown[]): unknown
 Arrays concatenate in document order. Plain objects merge recursively. For scalar or
 mismatched values, the first non-null, non-undefined, non-blank value wins. No usable
 parts returns `undefined`.
+
+## Schema relaxation
+
+Import from `docture/llm/relax`.
 
 `JsonSchemaLike` is `Record<string, unknown>`.
 

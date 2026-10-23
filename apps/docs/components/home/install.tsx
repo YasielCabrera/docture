@@ -10,7 +10,7 @@ import {
 import Link from "next/link";
 import { CopyCommand } from "./copy-command";
 
-export const installCommand = "npm install docture @docture/loader-pdfjs ai @ai-sdk/openai zod";
+export const installCommand = "npm install docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4";
 
 /**
  * What is already in your stack.
@@ -36,10 +36,10 @@ export function Install() {
         <div className="flex min-w-0 flex-col gap-3">
           <CopyCommand command={installCommand} />
           <p className="max-w-[52ch] text-sm leading-relaxed text-fd-muted-foreground">
-            Installing <code className="font-mono text-[0.8125rem]">@docture/core</code> on its own
-            pulls one dependency. Every heavy library lives in the package that wraps it.{" "}
+            The <code className="font-mono text-[0.8125rem]">docture</code> root provides core
+            and uses a schema helper. Add only the engines your selected adapters use.{" "}
             <Link href="/docs/reference/packages" className="text-brand hover:underline">
-              Why it is split up
+              Choose imports and engines
             </Link>
           </p>
         </div>

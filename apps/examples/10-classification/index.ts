@@ -4,7 +4,7 @@
  *     pnpm --filter @docture/examples classify
  *     AI_GATEWAY_API_KEY=... pnpm --filter @docture/examples classify
  *
- * Needs: `pnpm fetch`. The deterministic classifier runs with no key — a classifier is
+ * Needs: `pnpm run fetch`. The deterministic classifier runs with no key — a classifier is
  * an interface, not a wrapper around an LLM, and that is worth showing before the model
  * shows up. The `LlmClassifier` sections need a key.
  *
@@ -19,23 +19,9 @@
  */
 
 import { readFile } from "node:fs/promises";
-import {
-  ClassificationStrategy,
-  Extractor,
-  loadDocument,
-  silentLogger,
-  classificationNode,
-  classificationOf,
-  classificationTree,
-  defineClassification,
-  defineClassifier,
-  extractionContractOf,
-  flattenTree,
-  type ClassificationSignal,
-  type Classifier,
-} from "docture";
-import { LlmClassifier } from "@docture/llm";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+import { ClassificationStrategy, Extractor, loadDocument, silentLogger, classificationNode, classificationOf, classificationTree, defineClassification, defineClassifier, extractionContractOf, flattenTree, type ClassificationSignal, type Classifier } from "docture";
+import { LlmClassifier } from "docture/llm";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { z } from "zod";
 import { CheckingSummary, CreditLineSummary, Invoice } from "../shared/contracts.js";
 import { odooInvoiceParser } from "../shared/parsers/odoo.js";

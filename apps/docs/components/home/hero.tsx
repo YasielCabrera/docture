@@ -3,8 +3,9 @@ import { ArrowRight } from "lucide-react";
 import { Code } from "./code";
 import { appName } from "@/lib/shared";
 
-const example = `import { Extractor, LLM, contract } from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+const example = `import { Extractor, contract } from "docture";
+import { LLM } from "docture/llm";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 

@@ -18,31 +18,13 @@
 
 import { describe, expect, it } from "vitest";
 import { MockLanguageModelV4 } from "ai/test";
-import {
-  ContractViolationError,
-  Extractor,
-  NoEligibleStrategyError,
-  DoctureError,
-  contract,
-  defineLoader,
-  defineStrategy,
-  linesFromWords,
-  textFromLines,
-  inferForm,
-  type LoadedPage,
-  type PositionedWord,
-} from "docture";
-import { llm } from "@docture/llm";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { scoreExtraction, formatFailures } from "@docture/eval";
-import {
-  describeLoaderConformance,
-  failingStrategy,
-  fixedStrategy,
-  inMemoryLoader,
-  loadedDocument,
-  makeInvoicePdf,
-} from "@docture/testing";
+import { ContractViolationError, Extractor, NoEligibleStrategyError, DoctureError, contract, defineLoader, defineStrategy, linesFromWords, textFromLines, inferForm, type LoadedPage, type PositionedWord } from "docture";
+import { llm } from "docture/llm";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { scoreExtraction, formatFailures } from "docture/eval";
+import { describeLoaderConformance } from "docture/testing/conformance";
+import { failingStrategy, fixedStrategy, inMemoryLoader, loadedDocument } from "docture/testing/doubles";
+import { makeInvoicePdf } from "docture/testing/fixtures";
 import { z } from "zod";
 
 /**

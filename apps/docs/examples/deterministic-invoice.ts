@@ -1,5 +1,5 @@
-import { Extractor, defineStrategy, type TextLine } from "@docture/core";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+import { Extractor, defineStrategy, type TextLine } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { Invoice } from "./invoice.js";
 
 function labelledValue(lines: readonly TextLine[], label: string): string {

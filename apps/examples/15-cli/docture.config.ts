@@ -16,8 +16,8 @@
  */
 
 import { defineConfig } from "@docture/cli";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { DocumentLoaderMuPdf } from "@docture/loader-mupdf";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { DocumentLoaderMuPdf } from "docture/loaders/mupdf";
 import { Invoice } from "../shared/contracts.js";
 import { odooInvoiceParser } from "../shared/parsers/odoo.js";
 import { servicesInvoiceParser } from "../shared/parsers/services.js";

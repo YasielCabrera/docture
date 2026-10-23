@@ -10,11 +10,13 @@ This example reads the text layer of a PDF and sends that text to an AI SDK mode
 Node 22 or newer is required.
 
 ```package-install
-docture @docture/loader-pdfjs ai @ai-sdk/openai zod
+docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
 ```
 
-`ai` is a peer dependency of `docture`. Install the AI SDK provider that supplies your
-model. This example uses `@ai-sdk/openai`.
+`pdfjs-dist` and `ai` are optional peers used by this example. The PDF.js adapter needs
+`pdfjs-dist@6.2.108`; model calls need AI SDK 7 and a provider. This example uses
+`@ai-sdk/openai`. See [other install recipes](/docs/guides/installation) or
+[the migration guide](/docs/guides/migration).
 
 ## Define the result
 

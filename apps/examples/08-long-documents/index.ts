@@ -4,7 +4,7 @@
  *     pnpm --filter @docture/examples long
  *     AI_GATEWAY_API_KEY=... pnpm --filter @docture/examples long
  *
- * Needs: `pnpm fetch`. The first half runs with no key — the chunking and merging
+ * Needs: `pnpm run fetch`. The first half runs with no key — the chunking and merging
  * helpers are pure functions and worth seeing on their own. The model runs need a key
  * and skip loudly without one.
  *
@@ -23,14 +23,7 @@
  */
 
 import { readFile } from "node:fs/promises";
-import {
-  CompletionStrategy,
-  Extractor,
-  contract,
-  loadDocument,
-  silentLogger,
-  type DocumentLoader,
-} from "docture";
+import { CompletionStrategy, Extractor, contract, loadDocument, silentLogger, type DocumentLoader } from "docture";
 import {
   chunkByBudget,
   chunkByPage,
@@ -38,8 +31,8 @@ import {
   llm,
   mergePartials,
   relaxJsonSchema,
-} from "@docture/llm";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+} from "docture/llm";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { z } from "zod";
 import { amount, field, heading, note, step, table } from "../shared/print.js";
 import { isMain, optionalModel, requireDocument, run } from "../shared/run.js";

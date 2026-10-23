@@ -2,13 +2,28 @@
 
 > `scoreExtraction`, the truth-completeness trap, the three tolerances, `formatScoreboard`, `extractBatch`.
 
-**Needs:** `pnpm fetch`. No API key.
+**Needs:** `pnpm run fetch`. No API key.
 
 ```sh
 pnpm --filter @docture/examples accuracy
 ```
 
 Docs: [`guides/measuring-accuracy`](../../docs/content/docs/guides/measuring-accuracy.mdx)
+
+## Imports and installs
+
+Import scoring and report helpers from `docture/eval`, batch extraction from
+`docture`, and the PDF reader from `docture/loaders/pdfjs`. Evaluation itself
+needs no model or document engine.
+
+For a separate application:
+
+```sh
+pnpm add docture pdfjs-dist@6.2.108 zod
+```
+
+The tour workspace already installs these dependencies. See the
+[workspace setup](../README.md) before running this folder.
 
 ## What you learn
 

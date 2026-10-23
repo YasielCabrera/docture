@@ -2,7 +2,7 @@
  * @docture/cli — the command line, and the pieces it is made of.
  *
  * ```sh
- * npx docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5
+ * npx --package @docture/cli docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5
  * ```
  *
  * The library export exists for two reasons: `defineConfig`, which a

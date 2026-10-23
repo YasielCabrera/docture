@@ -1,6 +1,7 @@
 {
   "title": "Guides",
   "pages": [
+    "installation",
     "sources-and-inputs",
     "with-a-model",
     "without-a-model",
@@ -11,6 +12,7 @@
     "batches-and-lifecycle",
     "custom-loader",
     "measuring-accuracy",
-    "cli"
+    "cli",
+    "migration"
   ]
 }

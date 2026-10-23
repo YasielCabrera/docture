@@ -1,11 +1,7 @@
 import { openai } from "@ai-sdk/openai";
-import {
-  Extractor,
-  defineStrategy,
-  type RoutingPolicy,
-} from "@docture/core";
-import { llm } from "@docture/llm";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+import { Extractor, defineStrategy, type RoutingPolicy } from "docture";
+import { llm } from "docture/llm/text";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { Invoice } from "./invoice.js";
 
 const knownLayout = defineStrategy({

@@ -6,7 +6,7 @@ import {
   type ConversionAssetMode,
   type ConversionFormat,
   type ConversionResult,
-} from "@docture/core";
+} from "docture";
 import { choiceFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { explain, UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io } from "../cli/io.js";

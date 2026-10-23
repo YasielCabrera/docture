@@ -4,7 +4,7 @@ description: Layers, data flow, extension boundaries, and tested invariants.
 ---
 
 Docture separates document data, component contracts, pipeline control flow, and
-composition. Package adapters depend on core, while core does not depend on a document
+composition inside `packages/docture/src`. Adapter modules depend on core, while core does not depend on a document
 parser or model runtime.
 
 ```mermaid
@@ -13,9 +13,9 @@ flowchart TB
   B --> C[Core pipeline]
   C --> D[Component contracts]
   D --> E[Domain types]
-  F[Loader packages] --> D
-  G[LLM package] --> D
-  H[Rasterizer packages] --> D
+  F[Loader modules] --> D
+  G[LLM modules] --> D
+  H[Rasterizer modules] --> D
   I[Evaluation and testing] --> E
 ```
 
@@ -83,7 +83,7 @@ their roles and order, and the exporter produces TXT, Markdown, or HTML in memor
 The test suites enforce these behaviors:
 
 1. Domain and contract layers do not import higher layers.
-2. Importing `@docture/core` does not load a document parser, OCR engine, canvas, ONNX
+2. Importing `docture` does not load a document parser, OCR engine, canvas, ONNX
    Runtime, or the AI SDK runtime.
 3. Duplicate component names fail during registration.
 4. Eligibility is based on facts computed from the loaded document.
@@ -96,9 +96,9 @@ The test suites enforce these behaviors:
 10. Split groups preserve every page, and unknown groups fail unless the caller chooses to
     skip them.
 11. `Extractor.dispose()` is idempotent and reports all disposal failures.
-12. The facade re-exports the public core and LLM APIs.
+12. The root exports core only. Public subpaths expose model, adapter, evaluation, and testing modules.
 13. Conversion assistance cannot carry text or reference unknown element IDs.
 
-Loader and rasterizer packages run shared conformance suites. Type tests cover generic
+Loader and rasterizer modules run shared conformance suites. Type tests cover generic
 inference and APIs that explicitly require capability-specific loader types. Generated
 fixtures keep test bytes and expected values in the same source.

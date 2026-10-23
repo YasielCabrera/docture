@@ -5,7 +5,7 @@
  *     RUN_OCR=1 pnpm --filter @docture/examples scanned    # + real OCR
  *     AI_GATEWAY_API_KEY=... RUN_OCR=1 pnpm ... scanned    # + a vision model
  *
- * Needs: `pnpm fetch`. The diagnosis runs with no key and no OCR. OCR is behind
+ * Needs: `pnpm run fetch`. The diagnosis runs with no key and no OCR. OCR is behind
  * `RUN_OCR=1` because the first run downloads a WASM engine and models (tens of MB),
  * which is not something a `pnpm check` should depend on. Vision needs a key.
  *
@@ -27,20 +27,14 @@
  */
 
 import { readFile } from "node:fs/promises";
-import {
-  Extractor,
-  NoEligibleStrategyError,
-  DoctureError,
-  imageSize,
-  withRasterizer,
-} from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { DocumentLoaderTesseract } from "@docture/loader-tesseract";
-import { DocumentLoaderPaddleOcr, PADDLE_MODELS } from "@docture/loader-paddleocr";
-import { MuPdfRasterizer } from "@docture/loader-mupdf";
-import { NapiCanvasRasterizer } from "@docture/raster-canvas";
-import { vision } from "@docture/llm";
-import { scoreExtraction } from "@docture/eval";
+import { Extractor, NoEligibleStrategyError, DoctureError, imageSize, withRasterizer } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { DocumentLoaderTesseract } from "docture/loaders/tesseract";
+import { DocumentLoaderPaddleOcr, PADDLE_MODELS } from "docture/loaders/paddleocr";
+import { MuPdfRasterizer } from "docture/loaders/mupdf";
+import { NapiCanvasRasterizer } from "docture/raster/canvas";
+import { vision } from "docture/llm";
+import { scoreExtraction } from "docture/eval";
 import { Invoice, ScoredInvoice, toScored } from "../shared/contracts.js";
 import { servicesInvoiceParser } from "../shared/parsers/services.js";
 import { field, heading, note, provenance, step, table } from "../shared/print.js";
@@ -311,14 +305,15 @@ async function main(): Promise<void> {
   await scannedPdfLoader.dispose?.();
 
   note(
-    "Loader choice is by MEDIA TYPE and then declaration order — never a fallback on\n" +
-      "empty text. So the production wiring is two loaders, and pdf.js goes first:\n\n" +
+    "Loader choice is by media type and then declaration order. Empty text does not\n" +
+      "select another loader. With this wiring, PDF.js reads PDFs and OCR reads images:\n\n" +
       "  .loadDocumentLoader(\n" +
       "    new DocumentLoaderPdfJs(),                              // PDFs with text\n" +
-      "    new DocumentLoaderTesseract({ rasterizer }),            // PNG/JPEG, and scans\n" +
+      "    new DocumentLoaderTesseract({ rasterizer }),            // PNG/JPEG here\n" +
       "  )\n\n" +
-      "A born-digital PDF costs nothing extra; a scan falls to OCR. `form` reports\n" +
-      "`digital`, `scanned` or `mixed`, so you can also branch on it yourself.",
+      "For scanned PDFs, select the Tesseract loader for PDFs or retry with an OCR\n" +
+      "extractor after inspecting the text layer. `form` reports `digital`, `scanned`\n" +
+      "or `mixed` so you can choose that path explicitly.",
   );
 
   console.log("\n  Next: 10-classification — what kind of document is this?");

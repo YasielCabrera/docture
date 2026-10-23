@@ -2,13 +2,29 @@
 
 > the three completion strategies, chunking at page boundaries, `relaxJsonSchema`, `mergePartials`.
 
-**Needs:** `pnpm fetch`. The chunking half runs with no key; the model runs need `AI_GATEWAY_API_KEY`.
+**Needs:** `pnpm run fetch`. The chunking half runs with no key; the model runs need `AI_GATEWAY_API_KEY`.
 
 ```sh
 pnpm --filter @docture/examples long
 ```
 
 Docs: [`guides/long-documents`](../../docs/content/docs/guides/long-documents.mdx)
+
+## Imports and installs
+
+`CompletionStrategy` comes from `docture`. Chunking comes from
+`docture/llm/prompt`, merging from `docture/llm/merge`, and schema relaxation
+from `docture/llm/relax`. The example imports them through the broad `docture/llm`
+entrypoint alongside `LLM`, so it needs the optional AI SDK peer.
+
+For a separate application:
+
+```sh
+pnpm add docture ai@^7.0.0 pdfjs-dist@6.2.108 zod
+```
+
+The tour workspace already installs these dependencies. See the
+[workspace setup](../README.md) before running this folder.
 
 ## What you learn
 

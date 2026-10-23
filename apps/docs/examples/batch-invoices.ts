@@ -1,6 +1,7 @@
 import { openai } from "@ai-sdk/openai";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { Extractor, LLM, type DocumentSource } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { Extractor, type DocumentSource } from "docture";
+import { LLM } from "docture/llm";
 import { Invoice } from "./invoice.js";
 
 const files: readonly DocumentSource[] = ["invoice-1.pdf", "invoice-2.pdf"];

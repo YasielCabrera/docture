@@ -1,6 +1,7 @@
 import { openai } from "@ai-sdk/openai";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { Extractor, LLM } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { Extractor } from "docture";
+import { LLM } from "docture/llm";
 import { Invoice } from "./invoice.js";
 
 const extractor = new Extractor()

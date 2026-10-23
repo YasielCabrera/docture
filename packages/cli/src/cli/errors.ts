@@ -14,7 +14,7 @@
  * through and a different one might.
  */
 
-import { DoctureError, type DoctureErrorCode } from "@docture/core";
+import { DoctureError, type DoctureErrorCode } from "docture";
 
 export type ExitCode = 0 | 1 | 2;
 
@@ -77,6 +77,9 @@ const HINTS: Readonly<Record<DoctureErrorCode, string>> = {
   UNCLASSIFIED_GROUP:
     "Some pages were split off as a kind that is not in your classification list. Add it, " +
     "or pass { onUnclassified: \"skip\" } to drop those pages.",
+  MISSING_ENGINE:
+    "The file was not read. Install the engine named above in the project that runs docture, " +
+    "or remove that component from docture.config.ts.",
 };
 
 export interface Explained {

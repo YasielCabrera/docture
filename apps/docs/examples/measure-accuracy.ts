@@ -1,16 +1,23 @@
-import { createExtractor } from "@docture/core";
-import { formatFailures, scoreExtraction } from "@docture/eval";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { fixedStrategy, makeInvoicePdf } from "@docture/testing";
-import { Invoice } from "./invoice.js";
+import { createExtractor } from "docture";
+import { formatFailures, scoreExtraction } from "docture/eval";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { fixedStrategy } from "docture/testing/doubles";
+import { makeInvoicePdf } from "docture/testing/fixtures";
+import { Invoice, InvoiceSchema } from "./invoice.js";
 
 const fixture = await makeInvoicePdf({ seed: 301, lineItemCount: 12 });
+const expected = InvoiceSchema.parse(fixture.expected);
 const extractor = createExtractor({
   loaders: [new DocumentLoaderPdfJs()],
-  strategies: [fixedStrategy("fixture-result", fixture.expected)],
+  strategies: [fixedStrategy("fixture-result", expected)],
 });
-const result = await extractor.extract(fixture.bytes, Invoice);
-const score = scoreExtraction(fixture.expected, result.data);
 
-console.log(score.f1);
-console.log(formatFailures(score));
+try {
+  const result = await extractor.extract(fixture.bytes, Invoice);
+  const score = scoreExtraction(expected, result.data);
+
+  console.log(score.f1);
+  console.log(formatFailures(score));
+} finally {
+  await extractor.dispose();
+}

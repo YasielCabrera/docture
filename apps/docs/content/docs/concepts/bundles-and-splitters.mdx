@@ -22,7 +22,7 @@ A splitter answers whether two adjacent pages belong to the same document. It al
 reports the classification of each page and may report confidence.
 
 ```ts
-import { defineSplitter } from "@docture/core";
+import { defineSplitter } from "docture";
 
 const splitter = defineSplitter({
   name: "invoice-heading",
@@ -67,7 +67,7 @@ Unclassified groups throw `UnclassifiedGroupError` by default. Set
 `lastSplit` reports the splitter, strategy, groups, and splitting usage. Call
 `dispose()` to release the splitter, extractor, and loaders.
 
-`@docture/llm` ships `TextSplitter` for text layers and `ImageSplitter` for renderable
+`docture/llm` ships `TextSplitter` for text layers and `ImageSplitter` for renderable
 pages. Their functional forms are `textSplitter()` and `imageSplitter()`.
 
 See the [LLM API](/docs/reference/api/llm) for the shipped splitters and the

@@ -3,7 +3,7 @@
  *
  *     pnpm --filter @docture/examples fallback
  *
- * Needs: `pnpm fetch`. No API key — and the missing key is itself one of the rungs
+ * Needs: `pnpm run fetch`. No API key — and the missing key is itself one of the rungs
  * this example reports, which is the point. Set AI_GATEWAY_API_KEY to add a model as
  * the last resort and watch the table change.
  *
@@ -18,32 +18,8 @@
  *   7. TWO STRATEGIES WITH ONE NAME is a wiring error, not a shadowing bug
  */
 
-import {
-  ContractViolationError,
-  DuplicateComponentError,
-  Extractor,
-  ExtractionFailedError,
-  LoadFailedError,
-  NoEligibleLoaderError,
-  NoEligibleStrategyError,
-  NoConvertibleContentError,
-  SplitFailedError,
-  TimeoutError,
-  UnclassifiedGroupError,
-  UnsupportedSourceError,
-  consoleLogger,
-  declarationOrder,
-  defineStrategy,
-  errorCodeOf,
-  isAbortError,
-  messageOf,
-  silentLogger,
-  type ExtractionStrategy,
-  type Logger,
-  type DoctureErrorCode,
-  type RoutingPolicy,
-} from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+import { ContractViolationError, DuplicateComponentError, Extractor, ExtractionFailedError, LoadFailedError, MissingEngineError, ModelOutputError, PageSelectionError, NoEligibleLoaderError, NoEligibleStrategyError, NoConvertibleContentError, SplitFailedError, TimeoutError, UnclassifiedGroupError, UnsupportedSourceError, consoleLogger, declarationOrder, defineStrategy, errorCodeOf, isAbortError, messageOf, silentLogger, type ExtractionStrategy, type Logger, type DoctureErrorCode, type RoutingPolicy } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { Invoice } from "../shared/contracts.js";
 import { odooInvoiceParser } from "../shared/parsers/odoo.js";
 import { servicesInvoiceParser } from "../shared/parsers/services.js";
@@ -243,6 +219,8 @@ async function main(): Promise<void> {
         return "the splitter could not cut the bundle";
       case "UNCLASSIFIED_GROUP":
         return 'pages matched no classification; pass { onUnclassified: "skip" } to drop them';
+      case "MISSING_ENGINE":
+        return "install the optional engine the message names; the file was not read";
     }
   }
 
@@ -267,6 +245,7 @@ async function main(): Promise<void> {
     ["DuplicateComponentError", "DUPLICATE_COMPONENT"],
     ["SplitFailedError", "SPLIT_FAILED"],
     ["UnclassifiedGroupError", "UNCLASSIFIED_GROUP"],
+    ["MissingEngineError", "MISSING_ENGINE"],
   ] as const satisfies readonly (readonly [string, DoctureErrorCode])[];
 
   table(
@@ -281,10 +260,12 @@ async function main(): Promise<void> {
   // Every one of these classes is a real export, and every one extends `DoctureError`.
   // `instanceof DoctureError` catches the family; `switch (error.code)` splits it.
   field(
-    "all eleven are exported",
+    "all fourteen are exported",
     [
       NoEligibleLoaderError,
       LoadFailedError,
+      PageSelectionError,
+      ModelOutputError,
       NoConvertibleContentError,
       NoEligibleStrategyError,
       ExtractionFailedError,
@@ -294,6 +275,7 @@ async function main(): Promise<void> {
       DuplicateComponentError,
       SplitFailedError,
       UnclassifiedGroupError,
+      MissingEngineError,
     ].every((Cls) => Cls.prototype instanceof Error),
   );
 

@@ -2,13 +2,39 @@
 
 > `inspect`, `extract`, `classify`, `eval`, a schema module, a kinds module, and a config file.
 
-**Needs:** `pnpm fetch`. `inspect` needs no key; `extract` and `classify` work keyless through the config in this folder.
+**Needs:** `pnpm run fetch`. `inspect` needs no key; `extract` and `classify` work keyless through the config in this folder.
 
 ```sh
 pnpm --filter @docture/examples cli
 ```
 
 Docs: [`guides/cli`](../../docs/content/docs/guides/cli.mdx)
+
+## Install the CLI
+
+`@docture/cli` is the second published package:
+
+```sh
+pnpm add @docture/cli
+```
+
+It requires `ai` and `pdfjs-dist` and installs them as dependencies. Its default canvas
+renderer is an optional dependency, `@napi-rs/canvas@1.0.10`. If you omitted optional
+dependencies, add that version before using rendering flags such as `--vision`.
+
+The config imports `defineConfig` from `@docture/cli`, pipeline APIs from `docture`,
+and `DocumentLoaderPdfJs` from `docture/loaders/pdfjs`. To build a similar config in
+your own project, declare its imports explicitly:
+
+```sh
+pnpm add docture pdfjs-dist@6.2.108 zod
+```
+
+The [tour workspace](../README.md) already installs these dependencies. The example
+runs the CLI's workspace source through `tsx`; consumers run the installed `docture` bin.
+An unexpected child exit makes the example fail and prints the complete captured output.
+The PNG `inspect` call explicitly expects exit 1 because the default PDF loader rejects
+images; the other commands must exit 0.
 
 ## What you learn
 

@@ -3,7 +3,7 @@
  *
  *     pnpm --filter @docture/examples cli
  *
- * Needs: `pnpm fetch`. `inspect` needs no key. `extract` and `classify` need one unless
+ * Needs: `pnpm run fetch`. `inspect` needs no key. `extract` and `classify` need one unless
  * you point them at a config with deterministic strategies — which is what
  * `15-cli/docture.config.ts` does, and the most useful thing in this folder.
  *
@@ -29,11 +29,11 @@ const ROOT = resolve(HERE, "..");
 const BIN = resolve(ROOT, "node_modules/@docture/cli/src/bin.ts");
 
 /** Run `docture ...` and echo both the command and what it printed. */
-async function cli(args: readonly string[], { quiet = false } = {}): Promise<void> {
+async function cli(args: readonly string[], { quiet = false, expectedExit = 0 } = {}): Promise<void> {
   const shown = ["docture", ...args.map((a) => relative(ROOT, a) === a ? a : relative(ROOT, a))];
   console.log(`\n  $ ${shown.join(" ")}\n`);
 
-  await new Promise<void>((done) => {
+  await new Promise<void>((done, reject) => {
     const child = spawn(resolve(ROOT, "node_modules/.bin/tsx"), [BIN, ...args], {
       cwd: ROOT,
       stdio: quiet ? ["ignore", "pipe", "pipe"] : "inherit",
@@ -41,12 +41,19 @@ async function cli(args: readonly string[], { quiet = false } = {}): Promise<voi
     let captured = "";
     child.stdout?.on("data", (chunk: Buffer) => (captured += chunk.toString()));
     child.stderr?.on("data", (chunk: Buffer) => (captured += chunk.toString()));
-    child.on("close", () => {
+    child.once("error", reject);
+    child.once("close", (code, signal) => {
+      const succeeded = code === expectedExit;
       if (quiet) {
         // Just the head, so a long report does not bury the next command.
         const lines = captured.trimEnd().split("\n");
-        for (const line of lines.slice(0, 14)) console.log(`  ${line}`);
-        if (lines.length > 14) console.log(`  … ${lines.length - 14} more lines`);
+        const shown = succeeded ? lines.slice(0, 14) : lines;
+        for (const line of shown) console.log(`  ${line}`);
+        if (shown.length < lines.length) console.log(`  … ${lines.length - shown.length} more lines`);
+      }
+      if (!succeeded) {
+        reject(new Error(`docture ${args[0]} exited with ${signal ?? code}; expected ${expectedExit}`));
+        return;
       }
       done();
     });
@@ -71,9 +78,9 @@ async function main(): Promise<void> {
 
   /**
    * The same command on the page image is the one worth remembering: it is how you find
-   * out a document has no text layer BEFORE wiring a parser that needs one.
+   * out that the default PDF loader cannot accept an image. Exit 1 is expected here.
    */
-  await cli(["inspect", pathOf("scan-services")], { quiet: true });
+  await cli(["inspect", pathOf("scan-services")], { quiet: true, expectedExit: 1 });
 
   // ── 2. inspect, across the corpus ─────────────────────────────────────────────
 

@@ -3,10 +3,10 @@ title: Measure accuracy
 description: Score extracted fields and test pipeline behavior.
 ---
 
-`@docture/eval` compares extracted data with known output one field at a time.
+`docture/eval` compares extracted data with known output one field at a time.
 
 ```ts
-import { formatFailures, scoreExtraction } from "@docture/eval";
+import { formatFailures, scoreExtraction } from "docture/eval";
 
 const result = await extractor.extract("invoice.pdf", Invoice);
 const score = scoreExtraction(expected, result.data);
@@ -14,6 +14,14 @@ const score = scoreExtraction(expected, result.data);
 console.log(score.f1);
 console.log(formatFailures(score));
 ```
+
+## Install
+
+```sh
+npm install --save-dev docture pdfjs-dist@6.2.108 pdfkit@0.19.1 zod@^4
+```
+
+See [installation recipes](/docs/guides/installation) for other engines and providers.
 
 ## Field results
 
@@ -74,10 +82,11 @@ expect(score.f1, formatFailures(score)).toBe(1);
 
 ## Generate a fixture
 
-`@docture/testing` can create an invoice PDF and its expected data from the same seed:
+`docture/testing/fixtures` can create an invoice PDF and its expected data from the same seed:
 
 ```ts
-import { makeInvoicePdf } from "@docture/testing";
+import { makeInvoicePdf } from "docture/testing/fixtures";
+import { Invoice, InvoiceSchema } from "./invoice.js";
 
 const fixture = await makeInvoicePdf({
   seed: 301,
@@ -85,11 +94,13 @@ const fixture = await makeInvoicePdf({
 });
 
 const result = await extractor.extract(fixture.bytes, Invoice);
-const score = scoreExtraction(fixture.expected, result.data);
+const expected = InvoiceSchema.parse(fixture.expected);
+const score = scoreExtraction(expected, result.data);
 ```
 
 The seed makes the document reproducible. The generated expected data cannot drift from
-the values used to render the PDF.
+the values used to render the PDF. Project it through the extraction schema before
+scoring so fields outside that schema are not reported as omissions.
 
 The full typechecked scoring example is kept with the documentation:
 
@@ -97,7 +108,12 @@ The full typechecked scoring example is kept with the documentation:
 
 ## Test routing without a document library
 
-Use test doubles for routing, fallback, and validation tests:
+Use test doubles for routing, fallback, and validation tests. They need no PDFKit or Vitest
+peer at runtime:
+
+```ts
+import { failingStrategy, fixedStrategy, inMemoryLoader, loadedDocument } from "docture/testing/doubles";
+```
 
 ```ts
 const extractor = createExtractor({

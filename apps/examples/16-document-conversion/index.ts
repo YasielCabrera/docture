@@ -7,8 +7,8 @@
  */
 
 import { DocumentConverter } from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { makeRichDocumentPdf } from "@docture/testing";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { makeRichDocumentPdf } from "docture/testing/fixtures";
 import { field, heading, note, step } from "../shared/print.js";
 import { isMain, run } from "../shared/run.js";
 

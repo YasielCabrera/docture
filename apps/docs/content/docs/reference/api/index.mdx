@@ -1,28 +1,30 @@
 ---
 title: API reference
-description: Public exports for every published package.
+description: Public exports for both published packages and every supported subpath.
 ---
 
-The `docture` facade re-exports every public export from `@docture/core` and
-`@docture/llm`. The adapter, evaluation, testing, and CLI packages use their own package
-imports.
+The `docture` root exports core only. Model components, adapters, evaluation, and testing
+use explicit `docture` subpaths. `@docture/cli` is the second published package.
 
 ```ts
-import { Extractor, contract, llm, vision } from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+import { Extractor, contract } from "docture";
+import { llm } from "docture/llm/text";
+import { vision } from "docture/llm/vision";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 ```
 
-Import supported symbols from a package root. Files under `src` and `dist` are internal.
+Import supported symbols from the public entries in the [package reference](/docs/reference/packages).
+Files under `src` and `dist` are internal.
 
 ## Reference pages
 
 | Area | Pages |
 | --- | --- |
-| Core | [Extraction](/docs/reference/api/core-extraction), [contracts](/docs/reference/api/core-contracts), [documents](/docs/reference/api/core-documents), [components](/docs/reference/api/core-components), [classification](/docs/reference/api/core-classification) |
+| Core | [Extraction](/docs/reference/api/core-extraction), [conversion](/docs/reference/api/core-conversion), [contracts](/docs/reference/api/core-contracts), [documents](/docs/reference/api/core-documents), [components](/docs/reference/api/core-components), [classification](/docs/reference/api/core-classification) |
 | Models | [LLM components](/docs/reference/api/llm), [LLM utilities](/docs/reference/api/llm-utilities) |
 | Loaders | [PDF.js](/docs/reference/api/loader-pdfjs), [MuPDF](/docs/reference/api/loader-mupdf), [Tesseract](/docs/reference/api/loader-tesseract), [PaddleOCR](/docs/reference/api/loader-paddleocr) |
 | Rasterizer | [Canvas](/docs/reference/api/raster-canvas) |
-| Supporting packages | [Evaluation](/docs/reference/api/eval), [testing](/docs/reference/api/testing), [CLI](/docs/reference/api/cli) |
+| Supporting APIs | [Evaluation](/docs/reference/api/eval), [testing](/docs/reference/api/testing), [CLI](/docs/reference/api/cli) |
 
 The [package reference](/docs/reference/packages) lists dependencies, licences, and
 platform requirements. The [error reference](/docs/reference/errors) lists every core

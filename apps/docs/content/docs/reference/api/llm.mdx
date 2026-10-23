@@ -3,11 +3,23 @@ title: LLM components
 description: Model backends, extraction, classification, splitting, and layout assistance.
 ---
 
-Import these APIs from `@docture/llm` or `docture`. Install AI SDK 7 in the application.
+Import these APIs from `docture/llm` or the narrow entries listed below. Install AI SDK 7 and Zod (3.25.76 or later 3.x, or 4.1.8 or later) in the application.
+For model components:
+
+```sh
+npm install docture ai@^7 zod@^4
+```
+
+Also install the provider you construct, such as `@ai-sdk/openai`. The
+[complete model install](/docs/guides/installation#text-extraction-classification-splitting-and-layout-with-a-model)
+includes the document engine and schema library.
+
 All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
 gateway model string.
 
 ## Model backend
+
+Import from `docture/llm`.
 
 ```ts
 new LLM(languageModel: LanguageModel, options?: LlmOptions)
@@ -30,6 +42,8 @@ failures and may continue. The LLM classifier converts its own failures to abste
 
 ## Layout assistance
 
+Import from `docture/llm/layout`.
+
 ```ts
 new LlmLayoutAnalyzer(options: LlmLayoutAnalyzerOptions)
 llmLayout(options: LlmLayoutAnalyzerOptions): LayoutAnalyzer
@@ -45,6 +59,8 @@ It contains no text field. Core validates known IDs and page-local permutations 
 using the response. Calls support response caching and report token and cost usage.
 
 ## Text extraction
+
+Import from `docture/llm/text`.
 
 ```ts
 new LlmStrategy(options: LlmStrategyOptions)
@@ -78,6 +94,8 @@ then core validates the complete result.
 
 ## Vision extraction
 
+Import from `docture/llm/vision`.
+
 ```ts
 new VisionStrategy(options: VisionStrategyOptions)
 vision(options: VisionStrategyOptions): ExtractionStrategy
@@ -101,6 +119,8 @@ The strategy rejects when there are no pages, a page cannot render, the model fa
 the caller aborts. Per-page results are merged before core validation.
 
 ## LLM classifier
+
+Import from `docture/llm/classifier`.
 
 ```ts
 new LlmClassifier(options: LlmClassifierOptions)
@@ -126,6 +146,8 @@ shared values. Text-only `name`, `system`, `hints`, and `maxCharsPerRequest` sta
 the text strategy.
 
 ## LLM splitters
+
+Import from `docture/llm/split`.
 
 ```ts
 new TextSplitter(options: SplitterOptions)
@@ -157,6 +179,8 @@ rendering, or abort failures. Pages beyond `maxEagerPages` are not sent to the m
 results are then normalized so every source page remains in a group.
 
 ## Extractor factory
+
+Import from `docture/llm/extractor`.
 
 ```ts
 createLlmExtractor(options: LlmExtractorOptions): Extractor

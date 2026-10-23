@@ -3,7 +3,7 @@
  *
  *     AI_GATEWAY_API_KEY=... pnpm --filter @docture/examples model
  *
- * Needs: `pnpm fetch` AND a real API key. There is no mock — a mock would teach you the
+ * Needs: `pnpm run fetch` AND a real API key. There is no mock — a mock would teach you the
  * wiring and lie about the answer, and the answer is the thing a model is for. Without
  * a key this skips loudly and exits 0.
  *
@@ -21,12 +21,7 @@
  *   6. TWO MODELS AT ONCE, cheap first
  */
 
-import {
-  CompletionStrategy,
-  Extractor,
-  contract,
-  type ExtractionResult,
-} from "docture";
+import { CompletionStrategy, Extractor, contract, type ExtractionResult } from "docture";
 import {
   DEFAULT_SYSTEM_PROMPT,
   LLM,
@@ -38,8 +33,8 @@ import {
   modelIdOf,
   toUsage,
   type PricingTable,
-} from "@docture/llm";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+} from "docture/llm";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { z } from "zod";
 import { Invoice } from "../shared/contracts.js";
 import { odooInvoiceParser } from "../shared/parsers/odoo.js";
@@ -73,10 +68,9 @@ async function main(): Promise<void> {
   step("1. one line to add a model");
 
   /**
-   * `loadLlm` takes a `ModelBackend`, not a `LanguageModel`. That indirection is the
-   * whole reason `@docture/core` does not depend on the AI SDK — a deterministic
-   * pipeline should not install a model client, and a test in `packages/core` enforces
-   * it. `LLM` is the implementation of that seam.
+   * `loadLlm` takes a `ModelBackend`. The `docture` root entrypoint uses that
+   * interface without loading the AI SDK. `LLM` from `docture/llm` implements it
+   * and needs the optional `ai` peer.
    *
    * One `LLM` knows how to become four things: the text extraction strategy, the vision
    * strategy, the classifier and the splitter, all configured once.

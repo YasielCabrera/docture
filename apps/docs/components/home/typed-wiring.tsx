@@ -9,16 +9,16 @@ import { Code } from "./code";
  * what `tsc` actually printed for the first one. `capabilities.images` is a type
  * parameter rather than a runtime flag, which is the only reason this is possible.
  */
-const broken = `import { type ImageLoader } from "@docture/core";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+const broken = `import { type ImageLoader } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 
 const loader = new DocumentLoaderPdfJs();
 new VisionStrategy({
   loader,
 });`;
 
-const fixed = `import { withRasterizer } from "@docture/core";
-import { NapiCanvasRasterizer } from "@docture/raster-canvas";
+const fixed = `import { withRasterizer } from "docture";
+import { NapiCanvasRasterizer } from "docture/raster/canvas";
 
 const rasterizer = new NapiCanvasRasterizer();
 new VisionStrategy({

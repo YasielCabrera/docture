@@ -19,7 +19,7 @@
  * This file is a summary of what is in there and why.
  */
 
-import { buildInvoiceData, formatMoney, makeInvoicePdf } from "@docture/testing";
+import { buildInvoiceData, formatMoney, makeInvoicePdf } from "docture/testing/fixtures";
 import { field, heading, note, step, table } from "../shared/print.js";
 import { isMain, run } from "../shared/run.js";
 
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
   step("4. conformance — the suite that makes loaders interchangeable");
 
   note(
-    "Every loader package in this repo runs the SAME suite against its own class:\n\n" +
+    "The built-in loaders under docture/loaders/* run the SAME suite against their classes:\n\n" +
       "  describeLoaderConformance({\n" +
       '    name: "MyLoader",\n' +
       "    create: () => new MyLoader(),\n" +
@@ -109,7 +109,7 @@ async function main(): Promise<void> {
       "`MockLanguageModelV4` from `ai/test` is the AI SDK's own double, so the strategy is\n" +
       "still exercised through the real `generateObject` code path — real prompt assembly,\n" +
       "real structured-output parsing, real usage plumbing — with only the network\n" +
-      "replaced. `pipeline.test.ts` uses it; `packages/llm/test/mock-model.ts` is the\n" +
+      "replaced. `pipeline.test.ts` uses it; `packages/docture/test/llm/mock-model.ts` is the\n" +
       "fuller version this library tests itself with.",
   );
 

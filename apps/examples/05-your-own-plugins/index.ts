@@ -3,7 +3,7 @@
  *
  *     pnpm --filter @docture/examples plugins
  *
- * Needs: `pnpm fetch`. No API key.
+ * Needs: `pnpm run fetch`. No API key.
  *
  * Everything in this library that reads a document is one of four plain objects. No
  * base class, nothing to extend — `implements` is structural, so a fake in a test is an
@@ -18,23 +18,9 @@
  */
 
 import { readFile } from "node:fs/promises";
-import {
-  Extractor,
-  defineLoader,
-  defineRasterizer,
-  defineStrategy,
-  imageSize,
-  inferForm,
-  linesFromWords,
-  silentLogger,
-  textFromLines,
-  type ExtractionStrategy,
-  type LoadedPage,
-  type PositionedWord,
-  type Rasterizer,
-} from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { MuPdfRasterizer } from "@docture/loader-mupdf";
+import { Extractor, defineLoader, defineRasterizer, defineStrategy, imageSize, inferForm, linesFromWords, silentLogger, textFromLines, type ExtractionStrategy, type LoadedPage, type PositionedWord, type Rasterizer } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { MuPdfRasterizer } from "docture/loaders/mupdf";
 import { z } from "zod";
 import { Invoice } from "../shared/contracts.js";
 import { servicesInvoiceParser } from "../shared/parsers/services.js";
@@ -369,7 +355,7 @@ async function main(): Promise<void> {
   note(
     "A fifth plugin type — the CLASSIFIER — is example 10, and a sixth — the SPLITTER —\n" +
       "is example 11. Both are the same shape: a plain object, one method.\n\n" +
-      "Every loader and rasterizer package in this repo runs a shared conformance suite\n" +
+      "The built-in loader and rasterizer integrations run a shared conformance suite\n" +
       "against its own class, which is what makes them interchangeable in fact rather\n" +
       "than in principle. Pointing it at YOUR loader is one call — see example 14.",
   );

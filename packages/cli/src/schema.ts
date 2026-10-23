@@ -8,7 +8,7 @@
  * here, once, and the failure is a sentence instead of "schema is not a function".
  */
 
-import type { FlexibleSchema } from "@docture/core";
+import type { FlexibleSchema } from "docture";
 import { jsonSchema } from "ai";
 import { UsageError } from "./cli/errors.js";
 import { loadExport } from "./load-module.js";

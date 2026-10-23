@@ -1,7 +1,7 @@
 /**
  * Download the sample corpus.
  *
- *     pnpm --filter @docture/examples fetch
+ *     pnpm --filter @docture/examples run fetch
  *
  * Every arrival is verified against the manifest before it is written: a PDF must parse
  * and carry the recorded page count and text length, a page image must be a real PNG of
@@ -15,7 +15,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { imageSize, silentLogger, type DocumentLoader } from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { DOCUMENTS, DOCUMENTS_DIR, type SampleDocument } from "./documents.js";
 
 const RECORD = process.env["DOCTURE_RECORD"] === "1";
@@ -61,7 +61,7 @@ async function checkPdf(
  * are full-page rasters of their invoices, and a claim about a downloaded file belongs
  * in the verifier rather than in a comment.
  *
- * `imageSize` is `@docture/core`'s own header reader — exported precisely because an
+ * `imageSize` is `docture`'s own header reader — exported precisely because an
  * OCR loader handed a bare image has no page size to report and must read one from the
  * bytes.
  */

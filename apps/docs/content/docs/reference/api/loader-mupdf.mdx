@@ -1,12 +1,16 @@
 ---
 title: MuPDF loader and rasterizer
-description: Public API for @docture/loader-mupdf.
+description: Public API for docture/loaders/mupdf.
 ---
 
-Import from `@docture/loader-mupdf`. The adapter package is MIT licensed; its `mupdf`
+Import from `docture/loaders/mupdf`. The adapter is MIT licensed; its `mupdf`
 runtime dependency is AGPL-3.0-or-later.
 
 ## Loader
+
+```sh
+npm install docture mupdf@1.28.0
+```
 
 ```ts
 new DocumentLoaderMuPdf(options?: MuPdfConfig)

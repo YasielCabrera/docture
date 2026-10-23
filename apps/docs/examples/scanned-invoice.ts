@@ -1,8 +1,9 @@
 import { openai } from "@ai-sdk/openai";
-import { createExtractor, withRasterizer } from "@docture/core";
-import { llm, vision } from "@docture/llm";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { NapiCanvasRasterizer } from "@docture/raster-canvas";
+import { createExtractor, withRasterizer } from "docture";
+import { llm } from "docture/llm/text";
+import { vision } from "docture/llm/vision";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { NapiCanvasRasterizer } from "docture/raster/canvas";
 import { Invoice } from "./invoice.js";
 
 const model = openai("gpt-5");

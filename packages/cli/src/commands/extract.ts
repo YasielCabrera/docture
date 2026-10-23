@@ -9,7 +9,7 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { errorCodeOf, messageOf, type ExtractionResult, type Usage } from "@docture/core";
+import { errorCodeOf, messageOf, type ExtractionResult, type Usage } from "docture";
 import { boolFlag, choiceFlag, listFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { explain, UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io, type Style } from "../cli/io.js";

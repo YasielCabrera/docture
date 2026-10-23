@@ -3,7 +3,7 @@
  *
  *     pnpm --filter @docture/examples contracts
  *
- * Needs: `pnpm fetch`. No API key.
+ * Needs: `pnpm run fetch`. No API key.
  *
  * Read top to bottom:
  *
@@ -15,17 +15,8 @@
  *   6. A VIOLATION IS TYPED, and says which field and why
  */
 
-import {
-  ContractViolationError,
-  Extractor,
-  contract,
-  contractName,
-  isContract,
-  resolveSchema,
-  schemaOf,
-  type InferContract,
-} from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+import { ContractViolationError, Extractor, contract, contractName, isContract, resolveSchema, schemaOf, type InferContract } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { z } from "zod";
 import { Invoice } from "../shared/contracts.js";
 import { odooInvoiceParser } from "../shared/parsers/odoo.js";

@@ -3,7 +3,7 @@
  *
  *     pnpm --filter @docture/examples loaders
  *
- * Needs: `pnpm fetch`. No API key.
+ * Needs: `pnpm run fetch`. No API key.
  *
  * Read top to bottom:
  *
@@ -17,22 +17,9 @@
 
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import {
-  DocumentLoaderData,
-  Extractor,
-  NoEligibleLoaderError,
-  UnsupportedSourceError,
-  defineStrategy,
-  inferForm,
-  type DocumentLoader,
-  loaderAccepts,
-  resolveSource,
-  silentLogger,
-  sniffMimeType,
-  type DocumentSource,
-} from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { DocumentLoaderMuPdf } from "@docture/loader-mupdf";
+import { DocumentLoaderData, Extractor, NoEligibleLoaderError, UnsupportedSourceError, defineStrategy, inferForm, type DocumentLoader, loaderAccepts, resolveSource, silentLogger, sniffMimeType, type DocumentSource } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { DocumentLoaderMuPdf } from "docture/loaders/mupdf";
 import { z } from "zod";
 import { Invoice } from "../shared/contracts.js";
 import { odooInvoiceParser } from "../shared/parsers/odoo.js";
@@ -60,8 +47,8 @@ async function main(): Promise<void> {
    * wrap, so swapping one for the other is swapping an import — there is no
    * `pdfTextLayer()` hiding a choice you did not make.
    *
-   * They are interchangeable in FACT rather than in principle: every loader package
-   * runs the same conformance suite against its own class. See example 14.
+   * The built-in loaders under `docture/loaders/*` run the same conformance suite
+   * against their own classes. See example 14.
    */
   for (const loader of [new DocumentLoaderPdfJs(), new DocumentLoaderMuPdf()]) {
     const extractor = new Extractor().loadDocumentLoader(loader).loadStrategy(odooInvoiceParser());
@@ -86,8 +73,8 @@ async function main(): Promise<void> {
    * library: plain text, Markdown, CSV, JSON and HTML are bytes plus `TextDecoder`.
    *
    * `invoice-orlen` is a real invoice from the same corpus that ships as `.txt`. No PDF
-   * parser is involved in reading it — and `@docture/core` on its own, with no loader
-   * package installed at all, can do this.
+   * parser is involved in reading it — and `docture` on its own, with no loader
+   * engine installed at all, can do this.
    */
   // Typed as the INTERFACE, not the class. `DocumentLoaderData.load` is declared with a
   // single parameter on the concrete class, so calling it with a `LoadContext` only
@@ -142,7 +129,6 @@ async function main(): Promise<void> {
     ["a Uint8Array", bytes],
     ["an ArrayBuffer", bytes.buffer.slice(0) as ArrayBuffer],
     ["a RawDocument", { bytes, mimeType: "application/pdf", fileName: "azure.pdf" }],
-    // A live http(s) URL. The same one `pnpm fetch` downloads from.
     ["an https: URL", documentOf("invoice-odoo").url],
   ];
 

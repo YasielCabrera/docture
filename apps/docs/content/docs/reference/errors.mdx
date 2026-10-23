@@ -8,10 +8,10 @@ errors may also appear inside attempts.
 
 `DoctureErrorCode` is the union of every code in the table below.
 
-Import the classes and helpers from `@docture/core` or `docture`.
+Import the classes and helpers from `docture`.
 
 ```ts
-import { DoctureError } from "@docture/core";
+import { DoctureError } from "docture";
 
 try {
   await extractor.extract("invoice.pdf", Invoice);
@@ -39,6 +39,7 @@ try {
 | `DUPLICATE_COMPONENT` | `DuplicateComponentError` | no additional public fields | Two registered components share a name. Rename or remove one component. |
 | `SPLIT_FAILED` | `SplitFailedError` | `reason`, `gaps` | Splitting was not configured or the splitter requirements were not met. |
 | `UNCLASSIFIED_GROUP` | `UnclassifiedGroupError` | `pages`, `classification`, `candidates` | A split group did not match the allowed kinds. Add the kind or handle it explicitly. |
+| `MISSING_ENGINE` | `MissingEngineError` | `engine`, `range`, `entry`, `cause` | An integration's optional peer is not installed, so no file was read. Install `engine` at a version in `range` beside `docture`. |
 
 ## Constructors
 
@@ -61,10 +62,35 @@ new UnclassifiedGroupError(
   classification: string,
   candidates: readonly string[],
 )
+new MissingEngineError(engine: string, range: string, entry: string, options?: { cause?: unknown })
 ```
 
 `Ineligibility` has a component `name`, a human-readable `reason`, and optional
 `missing` document facts.
+
+## Missing optional engines
+
+The PDF.js, MuPDF, Tesseract, PaddleOCR, and canvas integrations import their engines on
+first use. If the engine package is not installed, the integration throws
+`MissingEngineError`. Its message names the entry, the package, and the supported range,
+for example `docture/loaders/mupdf needs the optional peer mupdf@~1.28.0, which is not
+installed`. PaddleOCR also reports a missing `onnxruntime-node`, because the engine
+imports ONNX Runtime itself. `cause` keeps the original module-resolution error.
+
+Only a missing engine package produces this error. A damaged file, a missing file inside
+an installed engine, a failed native binding, and a caller abort keep their own errors.
+
+When every eligible loader fails because its engine is missing, extraction and
+conversion throw that `MissingEngineError` instead of `LoadFailedError`. If another loader
+is installed, loading falls back to it and records the missing engine in `attempts`.
+
+## Errors from another installed copy
+
+A package manager can install `docture` more than once, for example once for an
+application and once for `@docture/cli` when their AI SDK versions differ. Each Docture
+error class recognizes instances created by any installed copy, so `instanceof`,
+`errorCodeOf()`, and `isAbortError()` give the same answer for all of them. Subclasses
+that an application declares keep ordinary `instanceof` behavior.
 
 ## Loader and strategy attempts
 

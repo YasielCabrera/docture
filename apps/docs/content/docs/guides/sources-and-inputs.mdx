@@ -5,6 +5,14 @@ description: Extract from paths, URLs, bytes, raw documents, and loaded document
 
 Every extraction starts with a `DocumentSource`.
 
+## Install
+
+```sh
+npm install docture zod@^4
+```
+
+See [installation recipes](/docs/guides/installation) for other engines and providers.
+
 ## Paths and URLs
 
 ```ts
@@ -48,7 +56,7 @@ The declared `mimeType` takes precedence over signature and extension detection.
 `DocumentLoaderData` decodes text without another document library.
 
 ```ts
-import { DocumentLoaderData, Extractor } from "@docture/core";
+import { DocumentLoaderData, Extractor } from "docture";
 
 const extractor = new Extractor()
   .loadDocumentLoader(new DocumentLoaderData())
@@ -70,6 +78,10 @@ The complete typechecked data-input example uses the same invoice contract as th
 start:
 
 <SourceExample file="sources-and-inputs.ts" title="extract-csv.ts" />
+
+This CSV has fewer than 50 trimmed characters. Its parser declares `requires: []`
+because it accepts short input. `TEXT_LAYER` requires at least 50 characters, even
+when the loaded document contains text.
 
 ## Loaded documents
 

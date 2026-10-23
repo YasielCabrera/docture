@@ -10,7 +10,7 @@ preferWorkspacePackages: true
 autoInstallPeers: false
 strictPeerDependencies: false
 
-# Heavy native/WASM engines are only pulled by the loader package that owns them.
+# Engines are optional peers for consumers and explicit development dependencies here.
 # Approving their build scripts here keeps `pnpm install` non-interactive.
 onlyBuiltDependencies:
   - "@napi-rs/canvas"

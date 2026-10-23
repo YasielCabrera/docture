@@ -2,13 +2,27 @@
 
 > `Extractor` wiring, `contract`, the three ways to extract, and the result envelope.
 
-**Needs:** `pnpm fetch`. No API key.
+**Needs:** `pnpm run fetch`. No API key.
 
 ```sh
 pnpm --filter @docture/examples quick-start
 ```
 
 Docs: [`quick-start`](../../docs/content/docs/quick-start.mdx)
+
+## Imports and installs
+
+`Extractor` comes from `docture`; `DocumentLoaderPdfJs` comes from
+`docture/loaders/pdfjs`.
+
+For a separate application:
+
+```sh
+pnpm add docture pdfjs-dist@6.2.108 zod
+```
+
+The tour workspace already installs these dependencies. See the
+[workspace setup](../README.md) before running this folder.
 
 ## What you learn
 

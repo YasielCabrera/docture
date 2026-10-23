@@ -17,8 +17,8 @@
 
 import { describe, expect, it } from "vitest";
 import { Extractor, SplittingStrategy, loadDocument, silentLogger } from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { scoreExtraction, formatFailures } from "@docture/eval";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { scoreExtraction, formatFailures } from "docture/eval";
 import { readFile } from "node:fs/promises";
 
 import { CheckingStatement, Invoice, ScoredInvoice, toScored } from "../shared/contracts.js";
@@ -60,7 +60,7 @@ describe("document conversion", () => {
  */
 const all = documentsPresent();
 if (!all) {
-  console.warn("documents/ is incomplete. Run `pnpm fetch` to enable the document tests.");
+  console.warn("documents/ is incomplete. Run `pnpm run fetch` to enable the document tests.");
 }
 const invoices = present("invoice-odoo", "invoice-services");
 const statement = present("statement");

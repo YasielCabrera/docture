@@ -1,12 +1,19 @@
 ---
-title: Testing package
-description: Public API for @docture/testing.
+title: Testing APIs
+description: Test doubles, generated PDF fixtures, and conformance suites.
 ---
 
-Import from `@docture/testing`. Install Vitest 3 or newer when using the conformance
-suites.
+Testing uses three public entries. `docture/testing/doubles` needs no peer.
+`docture/testing/fixtures` needs PDFKit. `docture/testing/conformance` needs PDFKit and
+Vitest 3 or newer because it generates PDFs and registers tests.
 
 ## Generated invoices
+
+Import from `docture/testing/fixtures`.
+
+```sh
+npm install --save-dev docture pdfkit@0.19.1
+```
 
 ```ts
 buildInvoiceData(options?: InvoiceOptions): SyntheticInvoice
@@ -35,6 +42,12 @@ typography, a list, table, link, code block, and embedded raster image.
 
 ## Test doubles
 
+Import from `docture/testing/doubles`.
+
+```sh
+npm install --save-dev docture
+```
+
 ```ts
 loadedDocument(
   pageTexts: readonly string[],
@@ -52,6 +65,12 @@ document. `fixedStrategy()` returns fixed data after checking the abort signal.
 `failingStrategy()` always throws the configured message.
 
 ## Conformance suites
+
+Import from `docture/testing/conformance`. Add the peer for the adapter under test.
+
+```sh
+npm install --save-dev docture pdfkit@0.19.1 'vitest@>=3'
+```
 
 ```ts
 describeLoaderConformance(options: LoaderConformanceOptions): void

@@ -5,12 +5,20 @@ description: Recover grounded PDF text and layout as TXT, Markdown, or HTML.
 
 `DocumentConverter` turns the same loaded document used for extraction into indexable
 text, Markdown, or HTML. It does not ask for a schema and it does not paraphrase source
-text.
+text. The example writes `converted/report.md` and any referenced assets.
 
 <SourceExample file="document-conversion.ts" title="convert-document.ts" />
 
 The default format is Markdown. The default asset mode is `referenced`, so image bytes
 stay in `result.assets` and the Markdown points at stable relative names.
+
+## Install
+
+```sh
+npm install docture pdfjs-dist@6.2.108 zod@^4
+```
+
+See [installation recipes](/docs/guides/installation) for other engines and providers.
 
 ## Digital and scanned PDFs
 
@@ -27,7 +35,14 @@ The default CLI loader is also PDF.js. A scanned PDF has no text layer, so PDF.j
 no convertible content and conversion throws `NoConvertibleContentError`. Configure an
 OCR loader explicitly when scans are expected:
 
+```sh
+npm install docture zod@^4 tesseract.js@7.0.0 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10
+```
+
 ```ts
+import { DocumentLoaderTesseract } from "docture/loaders/tesseract";
+import { NapiCanvasRasterizer } from "docture/raster/canvas";
+
 const converter = new DocumentConverter()
   .loadDocumentLoader(new DocumentLoaderTesseract({
     rasterizer: new NapiCanvasRasterizer({ dpi: 300 }),
@@ -83,7 +98,14 @@ characters.
 
 Optional model assistance can refine roles and ordering:
 
+```sh
+npm install docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+```
+
 ```ts
+import { LLM } from "docture/llm";
+import { openai } from "@ai-sdk/openai";
+
 const converter = new DocumentConverter()
   .loadDocumentLoader(new DocumentLoaderPdfJs())
   .loadLlm(new LLM(openai("gpt-5")));
@@ -130,6 +152,10 @@ Use `safeConvert()` for a non-throwing result and `convertBatch()` for bounded p
 conversion. Call `dispose()` when the converter owns loaders or a model analyzer.
 
 ## CLI
+
+```sh
+npm install --save-dev @docture/cli
+```
 
 The CLI always requires an output directory:
 

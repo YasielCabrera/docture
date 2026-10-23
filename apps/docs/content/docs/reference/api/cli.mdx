@@ -18,6 +18,12 @@ defineConfig(config: DoctureConfig): DoctureConfig
 complete composition root is present, its component fields are ignored. Conversion may
 also provide a `layoutAnalyzer`.
 
+`extractor` and `converter` accept the value or a function that returns it, directly or
+through a promise. Their types name only the methods the CLI calls: `extract`,
+`extractBatch`, `classify`, and `dispose` for an extractor, and `convertBatch` and
+`dispose` for a converter. An `Extractor` or `DocumentConverter` built by another installed
+copy of `docture` therefore satisfies them.
+
 When explicit strategies are absent, config may provide `model`, `vision`, `pricing`, and
 `instructions`. It may also provide a default `schema`, model `cacheDir`, and extraction
 `concurrency`. Command-line flags override config defaults.

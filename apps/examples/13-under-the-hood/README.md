@@ -2,13 +2,27 @@
 
 > `createExtractor` from a config object, `components`, read-once-extract-many, `runPipeline`.
 
-**Needs:** `pnpm fetch`. No API key.
+**Needs:** `pnpm run fetch`. No API key.
 
 ```sh
 pnpm --filter @docture/examples internals
 ```
 
 Docs: [`reference/architecture`](../../docs/content/docs/reference/architecture.mdx)
+
+## Imports and installs
+
+The pipeline, component types, and `createExtractor` come from `docture`. PDF
+readers come from `docture/loaders/pdfjs` and `docture/loaders/mupdf`.
+
+For a separate application:
+
+```sh
+pnpm add docture pdfjs-dist@6.2.108 mupdf@1.28.0 zod
+```
+
+The tour workspace already installs these dependencies. See the
+[workspace setup](../README.md) before running this folder.
 
 ## What you learn
 

@@ -7,7 +7,7 @@ An extraction strategy turns a loaded document into unvalidated data. The pipeli
 decides whether the strategy can run, validates its output, and records the attempt.
 
 ```ts
-import { defineStrategy } from "@docture/core";
+import { defineStrategy } from "docture";
 
 const invoiceText = defineStrategy({
   name: "invoice-text",

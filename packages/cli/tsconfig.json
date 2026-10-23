@@ -5,13 +5,15 @@
     "outDir": "dist",
     "tsBuildInfoFile": "tsconfig.tsbuildinfo"
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts"],
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ],
   "references": [
-    { "path": "../core" },
-    { "path": "../llm" },
-    { "path": "../loader-pdfjs" },
-    { "path": "../raster-canvas" },
-    { "path": "../eval" }
+    {
+      "path": "../docture"
+    }
   ]
 }

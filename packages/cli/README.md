@@ -3,6 +3,7 @@
 Extraction and grounded document conversion from a terminal.
 
 ```sh
+npm install --save-dev @docture/cli @ai-sdk/openai zod@^4
 npx docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5
 ```
 
@@ -14,14 +15,35 @@ npx docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5
 }
 ```
 
-**stdout is the data. stderr is the story.** So the command above pipes into `jq`, and
-still tells you which strategy answered and what it cost:
+Extracted data goes to stdout. Diagnostics go to stderr, so the command pipes into
+`jq` while reporting the selected strategy and cost:
 
 ```
 ✓ invoice.pdf → llm via pdfjs · 2.1s · 3,412 tokens · $0.0041
 ```
 
----
+## Installation
+
+Use Node.js 22 or newer. TypeScript configs and schemas need Node 22.18 or newer for
+type stripping without a flag. The CLI package requires `docture`, AI SDK 7, and PDF.js.
+It attempts to install `@napi-rs/canvas` as an optional default renderer.
+
+For a project-local CLI without a model provider:
+
+```sh
+npm install --save-dev @docture/cli
+npx docture inspect invoice.pdf
+```
+
+For a one-off run without a local install:
+
+```sh
+npx --package @docture/cli docture --help
+```
+
+`docture` is the executable name. `@docture/cli` is the npm package that supplies it.
+A provider package installed in your project, such as `@ai-sdk/openai`, uses the
+credentials configured for that provider.
 
 ## Commands
 
@@ -93,9 +115,24 @@ renders the pages and adds a vision strategy:
 docture extract scan.pdf -s ./invoice.ts -m openai/gpt-5 --vision --dpi 200
 ```
 
-Rendering comes from `@docture/raster-canvas`, the one **optional** dependency here: it
-carries a native binding, and a platform with no prebuild should still be able to install
-a CLI that reads text. Missing, `--vision` says so by name.
+Rendering uses the `docture/raster/canvas` entry and the CLI's optional
+`@napi-rs/canvas` dependency. It uses a native prebuild. Text extraction remains
+available when canvas cannot install. If optional dependencies were omitted, restore
+the renderer explicitly:
+
+```sh
+npm install --save-dev @docture/cli @napi-rs/canvas@1.0.10
+```
+
+For OCR with Tesseract and canvas in a custom config:
+
+```sh
+npm install --save-dev @docture/cli docture tesseract.js@7.0.0 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10
+```
+
+Import `DocumentLoaderTesseract` from `docture/loaders/tesseract` and
+`NapiCanvasRasterizer` from `docture/raster/canvas`, then pass the rasterizer to the OCR
+loader. See the [complete OCR and engine recipes](../../apps/docs/content/docs/guides/installation.mdx).
 
 ## Batches
 
@@ -141,12 +178,16 @@ construction what routing used.
 ## docture.config.ts
 
 When flags stop being enough, wire it in TypeScript. The config hands you the actual
-libraries rather than a description of them:
+libraries rather than a description of them. Declare the config's imports directly:
+
+```sh
+npm install --save-dev @docture/cli docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+```
 
 ```ts
 import { defineConfig } from "@docture/cli";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { llm } from "@docture/llm";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { llm } from "docture/llm/text";
 import { openai } from "@ai-sdk/openai";
 import { Invoice } from "./schemas/invoice.js";
 import { tableParser } from "./strategies/table.js";
@@ -181,7 +222,7 @@ dropping it.
 
 ## Accuracy
 
-`eval` extracts a corpus, scores it field by field with `@docture/eval`, the same grader
+`eval` extracts a corpus, scores it field by field with `docture/eval`, the same grader
 the library's own tests use, and exits 1 below the gate.
 
 ```sh
@@ -205,6 +246,14 @@ import { captureIo, run } from "@docture/cli";
 const io = captureIo({ cwd: process.cwd(), env: process.env });
 const code = await run(["extract", "invoice.pdf", "-s", "./invoice.ts"], { io });
 ```
+
+## Import migration
+
+Only `docture` and `@docture/cli` are published. In configs, replace `@docture/core`
+with `docture`, `@docture/llm` with `docture/llm` or a narrow model entry, and old
+`@docture/loader-*` imports with `docture/loaders/*`. Core is the only API at the
+`docture` root. `LLM` comes from `docture/llm`; `llm()` comes from `docture/llm/text`.
+The [migration guide](../../apps/docs/content/docs/guides/migration.mdx) lists every replacement.
 
 ## License
 

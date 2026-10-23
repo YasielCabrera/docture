@@ -1,6 +1,6 @@
 import { access, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { makeRichDocumentPdf } from "@docture/testing";
+import { makeRichDocumentPdf } from "docture/testing/fixtures";
 import { afterAll, describe, expect, it } from "vitest";
 import { cleanup, cli, tempDir, writeFixture } from "./harness.js";
 

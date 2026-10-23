@@ -21,12 +21,10 @@ import {
   type CompletionStrategy,
   type Classifier,
   type DocumentLoader,
-  type DocumentConverter,
   type ExtractionStrategy,
-  type Extractor,
   type Rasterizer,
   type LayoutAnalyzer,
-} from "@docture/core";
+} from "docture";
 import {
   fileCache,
   llm,
@@ -35,12 +33,17 @@ import {
   vision,
   type LlmCache,
   type PricingTable,
-} from "@docture/llm";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+} from "docture/llm";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import type { LanguageModel } from "ai";
 import { CliError, UsageError } from "./cli/errors.js";
 import type { Io } from "./cli/io.js";
-import { relativeToConfig, type LoadedConfig } from "./config.js";
+import {
+  relativeToConfig,
+  type CliConverter,
+  type CliExtractor,
+  type LoadedConfig,
+} from "./config.js";
 import { loadExport } from "./load-module.js";
 import { resolveModel } from "./model.js";
 
@@ -83,7 +86,7 @@ export interface WiringInput {
 }
 
 export interface Wiring {
-  readonly extractor: Extractor;
+  readonly extractor: CliExtractor;
   readonly classifications: readonly Classification[];
   /**
    * Empty when nothing can produce a verdict. `undefined` when the config handed
@@ -99,7 +102,7 @@ export interface Wiring {
 }
 
 export interface ConversionWiring {
-  readonly converter: DocumentConverter;
+  readonly converter: CliConverter;
   readonly concurrency: number;
   readonly notes: readonly string[];
   readonly warnings: readonly string[];
@@ -117,20 +120,15 @@ function rendersPdfs(loader: DocumentLoader): boolean {
   return loader.capabilities.mimeTypes.some((m) => m === "application/pdf" || m === "*/*");
 }
 
-/**
- * `@docture/raster-canvas` is an optional dependency: it carries the one native
- * artifact in the tree, and a platform without a prebuild should still be able to
- * install a CLI that reads text. Missing, it is a named error at the moment
- * rendering is asked for — never an install failure for everyone else.
- */
 async function loadRasterizer(dpi: number | undefined): Promise<Rasterizer> {
   try {
-    const { NapiCanvasRasterizer } = await import("@docture/raster-canvas");
+    await import("@napi-rs/canvas");
+    const { NapiCanvasRasterizer } = await import("docture/raster/canvas");
     return new NapiCanvasRasterizer(dpi === undefined ? {} : { dpi });
   } catch (error) {
     throw new CliError(
-      "Rendering pages needs @docture/raster-canvas, which is not available here.",
-      "Install it: `npm i @docture/raster-canvas`. It is an optional dependency because it " +
+      "Rendering pages needs @napi-rs/canvas, which is not available here.",
+      "Install it: `npm i @napi-rs/canvas@1.0.10`. It is an optional dependency because it " +
         "carries the one native binding in the tree.",
       { cause: error },
     );

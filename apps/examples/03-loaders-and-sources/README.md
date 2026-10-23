@@ -2,13 +2,28 @@
 
 > pdf.js vs MuPDF, `DocumentLoaderData` on real text, every `DocumentSource`, `DocumentFeatures`, the `pages` option, the two load failures.
 
-**Needs:** `pnpm fetch`. No API key. Fetches one document over the network to show the URL case.
+**Needs:** `pnpm run fetch`. No API key. Fetches one document over the network to show the URL case.
 
 ```sh
 pnpm --filter @docture/examples loaders
 ```
 
 Docs: [`concepts/loaders`](../../docs/content/docs/concepts/loaders.mdx)
+
+## Imports and installs
+
+Import `DocumentLoaderPdfJs` from `docture/loaders/pdfjs` and
+`DocumentLoaderMuPdf` from `docture/loaders/mupdf`. `DocumentLoaderData` comes from
+`docture` and needs no engine.
+
+For a separate application:
+
+```sh
+pnpm add docture pdfjs-dist@6.2.108 mupdf@1.28.0 zod
+```
+
+The tour workspace already installs these dependencies. See the
+[workspace setup](../README.md) before running this folder.
 
 ## What you learn
 

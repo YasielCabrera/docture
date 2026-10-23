@@ -3,7 +3,7 @@
  *
  *     pnpm --filter @docture/examples quick-start
  *
- * Needs: `pnpm fetch`. No API key — this runs on a deterministic parser reading a real
+ * Needs: `pnpm run fetch`. No API key — this runs on a deterministic parser reading a real
  * text layer, so it works offline and gives the same answer twice.
  *
  * Read top to bottom:
@@ -14,7 +14,7 @@
  */
 
 import { Extractor } from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { Invoice } from "../shared/contracts.js";
 import { odooInvoiceParser } from "../shared/parsers/odoo.js";
 import { amount, field, heading, provenance, step, table } from "../shared/print.js";

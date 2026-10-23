@@ -4,7 +4,7 @@
  *     pnpm --filter @docture/examples bundles
  *     AI_GATEWAY_API_KEY=... pnpm --filter @docture/examples bundles
  *
- * Needs: `pnpm fetch`. The deterministic splitter runs with no key. The LLM splitters
+ * Needs: `pnpm run fetch`. The deterministic splitter runs with no key. The LLM splitters
  * need one and skip loudly.
  *
  * `statement.pdf` is not one document. Pages 1 to 3 are a checking account, pages 4 to 5
@@ -23,25 +23,10 @@
  *   7. THE LLM SPLITTERS, for when a heading is not enough
  */
 
-import {
-  Extractor,
-  Process,
-  SplittingStrategy,
-  UNCLASSIFIED,
-  UnclassifiedGroupError,
-  aggregateDocGroups,
-  defineClassification,
-  defineSplitter,
-  loadDocument,
-  pageWindows,
-  runSplitter,
-  silentLogger,
-  type LoadedPage,
-  type Splitter,
-} from "docture";
-import { ImageSplitter, TextSplitter } from "@docture/llm";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { MuPdfRasterizer } from "@docture/loader-mupdf";
+import { Extractor, Process, SplittingStrategy, UNCLASSIFIED, UnclassifiedGroupError, aggregateDocGroups, defineClassification, defineSplitter, loadDocument, pageWindows, runSplitter, silentLogger, type LoadedPage, type Splitter } from "docture";
+import { ImageSplitter, TextSplitter } from "docture/llm";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { MuPdfRasterizer } from "docture/loaders/mupdf";
 import { readFile } from "node:fs/promises";
 import { CheckingSummary, CreditLineSummary } from "../shared/contracts.js";
 import { checkingSummaryParser, creditLineParser } from "../shared/parsers/statement.js";

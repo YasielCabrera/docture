@@ -1,4 +1,6 @@
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { DocumentConverter } from "docture";
 
 const converter = new DocumentConverter()
@@ -10,13 +12,14 @@ try {
     assets: "referenced",
   });
 
-  await saveText(result.content);
+  const outputDirectory = "converted";
+  await mkdir(outputDirectory, { recursive: true });
+  await writeFile(join(outputDirectory, "report.md"), result.content);
   for (const asset of result.assets) {
-    await saveAsset(asset.reference, asset.bytes);
+    const path = join(outputDirectory, asset.reference);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, asset.bytes);
   }
 } finally {
   await converter.dispose();
 }
-
-declare function saveText(content: string): Promise<void>;
-declare function saveAsset(name: string, bytes: Uint8Array): Promise<void>;

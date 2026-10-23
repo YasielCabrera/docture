@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { CopyCommand } from "./copy-command";
 
-const installCommand = "npm install docture @docture/loader-pdfjs ai @ai-sdk/openai zod";
+const installCommand = "npm install docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4";
 
 export function QuickStart() {
   return (
@@ -16,7 +16,7 @@ export function QuickStart() {
             Install docture
           </h2>
           <p className="mt-3 max-w-[38ch] text-base leading-relaxed text-fd-muted-foreground">
-            Add the core library, a document loader, your model provider, and Zod.
+            Add docture, the PDF.js engine, AI SDK 7, your model provider, and Zod.
           </p>
           <Link
             href="/docs/quick-start"

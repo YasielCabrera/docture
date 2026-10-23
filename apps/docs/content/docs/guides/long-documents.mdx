@@ -25,6 +25,14 @@ llm({
 The inserted separators are not counted toward the budget. A single page larger than the
 budget is sent whole rather than cut through a table row.
 
+## Install
+
+```sh
+npm install docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+```
+
+See [installation recipes](/docs/guides/installation) for other engines and providers.
+
 ## Fragment schemas
 
 A page may contain only part of the requested result. For multi-request extraction,

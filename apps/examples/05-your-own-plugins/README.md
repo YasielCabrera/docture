@@ -2,13 +2,27 @@
 
 > `defineStrategy` in three passes, why a strategy throws, `defineLoader` with `linesFromWords`, `defineRasterizer`.
 
-**Needs:** `pnpm fetch`. No API key.
+**Needs:** `pnpm run fetch`. No API key.
 
 ```sh
 pnpm --filter @docture/examples plugins
 ```
 
 Docs: [`concepts/strategies`](../../docs/content/docs/concepts/strategies.mdx)
+
+## Imports and installs
+
+The plugin factories and geometry helpers come from `docture`. The invoice
+PDF reader comes from `docture/loaders/pdfjs`.
+
+For a separate application:
+
+```sh
+pnpm add docture pdfjs-dist@6.2.108 zod
+```
+
+The tour workspace already installs these dependencies. See the
+[workspace setup](../README.md) before running this folder.
 
 ## What you learn
 

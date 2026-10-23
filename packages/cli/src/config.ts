@@ -8,8 +8,8 @@
  *
  * ```ts
  * import { defineConfig } from "@docture/cli";
- * import { PdfJsLoader } from "@docture/loader-pdfjs";
- * import { llm } from "@docture/llm";
+ * import { PdfJsLoader } from "docture/loaders/pdfjs";
+ * import { llm } from "docture/llm";
  * import { openai } from "@ai-sdk/openai";
  * import { Invoice } from "./schemas/invoice.js";
  *
@@ -37,22 +37,32 @@ import type {
   FlexibleSchema,
   RoutingPolicy,
   LayoutAnalyzer,
-} from "@docture/core";
-import type { PricingTable } from "@docture/llm";
+} from "docture";
+import type { PricingTable } from "docture/llm";
 import type { LanguageModel } from "ai";
 import { UsageError } from "./cli/errors.js";
 import { loadExport } from "./load-module.js";
+
+/**
+ * The extractor methods the CLI calls.
+ *
+ * Picked rather than the class itself. pnpm installs `docture` once per peer set, so a
+ * config's `Extractor` can come from another copy than the CLI's, and a class with
+ * private fields only matches its own declaration.
+ */
+export type CliExtractor = Pick<Extractor, "extract" | "extractBatch" | "classify" | "dispose">;
+
+/** The converter methods the CLI calls, picked for the same reason as {@link CliExtractor}. */
+export type CliConverter = Pick<DocumentConverter, "convertBatch" | "dispose">;
 
 export interface DoctureConfig {
   /**
    * A fully-built extractor. When present it is used as-is and the wiring options
    * below are ignored — the escape hatch for a pipeline the flags cannot describe.
    */
-  readonly extractor?: Extractor | (() => Extractor | Promise<Extractor>);
+  readonly extractor?: CliExtractor | (() => CliExtractor | Promise<CliExtractor>);
   /** A fully-built converter used by `docture convert`. */
-  readonly converter?:
-    | DocumentConverter
-    | (() => DocumentConverter | Promise<DocumentConverter>);
+  readonly converter?: CliConverter | (() => CliConverter | Promise<CliConverter>);
 
   readonly loaders?: readonly DocumentLoader[];
   /** Given these, the CLI builds no strategies of its own and `--model` is unused. */

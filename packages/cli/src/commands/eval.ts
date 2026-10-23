@@ -1,7 +1,7 @@
 /**
  * `docture eval` — extract a corpus and score it against ground truth.
  *
- * The scoring is `@docture/eval`'s, unchanged: the same precision/recall/F1 over
+ * The scoring is `docture/eval`'s, unchanged: the same precision/recall/F1 over
  * leaf paths that the library's own tests assert on. A CLI that graded differently
  * from the test suite would be worse than no CLI at all — you would have two
  * numbers and no way to reconcile them.
@@ -12,7 +12,7 @@
 
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
-import { messageOf } from "@docture/core";
+import { messageOf } from "docture";
 import {
   aggregate,
   failures,
@@ -21,7 +21,7 @@ import {
   scoreExtraction,
   type RunRecord,
   type ScoreOptions,
-} from "@docture/eval";
+} from "docture/eval";
 import { listFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { CliError, explain, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io } from "../cli/io.js";

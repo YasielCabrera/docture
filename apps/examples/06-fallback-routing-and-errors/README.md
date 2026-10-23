@@ -1,14 +1,29 @@
 # 06-fallback-routing-and-errors — Fallback, routing and errors
 
-> the fallback chain over eleven real layouts, `RoutingPolicy`, `only`, all eleven typed errors, timeouts, cancellation, logging, duplicate names.
+> the fallback chain over eleven real layouts, `RoutingPolicy`, `only`, all fourteen typed errors, timeouts, cancellation, logging, duplicate names.
 
-**Needs:** `pnpm fetch`. No API key — and the missing key is itself one of the rungs this example reports.
+**Needs:** `pnpm run fetch`. No API key — and the missing key is itself one of the rungs this example reports.
 
 ```sh
 pnpm --filter @docture/examples fallback
 ```
 
 Docs: [`reference/errors`](../../docs/content/docs/reference/errors.mdx)
+
+## Imports and installs
+
+Routing and errors come from `docture`; the PDF reader comes from
+`docture/loaders/pdfjs`. The optional `LLM` fallback comes from `docture/llm`
+and needs `ai@^7.0.0`.
+
+For a separate application:
+
+```sh
+pnpm add docture pdfjs-dist@6.2.108 zod
+```
+
+The tour workspace already installs these dependencies. See the
+[workspace setup](../README.md) before running this folder.
 
 ## What you learn
 
@@ -38,7 +53,7 @@ candidates.
 
 ## Every failure is typed
 
-Eleven error classes, each with a literal `code`, so a `switch` over `DoctureErrorCode` is
+Fourteen error classes, each with a literal `code`, so a `switch` over `DoctureErrorCode` is
 checked for exhaustiveness by the compiler. Add an error to the library and the `advise`
 function in this example stops compiling until it is handled — which is the difference
 between a typed failure contract and a documented one.

@@ -4,7 +4,7 @@
  *
  * Downloaded rather than committed, for the same reason the library's own fixtures are
  * generated: a repo should not carry third-party documents it does not own.
- * `documents/` is gitignored and `pnpm fetch` fills it.
+ * `documents/` is gitignored and `pnpm run fetch` fills it.
  *
  * Every entry records what `docture inspect` should report. A sample replaced upstream
  * fails on download, loudly, rather than confusingly three examples later.

@@ -6,10 +6,18 @@ description: Parse a known document layout with a deterministic strategy.
 A known layout often needs a parser, not a model. A geometry loader gives the parser text
 lines and positions.
 
+## Install
+
+```sh
+npm install docture pdfjs-dist@6.2.108 zod@^4
+```
+
+See [installation recipes](/docs/guides/installation) for other engines and providers.
+
 ## Read positioned lines
 
 ```ts
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 
 const loader = new DocumentLoaderPdfJs();
 ```
@@ -31,7 +39,7 @@ increases downward.
 ## Write the strategy
 
 ```ts
-import { defineStrategy } from "@docture/core";
+import { defineStrategy } from "docture";
 
 export const invoiceParser = defineStrategy({
   name: "invoice-parser",

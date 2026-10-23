@@ -1,9 +1,9 @@
-import { DocumentLoaderData, Extractor, defineStrategy } from "@docture/core";
+import { DocumentLoaderData, Extractor, defineStrategy } from "docture";
 import { Invoice } from "./invoice.js";
 
 const parseCsv = defineStrategy({
   name: "invoice-csv",
-  requires: ["TEXT_LAYER"],
+  requires: [],
   async extract({ document }) {
     const [invoiceNumber, issuedAt, total] = document.text.trim().split(",");
     if (invoiceNumber === undefined || issuedAt === undefined || total === undefined) {

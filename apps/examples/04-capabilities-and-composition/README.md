@@ -2,13 +2,28 @@
 
 > typed loader capabilities, `requires`, `withRasterizer`, both rasterizers, lazy memoized page images.
 
-**Needs:** `pnpm fetch`. No API key.
+**Needs:** `pnpm run fetch`. No API key.
 
 ```sh
 pnpm --filter @docture/examples capabilities
 ```
 
 Docs: [`concepts/rasterizers`](../../docs/content/docs/concepts/rasterizers.mdx)
+
+## Imports and installs
+
+Import capabilities and `withRasterizer` from `docture`, PDF readers from
+`docture/loaders/pdfjs` and `docture/loaders/mupdf`, and `NapiCanvasRasterizer` from
+`docture/raster/canvas`.
+
+For a separate application:
+
+```sh
+pnpm add docture pdfjs-dist@6.2.108 mupdf@1.28.0 @napi-rs/canvas@1.0.10 zod
+```
+
+The tour workspace already installs these dependencies. See the
+[workspace setup](../README.md) before running this folder.
 
 ## What you learn
 

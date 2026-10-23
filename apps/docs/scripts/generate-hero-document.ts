@@ -16,10 +16,10 @@ import { appendFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { silentLogger, type LoadedPage, type Rasterizer, type TextSpan } from "@docture/core";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { NapiCanvasRasterizer } from "@docture/raster-canvas";
-import { formatMoney, makeInvoicePdf } from "@docture/testing";
+import { silentLogger, type LoadedPage, type Rasterizer, type TextSpan } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { NapiCanvasRasterizer } from "docture/raster/canvas";
+import { formatMoney, makeInvoicePdf } from "docture/testing/fixtures";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(here, "..", "public");

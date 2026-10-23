@@ -6,7 +6,7 @@
  * would be a bug nobody would look for.
  */
 
-import type { CompletionStrategy } from "@docture/core";
+import type { CompletionStrategy } from "docture";
 import { boolFlag, choiceFlag, numberFlag, stringFlag, type Parsed } from "./cli/args.js";
 import type { WiringFlags } from "./wiring.js";
 

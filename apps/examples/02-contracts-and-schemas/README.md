@@ -2,13 +2,27 @@
 
 > `contract()` vs a bare schema, `null` vs absent, inferred types, any schema library, `resolveSchema`, typed violations.
 
-**Needs:** `pnpm fetch`. No API key.
+**Needs:** `pnpm run fetch`. No API key.
 
 ```sh
 pnpm --filter @docture/examples contracts
 ```
 
 Docs: [`concepts/contracts`](../../docs/content/docs/concepts/contracts.mdx)
+
+## Imports and installs
+
+Contracts and schema helpers come from `docture`; the PDF loader comes from
+`docture/loaders/pdfjs`.
+
+For a separate application:
+
+```sh
+pnpm add docture pdfjs-dist@6.2.108 zod
+```
+
+The tour workspace already installs these dependencies. See the
+[workspace setup](../README.md) before running this folder.
 
 ## What you learn
 

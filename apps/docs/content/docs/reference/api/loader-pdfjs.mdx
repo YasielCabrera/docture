@@ -1,9 +1,13 @@
 ---
 title: PDF.js loader
-description: Public API for @docture/loader-pdfjs.
+description: Public API for docture/loaders/pdfjs.
 ---
 
-Import from `@docture/loader-pdfjs`.
+Import from `docture/loaders/pdfjs`.
+
+```sh
+npm install docture pdfjs-dist@6.2.108
+```
 
 ```ts
 new DocumentLoaderPdfJs(options?: PdfJsConfig)
@@ -31,9 +35,9 @@ the next eligible loader may run. If every eligible loader fails, `LoadFailedErr
 contains their attempts.
 
 ```ts
-import { withRasterizer } from "@docture/core";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { NapiCanvasRasterizer } from "@docture/raster-canvas";
+import { withRasterizer } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { NapiCanvasRasterizer } from "docture/raster/canvas";
 
 const loader = withRasterizer(
   new DocumentLoaderPdfJs(),

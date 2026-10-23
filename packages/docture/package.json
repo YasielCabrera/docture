@@ -1,7 +1,7 @@
 {
   "name": "docture",
   "version": "0.2.0",
-  "description": "Structured extraction and deterministic TXT, Markdown, and HTML document conversion through one import.",
+  "description": "Tree-shakeable document extraction, conversion, LLM strategies and optional PDF/OCR integrations.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -21,13 +21,142 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "ARCHITECTURE.md",
+    "CHANGELOG.md"
   ],
   "exports": {
     ".": {
       "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./llm": {
+      "source": "./src/llm/index.ts",
+      "types": "./dist/llm/index.d.ts",
+      "import": "./dist/llm/index.js",
+      "default": "./dist/llm/index.js"
+    },
+    "./eval": {
+      "source": "./src/eval/index.ts",
+      "types": "./dist/eval/index.d.ts",
+      "import": "./dist/eval/index.js",
+      "default": "./dist/eval/index.js"
+    },
+    "./llm/text": {
+      "source": "./src/llm/text.ts",
+      "types": "./dist/llm/text.d.ts",
+      "import": "./dist/llm/text.js",
+      "default": "./dist/llm/text.js"
+    },
+    "./llm/vision": {
+      "source": "./src/llm/vision.ts",
+      "types": "./dist/llm/vision.d.ts",
+      "import": "./dist/llm/vision.js",
+      "default": "./dist/llm/vision.js"
+    },
+    "./llm/classifier": {
+      "source": "./src/llm/classifier.ts",
+      "types": "./dist/llm/classifier.d.ts",
+      "import": "./dist/llm/classifier.js",
+      "default": "./dist/llm/classifier.js"
+    },
+    "./llm/layout": {
+      "source": "./src/llm/layout.ts",
+      "types": "./dist/llm/layout.d.ts",
+      "import": "./dist/llm/layout.js",
+      "default": "./dist/llm/layout.js"
+    },
+    "./llm/split": {
+      "source": "./src/llm/split.ts",
+      "types": "./dist/llm/split.d.ts",
+      "import": "./dist/llm/split.js",
+      "default": "./dist/llm/split.js"
+    },
+    "./llm/cache": {
+      "source": "./src/llm/entries/cache.ts",
+      "types": "./dist/llm/entries/cache.d.ts",
+      "import": "./dist/llm/entries/cache.js",
+      "default": "./dist/llm/entries/cache.js"
+    },
+    "./llm/pricing": {
+      "source": "./src/llm/pricing.ts",
+      "types": "./dist/llm/pricing.d.ts",
+      "import": "./dist/llm/pricing.js",
+      "default": "./dist/llm/pricing.js"
+    },
+    "./llm/prompt": {
+      "source": "./src/llm/prompt.ts",
+      "types": "./dist/llm/prompt.d.ts",
+      "import": "./dist/llm/prompt.js",
+      "default": "./dist/llm/prompt.js"
+    },
+    "./llm/merge": {
+      "source": "./src/llm/merge.ts",
+      "types": "./dist/llm/merge.d.ts",
+      "import": "./dist/llm/merge.js",
+      "default": "./dist/llm/merge.js"
+    },
+    "./llm/relax": {
+      "source": "./src/llm/relax.ts",
+      "types": "./dist/llm/relax.d.ts",
+      "import": "./dist/llm/relax.js",
+      "default": "./dist/llm/relax.js"
+    },
+    "./llm/extractor": {
+      "source": "./src/llm/extractor.ts",
+      "types": "./dist/llm/extractor.d.ts",
+      "import": "./dist/llm/extractor.js",
+      "default": "./dist/llm/extractor.js"
+    },
+    "./loaders/pdfjs": {
+      "source": "./src/loaders/pdfjs/index.ts",
+      "types": "./dist/loaders/pdfjs/index.d.ts",
+      "import": "./dist/loaders/pdfjs/index.js",
+      "default": "./dist/loaders/pdfjs/index.js"
+    },
+    "./loaders/mupdf": {
+      "source": "./src/loaders/mupdf/index.ts",
+      "types": "./dist/loaders/mupdf/index.d.ts",
+      "import": "./dist/loaders/mupdf/index.js",
+      "default": "./dist/loaders/mupdf/index.js"
+    },
+    "./loaders/tesseract": {
+      "source": "./src/loaders/tesseract/index.ts",
+      "types": "./dist/loaders/tesseract/index.d.ts",
+      "import": "./dist/loaders/tesseract/index.js",
+      "default": "./dist/loaders/tesseract/index.js"
+    },
+    "./loaders/paddleocr": {
+      "source": "./src/loaders/paddleocr/index.ts",
+      "types": "./dist/loaders/paddleocr/index.d.ts",
+      "import": "./dist/loaders/paddleocr/index.js",
+      "default": "./dist/loaders/paddleocr/index.js"
+    },
+    "./raster/canvas": {
+      "source": "./src/raster/canvas/index.ts",
+      "types": "./dist/raster/canvas/index.d.ts",
+      "import": "./dist/raster/canvas/index.js",
+      "default": "./dist/raster/canvas/index.js"
+    },
+    "./testing/doubles": {
+      "source": "./src/testing/doubles.ts",
+      "types": "./dist/testing/doubles.d.ts",
+      "import": "./dist/testing/doubles.js",
+      "default": "./dist/testing/doubles.js"
+    },
+    "./testing/conformance": {
+      "source": "./src/testing/conformance/index.ts",
+      "types": "./dist/testing/conformance/index.d.ts",
+      "import": "./dist/testing/conformance/index.js",
+      "default": "./dist/testing/conformance/index.js"
+    },
+    "./testing/fixtures": {
+      "source": "./src/testing/fixtures/index.ts",
+      "types": "./dist/testing/fixtures/index.d.ts",
+      "import": "./dist/testing/fixtures/index.js",
+      "default": "./dist/testing/fixtures/index.js"
     }
   },
   "scripts": {
@@ -37,15 +166,32 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@docture/core": "workspace:*",
-    "@docture/llm": "workspace:*"
+    "@ai-sdk/provider-utils": "5.0.20",
+    "@types/json-schema": "7.0.15"
   },
   "peerDependencies": {
-    "ai": "^7.0.0"
+    "ai": "^7.0.0",
+    "pdfjs-dist": "^6.2.108",
+    "mupdf": "~1.28.0",
+    "tesseract.js": "7.0.0",
+    "ppu-paddle-ocr": "6.3.0",
+    "onnxruntime-node": "1.27.0",
+    "@napi-rs/canvas": "^1.0.10",
+    "pdfkit": ">=0.17.2 <0.21.0",
+    "vitest": ">=3",
+    "zod": "^3.25.76 || ^4.1.8"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "1.0.10",
     "@types/node": "^24.13.3",
+    "@types/pdfkit": "^0.17.6",
     "ai": "7.0.51",
+    "mupdf": "1.28.0",
+    "onnxruntime-node": "1.27.0",
+    "pdfjs-dist": "6.2.108",
+    "pdfkit": "0.19.1",
+    "ppu-paddle-ocr": "6.3.0",
+    "tesseract.js": "7.0.0",
     "typescript": "7.0.2",
     "vitest": "4.1.10",
     "zod": "4.4.3"
@@ -57,5 +203,38 @@
     "structured-data",
     "llm",
     "document-intelligence"
-  ]
+  ],
+  "sideEffects": false,
+  "peerDependenciesMeta": {
+    "ai": {
+      "optional": true
+    },
+    "pdfjs-dist": {
+      "optional": true
+    },
+    "mupdf": {
+      "optional": true
+    },
+    "tesseract.js": {
+      "optional": true
+    },
+    "ppu-paddle-ocr": {
+      "optional": true
+    },
+    "onnxruntime-node": {
+      "optional": true
+    },
+    "@napi-rs/canvas": {
+      "optional": true
+    },
+    "pdfkit": {
+      "optional": true
+    },
+    "vitest": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    }
+  }
 }

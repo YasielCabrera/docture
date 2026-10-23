@@ -1,11 +1,12 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { z } from "zod";
-import * as llmApi from "@docture/llm";
-import { inMemoryLoader, loadedDocument } from "@docture/testing";
-import { mockModel } from "../../llm/test/mock-model.js";
+import * as llmApi from "docture/llm";
+import { inMemoryLoader, loadedDocument } from "docture/testing/doubles";
+import { mockModel } from "../../docture/test/llm/mock-model.js";
+import { CliError } from "../src/cli/errors.js";
 import { captureIo } from "../src/cli/io.js";
 import { buildWiring } from "../src/wiring.js";
 
@@ -67,5 +68,24 @@ it("CLI shares classifier options when config supplies strategies", async () => 
     expect(model.doGenerateCalls[0]?.temperature).toBe(0.4);
   } finally {
     await wiring.dispose();
+  }
+});
+
+it("CLI asks for its own canvas version when pages cannot be rendered", async () => {
+  const manifest = z
+    .object({ optionalDependencies: z.object({ "@napi-rs/canvas": z.string() }) })
+    .parse(JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")));
+  vi.doMock("@napi-rs/canvas", () => {
+    throw new Error("native binding unavailable");
+  });
+  try {
+    const failure = await buildWiring({ io: captureIo(), needsModel: false, flags: { vision: true } })
+      .then(() => undefined, (error: unknown) => error);
+    expect(failure).toBeInstanceOf(CliError);
+    expect(failure).toMatchObject({
+      hint: expect.stringContaining(`\`npm i @napi-rs/canvas@${manifest.optionalDependencies["@napi-rs/canvas"]}\``),
+    });
+  } finally {
+    vi.doUnmock("@napi-rs/canvas");
   }
 });

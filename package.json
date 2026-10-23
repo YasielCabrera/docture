@@ -14,20 +14,27 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:watch": "vitest",
-    "lint": "turbo run lint",
+    "lint": "node scripts/check-boundaries.mjs && node --test scripts/check-boundaries.test.mjs",
     "clean": "turbo run clean && rm -rf node_modules/.cache/turbo",
     "check": "turbo run typecheck test",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "turbo run build && changeset publish",
-    "docs": "turbo run dev --filter @docture/docs"
+    "docs": "turbo run dev --filter @docture/docs",
+    "verify:packages": "node scripts/verify-packages.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "2.31.1",
     "@types/node": "^24.13.3",
     "turbo": "2.10.8",
     "typescript": "7.0.2",
-    "vitest": "4.1.10"
+    "vitest": "4.1.10",
+    "esbuild": "0.28.1",
+    "rollup": "4.62.2",
+    "typescript-compiler": "npm:typescript@5.9.3",
+    "@rollup/plugin-node-resolve": "16.0.3",
+    "@rollup/plugin-commonjs": "29.0.3",
+    "@rollup/plugin-terser": "1.0.2"
   },
   "pnpm": {
     "ignoredBuiltDependencies": [

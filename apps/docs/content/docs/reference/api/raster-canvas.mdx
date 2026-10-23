@@ -1,10 +1,14 @@
 ---
 title: Canvas rasterizer
-description: Public API for @docture/raster-canvas.
+description: Public API for docture/raster/canvas.
 ---
 
-Import from `@docture/raster-canvas`. The package uses `@napi-rs/canvas`, which ships
+Import from `docture/raster/canvas`. The adapter uses `@napi-rs/canvas`, which ships
 prebuilt native dependencies for supported platforms.
+
+```sh
+npm install docture pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10
+```
 
 ```ts
 new NapiCanvasRasterizer(options?: NapiCanvasRasterizerOptions)
@@ -25,8 +29,10 @@ Per-call `RasterOptions` override DPI, format, quality, maximum edge, and select
 The returned `RasterPage` values preserve requested order and report actual pixel
 dimensions and scale.
 
-PDF.js and the canvas binding load on the first render. Opening, password, page decode,
-out-of-range page, render, encoding, and caller abort failures reject `rasterize()`.
+PDF.js and the canvas binding load on the first render. Pages are drawn on canvases from
+the `@napi-rs/canvas` that PDF.js loads, so rendering still works when a package manager
+installs a separate canvas for PDF.js. Opening, password, page decode, out-of-range page,
+render, encoding, and caller abort failures reject `rasterize()`.
 
 ```ts
 const loader = withRasterizer(

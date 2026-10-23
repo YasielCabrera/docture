@@ -2,13 +2,28 @@
 
 > `defineClassification`, narrowing, a deterministic classifier, `LlmClassifier`, the three consensus strategies, classification trees.
 
-**Needs:** `pnpm fetch`. The deterministic classifier runs with no key; `LlmClassifier` needs `AI_GATEWAY_API_KEY`.
+**Needs:** `pnpm run fetch`. The deterministic classifier runs with no key; `LlmClassifier` needs `AI_GATEWAY_API_KEY`.
 
 ```sh
 pnpm --filter @docture/examples classify
 ```
 
 Docs: [`concepts/classification`](../../docs/content/docs/concepts/classification.mdx)
+
+## Imports and installs
+
+Classification contracts and the deterministic classifier API come from `docture`.
+`LlmClassifier` is exported by `docture/llm/classifier` and `docture/llm`; its model
+path needs `ai@^7.0.0`.
+
+For a separate application:
+
+```sh
+pnpm add docture pdfjs-dist@6.2.108 zod
+```
+
+The tour workspace already installs these dependencies. See the
+[workspace setup](../README.md) before running this folder.
 
 ## What you learn
 

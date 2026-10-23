@@ -40,22 +40,19 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@docture/core": "workspace:*",
-    "@docture/eval": "workspace:*",
-    "@docture/llm": "workspace:*",
-    "@docture/loader-pdfjs": "workspace:*",
-    "ai": "7.0.51"
+    "docture": "workspace:*",
+    "ai": "7.0.51",
+    "pdfjs-dist": "6.2.108"
   },
   "optionalDependencies": {
-    "@docture/raster-canvas": "workspace:*"
+    "@napi-rs/canvas": "1.0.10"
   },
   "devDependencies": {
-    "@docture/raster-canvas": "workspace:*",
-    "@docture/testing": "workspace:*",
     "@types/node": "^24.13.3",
     "typescript": "7.0.2",
     "vitest": "4.1.10",
-    "zod": "4.4.3"
+    "zod": "4.4.3",
+    "pdfkit": "0.19.1"
   },
   "keywords": [
     "cli",

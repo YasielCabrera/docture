@@ -3,7 +3,7 @@
  *
  *     pnpm --filter @docture/examples capabilities
  *
- * Needs: `pnpm fetch`. No API key.
+ * Needs: `pnpm run fetch`. No API key.
  *
  * Half of this example is checked by `pnpm typecheck` rather than by running it. The
  * `@ts-expect-error` lines below are the point: each one is a wiring mistake the
@@ -19,25 +19,10 @@
  *   5. PAGE IMAGES ARE LAZY, and here is the render count that proves it
  */
 
-import {
-  DEFAULT_RASTER_OPTIONS,
-  DocumentLoaderData,
-  Extractor,
-  MIN_TEXT_LAYER_CHARS,
-  NoEligibleStrategyError,
-  defineRasterizer,
-  defineStrategy,
-  hasFact,
-  withRasterizer,
-  type GeometryLoader,
-  type ImageLoader,
-  type RasterOptions,
-  type Rasterizer,
-  type TextLoader,
-} from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
-import { DocumentLoaderMuPdf, MuPdfRasterizer } from "@docture/loader-mupdf";
-import { NapiCanvasRasterizer } from "@docture/raster-canvas";
+import { DEFAULT_RASTER_OPTIONS, DocumentLoaderData, Extractor, MIN_TEXT_LAYER_CHARS, NoEligibleStrategyError, defineRasterizer, defineStrategy, hasFact, withRasterizer, type GeometryLoader, type ImageLoader, type RasterOptions, type Rasterizer, type TextLoader } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { DocumentLoaderMuPdf, MuPdfRasterizer } from "docture/loaders/mupdf";
+import { NapiCanvasRasterizer } from "docture/raster/canvas";
 import { z } from "zod";
 import { field, heading, note, step, table } from "../shared/print.js";
 import { isMain, requireDocument, run } from "../shared/run.js";

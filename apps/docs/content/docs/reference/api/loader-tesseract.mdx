@@ -1,9 +1,16 @@
 ---
 title: Tesseract loader
-description: Public API for @docture/loader-tesseract.
+description: Public API for docture/loaders/tesseract.
 ---
 
-Import from `@docture/loader-tesseract`.
+Import from `docture/loaders/tesseract`.
+
+```sh
+npm install docture tesseract.js@7.0.0
+```
+
+For PDF inputs, also install and configure a rasterizer. See the
+[complete OCR install commands](/docs/guides/installation).
 
 ```ts
 new DocumentLoaderTesseract(options?: TesseractConfig)

@@ -1,34 +1,58 @@
 import { readdir, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
+import { extname, join, relative, resolve, sep } from "node:path";
 import ts from "typescript";
-import { API_INVENTORY, type ApiPackageInventory } from "../api-reference.js";
+import { z } from "zod";
+import { API_INVENTORY, type ApiEntrypointInventory } from "../api-reference.js";
 
 const ROOT = process.cwd();
 const DOCS_ROOT = resolve(ROOT, "content/docs");
 
 const PRESERVED_DOC_ROUTES = [
   "/docs",
-  "/docs/quick-start",
-  "/docs/how-it-works",
-  "/docs/guides/with-a-model",
-  "/docs/guides/without-a-model",
-  "/docs/guides/scanned-documents",
-  "/docs/guides/long-documents",
-  "/docs/guides/custom-loader",
-  "/docs/guides/measuring-accuracy",
-  "/docs/guides/cli",
+  "/docs/concepts/bundles-and-splitters",
+  "/docs/concepts/classification",
   "/docs/concepts/contracts",
-  "/docs/concepts/schemas-and-types",
   "/docs/concepts/loaders",
   "/docs/concepts/rasterizers",
+  "/docs/concepts/schemas-and-types",
   "/docs/concepts/strategies",
-  "/docs/concepts/classification",
-  "/docs/concepts/bundles-and-splitters",
-  "/docs/reference/packages",
-  "/docs/reference/errors",
+  "/docs/guides/batches-and-lifecycle",
+  "/docs/guides/cli",
+  "/docs/guides/custom-loader",
+  "/docs/guides/document-conversion",
+  "/docs/guides/installation",
+  "/docs/guides/long-documents",
+  "/docs/guides/measuring-accuracy",
+  "/docs/guides/migration",
+  "/docs/guides/routing-and-fallback",
+  "/docs/guides/scanned-documents",
+  "/docs/guides/sources-and-inputs",
+  "/docs/guides/with-a-model",
+  "/docs/guides/without-a-model",
+  "/docs/how-it-works",
+  "/docs/quick-start",
+  "/docs/reference/api",
+  "/docs/reference/api/cli",
+  "/docs/reference/api/core-classification",
+  "/docs/reference/api/core-components",
+  "/docs/reference/api/core-contracts",
+  "/docs/reference/api/core-conversion",
+  "/docs/reference/api/core-documents",
+  "/docs/reference/api/core-extraction",
+  "/docs/reference/api/eval",
+  "/docs/reference/api/llm",
+  "/docs/reference/api/llm-utilities",
+  "/docs/reference/api/loader-mupdf",
+  "/docs/reference/api/loader-paddleocr",
+  "/docs/reference/api/loader-pdfjs",
+  "/docs/reference/api/loader-tesseract",
+  "/docs/reference/api/raster-canvas",
+  "/docs/reference/api/testing",
   "/docs/reference/architecture",
-] as const;
+  "/docs/reference/errors",
+  "/docs/reference/packages"
+];
 
 const failures: string[] = [];
 
@@ -98,8 +122,8 @@ function exportedNames(entrypoint: string, program: ts.Program): string[] {
     .sort();
 }
 
-function listedNames(item: ApiPackageInventory): string[] {
-  return Object.values(item.pages ?? {}).flat().sort();
+function listedNames(item: ApiEntrypointInventory): string[] {
+  return Object.values(item.pages).flat().sort();
 }
 
 function compareNames(packageName: string, actual: string[], listed: string[]): void {
@@ -126,54 +150,104 @@ async function checkApiCoverage(): Promise<void> {
     strict: true,
   });
 
-  const byPackage = new Map(API_INVENTORY.map((item) => [item.packageName, item]));
-  const namesByPackage = new Map<string, string[]>();
-
   for (const item of API_INVENTORY) {
     const actual = exportedNames(item.entrypoint, program);
-    namesByPackage.set(item.packageName, actual);
-    if (item.mirrors === undefined) compareNames(item.packageName, actual, listedNames(item));
+    compareNames(item.importPath, actual, listedNames(item));
 
-    for (const [page, names] of Object.entries(item.pages ?? {})) {
+    for (const [page, names] of Object.entries(item.pages)) {
       const path = resolve(ROOT, page);
       if (!existsSync(path)) {
-        fail(`${item.packageName}: assigned API page does not exist: ${page}`);
+        fail(`${item.importPath}: assigned API page does not exist: ${page}`);
         continue;
       }
       const source = await readFile(path, "utf8");
       for (const name of names) {
         const exact = new RegExp(`(?<![A-Za-z0-9_$])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9_$])`);
-        if (!exact.test(source)) fail(`${item.packageName}: ${name} is absent from ${page}`);
+        if (!exact.test(source)) fail(`${item.importPath}: ${name} is absent from ${page}`);
       }
     }
   }
 
-  for (const item of API_INVENTORY) {
-    if (item.mirrors === undefined) continue;
-    const expected = [
-      ...new Set(
-        item.mirrors.flatMap((name) => {
-          if (!byPackage.has(name)) fail(`${item.packageName}: unknown mirrored package ${name}`);
-          return namesByPackage.get(name) ?? [];
-        }),
-      ),
-    ].sort();
-    compareNames(item.packageName, namesByPackage.get(item.packageName) ?? [], expected);
+  const manifestSchema = z.object({
+    name: z.string(),
+    private: z.boolean().optional(),
+    exports: z.record(z.string(), z.object({ source: z.string() })).optional(),
+  });
+  const packagesRoot = resolve(ROOT, "../../packages");
+  const packageDirectories = await readdir(packagesRoot, { withFileTypes: true });
+  const published = new Set<string>();
+  const exportedPaths = new Set<string>();
+  const byImportPath = new Map(API_INVENTORY.map((item) => [item.importPath, item]));
+  if (byImportPath.size !== API_INVENTORY.length) fail("API inventory repeats a public import path");
+
+  for (const directory of packageDirectories.filter((entry) => entry.isDirectory())) {
+    const packageRoot = join(packagesRoot, directory.name);
+    const file = join(packageRoot, "package.json");
+    if (!existsSync(file)) continue;
+    const manifest = manifestSchema.parse(JSON.parse(await readFile(file, "utf8")));
+    if (manifest.private === true) continue;
+    published.add(manifest.name);
+
+    for (const [subpath, target] of Object.entries(manifest.exports ?? {})) {
+      const importPath = subpath === "." ? manifest.name : `${manifest.name}${subpath.slice(1)}`;
+      exportedPaths.add(importPath);
+      const item = byImportPath.get(importPath);
+      if (item === undefined) {
+        fail(`Public entry point is missing from the API inventory: ${importPath}`);
+      } else if (item.packageName !== manifest.name || resolve(ROOT, item.entrypoint) !== resolve(packageRoot, target.source)) {
+        fail(`${importPath}: API inventory does not match its package export source ${target.source}`);
+      }
+    }
   }
 
-  const packageFiles = await walk(resolve(ROOT, "../../packages"), ".json");
-  const published = new Set<string>();
-  for (const file of packageFiles.filter((file) => basename(file) === "package.json")) {
-    const manifest = JSON.parse(await readFile(file, "utf8")) as { name?: string; private?: boolean };
-    if (manifest.private !== true && manifest.name !== undefined) published.add(manifest.name);
+  compareNames("Published packages", [...published].sort(), ["@docture/cli", "docture"]);
+  for (const item of API_INVENTORY) {
+    if (!exportedPaths.has(item.importPath)) fail(`API inventory contains an unsupported import path: ${item.importPath}`);
   }
-  const inventoried = new Set(API_INVENTORY.map((item) => item.packageName));
-  for (const name of published) {
-    if (!inventoried.has(name)) fail(`Published package is missing from the API inventory: ${name}`);
+}
+
+async function checkPublicImports(files: readonly string[]): Promise<number> {
+  const byImportPath = new Map(API_INVENTORY.map((item) => [item.importPath, new Set(listedNames(item))]));
+  let count = 0;
+  for (const file of files) {
+    const source = await readFile(file, "utf8");
+    for (const match of source.matchAll(/import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)["']/g)) {
+      const importPath = match[2] ?? "";
+      if (importPath !== "docture" && !importPath.startsWith("docture/") && !importPath.startsWith("@docture/")) continue;
+      count += 1;
+      const names = byImportPath.get(importPath);
+      const location = relative(ROOT, file);
+      if (names === undefined) {
+        fail(`${location}: unsupported public import ${importPath}`);
+        continue;
+      }
+      for (const specifier of (match[1] ?? "").split(",")) {
+        const name = specifier.trim().replace(/^type\s+/, "").split(/\s+as\s+/)[0] ?? "";
+        if (name !== "" && !names.has(name)) fail(`${location}: ${name} is not exported by ${importPath}`);
+      }
+    }
   }
-  for (const name of inventoried) {
-    if (!published.has(name)) fail(`API inventory contains an unpublished package: ${name}`);
+  return count;
+}
+
+async function checkInstallRecipes(files: readonly string[]): Promise<number> {
+  const library = z
+    .object({ peerDependencies: z.record(z.string(), z.string()), devDependencies: z.record(z.string(), z.string()) })
+    .parse(JSON.parse(await readFile(resolve(ROOT, "../../packages/docture/package.json"), "utf8")));
+  let count = 0;
+  for (const file of files) {
+    const source = await readFile(file, "utf8");
+    for (const command of source.matchAll(/\b(?:npm (?:install|i)|pnpm add|yarn add)\b[^`"\n]*/g)) {
+      count += 1;
+      for (const [, name = "", version = ""] of command[0].matchAll(/(?<![\w@/-])((?:@[\w.-]+\/)?[\w.-]+)@(\d+\.\d+\.\d+)(?![\w.-])/g)) {
+        const developed = library.devDependencies[name];
+        if (name in library.peerDependencies && version !== developed) {
+          fail(`${relative(ROOT, file)}: ${name}@${version} in an install command differs from the development version ${developed}`);
+        }
+      }
+    }
   }
+  return count;
 }
 
 async function checkLinksAndExamples(files: readonly string[]): Promise<void> {
@@ -280,6 +354,31 @@ async function checkProse(files: readonly string[]): Promise<void> {
 
 const files = await walk(DOCS_ROOT, ".mdx");
 await checkApiCoverage();
+const importCount = await checkPublicImports([
+  ...files,
+  ...await walk(resolve(ROOT, "examples"), ".ts"),
+  ...await walk(resolve(ROOT, "components"), ".tsx"),
+  resolve(ROOT, "scripts/generate-hero-document.ts"),
+  resolve(ROOT, "../../README.md"),
+  resolve(ROOT, "../../packages/docture/README.md"),
+  resolve(ROOT, "../../packages/cli/README.md"),
+]);
+const examples = resolve(ROOT, "../examples");
+const exampleReadmes = [
+  join(examples, "README.md"),
+  ...(await readdir(examples, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory() && entry.name !== "node_modules")
+    .map((entry) => join(examples, entry.name, "README.md"))
+    .filter((file) => existsSync(file)),
+];
+const recipeCount = await checkInstallRecipes([
+  ...files,
+  ...await walk(resolve(ROOT, "components"), ".tsx"),
+  resolve(ROOT, "../../README.md"),
+  resolve(ROOT, "../../packages/docture/README.md"),
+  resolve(ROOT, "../../packages/cli/README.md"),
+  ...exampleReadmes,
+]);
 await checkLinksAndExamples(files);
 await checkProse(files);
 
@@ -288,5 +387,6 @@ if (failures.length > 0) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log(`Documentation checks passed: ${files.length} pages, ${API_INVENTORY.length} packages.`);
+  const packages = new Set(API_INVENTORY.map((item) => item.packageName));
+  console.log(`Documentation checks passed: ${files.length} pages, ${packages.size} packages, ${API_INVENTORY.length} public entry points, ${importCount} public imports, ${recipeCount} install commands.`);
 }

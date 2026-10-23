@@ -6,6 +6,14 @@ description: Implement loaders, rasterizers, strategies, classifiers, and splitt
 docture components are structural TypeScript interfaces. You do not extend a base class.
 The `define*` helpers preserve literal types and improve inference.
 
+## Install
+
+```sh
+npm install docture zod@^4
+```
+
+See [installation recipes](/docs/guides/installation) for other engines and providers.
+
 ## Loader
 
 A loader turns `RawDocument` bytes into a `LoadedDocument`.
@@ -120,11 +128,15 @@ request.
 
 ## Test PDF loaders and rasterizers
 
+The suites need PDFKit for generated inputs and Vitest 3 or newer to register tests. Also
+install the engine for the adapter under test.
+
+```sh
+npm install --save-dev docture pdfkit@0.19.1 'vitest@>=3'
+```
+
 ```ts
-import {
-  describeLoaderConformance,
-  describeRasterizerConformance,
-} from "@docture/testing";
+import { describeLoaderConformance, describeRasterizerConformance } from "docture/testing/conformance";
 
 describeLoaderConformance({
   name: "AcmePdfLoader",
@@ -147,5 +159,8 @@ This example defines a CSV loader and deterministic invoice strategy, then runs 
 together:
 
 <SourceExample file="custom-components.ts" title="custom-components.ts" />
+
+The CSV parser declares `requires: []` so it can parse inputs shorter than the
+50-character `TEXT_LAYER` threshold. The custom loader still filters input by media type.
 
 See the [core component API](/docs/reference/api/core-components) for complete interfaces.

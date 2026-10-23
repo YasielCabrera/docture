@@ -1,9 +1,4 @@
-import {
-  createExtractor,
-  defineLoader,
-  defineStrategy,
-  inferForm,
-} from "@docture/core";
+import { createExtractor, defineLoader, defineStrategy, inferForm } from "docture";
 import { Invoice } from "./invoice.js";
 
 const csvLoader = defineLoader({
@@ -28,7 +23,7 @@ const csvLoader = defineLoader({
 
 const csvInvoice = defineStrategy({
   name: "invoice-csv",
-  requires: ["TEXT_LAYER"],
+  requires: [],
   async extract({ document }) {
     const [invoiceNumber, issuedAt, total] = document.text.trim().split(",");
     if (invoiceNumber === undefined || issuedAt === undefined || total === undefined) {

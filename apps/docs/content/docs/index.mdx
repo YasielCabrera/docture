@@ -12,8 +12,9 @@ PDF text, OCR output, or plain text. A strategy can call a model or run code you
 ## Smallest complete example
 
 ```ts
-import { Extractor, LLM, contract } from "docture";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+import { Extractor, contract } from "docture";
+import { LLM } from "docture/llm";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
@@ -43,23 +44,28 @@ Start with the [quick start](/docs/quick-start) for installation and setup.
 
 ## What you install
 
-The `docture` package re-exports `@docture/core` and `@docture/llm`. Loaders and
-rasterizers stay in separate packages because each one brings its own document library.
+The two published packages are `docture` and `@docture/cli`. Core comes from the
+`docture` root. Other capabilities use explicit subpaths, and each engine is installed
+only when selected. See [installation recipes](/docs/guides/installation) for exact commands.
 
-| Need | Package |
+| Need | Import |
 |---|---|
-| Core pipeline and model strategies | `docture` |
-| PDF text and positions | `@docture/loader-pdfjs` |
-| MuPDF text and page rendering | `@docture/loader-mupdf` |
-| OCR with Tesseract | `@docture/loader-tesseract` |
-| OCR with PaddleOCR | `@docture/loader-paddleocr` |
-| Page rendering with PDF.js and canvas | `@docture/raster-canvas` |
-| Accuracy scoring | `@docture/eval` |
-| Test fixtures and conformance suites | `@docture/testing` |
+| Core pipeline | `docture` |
+| Model components | `docture/llm` or `docture/llm/text` |
+| PDF text and positions | `docture/loaders/pdfjs` |
+| MuPDF text and page rendering | `docture/loaders/mupdf` |
+| OCR with Tesseract | `docture/loaders/tesseract` |
+| OCR with PaddleOCR | `docture/loaders/paddleocr` |
+| Page rendering with PDF.js and canvas | `docture/raster/canvas` |
+| Accuracy scoring | `docture/eval` |
+| Test doubles | `docture/testing/doubles` |
+| PDF fixtures | `docture/testing/fixtures` |
+| Conformance suites | `docture/testing/conformance` |
 | Terminal commands | `@docture/cli` |
 
-See [packages](/docs/reference/packages) before choosing an OCR or rendering package.
-Some packages use WASM. PaddleOCR and the canvas rasterizer use native prebuilt bindings.
+See [packages and imports](/docs/reference/packages) before choosing an OCR or rendering
+engine. MuPDF and Tesseract use WASM. ONNX Runtime and canvas use native prebuilt bindings.
+For an existing application, follow the [migration guide](/docs/guides/migration).
 
 ## What comes back
 

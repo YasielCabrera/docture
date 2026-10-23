@@ -17,7 +17,7 @@ import {
   type DocumentFeatures,
   type KnownDocumentFact,
   type LoadedPage,
-} from "@docture/core";
+} from "docture";
 import { jsonSchema } from "ai";
 import { boolFlag, numberFlag, type Parsed } from "../cli/args.js";
 import { explain, type ExitCode } from "../cli/errors.js";

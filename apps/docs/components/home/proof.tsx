@@ -15,17 +15,17 @@ const receipts = [
   {
     claim: "Four loaders, one suite.",
     body: "pdf.js, MuPDF, tesseract.js and PaddleOCR each run the same conformance suite against their own class. A text layer and an OCR pass held to the same invariants is what makes swapping them an import rather than a rewrite.",
-    path: "packages/testing/src/conformance/loader.ts",
+    path: "packages/docture/src/testing/conformance/loader.ts",
     span: "lg:col-span-5",
   },
   {
     claim: "core stays light.",
     body: "A test walks the import graph and fails if a PDF library, a WASM bundle, ONNX or even the AI SDK becomes reachable from core.",
-    path: "packages/core/test/architecture.test.ts",
+    path: "packages/docture/test/core/architecture.test.ts",
     span: "lg:col-span-4",
   },
   {
-    claim: "Fifteen examples. Eleven need no key.",
+    claim: "Runnable examples, including offline paths.",
     body: "Run on real invoices and a real bank statement, not on fixtures written to pass.",
     path: "apps/examples",
     span: "lg:col-span-3",

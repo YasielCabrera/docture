@@ -3,7 +3,7 @@
  *
  *     pnpm --filter @docture/examples accuracy
  *
- * Needs: `pnpm fetch`. No API key.
+ * Needs: `pnpm run fetch`. No API key.
  *
  * Eleven real invoices, each with ground truth PUBLISHED BY SOMEBODY ELSE. That last
  * part is what makes this an eval rather than a self-congratulation: truth you wrote
@@ -29,8 +29,8 @@ import {
   recordRun,
   scoreExtraction,
   type RunRecord,
-} from "@docture/eval";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+} from "docture/eval";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { Invoice, toScored, type InvoiceData } from "../shared/contracts.js";
 import { odooInvoiceParser } from "../shared/parsers/odoo.js";
 import { servicesInvoiceParser } from "../shared/parsers/services.js";

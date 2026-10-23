@@ -1,7 +1,7 @@
 import { openai } from "@ai-sdk/openai";
 import { defineConfig } from "@docture/cli";
-import { llm } from "@docture/llm";
-import { DocumentLoaderPdfJs } from "@docture/loader-pdfjs";
+import { llm } from "docture/llm/text";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { Invoice } from "./invoice.js";
 
 export default defineConfig({

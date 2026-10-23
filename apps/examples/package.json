@@ -31,17 +31,8 @@
     "clean": "rm -rf documents *.tsbuildinfo"
   },
   "dependencies": {
-    "@docture/cli": "workspace:*",
-    "@docture/core": "workspace:*",
-    "@docture/eval": "workspace:*",
-    "@docture/llm": "workspace:*",
-    "@docture/loader-mupdf": "workspace:*",
-    "@docture/loader-paddleocr": "workspace:*",
-    "@docture/loader-pdfjs": "workspace:*",
-    "@docture/loader-tesseract": "workspace:*",
-    "@docture/raster-canvas": "workspace:*",
-    "@docture/testing": "workspace:*",
-    "docture": "workspace:*"
+    "docture": "workspace:*",
+    "@docture/cli": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
@@ -49,6 +40,14 @@
     "tsx": "4.20.6",
     "typescript": "7.0.2",
     "vitest": "4.1.10",
-    "zod": "4.4.3"
+    "zod": "4.4.3",
+    "@types/pdfkit": "^0.17.6",
+    "pdfkit": "0.19.1",
+    "pdfjs-dist": "6.2.108",
+    "mupdf": "1.28.0",
+    "tesseract.js": "7.0.0",
+    "ppu-paddle-ocr": "6.3.0",
+    "onnxruntime-node": "1.27.0",
+    "@napi-rs/canvas": "1.0.10"
   }
 }

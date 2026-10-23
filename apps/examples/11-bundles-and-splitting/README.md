@@ -2,13 +2,28 @@
 
 > `Process`, the split report, narrowing over the classification list, `onUnclassified`, `defineSplitter`, EAGER vs LAZY, the LLM splitters.
 
-**Needs:** `pnpm fetch`. The deterministic splitter runs with no key; `TextSplitter`/`ImageSplitter` need `AI_GATEWAY_API_KEY`.
+**Needs:** `pnpm run fetch`. The deterministic splitter runs with no key; `TextSplitter`/`ImageSplitter` need `AI_GATEWAY_API_KEY`.
 
 ```sh
 pnpm --filter @docture/examples bundles
 ```
 
 Docs: [`concepts/bundles-and-splitters`](../../docs/content/docs/concepts/bundles-and-splitters.mdx)
+
+## Imports and installs
+
+`Process` and deterministic splitter helpers come from `docture`. Model splitters
+come from `docture/llm/split`, also re-exported by `docture/llm`. The image path
+uses `MuPdfRasterizer` from `docture/loaders/mupdf`. Add `ai@^7.0.0` for model calls.
+
+For a separate application:
+
+```sh
+pnpm add docture pdfjs-dist@6.2.108 mupdf@1.28.0 zod
+```
+
+The tour workspace already installs these dependencies. See the
+[workspace setup](../README.md) before running this folder.
 
 ## What you learn
 
