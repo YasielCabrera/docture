@@ -28,13 +28,24 @@ A fenced `mermaid` block. Nothing to import:
 ````md
 ```mermaid
 flowchart LR
+    accTitle: Document loading
+    accDescr: Document bytes pass through DocumentLoaderPdfJs to become a LoadedDocument.
     A["📄 bytes"] --> B["DocumentLoaderPdfJs"] --> C["LoadedDocument"]
 ```
 ````
 
-`remarkMdxMermaid` rewrites the fence into `<Mermaid chart="…" />`, and
-[`components/mdx/mermaid.tsx`](components/mdx/mermaid.tsx) renders it client-side,
-lazily, since mermaid is ~1 MB, and re-rendered on a light/dark switch.
+Add `accTitle` and `accDescr` to name the diagram and describe its flow for screen
+readers. Keep the labels concise and explain branches in the surrounding prose.
+
+`remarkMdxMermaid` rewrites the fence into `<Mermaid chart="…" />`.
+[`components/mdx/mermaid.tsx`](components/mdx/mermaid.tsx) loads Mermaid on the client
+and renders again when the theme changes. Zoom and Expand reuse the rendered SVG.
+
+Diagrams start at 100% with 16px labels. Scroll within the diagram to read a long
+flow, or focus its scroll area and use the arrow keys. The toolbar provides zoom
+from 25% to 300%, **Reset 100%**, and **Fit** for an overview. Fit can shrink below
+25% to show the whole diagram. **Expand** opens a larger reader with the same zoom
+and reading position. **Close** or Escape returns to the inline diagram.
 
 ## One thing that will bite you
 

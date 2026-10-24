@@ -9,6 +9,8 @@ parser or model runtime.
 
 ```mermaid
 flowchart TB
+  accTitle: Docture package architecture
+  accDescr: Applications and the CLI use Extractor, DocumentConverter, or Process to reach the core pipeline, component contracts, and domain types. Loader, LLM, and rasterizer modules depend on component contracts. Evaluation and testing depend on domain types.
   A[Application or CLI] --> B[Extractor, DocumentConverter, or Process]
   B --> C[Core pipeline]
   C --> D[Component contracts]

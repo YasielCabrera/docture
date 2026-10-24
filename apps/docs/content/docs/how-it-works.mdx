@@ -8,6 +8,8 @@ and validates their results.
 
 ```mermaid
 flowchart LR
+    accTitle: Document extraction pipeline
+    accDescr: A source passes through byte and media type resolution, document loading, fact recording, strategy selection, optional classification, strategy execution, and validation to produce a typed extraction result.
     A[Source] --> B[Resolve bytes and media type]
     B --> C[Load document]
     C --> D[Record document facts]
