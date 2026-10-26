@@ -35,7 +35,7 @@ Dependencies point **downward only**. The rule is enforced by
         │  domain/       depends on nothing         │   the vocabulary
         └──────────────────────────────────────────┘
 
-        loaders/data.ts: the ONE loader in core, because it wraps no library
+        loaders/data.ts: the core text loader; HTML syntax parsers load only for HTML/XHTML
 ```
 
 | Layer | Owns | Changes when |
@@ -44,7 +44,7 @@ Dependencies point **downward only**. The rule is enforced by
 | `pipeline/` | eligibility → route → attempt → record; schema resolution; source resolution; the load stage; deadlines; typed failures | the orchestration contract changes |
 | `contracts/` | the plugin interfaces, plus `withRasterizer` composition | an interface changes shape |
 | `extractor.ts` | which components a pipeline has, and who disposes them | the default wiring changes |
-| `converter.ts` and `conversion/` | conversion wiring, deterministic layout analysis, and TXT, Markdown, and HTML export | document conversion changes |
+| `converter.ts` and `conversion/` | conversion wiring, deterministic layout analysis, and TXT, Markdown, HTML, and versioned JSON export | document conversion changes |
 | `process.ts` | reading a bundle once, cutting it, and routing each document to an extractor | multi-document handling changes |
 
 Two of these exist purely to keep core free of the AI SDK, which
@@ -117,8 +117,8 @@ it was not offered is ignored rather than honoured.
 **Requirements are about the DOCUMENT, not about wiring.** `requires: ["TEXT_LAYER"]`
 states a fact that must hold of the document. An OCR engine, a model client, a
 rasterizer are *constructor arguments* instead, satisfied by construction, so
-"engine that cannot return layout" is a compile error at the wiring site rather than a
-throw partway through a run.
+capability-specific annotations such as ImageLoader reject incompatible loaders at
+compile time. Extractor checks strategy requirements against document facts at runtime.
 
 **Classification is demand-driven.** If no eligible strategy asks for it, it does not
 run. No wasted model call, no wasted OCR pass.

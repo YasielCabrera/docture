@@ -1,3 +1,4 @@
+import { failedAttempt } from "./attempt.js";
 /**
  * Reading a document — the load stage, on its own.
  *
@@ -17,6 +18,7 @@ import {
   LoadFailedError,
   MissingEngineError,
   NoEligibleLoaderError,
+  PageSelectionError,
   TimeoutError,
   errorCodeOf,
   isAbortError,
@@ -30,16 +32,7 @@ export interface ReadDocument {
   readonly attempts: readonly Attempt[];
 }
 
-function failedAttempt(name: string, ms: number, error: unknown): Attempt {
-  const code = errorCodeOf(error);
-  return {
-    strategy: name,
-    status: "failed",
-    ms,
-    error: messageOf(error),
-    ...(code === undefined ? {} : { errorCode: code }),
-  };
-}
+
 
 /** Try each eligible loader in order; the first that does not throw wins. */
 export async function loadDocument(
@@ -70,16 +63,19 @@ export async function loadDocument(
         logger: logger.child({ loader: loader.name }),
         ...(request === undefined ? {} : { request }),
       });
-      attempts.push({ strategy: loader.name, status: "ok", ms: Date.now() - started });
+      deadline.signal.throwIfAborted();
+      attempts.push({ stage: "load", strategy: loader.name, status: "ok", ms: Date.now() - started });
       return { document, loader, attempts };
     } catch (error) {
+      signal.throwIfAborted();
+      if (error instanceof PageSelectionError) throw error;
       const failure = deadline.expired()
         ? new TimeoutError(`load:${loader.name}`, stageTimeoutMs ?? 0)
         : error;
       if (isAbortError(failure)) throw failure;
       logger.warn("loader failed", { loader: loader.name, errorCode: errorCodeOf(failure) });
       failures.push(failure);
-      attempts.push(failedAttempt(loader.name, Date.now() - started, failure));
+      attempts.push(failedAttempt("load", loader.name, Date.now() - started, failure));
     } finally {
       deadline.release();
     }

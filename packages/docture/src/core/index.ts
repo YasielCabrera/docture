@@ -34,6 +34,8 @@ export type {
   ConvertedPage,
   ConvertOptions,
   DocumentElement,
+  DoctureDocument,
+  DoctureDocumentAsset,
   ElementProvenance,
   FigureElement,
   HeadingElement,
@@ -197,9 +199,10 @@ export type {
 export type { ClassifyOptions, ConsensusStrategy } from "./pipeline/classify.js";
 
 // ── Splitting a bundle ──────────────────────────────────────────────────────────
-export { defineSplitter, runSplitter } from "./contracts/splitter.js";
+export { defineSplitter, mapWithConcurrency, runSplitter } from "./contracts/splitter.js";
 export type { RunSplitterOptions, SplitContext, Splitter } from "./contracts/splitter.js";
-export { UNCLASSIFIED, aggregateDocGroups, pageWindows } from "./domain/split.js";
+export { UNCLASSIFIED, aggregateDocGroups } from "./domain/split.js";
+export { pageWindows } from "./contracts/page-windows.js";
 export type { DocGroup, DocGroups, SplitVerdict } from "./domain/split.js";
 
 // ── Bringing your own model ─────────────────────────────────────────────────────
@@ -221,6 +224,7 @@ export {
   ExtractionFailedError,
   LoadFailedError,
   MissingEngineError,
+  MissingComponentError,
   NoConvertibleContentError,
   NoEligibleLoaderError,
   NoEligibleStrategyError,
@@ -233,6 +237,7 @@ export {
   UnsupportedSourceError,
   errorCodeOf,
   isAbortError,
+  isDoctureError,
   messageOf,
 } from "./pipeline/errors.js";
 export type { Ineligibility, DoctureErrorCode } from "./pipeline/errors.js";

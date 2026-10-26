@@ -395,7 +395,7 @@ describe("wiring errors", () => {
   });
 
   it("requires at least one loader", () => {
-    expect(() => createExtractor({ loaders: [] })).toThrowError(TypeError);
+    expect(() => createExtractor({ loaders: [] })).toThrowError(/at least one loader/);
   });
 });
 

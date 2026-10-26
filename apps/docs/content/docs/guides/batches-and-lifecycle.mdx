@@ -99,3 +99,17 @@ throws an `AggregateError` containing every failure.
 
 `Process.dispose()` releases its splitter, default extractor, and directly registered
 loaders.
+
+## Scope disposal
+
+`Extractor`, `DocumentConverter`, composed raster loaders, and the OCR loader classes
+support `Symbol.asyncDispose`. Node 22 or later can release their resources with
+`await using`. Explicit `dispose()` remains available.
+
+```ts
+await using extractor = new Extractor({ loaders: [loader], strategies: [parser] });
+await extractor.extract(source, schema);
+```
+
+Failed lazy page renders and engine initialization are retried on the next request.
+Successful page renders remain memoized.

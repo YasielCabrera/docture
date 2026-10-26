@@ -8,6 +8,7 @@
 import type { CommandSpec, FlagSpec } from "./args.js";
 import { COMMANDS } from "./specs.js";
 import type { Style } from "./io.js";
+import { ENVIRONMENT } from "../environment.js";
 
 const INDENT = "  ";
 
@@ -78,6 +79,12 @@ export function commandHelp(spec: CommandSpec, style: Style): string {
   if (spec.notes !== undefined && spec.notes.length > 0) {
     lines.push("", style.bold("NOTES"), ...spec.notes.map((n) => `${INDENT}${n}`));
   }
+  lines.push("", style.bold("ENVIRONMENT"), ...columns(
+    spec.flags.some((flag) => flag.name === "model")
+      ? ENVIRONMENT
+      : ENVIRONMENT.filter(([name]) => name === "NO_COLOR"),
+    style,
+  ));
   if (spec.examples !== undefined && spec.examples.length > 0) {
     lines.push("", style.bold("EXAMPLES"), ...spec.examples.map((e) => `${INDENT}${style.dim(e)}`));
   }
@@ -106,6 +113,9 @@ export function topLevelHelp(style: Style, version: string): string {
       ],
       style,
     ),
+    "",
+    style.bold("ENVIRONMENT"),
+    ...columns(ENVIRONMENT, style),
     "",
     style.bold("EXAMPLES"),
     `${INDENT}${style.dim("docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5")}`,

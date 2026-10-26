@@ -7,7 +7,7 @@
  */
 
 import type { ClassificationResult } from "docture";
-import { choiceFlag, numberFlag, type Parsed } from "../cli/args.js";
+import { boolFlag, choiceFlag, numberFlag, type Parsed } from "../cli/args.js";
 import { explain, UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io } from "../cli/io.js";
 import { resolveConfig } from "../config.js";
@@ -142,22 +142,23 @@ export async function classifyCommand(
   if (format === "json") {
     io.write(toJson(envelope("classify", verdicts)));
   } else if (format === "text") {
+    const stdoutStyle = styleFor(io.stdoutColor && !boolFlag(parsed, "no-color") && io.env["NO_COLOR"] === undefined);
     const width = Math.max(...verdicts.map((v) => v.file.length));
     for (const verdict of verdicts) {
       if (!verdict.ok) {
-        io.write(`${verdict.file.padEnd(width)}  ${style.red("error")}  ${verdict.error.message}\n`);
+        io.write(`${verdict.file.padEnd(width)}  ${stdoutStyle.red("error")}  ${verdict.error.message}\n`);
         continue;
       }
       const confidence = `${(verdict.confidence * 100).toFixed(0)}%`;
-      const name = verdict.name === "UNKNOWN" ? style.yellow("UNKNOWN") : style.bold(verdict.name);
-      io.write(`${verdict.file.padEnd(width)}  ${name}  ${style.dim(confidence)}\n`);
+      const name = verdict.name === "UNKNOWN" ? stdoutStyle.yellow("UNKNOWN") : stdoutStyle.bold(verdict.name);
+      io.write(`${verdict.file.padEnd(width)}  ${name}  ${stdoutStyle.dim(confidence)}\n`);
 
       if (common.verbose) {
         for (const s of verdict.signals) {
           const said = s.name ?? "abstained";
           const note = s.note === undefined ? "" : ` — ${s.note}`;
           io.write(
-            `${" ".repeat(width)}    ${style.dim(`${s.classifier}: ${said} ${(s.confidence * 100).toFixed(0)}%${note}`)}\n`,
+            `${" ".repeat(width)}    ${stdoutStyle.dim(`${s.classifier}: ${said} ${(s.confidence * 100).toFixed(0)}%${note}`)}\n`,
           );
         }
       }

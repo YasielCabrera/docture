@@ -21,19 +21,10 @@
  * ```
  *
  * Loader choice is by media type and then declaration order, NOT a fallback on empty
- * text — see the note on wiring in `TesseractJsLoader`.
+ * text — see the note on wiring in `DocumentLoaderTesseract`.
  */
 
-export { TesseractJsLoader as DocumentLoaderTesseract } from "./loader.js";
-export type { TesseractJsLoaderOptions as TesseractConfig } from "./loader.js";
 
-/**
- * The library-first spelling, kept as an alias.
- *
- * `DocumentLoaderTesseract` is the primary name — every loader in this library reads
- * `DocumentLoader<Library>`, so a list of them lines up and the prefix says what
- * kind of thing it is. `TesseractJsLoader` says the same thing in the other order.
- */
-export { TesseractJsLoader } from "./loader.js";
-export type { TesseractJsLoaderOptions } from "./loader.js";
+export { DocumentLoaderTesseract } from "./loader.js";
+export type { DocumentLoaderTesseractOptions } from "./loader.js";
 export type { PageSegmentation } from "./tesseract.js";

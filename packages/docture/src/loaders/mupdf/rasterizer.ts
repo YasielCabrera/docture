@@ -6,11 +6,13 @@
  * encodes the image itself, so there is no prebuilt binary to match to your platform.
  *
  * It is a rasterizer and nothing else, even though the same dependency can also read
- * text. That is the seam: `MuPdfRasterizer` can render for a `TesseractJsLoader`, and
- * `MuPdfLoader` can be rendered by `NapiCanvasRasterizer`. Neither choice forces the
+ * text. That is the seam: `MuPdfRasterizer` can render for a `DocumentLoaderTesseract`, and
+ * `DocumentLoaderMuPdf` can be rendered by `NapiCanvasRasterizer`. Neither choice forces the
  * other.
  */
 
+import { setImmediate } from "node:timers/promises";
+import { requestedPageNumbers } from "../../core/pipeline/pages.js";
 import {
   DEFAULT_RASTER_OPTIONS,
   defineRasterizer,
@@ -83,56 +85,40 @@ export class MuPdfRasterizer implements Rasterizer {
     const maxEdge = options.maxEdge ?? this.options.maxEdge;
     const annotations = this.options.annotations ?? true;
 
-    return withMuPdfLog(ctx.logger, () => {
-      const pdf = openDocument(mupdf, document.bytes, this.options.password);
-      try {
-        const pageCount = pdf.countPages();
-        const wanted = options.pages ?? Array.from({ length: pageCount }, (_unused, i) => i + 1);
-        const rendered: RasterPage[] = [];
+    const pdf = withMuPdfLog(ctx.logger, () => openDocument(mupdf, document.bytes, this.options.password));
+    try {
+      const pageCount = withMuPdfLog(ctx.logger, () => pdf.countPages());
+      const wanted = requestedPageNumbers(pageCount, options.pages);
+      const rendered: RasterPage[] = [];
 
-        for (const pageNumber of wanted) {
-          // A MuPDF render is one blocking WASM call, so this loop never yields and the
-          // signal cannot change once it starts. The check catches an abort that landed
-          // while the engine was loading above.
-          ctx.signal.throwIfAborted();
-          if (pageNumber < 1 || pageNumber > pageCount) {
-            throw new Error(`Page ${pageNumber} is out of range; the document has ${pageCount}.`);
-          }
-
+      for (const pageNumber of wanted) {
+        if (rendered.length > 0) await setImmediate();
+        ctx.signal.throwIfAborted();
+        withMuPdfLog(ctx.logger, () => {
           const page = pdf.loadPage(pageNumber - 1);
           try {
             const [x0, y0, x1, y1] = page.getBounds();
             const widthPt = x1 - x0;
             const heightPt = y1 - y0;
             const scale = resolveScale(widthPt, heightPt, dpi, maxEdge);
-
+            // A white background survives JPEG encoding and avoids inverted pages.
             const pixmap = page.toPixmap(
               mupdf.Matrix.scale(scale, scale),
               mupdf.ColorSpace.DeviceRGB,
-              // `alpha: false` is what makes the background WHITE. With alpha the page
-              // comes back transparent-black, which a JPEG cannot carry and a vision
-              // model reads as an inverted page.
               false,
               annotations,
             );
             try {
               const widthPx = pixmap.getWidth();
               const heightPx = pixmap.getHeight();
-
               rendered.push({
                 pageNumber,
-                // Already a copy out of the WASM heap — MuPDF's encoders slice their
-                // output buffer — so these bytes outlive the pixmap below.
-                bytes:
-                  format === "jpeg"
-                    ? // MuPDF takes JPEG quality as 0–100.
-                      pixmap.asJPEG(Math.round(quality * 100), false)
-                    : pixmap.asPNG(),
+                bytes: format === "jpeg"
+                  ? pixmap.asJPEG(Math.round(quality * 100), false)
+                  : pixmap.asPNG(),
                 widthPx,
                 heightPx,
                 format,
-                // Points per pixel, computed from what we actually produced — so it
-                // stays correct after a maxEdge downscale and after MuPDF's rounding.
                 scale: widthPt / widthPx,
               });
             } finally {
@@ -141,13 +127,12 @@ export class MuPdfRasterizer implements Rasterizer {
           } finally {
             page.destroy();
           }
-        }
-
-        return rendered;
-      } finally {
-        pdf.destroy();
+        });
       }
-    });
+      return rendered;
+    } finally {
+      withMuPdfLog(ctx.logger, () => pdf.destroy());
+    }
   }
 }
 

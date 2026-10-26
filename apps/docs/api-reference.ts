@@ -21,6 +21,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "DocumentExtractor",
         "EMPTY_USAGE",
         "sumUsage",
+        "mapWithConcurrency",
         "ExtractionResult",
         "Extractor",
         "ExtractorOptions",
@@ -45,6 +46,8 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "ConversionWarning",
         "ConversionWarningCode",
         "ConvertedPage",
+        "DoctureDocument",
+        "DoctureDocumentAsset",
         "ConvertOptions",
         "DocumentConverter",
         "DocumentConverterOptions",
@@ -206,6 +209,8 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "NoEligibleStrategyError",
         "PageSelectionError",
         "ModelOutputError",
+        "MissingComponentError",
+        "isDoctureError",
         "SplitFailedError",
         "TimeoutError",
         "UnclassifiedGroupError",
@@ -426,9 +431,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     pages: {
       "content/docs/reference/api/loader-pdfjs.mdx": [
         "DocumentLoaderPdfJs",
-        "PdfJsConfig",
-        "PdfJsLoader",
-        "PdfJsLoaderOptions"
+        "DocumentLoaderPdfJsOptions",
       ]
     }
   },
@@ -439,9 +442,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     pages: {
       "content/docs/reference/api/loader-mupdf.mdx": [
         "DocumentLoaderMuPdf",
-        "MuPdfConfig",
-        "MuPdfLoader",
-        "MuPdfLoaderOptions",
+        "DocumentLoaderMuPdfOptions",
         "MuPdfRasterizer",
         "MuPdfRasterizerOptions",
         "muPdfRasterizer"
@@ -456,9 +457,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       "content/docs/reference/api/loader-tesseract.mdx": [
         "DocumentLoaderTesseract",
         "PageSegmentation",
-        "TesseractConfig",
-        "TesseractJsLoader",
-        "TesseractJsLoaderOptions"
+        "DocumentLoaderTesseractOptions",
       ]
     }
   },
@@ -474,9 +473,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "PADDLE_MODELS",
         "PaddleModel",
         "PaddleModelFiles",
-        "PaddleOcrConfig",
-        "PaddleOcrLoader",
-        "PaddleOcrLoaderOptions",
+        "DocumentLoaderPaddleOcrOptions",
         "RecognitionStrategy"
       ]
     }
@@ -500,6 +497,10 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     pages: {
       "content/docs/reference/api/eval.mdx": [
         "Aggregate",
+        "FieldAggregate",
+        "GateOptions",
+        "GateResult",
+        "gate",
         "FieldResult",
         "FieldStatus",
         "RunRecord",

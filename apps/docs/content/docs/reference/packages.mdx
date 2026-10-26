@@ -87,9 +87,10 @@ install with `ERESOLVE`. pnpm installs it and prints an unmet-peer warning; Doct
 support that combination. A new major version, a new `mupdf` minor version, or a new
 `pdfkit` minor version is unsupported until a release verifies it.
 
-Core's normal dependencies are `@ai-sdk/provider-utils` for schema utilities and
-`@types/json-schema@7.0.15` for JSON Schema declarations. Consumers do not need to install
-those declarations separately. The schema helper has a Zod peer. Zod 3.25.76 or later 3.x,
+Core's normal dependencies are `@ai-sdk/provider-utils` for schema utilities,
+`@types/json-schema@7.0.15` for JSON Schema declarations, and `parse5`, `htmlparser2`,
+and `entities` for HTML/XHTML syntax. The syntax parsers load only for HTML/XHTML input.
+Consumers do not need to install those declarations separately. The schema helper has a Zod peer. Zod 3.25.76 or later 3.x,
 or Zod 4.1.8 or later, satisfies that helper and the model classification, layout, and
 splitting integrations, which import `zod/v4`. Installing
 `docture` alone does not request the AI SDK runtime, a PDF engine, OCR, canvas, ONNX

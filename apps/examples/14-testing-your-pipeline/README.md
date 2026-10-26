@@ -87,7 +87,7 @@ know what the model would say, and what you are checking is that your prompt ass
 schema and usage plumbing are right.
 
 `MockLanguageModelV4` from `ai/test` is the AI SDK's own double, so the strategy still
-runs through the real `generateObject` path with only the network replaced. One trap the
+runs through the real `generateText with Output.object` path with only the network replaced. One trap the
 tests here spell out: provider spec v4 nests `finishReason` and `usage`, and a flat `usage`
 mock reports **zero tokens everywhere** — quietly.
 

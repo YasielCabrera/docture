@@ -107,7 +107,7 @@ async function main(): Promise<void> {
       "opposite — you already know what the model would say, and what you want to check is\n" +
       "that your prompt assembly, schema and merge logic are right.\n\n" +
       "`MockLanguageModelV4` from `ai/test` is the AI SDK's own double, so the strategy is\n" +
-      "still exercised through the real `generateObject` code path — real prompt assembly,\n" +
+      "still exercised through the real `generateText with Output.object` code path — real prompt assembly,\n" +
       "real structured-output parsing, real usage plumbing — with only the network\n" +
       "replaced. `pipeline.test.ts` uses it; `packages/docture/test/llm/mock-model.ts` is the\n" +
       "fuller version this library tests itself with.",

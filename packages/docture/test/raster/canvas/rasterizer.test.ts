@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { silentLogger, withRasterizer } from "docture";
 import { describeRasterizerConformance } from "docture/testing/conformance";
 import { makeInvoicePdf } from "docture/testing/fixtures";
-import { PdfJsLoader } from "docture/loaders/pdfjs";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { NapiCanvasRasterizer } from "../../../src/raster/canvas/index.js";
 
 describeRasterizerConformance({
@@ -66,17 +66,17 @@ describe("NapiCanvasRasterizer — specifics", () => {
         { pages: [99] },
         ctx,
       ),
-    ).rejects.toThrow(/out of range/i);
+    ).rejects.toMatchObject({ code: "PAGE_OUT_OF_RANGE", missingPages: [99], pageCount: 1 });
   });
 });
 
 describe("withRasterizer — composing a reader with a renderer", () => {
   it("turns a text-only loader into one that can also render, and says so in the type", async () => {
-    const loader = withRasterizer(new PdfJsLoader(), new NapiCanvasRasterizer({ dpi: 100 }));
+    const loader = withRasterizer(new DocumentLoaderPdfJs(), new NapiCanvasRasterizer({ dpi: 100 }));
 
-    // The composition advertises rendering; the bare PdfJsLoader does not.
+    // The composition advertises rendering; the bare DocumentLoaderPdfJs does not.
     expect(loader.capabilities.images).toBe(true);
-    expect(new PdfJsLoader().capabilities.images).toBe(false);
+    expect(new DocumentLoaderPdfJs().capabilities.images).toBe(false);
     expect(loader.name).toBe("pdfjs+napi-canvas");
 
     const pdf = await makeInvoicePdf({ seed: 205 });
@@ -110,7 +110,7 @@ describe("withRasterizer — composing a reader with a renderer", () => {
       },
     };
 
-    const loader = withRasterizer(new PdfJsLoader(), counting);
+    const loader = withRasterizer(new DocumentLoaderPdfJs(), counting);
     const pdf = await makeInvoicePdf({ seed: 206 });
     const document = await loader.load({ bytes: pdf.bytes, mimeType: "application/pdf" }, ctx);
 
@@ -126,7 +126,7 @@ describe("withRasterizer — composing a reader with a renderer", () => {
   it("gives each page ITS OWN image", async () => {
     // Regression: the memoization key omitted the page number, so every page
     // returned page 1's render — silently, and identically.
-    const loader = withRasterizer(new PdfJsLoader(), new NapiCanvasRasterizer({ dpi: 60 }));
+    const loader = withRasterizer(new DocumentLoaderPdfJs(), new NapiCanvasRasterizer({ dpi: 60 }));
     const pdf = await makeInvoicePdf({ seed: 208, lineItemCount: 45 });
     const document = await loader.load({ bytes: pdf.bytes, mimeType: "application/pdf" }, ctx);
     expect(document.pages.length).toBeGreaterThan(1);
@@ -148,7 +148,7 @@ describe("withRasterizer — composing a reader with a renderer", () => {
       },
     };
 
-    const loader = withRasterizer(new PdfJsLoader(), counting);
+    const loader = withRasterizer(new DocumentLoaderPdfJs(), counting);
     const pdf = await makeInvoicePdf({ seed: 207, lineItemCount: 45 });
     await loader.load({ bytes: pdf.bytes, mimeType: "application/pdf" }, ctx);
 

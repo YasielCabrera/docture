@@ -6,7 +6,7 @@
  * `await` that instantiates its WASM module, so a single static import — the obvious thing
  * for someone to add while fixing something else — would move a multi-megabyte engine's
  * startup from "first document" to "merely importing this package", for every consumer,
- * including those who only wanted `MuPdfLoaderOptions`.
+ * including those who only wanted `DocumentLoaderMuPdfOptions`.
  */
 
 import { readdir, readFile } from "node:fs/promises";

@@ -48,7 +48,8 @@ original schema.
 
 - Arrays concatenate in request order.
 - Objects merge recursively.
-- The first present scalar wins.
+- The first present scalar wins, except a later same-type nonzero number or `true`
+  replaces an earlier `0` or `false`.
 - `null`, `undefined`, and an empty string count as absent.
 
 ```ts

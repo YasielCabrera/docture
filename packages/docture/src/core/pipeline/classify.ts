@@ -8,11 +8,11 @@
 import type { DocumentFeatures } from "../domain/document.js";
 import type { LoadedDocument } from "../domain/geometry.js";
 import type { Logger } from "../domain/logger.js";
-import type { ClassificationResult, ClassificationSignal } from "../domain/result.js";
+import type { ClassificationResult, ClassificationSignal, Usage } from "../domain/result.js";
 import type { Classification, Classifier } from "../contracts/classifier.js";
 import { withDeadline } from "./deadline.js";
 import { eligibleClassifiers } from "./eligibility.js";
-import { ModelOutputError, isAbortError, messageOf } from "./errors.js";
+import { ModelOutputError, TimeoutError, isAbortError, messageOf } from "./errors.js";
 
 /** How to pick a winner when classifiers disagree. */
 export type ConsensusStrategy = "consensus" | "higherOrder" | "consensusWithThreshold";
@@ -102,11 +102,11 @@ export async function classifyDocument(
   stageTimeoutMs: number | undefined,
   options: ClassifyOptions = {},
 ): Promise<ClassificationResult> {
+  signal.throwIfAborted();
   const { eligible } = eligibleClassifiers(classifiers, features);
-  const signals: ClassificationSignal[] = [];
-
-  for (const classifier of eligible) {
+  const verdicts = await Promise.all(eligible.map(async (classifier): Promise<ClassificationSignal | null> => {
     const deadline = withDeadline(`classify:${classifier.name}`, stageTimeoutMs, signal);
+    let returnedUsage: Partial<Usage> | undefined;
     try {
       const verdict = await classifier.classify({
         document,
@@ -115,20 +115,29 @@ export async function classifyDocument(
         signal: deadline.signal,
         logger: logger.child({ classifier: classifier.name }),
       });
-      if (verdict !== null) signals.push(verdict);
+      returnedUsage = verdict?.usage;
+      deadline.signal.throwIfAborted();
+      return verdict;
     } catch (error) {
-      if (isAbortError(error)) throw error;
-      signals.push({
+      signal.throwIfAborted();
+      const failure = deadline.expired()
+        ? new TimeoutError(`classify:${classifier.name}`, stageTimeoutMs ?? 0)
+        : error;
+      if (isAbortError(failure)) throw failure;
+      const usage = returnedUsage ?? (error instanceof ModelOutputError ? error.usage : undefined);
+      return {
         classifier: classifier.name,
         name: null,
         confidence: 0,
-        note: `threw: ${messageOf(error)}`,
-        ...(error instanceof ModelOutputError && error.usage !== undefined ? { usage: error.usage } : {}),
-      });
+        note: `threw: ${messageOf(failure)}`,
+        ...(usage === undefined ? {} : { usage }),
+      };
     } finally {
       deadline.release();
     }
-  }
+  }));
+  signal.throwIfAborted();
+  const signals = verdicts.filter((verdict): verdict is ClassificationSignal => verdict !== null);
 
   const decided = reconcile(
     signals.filter((s): s is DecidedSignal => s.name !== null && s.confidence > 0),

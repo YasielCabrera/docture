@@ -43,7 +43,7 @@ import { silentLogger } from "./domain/logger.js";
 import { hasFact } from "./domain/document.js";
 import { UNCLASSIFIED, type DocGroups } from "./domain/split.js";
 import { Extractor } from "./extractor.js";
-import { SplitFailedError, UnclassifiedGroupError } from "./pipeline/errors.js";
+import { MissingComponentError, SplitFailedError, UnclassifiedGroupError } from "./pipeline/errors.js";
 import { preloadedFeatures } from "./pipeline/features.js";
 import { loadDocument } from "./pipeline/read.js";
 import { withProcessHints, type RunOptions } from "./pipeline/run.js";
@@ -155,7 +155,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
   async extract(options: ProcessExtractOptions = {}): Promise<ClassifiedExtraction<C>[]> {
     const source = this.#source;
     if (source === undefined) {
-      throw new TypeError("Process has no file. Call loadFile(...) before extract().");
+      throw new MissingComponentError("Process has no file. Call loadFile(...) before extract().");
     }
 
     const signal = options.signal ?? new AbortController().signal;
@@ -197,7 +197,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
 
         const extractor = job.classification.extractor ?? this.#extractor;
         if (extractor === undefined) {
-          throw new TypeError(
+          throw new MissingComponentError(
             `No extractor for "${job.classification.name}". Call loadExtractor(...) on the ` +
               "Process, or give the classification its own `extractor`.",
           );
@@ -234,7 +234,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
   async splitOnly(options: RunOptions = {}): Promise<SplitReport> {
     const source = this.#source;
     if (source === undefined) {
-      throw new TypeError("Process has no file. Call loadFile(...) before splitting.");
+      throw new MissingComponentError("Process has no file. Call loadFile(...) before splitting.");
     }
     const signal = options.signal ?? new AbortController().signal;
     const logger = options.logger ?? this.#logger;
@@ -277,7 +277,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
 
     const loaders = this.#loaders.length > 0 ? this.#loaders : this.#extractor?.components.loaders;
     if (loaders === undefined || loaders.length === 0) {
-      throw new TypeError(
+      throw new MissingComponentError(
         "Process has no loader. Call loadDocumentLoader(...), or loadExtractor(...) with one wired.",
       );
     }

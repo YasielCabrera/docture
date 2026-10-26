@@ -1,59 +1,6 @@
-/**
- * `TesseractJsLoader` — read a document that has no text layer, by recognizing the
- * pixels, using tesseract.js (Tesseract compiled to WASM; no native binary).
- *
- * The library is in the class name on purpose. Swapping to PaddleOCR is
- * `new PaddleOcrLoader()`, and the conformance suite both classes pass is what makes
- * that a guarantee rather than a hope.
- *
- * OCR needs pixels, so this loader needs a way to get them:
- *
- * ```ts
- * // A scanned PDF: hand it a rasterizer, whichever library you prefer.
- * new TesseractJsLoader({ rasterizer: new NapiCanvasRasterizer() });
- *
- * // A photograph or a scan already in PNG/JPEG: nothing else required.
- * new TesseractJsLoader();
- * ```
- *
- * The rasterizer is a CONSTRUCTOR argument, not something looked up at run time, so
- * "no rasterizer wired" is visible where the loader is built rather than a throw
- * partway through someone's document. Without one, `application/pdf` is absent from
- * `capabilities.mimeTypes` — so the pipeline routes PDFs to another loader instead of
- * choosing this one and then failing.
- *
- * It is worth being clear about what this costs. OCR is the slowest and least
- * accurate way to read a document: roughly 0.5–1.5 s per page against a text layer's
- * fraction of a millisecond, and it guesses where a text layer knows. Reach for it
- * when there is no text layer to read, not before.
- *
- * Which means being precise about how it gets chosen. The pipeline picks the first
- * loader that ACCEPTS THE MEDIA TYPE and does not throw — so listing this loader
- * after a text-layer one is not a fallback chain: `PdfJsLoader` "succeeds" on a scan,
- * with `form: "scanned"` and no text, and OCR never gets a turn. Two wirings that do
- * work:
- *
- * ```ts
- * // 1. By media type. Disjoint, so each input has exactly one loader: PDFs go to the
- * //    text layer, photographs and scans-as-images go to OCR.
- * loaders: [new PdfJsLoader(), new TesseractJsLoader()]
- *
- * // 2. As a real fallback, by making "no text layer" a thrown error — which IS what
- * //    hands the document to the next loader.
- * const pdfjs = new PdfJsLoader();
- * const textLayerOrBust = defineLoader({
- *   name: pdfjs.name,
- *   capabilities: pdfjs.capabilities,
- *   async load(document, ctx) {
- *     const loaded = await pdfjs.load(document, ctx);
- *     if (loaded.form === "scanned") throw new Error("pdfjs: no text layer to read");
- *     return loaded;
- *   },
- * });
- * loaders: [textLayerOrBust, new TesseractJsLoader({ rasterizer })]
- * ```
- */
-
+import { availableParallelism } from "node:os";
+import { requestedPageNumbers } from "../../core/pipeline/pages.js";
+import { PageSelectionError } from "../../core/pipeline/errors.js";
 import {
   imageSize,
   inferForm,
@@ -88,7 +35,7 @@ interface RecognizedPage {
   readonly recognition: Recognition;
 }
 
-export interface TesseractJsLoaderOptions {
+export interface DocumentLoaderTesseractOptions {
   /**
    * How pages become pixels. Required to read anything that is not already a PNG or
    * JPEG — a PDF, most obviously.
@@ -128,7 +75,7 @@ export interface TesseractJsLoaderOptions {
   /**
    * How many pages to recognize at once. Each lane is a worker thread with its own
    * WASM engine and model (~100 MB), so this trades memory for wall-clock on a long
-   * document. Default 1.
+   * document. Default max(1, min(4, availableParallelism() - 1)).
    */
   readonly concurrency?: number;
   /**
@@ -150,7 +97,18 @@ export interface TesseractJsLoaderOptions {
   readonly parameters?: Readonly<Record<string, string>>;
 }
 
-export class TesseractJsLoader implements DocumentLoader<LoaderCapabilities<true, true, true>> {
+/**
+ * Recognize image or rasterized PDF text with a reusable Tesseract worker pool.
+ *
+ * @remarks DocumentLoaderTesseractOptions configures languages, DPI, concurrency and an optional PDF rasterizer. Default concurrency leaves one available CPU free and caps the pool at four workers. Dispose or await using releases workers.
+ * @throws MISSING_ENGINE when tesseract.js is absent; PAGE_OUT_OF_RANGE for unavailable selected pages. Recognition and rendering failures reject load.
+ * @example
+ * ```ts
+ * import { DocumentLoaderTesseract } from "docture/loaders/tesseract";
+ * const loader = new DocumentLoaderTesseract({ concurrency: 1 });
+ * ```
+ */
+export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilities<true, true, true>> {
   readonly name = "tesseract";
 
   /**
@@ -166,7 +124,7 @@ export class TesseractJsLoader implements DocumentLoader<LoaderCapabilities<true
   /** Created on first `load()`, reused across loads, released by `dispose()`. */
   private pool: TesseractPool | undefined;
 
-  constructor(private readonly options: TesseractJsLoaderOptions = {}) {
+  constructor(private readonly options: DocumentLoaderTesseractOptions = {}) {
     this.capabilities = {
       text: true,
       geometry: true,
@@ -186,7 +144,16 @@ export class TesseractJsLoader implements DocumentLoader<LoaderCapabilities<true
       document.mimeType ?? sniffMimeType(document.bytes) ?? "application/octet-stream";
 
     const rendered = await this.render(document, mimeType, dpi, ctx);
-    const read = rendered.slice(0, this.options.maxPages ?? rendered.length);
+    const byPage = new Map(rendered.map((raster) => [raster.pageNumber, raster]));
+    const knownCount = rendered.reduce((count, raster) => Math.max(count, raster.pageNumber), 0);
+    const wanted = ctx.request?.pages === undefined
+      ? [...byPage.keys()].filter((number) => number <= (this.options.maxPages ?? Infinity)).sort((a, b) => a - b)
+      : requestedPageNumbers(knownCount, ctx.request.pages, this.options.maxPages);
+    const read = wanted.map((number) => {
+      const raster = byPage.get(number);
+      if (raster === undefined) throw new PageSelectionError([number], knownCount);
+      return raster;
+    });
     const recognized = await this.recognizeAll(read, dpi, ctx);
 
     // Rendering is memoized per page and per set of options, so asking twice costs
@@ -212,7 +179,7 @@ export class TesseractJsLoader implements DocumentLoader<LoaderCapabilities<true
       form: inferForm(pages.map((p) => p.text.trim().length)),
       loader: this.name,
       meta: {
-        pageCount: rendered.length,
+        ...(ctx.request?.pages === undefined ? { pageCount: rendered.length } : {}),
         pagesRead: pages.length,
         dpi,
         languages: this.languages(),
@@ -228,6 +195,10 @@ export class TesseractJsLoader implements DocumentLoader<LoaderCapabilities<true
     const pool = this.pool;
     this.pool = undefined;
     await pool?.terminate();
+  }
+
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.dispose();
   }
 
   // ── Pixels in ─────────────────────────────────────────────────────────────────
@@ -269,14 +240,18 @@ export class TesseractJsLoader implements DocumentLoader<LoaderCapabilities<true
     if (rasterizer === undefined) {
       throw new Error(
         `tesseract: ${mimeType} has to be rendered before it can be recognized, and no ` +
-          `rasterizer is wired. Pass one — new TesseractJsLoader({ rasterizer: new ` +
+          `rasterizer is wired. Pass one — new DocumentLoaderTesseract({ rasterizer: new ` +
           `NapiCanvasRasterizer() }) — or hand this loader a PNG or JPEG.`,
       );
     }
 
     // PNG, always: OCR reads thresholded pixels, and JPEG artefacts around glyph
     // edges cost accuracy for a saving nobody here benefits from.
-    const rendered = await rasterizer.rasterize(document, { dpi, format: "png" }, ctx);
+    const rendered = await rasterizer.rasterize(document, {
+      dpi,
+      format: "png",
+      ...(ctx.request?.pages === undefined ? {} : { pages: ctx.request.pages }),
+    }, ctx);
     if (rendered.length === 0) {
       throw new Error(`tesseract: ${rasterizer.name} rendered no pages for this document.`);
     }
@@ -295,7 +270,9 @@ export class TesseractJsLoader implements DocumentLoader<LoaderCapabilities<true
   ): Promise<readonly RecognizedPage[]> {
     // One normalization for both the pool's size and the fan-out below, so a
     // fractional or zero `concurrency` cannot make them disagree.
-    const concurrency = Math.max(1, Math.floor(this.options.concurrency ?? 1));
+    const concurrency = Math.max(1, Math.floor(
+      this.options.concurrency ?? Math.min(4, availableParallelism() - 1),
+    ));
 
     const pool = (this.pool ??= new TesseractPool({
       languages: this.languages(),
@@ -380,14 +357,15 @@ export class TesseractJsLoader implements DocumentLoader<LoaderCapabilities<true
         : { lineTolerance: this.options.lineTolerance }),
     });
 
+    const pageNumber = raster.pageNumber;
     return {
-      pageNumber: raster.pageNumber,
+      pageNumber,
       width: raster.widthPx * raster.scale,
       height: raster.heightPx * raster.scale,
       text: textFromLines(lines),
       lines,
       image: (options?: RasterOptions) =>
-        this.pageImage(raster, document, mimeType, dpi, options, ctx, renders),
+        this.pageImage(pageNumber, document, mimeType, dpi, options, ctx, renders),
     };
   }
 
@@ -402,7 +380,7 @@ export class TesseractJsLoader implements DocumentLoader<LoaderCapabilities<true
    * wrong trade. It is re-rendered on demand and memoized instead.
    */
   private pageImage(
-    raster: RasterPage,
+    pageNumber: number,
     document: RawDocument,
     mimeType: string,
     dpi: number,
@@ -421,12 +399,12 @@ export class TesseractJsLoader implements DocumentLoader<LoaderCapabilities<true
       dpi,
       format: "png",
       ...options,
-      pages: [raster.pageNumber],
+      pages: [pageNumber],
     };
     // The page number MUST be in the key: the cache is shared across every page of
     // the document, and keying on render options alone hands page 2 page 1's image.
     const key = JSON.stringify([
-      raster.pageNumber,
+      pageNumber,
       merged.dpi,
       merged.format,
       merged.quality,
@@ -441,12 +419,16 @@ export class TesseractJsLoader implements DocumentLoader<LoaderCapabilities<true
           const first = rendered[0];
           if (first === undefined) {
             throw new Error(
-              `${rasterizer.name} rendered no image for page ${raster.pageNumber}.`,
+              `${rasterizer.name} rendered no image for page ${pageNumber}.`,
             );
           }
           return first.bytes;
         });
       renders.set(key, pending);
+      const stored = pending;
+      void stored.catch(() => {
+        if (renders.get(key) === stored) renders.delete(key);
+      });
     }
     return pending;
   }

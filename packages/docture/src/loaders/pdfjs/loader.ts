@@ -1,18 +1,3 @@
-/**
- * `PdfJsLoader` — read a PDF's text layer, with positions, using Mozilla's PDF.js.
- *
- * The library is in the class name on purpose. Swapping to MuPDF is
- * `new MuPdfLoader()`, and the conformance suite both classes pass is what makes
- * that a guarantee rather than a hope.
- *
- * This loader does NOT render pages — that is a rasterizer's job. Compose them when
- * you need both:
- *
- * ```ts
- * withRasterizer(new PdfJsLoader(), new NapiCanvasRasterizer())
- * ```
- */
-
 import {
   inferForm,
   linesFromWords,
@@ -41,8 +26,9 @@ import {
   type PdfJsViewport,
 } from "./pdfjs.js";
 import { pngFromPdfJsImage } from "./png.js";
+import { requestedPageNumbers } from "../../core/pipeline/pages.js";
 
-export interface PdfJsLoaderOptions {
+export interface DocumentLoaderPdfJsOptions {
   /** Password for an encrypted PDF. */
   readonly password?: string;
   /** Stop after this many pages. Useful for a cheap classification pass. */
@@ -66,7 +52,18 @@ function isMarkedContent(item: PdfJsTextItem | PdfJsMarkedContent): item is PdfJ
   return "type" in item && typeof item.type === "string";
 }
 
-export class PdfJsLoader implements DocumentLoader<LoaderCapabilities<true, true, false>> {
+/**
+ * Read PDF text, geometry and optional conversion layout using PDF.js.
+ *
+ * @remarks DocumentLoaderPdfJsOptions sets password, maxPages and text grouping. LoadRequest.pages restricts original pages read. Rendering is supplied separately with withRasterizer.
+ * @throws MISSING_ENGINE when pdfjs-dist is absent; PAGE_OUT_OF_RANGE for unavailable selected pages. Other PDF decode errors retain their engine cause.
+ * @example
+ * ```ts
+ * import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+ * const loader = new DocumentLoaderPdfJs({ maxPages: 10 });
+ * ```
+ */
+export class DocumentLoaderPdfJs implements DocumentLoader<LoaderCapabilities<true, true, false>> {
   readonly name = "pdfjs";
 
   readonly capabilities = {
@@ -76,7 +73,7 @@ export class PdfJsLoader implements DocumentLoader<LoaderCapabilities<true, true
     mimeTypes: ["application/pdf"],
   } as const;
 
-  constructor(private readonly options: PdfJsLoaderOptions = {}) {}
+  constructor(private readonly options: DocumentLoaderPdfJsOptions = {}) {}
 
   async load(document: RawDocument, ctx: LoadContext): Promise<LoadedDocument> {
     ctx.signal.throwIfAborted();
@@ -103,10 +100,10 @@ export class PdfJsLoader implements DocumentLoader<LoaderCapabilities<true, true
     }
 
     try {
-      const limit = Math.min(pdf.numPages, this.options.maxPages ?? pdf.numPages);
+      const wanted = requestedPageNumbers(pdf.numPages, ctx.request?.pages, this.options.maxPages);
       const pages: LoadedPage[] = [];
 
-      for (let pageNumber = 1; pageNumber <= limit; pageNumber += 1) {
+      for (const pageNumber of wanted) {
         ctx.signal.throwIfAborted();
         const page = await pdf.getPage(pageNumber);
         try {

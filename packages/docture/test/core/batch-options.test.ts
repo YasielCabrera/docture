@@ -218,7 +218,13 @@ describe("batch option preservation", () => {
           await started.promise;
           await vi.advanceTimersByTimeAsync(10);
           finish.release();
-          expect((await pending).value?.outcome.ok).toBe(true);
+          const item = (await pending).value;
+          expect(item?.outcome.ok).toBe(operation === "convert");
+          if (item !== undefined && !item.outcome.ok) {
+            expect(item.outcome.error).toMatchObject({
+              code: "EXTRACTION_FAILED", attempts: [{ stage: "extract", errorCode: "TIMEOUT" }],
+            });
+          }
           await batch.return();
           expect(deadlines).toEqual([{ stage: `${operation === "extract" ? "extract" : "layout"}:recorder`, ms: 10 }]);
         } finally {

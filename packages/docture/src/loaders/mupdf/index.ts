@@ -17,17 +17,8 @@
  * ```
  */
 
-export { MuPdfLoader as DocumentLoaderMuPdf } from "./loader.js";
-export type { MuPdfLoaderOptions as MuPdfConfig } from "./loader.js";
 
-/**
- * The library-first spelling, kept as an alias.
- *
- * `DocumentLoaderMuPdf` is the primary name — every loader in this library reads
- * `DocumentLoader<Library>`, so a list of them lines up and the prefix says what
- * kind of thing it is. `MuPdfLoader` says the same thing in the other order.
- */
-export { MuPdfLoader } from "./loader.js";
-export type { MuPdfLoaderOptions } from "./loader.js";
+export { DocumentLoaderMuPdf } from "./loader.js";
+export type { DocumentLoaderMuPdfOptions } from "./loader.js";
 export { MuPdfRasterizer, muPdfRasterizer } from "./rasterizer.js";
 export type { MuPdfRasterizerOptions } from "./rasterizer.js";

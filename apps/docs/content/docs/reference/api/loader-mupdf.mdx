@@ -13,12 +13,8 @@ npm install docture mupdf@1.28.0
 ```
 
 ```ts
-new DocumentLoaderMuPdf(options?: MuPdfConfig)
-new MuPdfLoader(options?: MuPdfLoaderOptions)
+new DocumentLoaderMuPdf(options?: DocumentLoaderMuPdfOptions)
 ```
-
-`DocumentLoaderMuPdf` and `MuPdfLoader` are the same class. `MuPdfConfig` and
-`MuPdfLoaderOptions` are the same option type.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -54,7 +50,7 @@ Both forms create a rasterizer named `mupdf` that supports PNG and JPEG.
 | `annotations` | `true` | Include annotation and form-field appearances. |
 
 Per-call `RasterOptions` override DPI, format, quality, maximum edge, and selected pages.
-The returned `RasterPage` values preserve requested order and include their actual scale.
+The returned `RasterPage` values contain unique selected pages in document order and include their actual scale.
 
 The rasterizer rejects for an invalid password, unsupported or corrupt PDF, out-of-range
 page, render error, or caller abort. MuPDF loads and renders through WASM.

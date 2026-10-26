@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start --port 3100",
     "typecheck": "next typegen && tsc --noEmit && pnpm check:docs && pnpm check:examples",
-    "check:docs": "tsx scripts/check-docs.ts",
+    "check:docs": "node ../../scripts/sync-docture-readme.mjs --check && node ../../scripts/generate-error-table.mjs --check && node ../../scripts/generate-document-schema.mjs --check && node ../../scripts/check-public-jsdoc.mjs && tsx scripts/check-docs.ts",
+    "test": "vitest run",
     "clean": "rm -rf .next .source",
     "asset": "tsx scripts/generate-hero-document.ts",
     "check:examples": "tsx scripts/check-examples.ts"

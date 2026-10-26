@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { silentLogger, withRasterizer } from "docture";
 import { describeRasterizerConformance } from "docture/testing/conformance";
 import { makeInvoicePdf } from "docture/testing/fixtures";
-import { MuPdfLoader, MuPdfRasterizer } from "../../../src/loaders/mupdf/index.js";
+import { DocumentLoaderMuPdf, MuPdfRasterizer } from "../../../src/loaders/mupdf/index.js";
 
 describeRasterizerConformance({
   name: "MuPdfRasterizer",
@@ -132,7 +132,7 @@ describe("MuPdfRasterizer — specifics", () => {
         { pages: [99] },
         ctx,
       ),
-    ).rejects.toThrow(/out of range/i);
+    ).rejects.toMatchObject({ code: "PAGE_OUT_OF_RANGE", missingPages: [99], pageCount: 1 });
   });
 
   it("fails with a useful message on bytes that are not a PDF", async () => {
@@ -156,12 +156,12 @@ describe("MuPdfRasterizer — specifics", () => {
   });
 });
 
-describe("MuPdfLoader + MuPdfRasterizer — one dependency, still two plugins", () => {
+describe("DocumentLoaderMuPdf + MuPdfRasterizer — one dependency, still two plugins", () => {
   it("composes into a loader that reads AND renders, and the type says so", async () => {
-    const loader = withRasterizer(new MuPdfLoader(), new MuPdfRasterizer({ dpi: 100 }));
+    const loader = withRasterizer(new DocumentLoaderMuPdf(), new MuPdfRasterizer({ dpi: 100 }));
 
     expect(loader.capabilities.images).toBe(true);
-    expect(new MuPdfLoader().capabilities.images).toBe(false);
+    expect(new DocumentLoaderMuPdf().capabilities.images).toBe(false);
     // Both halves are MuPDF, and the composed id names both — reader first, renderer
     // second, exactly as `pdfjs+napi-canvas` does.
     expect(loader.name).toBe("mupdf+mupdf");
@@ -176,7 +176,7 @@ describe("MuPdfLoader + MuPdfRasterizer — one dependency, still two plugins", 
   });
 
   it("gives each page its own image", async () => {
-    const loader = withRasterizer(new MuPdfLoader(), new MuPdfRasterizer({ dpi: 60 }));
+    const loader = withRasterizer(new DocumentLoaderMuPdf(), new MuPdfRasterizer({ dpi: 60 }));
     const pdf = await makeInvoicePdf({ seed: 409, lineItemCount: 45 });
     const document = await loader.load({ bytes: pdf.bytes, mimeType: "application/pdf" }, ctx);
     expect(document.pages.length).toBeGreaterThan(1);
@@ -186,8 +186,8 @@ describe("MuPdfLoader + MuPdfRasterizer — one dependency, still two plugins", 
     expect(Buffer.compare(Buffer.from(first), Buffer.from(second))).not.toBe(0);
   });
 
-  it("lets a FOREIGN rasterizer render what MuPdfLoader read", async () => {
-    // The point of keeping them separate plugins: MuPdfLoader is not wedded to MuPDF's
+  it("lets a FOREIGN rasterizer render what DocumentLoaderMuPdf read", async () => {
+    // The point of keeping them separate plugins: DocumentLoaderMuPdf is not wedded to MuPDF's
     // renderer. A rasterizer from any library — here a fake standing in for one — drops
     // straight in, and nothing about the loader changes.
     let renders = 0;
@@ -209,7 +209,7 @@ describe("MuPdfLoader + MuPdfRasterizer — one dependency, still two plugins", 
       },
     };
 
-    const loader = withRasterizer(new MuPdfLoader(), foreign);
+    const loader = withRasterizer(new DocumentLoaderMuPdf(), foreign);
     const pdf = await makeInvoicePdf({ seed: 410, lineItemCount: 45 });
     const document = await loader.load({ bytes: pdf.bytes, mimeType: "application/pdf" }, ctx);
 

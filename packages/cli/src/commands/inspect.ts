@@ -265,7 +265,7 @@ export async function inspectCommand(
     io.write(toJson(envelope("inspect", reports)));
   } else if (format === "text") {
     const rendered = reports.filter((report) => report.ok)
-      .map((report) => renderReport(report, style, options)).join("\n");
+      .map((report) => renderReport(report, styleFor(io.stdoutColor && !boolFlag(parsed, "no-color") && io.env["NO_COLOR"] === undefined), options)).join("\n");
     io.write(rendered);
   }
 

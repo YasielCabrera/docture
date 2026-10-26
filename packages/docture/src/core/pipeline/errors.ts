@@ -24,7 +24,8 @@ export type DoctureErrorCode =
   | "DUPLICATE_COMPONENT"
   | "SPLIT_FAILED"
   | "UNCLASSIFIED_GROUP"
-  | "MISSING_ENGINE";
+  | "MISSING_ENGINE"
+  | "MISSING_COMPONENT";
 
 export abstract class DoctureError extends Error {
   /**
@@ -37,6 +38,10 @@ export abstract class DoctureError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options as ErrorOptions);
     this.name = new.target.name;
+  }
+
+  toJSON(): { code: DoctureErrorCode; message: string; hint?: string } {
+    return { code: this.code, message: this.message };
   }
 
   /**
@@ -66,6 +71,20 @@ function ownIdentity(constructor: unknown): unknown {
   return Object.getOwnPropertyDescriptor(constructor, "doctureErrorIdentity")?.value;
 }
 
+/** True for an error carrying docture's installed-copy identity. */
+export function isDoctureError(value: unknown): value is DoctureError {
+  return value instanceof DoctureError;
+}
+
+/** Required wiring or call state was not supplied by the caller. */
+export class MissingComponentError extends DoctureError {
+  protected static override readonly doctureErrorIdentity = "MissingComponentError";
+  override readonly code = "MISSING_COMPONENT" as const;
+  constructor(message: string) {
+    super(message);
+  }
+}
+
 export class PageSelectionError extends DoctureError {
   protected static override readonly doctureErrorIdentity = "PageSelectionError";
   override readonly code = "PAGE_OUT_OF_RANGE" as const;
@@ -84,9 +103,18 @@ export class ModelOutputError extends DoctureError {
   protected static override readonly doctureErrorIdentity = "ModelOutputError";
   override readonly code = "MODEL_OUTPUT_FAILED" as const;
   readonly usage?: Partial<Usage>;
-  constructor(message: string, options: { cause?: unknown; usage?: Partial<Usage> } = {}) {
+  readonly rawOutput?: string;
+  readonly finishReason?: string;
+  readonly issues?: readonly ValidationIssue[];
+  constructor(message: string, options: {
+    cause?: unknown; usage?: Partial<Usage>; rawOutput?: string;
+    finishReason?: string; issues?: readonly ValidationIssue[];
+  } = {}) {
     super(message, options);
     if (options.usage !== undefined) this.usage = options.usage;
+    if (options.rawOutput !== undefined) this.rawOutput = options.rawOutput.slice(0, 10_000);
+    if (options.finishReason !== undefined) this.finishReason = options.finishReason;
+    if (options.issues !== undefined) this.issues = options.issues;
   }
 }
 
@@ -160,12 +188,14 @@ export class NoEligibleStrategyError extends DoctureError {
 export class ExtractionFailedError extends DoctureError {
   protected static override readonly doctureErrorIdentity = "ExtractionFailedError";
   override readonly code = "EXTRACTION_FAILED" as const;
-  constructor(readonly attempts: readonly Attempt[]) {
+  readonly usage?: Usage;
+  constructor(readonly attempts: readonly Attempt[], options: { usage?: Usage } = {}) {
     super(
       `Every extraction strategy failed: ` +
         attempts.map((a) => `${a.strategy} (${a.error ?? "unknown"})`).join("; ") +
         ".",
     );
+    if (options.usage !== undefined) this.usage = options.usage;
   }
 }
 
@@ -173,15 +203,20 @@ export class ExtractionFailedError extends DoctureError {
 export class ContractViolationError extends DoctureError {
   protected static override readonly doctureErrorIdentity = "ContractViolationError";
   override readonly code = "CONTRACT_VIOLATION" as const;
+  readonly attempts?: readonly Attempt[];
+  readonly usage?: Usage;
   constructor(
     readonly strategy: string,
     readonly issues: readonly ValidationIssue[],
+    options: { attempts?: readonly Attempt[]; usage?: Usage } = {},
   ) {
     super(
       `"${strategy}" produced data that does not satisfy the schema: ` +
         issues.map((i) => `${i.path || "(root)"}: ${i.message}`).join("; ") +
         ".",
     );
+    if (options.attempts !== undefined) this.attempts = options.attempts;
+    if (options.usage !== undefined) this.usage = options.usage;
   }
 }
 

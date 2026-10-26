@@ -28,6 +28,10 @@ first source that applies:
 Otherwise `hints` is absent. Hint selection does not change the classification or its
 usage.
 
+`StrategyContext.reportFailureUsage(usage)` records known usage before a strategy
+throws. Each call replaces the previous report for that attempt. Successful strategies
+return usage through `StrategyOutcome`. Ordinary provider errors keep their identity.
+
 `StrategyOutcome` contains unknown `data` and optional `usage` and `classification`. Core
 validates the data after the method returns.
 
@@ -102,6 +106,7 @@ loadDocument(
   logger: Logger,
   signal: AbortSignal,
   stageTimeoutMs: number | undefined,
+  request?: LoadRequest,
 ): Promise<ReadDocument>
 ```
 

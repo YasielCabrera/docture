@@ -1,27 +1,3 @@
-/**
- * `Extractor` — the composition root, and the class you reach for first.
- *
- * Two ways to build one, because they suit different moments:
- *
- * ```ts
- * // Fluent. Reads top-to-bottom, and each line is one decision.
- * const extractor = new Extractor()
- *   .loadDocumentLoader(new DocumentLoaderPdfJs())
- *   .loadLlm(new LLM(openai("gpt-5")));
- *
- * // Declarative. One object, so it can come from a config file.
- * const extractor = new Extractor({
- *   loaders: [new DocumentLoaderPdfJs()],
- *   strategies: [llm({ model: openai("gpt-5") })],
- * });
- * ```
- *
- * There is no `model` option: a model belongs to the strategy that calls it, so core
- * never imports the AI SDK and a deterministic-only pipeline pulls no model code at
- * all. `loadLlm` takes a {@link ModelBackend} — `docture/llm`'s `LLM` — which is the
- * seam that keeps that true.
- */
-
 import type { FlexibleSchema } from "@ai-sdk/provider-utils";
 import {
   isContract,
@@ -47,8 +23,9 @@ import type { DocumentLoader } from "./contracts/loader.js";
 import type { LoadLlmOptions, ModelBackend } from "./contracts/model.js";
 import type { ExtractionStrategy } from "./contracts/strategy.js";
 import { classifyDocument, type ClassifyOptions } from "./pipeline/classify.js";
-import { declarationOrder, eligibleLoaders, type RoutingPolicy } from "./pipeline/eligibility.js";
-import { DuplicateComponentError, NoEligibleLoaderError } from "./pipeline/errors.js";
+import { declarationOrder, type RoutingPolicy } from "./pipeline/eligibility.js";
+import { DuplicateComponentError, MissingComponentError } from "./pipeline/errors.js";
+import { loadDocument } from "./pipeline/read.js";
 import { documentFeatures, preloadedFeatures } from "./pipeline/features.js";
 import { runPipeline, snapshotRunOptions, withContractGuidance, type RunOptions } from "./pipeline/run.js";
 import { resolveSource } from "./pipeline/source.js";
@@ -86,6 +63,17 @@ export interface BatchItem<T> {
   readonly outcome: SafeExtraction<T>;
 }
 
+/**
+ * Compose ordered loaders, classifiers and extraction strategies.
+ *
+ * @remarks ExtractorOptions configures loaders, strategies, classifications, logging and stage deadlines. Use dispose or await using to release owned components.
+ * @throws MISSING_COMPONENT for missing wiring; DUPLICATE_COMPONENT for reused names; extraction methods also report load, eligibility and contract error codes.
+ * @example
+ * ```ts
+ * import { Extractor, DocumentLoaderData } from "docture";
+ * const extractor = new Extractor({ loaders: [new DocumentLoaderData()] });
+ * ```
+ */
 export class Extractor implements DocumentExtractor {
   #loaders: DocumentLoader[];
   #strategies: ExtractionStrategy[];
@@ -145,7 +133,7 @@ export class Extractor implements DocumentExtractor {
 
     if (options.vision === true) {
       if (backend.vision === undefined) {
-        throw new TypeError(
+        throw new MissingComponentError(
           `Model "${backend.id}" has no vision strategy, so { vision: true } cannot be honoured.`,
         );
       }
@@ -154,7 +142,7 @@ export class Extractor implements DocumentExtractor {
 
     if (options.classify === true) {
       if (backend.classifier === undefined) {
-        throw new TypeError(
+        throw new MissingComponentError(
           `Model "${backend.id}" has no classifier, so { classify: true } cannot be honoured.`,
         );
       }
@@ -381,6 +369,10 @@ export class Extractor implements DocumentExtractor {
   // ── Teardown ──────────────────────────────────────────────────────────────────
 
   /** Release every component. Idempotent. */
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.dispose();
+  }
+
   dispose(): Promise<void> {
     // Collect once, settle all, surface every failure: one engine's broken teardown
     // must not hide another's.
@@ -403,7 +395,7 @@ export class Extractor implements DocumentExtractor {
 
   #components() {
     if (this.#loaders.length === 0) {
-      throw new TypeError(
+      throw new MissingComponentError(
         "This Extractor has no loader. Call loadDocumentLoader(...) before extracting.",
       );
     }
@@ -459,11 +451,11 @@ export class Extractor implements DocumentExtractor {
     } else {
       const raw = await resolveSource(source, signal);
       const mimeType = raw.mimeType ?? "application/octet-stream";
-      const { eligible, gaps } = eligibleLoaders(this.#loaders, mimeType);
-      const loader = eligible[0];
-      if (loader === undefined) throw new NoEligibleLoaderError(mimeType, gaps);
-      document = await loader.load(raw, { signal, logger });
-      features = documentFeatures(document, loader, mimeType);
+      const loaded = await loadDocument(
+        this.#loaders, raw, logger, signal, options?.stageTimeoutMs ?? this.#stageTimeoutMs,
+      );
+      document = loaded.document;
+      features = documentFeatures(document, loaded.loader, mimeType);
     }
 
     const result = await classifyDocument(
@@ -515,7 +507,7 @@ function assertNew(
  */
 export function createExtractor(options: ExtractorOptions): Extractor {
   if ((options.loaders ?? []).length === 0) {
-    throw new TypeError("createExtractor needs at least one loader.");
+    throw new MissingComponentError("createExtractor needs at least one loader.");
   }
   return new Extractor(options);
 }

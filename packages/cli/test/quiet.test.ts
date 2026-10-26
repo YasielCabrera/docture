@@ -39,9 +39,7 @@ describe("quiet diagnostics", () => {
         ...(command === "convert" ? ["--out", "converted"] : []),
       ], { cwd });
       expect(run.code).toBe(1);
-      expect(run.stderr).toBe(command === "classify"
-        ? "✗ bad-one.pdf → broken document\n✗ bad-two.pdf → broken document\n"
-        : "✗ bad-one.pdf → Every loader failed: fake (broken document).\n" +
+      expect(run.stderr).toBe("✗ bad-one.pdf → Every loader failed: fake (broken document).\n" +
         "  The file could not be read — it may be corrupt, truncated, or password-protected.\n" +
         "✗ bad-two.pdf → Every loader failed: fake (broken document).\n",
       );

@@ -25,13 +25,13 @@ import {
 import { describeLoaderConformance } from "docture/testing/conformance";
 import { makeInvoicePdf } from "docture/testing/fixtures";
 import { NapiCanvasRasterizer } from "docture/raster/canvas";
-import { TesseractJsLoader, type TesseractJsLoaderOptions } from "../../../src/loaders/tesseract/index.js";
+import { DocumentLoaderTesseract, type DocumentLoaderTesseractOptions } from "../../../src/loaders/tesseract/index.js";
 
 const ctx = { signal: new AbortController().signal, logger: silentLogger };
 const RUN_OCR = process.env["RUN_OCR"] === "1" || process.env["RUN_OCR"] === "true";
 
-function ocrLoader(options: TesseractJsLoaderOptions = {}): TesseractJsLoader {
-  return new TesseractJsLoader({
+function ocrLoader(options: DocumentLoaderTesseractOptions = {}): DocumentLoaderTesseract {
+  return new DocumentLoaderTesseract({
     rasterizer: new NapiCanvasRasterizer(),
     ...options,
   });
@@ -50,7 +50,7 @@ async function invoicePng(seed: number, dpi = 150): Promise<Uint8Array> {
 
 // ── Offline ─────────────────────────────────────────────────────────────────────
 
-describe("TesseractJsLoader — what it advertises", () => {
+describe("DocumentLoaderTesseract — what it advertises", () => {
   it("claims text, geometry and images", () => {
     const loader = ocrLoader();
     expect(loader.name).toBe("tesseract");
@@ -68,22 +68,22 @@ describe("TesseractJsLoader — what it advertises", () => {
   it("only claims PDFs when a rasterizer is wired", () => {
     // Honesty is what keeps routing working: with no way to turn a page into pixels,
     // the pipeline should pass a PDF to another loader rather than pick this one.
-    expect(new TesseractJsLoader().capabilities.mimeTypes).toEqual(["image/png", "image/jpeg"]);
+    expect(new DocumentLoaderTesseract().capabilities.mimeTypes).toEqual(["image/png", "image/jpeg"]);
     expect(ocrLoader().capabilities.mimeTypes).toContain("application/pdf");
   });
 });
 
-describe("TesseractJsLoader — refusing work it cannot do", () => {
+describe("DocumentLoaderTesseract — refusing work it cannot do", () => {
   it("explains how to fix a PDF with no rasterizer, instead of failing obscurely", async () => {
     const pdf = await makeInvoicePdf({ seed: 301 });
     await expect(
-      new TesseractJsLoader().load({ bytes: pdf.bytes, mimeType: "application/pdf" }, ctx),
+      new DocumentLoaderTesseract().load({ bytes: pdf.bytes, mimeType: "application/pdf" }, ctx),
     ).rejects.toThrow(/no rasterizer is wired/i);
   });
 
   it("rejects bytes that are not a readable image", async () => {
     await expect(
-      new TesseractJsLoader().load({ bytes: new Uint8Array([1, 2, 3]), mimeType: "image/png" }, ctx),
+      new DocumentLoaderTesseract().load({ bytes: new Uint8Array([1, 2, 3]), mimeType: "image/png" }, ctx),
     ).rejects.toThrow(/not a readable PNG or JPEG/i);
   });
 
@@ -93,7 +93,7 @@ describe("TesseractJsLoader — refusing work it cannot do", () => {
     const png = await invoicePng(302);
 
     await expect(
-      new TesseractJsLoader().load(
+      new DocumentLoaderTesseract().load(
       { bytes: png, mimeType: "image/png" },
       { signal: controller.signal, logger: silentLogger },
       ),
@@ -103,7 +103,7 @@ describe("TesseractJsLoader — refusing work it cannot do", () => {
   it("refuses an empty language list", async () => {
     const png = await invoicePng(303);
     await expect(
-      new TesseractJsLoader({ languages: [] }).load({ bytes: png, mimeType: "image/png" }, ctx),
+      new DocumentLoaderTesseract({ languages: [] }).load({ bytes: png, mimeType: "image/png" }, ctx),
     ).rejects.toThrow(/languages/i);
   });
 
@@ -147,14 +147,14 @@ describe("sizing an image page from its header", () => {
 
 if (RUN_OCR) {
   // The shared suite every loader package runs. Passing it is what makes
-  // TesseractJsLoader interchangeable with PdfJsLoader rather than merely
+  // DocumentLoaderTesseract interchangeable with DocumentLoaderPdfJs rather than merely
   // similarly shaped — the same fixtures, the same invariants.
   describeLoaderConformance({
-    name: "TesseractJsLoader",
+    name: "DocumentLoaderTesseract",
     create: () => ocrLoader(),
   });
 
-  describe("TesseractJsLoader — OCR specifics", () => {
+  describe("DocumentLoaderTesseract — OCR specifics", () => {
     it("recovers the invoice fields a schema would ask for", async () => {
       const pdf = await makeInvoicePdf({ seed: 401 });
       const loader = ocrLoader();
@@ -244,7 +244,7 @@ if (RUN_OCR) {
         )
       )[0]!.bytes;
 
-      const loader = new TesseractJsLoader();
+      const loader = new DocumentLoaderTesseract();
       const document = await loader.load({ bytes: png, mimeType: "image/png" }, ctx);
 
       expect(document.pages).toHaveLength(1);
@@ -351,7 +351,7 @@ if (RUN_OCR) {
     });
   });
 } else {
-  describe.skip("TesseractJsLoader — real OCR (set RUN_OCR=1 to run)", () => {
+  describe.skip("DocumentLoaderTesseract — real OCR (set RUN_OCR=1 to run)", () => {
     it("runs the loader conformance suite and the OCR specifics", () => {});
   });
 }

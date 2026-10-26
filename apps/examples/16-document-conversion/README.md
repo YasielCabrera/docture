@@ -29,5 +29,5 @@ The example uses `DocumentConverter` as a peer to `Extractor`. PDF.js supplies t
 geometry, typography, links, and embedded images. Core derives semantic elements and
 exports Markdown without asking a model to rewrite source text.
 
-Change `format` to `text` or `html`, and `assets` to `embedded` or `omit`, to exercise the
+Change `format` to `text`, `html`, or `json`, and `assets` to `embedded` or `omit`, to exercise the
 other built-in modes.

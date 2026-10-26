@@ -131,7 +131,7 @@ async function main(): Promise<void> {
     note(
       "No cast, no generic parameter, no `as`. The library takes the AI SDK's own\n" +
         "`FlexibleSchema` / `InferSchema` as its contract type rather than inventing one,\n" +
-        "so the inference is the SDK's and composes exactly with `generateObject`.",
+        "so the inference is the SDK's and composes exactly with `generateText with Output.object`.",
     );
 
     // ── 4. Any schema library, including raw JSON Schema ─────────────────────────

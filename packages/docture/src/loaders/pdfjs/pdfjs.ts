@@ -2,7 +2,7 @@
  * The pdf.js module, loaded once and lazily.
  *
  * `await import()` at FIRST USE rather than at module import: constructing a
- * `PdfJsLoader` must be free, and a pipeline that never reads a PDF must not pay
+ * `DocumentLoaderPdfJs` must be free, and a pipeline that never reads a PDF must not pay
  * pdf.js's startup cost. The architecture test asserts pdf.js is not statically
  * reachable from this package's entry point.
  *
@@ -18,7 +18,7 @@
 
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { importEngine } from "../../core/engines.js";
+import { importEngine, lazyEngine } from "../../core/engines.js";
 
 /** The slice of pdf.js this package uses. Structural, so no pdf.js types leak out. */
 export interface PdfJsModule {
@@ -96,8 +96,6 @@ export interface PdfJsTextItem {
   readonly fontName?: string;
 }
 
-let cached: Promise<{ pdfjs: PdfJsModule; standardFontDataUrl: string }> | undefined;
-
 /**
  * Resolve pdf.js's own asset directories from wherever it was installed.
  *
@@ -114,12 +112,9 @@ function resolveAssets(): { standardFontDataUrl: string } {
   return { standardFontDataUrl: `${join(root, "standard_fonts")}/` };
 }
 
-export async function loadPdfJs(): Promise<{ pdfjs: PdfJsModule; standardFontDataUrl: string }> {
-  cached ??= (async () => {
-    const module = (await importEngine("docture/loaders/pdfjs", ["pdfjs-dist"], () =>
-      import("pdfjs-dist/legacy/build/pdf.mjs"),
-    )) as unknown as PdfJsModule;
-    return { pdfjs: module, ...resolveAssets() };
-  })();
-  return cached;
-}
+export const loadPdfJs = lazyEngine(async (): Promise<{ pdfjs: PdfJsModule; standardFontDataUrl: string }> => {
+  const module = (await importEngine("docture/loaders/pdfjs", ["pdfjs-dist"], () =>
+    import("pdfjs-dist/legacy/build/pdf.mjs"),
+  )) as unknown as PdfJsModule;
+  return { pdfjs: module, ...resolveAssets() };
+});

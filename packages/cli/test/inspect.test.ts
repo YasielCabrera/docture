@@ -121,10 +121,10 @@ describe("inspect", () => {
       dir,
       "docture.config.mjs",
       `import { createExtractor } from "docture";
-import { PdfJsLoader } from "docture/loaders/pdfjs";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 
 export default {
-  extractor: createExtractor({ loaders: [new PdfJsLoader()], strategies: [] }),
+  extractor: createExtractor({ loaders: [new DocumentLoaderPdfJs()], strategies: [] }),
 };
 `,
     );

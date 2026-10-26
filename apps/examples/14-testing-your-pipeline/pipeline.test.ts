@@ -309,7 +309,7 @@ describe("conformance", () => {
  * prompt assembly, schema and usage plumbing are right.
  *
  * `MockLanguageModelV4` is the AI SDK's own double, so the strategy still runs through
- * the real `generateObject` path with only the network replaced.
+ * the real `generateText with Output.object` path with only the network replaced.
  */
 function mockModel(answer: unknown, calls: { prompt: unknown }[] = []): MockLanguageModelV4 {
   return new MockLanguageModelV4({

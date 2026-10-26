@@ -2,7 +2,7 @@
  * A mock `LanguageModel` built on the AI SDK's own test double.
  *
  * Using `MockLanguageModelV4` rather than hand-rolling a fake keeps these tests
- * honest: the strategy is exercised through the real `generateObject` code path —
+ * honest: the strategy is exercised through the real `generateText` code path —
  * real prompt assembly, real structured-output parsing, real usage plumbing — with
  * only the network replaced.
  */
@@ -61,7 +61,7 @@ export function mockModel(
         // either wrong fails quietly rather than loudly:
         //   - `finishReason` is `{ unified, raw }`, not the string `"stop"`.
         //   - `usage` is `{ inputTokens: { total, … } }`, while the PUBLIC
-        //     `generateObject` result is flat (`usage.inputTokens`). The SDK maps
+        //     `generateText` result is flat (`usage.inputTokens`). The SDK maps
         //     between them, so a flat mock here reports zero tokens everywhere.
         finishReason: { unified: "stop" as const, raw: "stop" },
         usage: {

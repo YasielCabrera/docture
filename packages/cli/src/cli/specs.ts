@@ -116,7 +116,7 @@ const RUN: readonly FlagSpec[] = [
     name: "concurrency",
     type: "string",
     placeholder: "<n>",
-    describe: "Documents in flight at once",
+    describe: "Overlaps model calls and I/O; local PDF work uses one thread",
     defaultLabel: "4",
   },
   {
@@ -184,7 +184,7 @@ export const EXTRACT: CommandSpec = {
 
 export const CONVERT: CommandSpec = {
   name: "convert",
-  summary: "Convert PDFs to TXT, Markdown, or HTML",
+  summary: "Convert PDFs to TXT, Markdown, HTML, or JSON",
   args: "<file...>",
   description:
     "Recovers grounded document text and layout for indexing and RAG. Outputs and\n" +
@@ -202,7 +202,7 @@ export const CONVERT: CommandSpec = {
       name: "to",
       type: "string",
       placeholder: "<fmt>",
-      describe: "md | html | txt",
+      describe: "md | html | txt | json",
       defaultLabel: "md",
     },
     {
@@ -218,7 +218,7 @@ export const CONVERT: CommandSpec = {
       describe: "Use --model to refine roles and reading order without changing text",
     },
     { name: "timeout", type: "string", placeholder: "<ms>", describe: "Per-stage deadline. Omit for none" },
-    { name: "concurrency", type: "string", placeholder: "<n>", describe: "Documents in flight at once", defaultLabel: "4" },
+    { name: "concurrency", type: "string", placeholder: "<n>", describe: "Overlaps model calls and I/O; local PDF work uses one thread", defaultLabel: "4" },
     ...MODEL,
     ...COMMON,
   ],
@@ -250,7 +250,7 @@ export const CLASSIFY: CommandSpec = {
     OUTPUT_FORMAT,
     ...MODEL.filter((f) => f.name !== "instructions"),
     { name: "timeout", type: "string", placeholder: "<ms>", describe: "Per-stage deadline. Omit for none" },
-    { name: "concurrency", type: "string", placeholder: "<n>", describe: "Documents in flight at once", defaultLabel: "4" },
+    { name: "concurrency", type: "string", placeholder: "<n>", describe: "Overlaps model calls and I/O; local PDF work uses one thread", defaultLabel: "4" },
     ...COMMON,
   ],
   examples: ["docture classify inbox/*.pdf --classifications ./kinds.ts -m openai/gpt-5"],
@@ -308,6 +308,12 @@ export const EVAL: CommandSpec = {
       type: "string",
       placeholder: "<n>",
       describe: "Exit 1 if the mean F1 falls below this",
+    },
+    {
+      name: "max-cost-usd",
+      type: "string",
+      placeholder: "<usd>",
+      describe: "Exit 1 if priced total cost exceeds this; requires pricing",
     },
     { name: "report", type: "string", placeholder: "<path>", describe: "Write the scoreboard here too" },
     {

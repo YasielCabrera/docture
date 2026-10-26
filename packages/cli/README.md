@@ -55,7 +55,7 @@ credentials configured for that provider.
 | | |
 |---|---|
 | `extract <file...>` | Extract structured data |
-| `convert <file...>` | Convert PDFs to TXT, Markdown, or HTML |
+| `convert <file...>` | Convert PDFs to TXT, Markdown, HTML, or JSON |
 | `classify <file...>` | Decide what kind of document it is, without extracting |
 | `inspect <file...>` | What the loaders see. **No model, no API key** |
 | `eval <file...>` | Score against ground truth, and gate CI on the number |
@@ -98,7 +98,7 @@ docture convert reports/*.pdf --out converted/
 ```
 
 Conversion requires an output directory. Markdown and referenced raster assets are the
-defaults. Use `--to md|html|txt`, `--assets referenced|embedded|omit`, and optional
+defaults. Use `--to md|html|txt|json`, `--assets referenced|embedded|omit`, and optional
 `--assist-layout --model <provider/id>`. A scan needs an OCR loader in the config.
 
 ## The schema
@@ -131,8 +131,9 @@ one happened (`--verbose`):
 1. `--gateway` → straight to the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway).
 2. The provider package as resolved from your working directory, so your
    `@ai-sdk/openai`, your version, your credentials.
-3. Failing that, the gateway. If no gateway credential is set either, that is a warning
-   *before* the first request rather than a 401 after it.
+3. Failing that, the gateway. Missing known provider or gateway credentials fail before
+   loading documents. With `--cache`, the CLI warns instead because a cache hit needs no
+   request. An OpenAI-compatible `OPENAI_BASE_URL` also permits a keyless local endpoint.
 
 ```sh
 docture extract invoice.pdf -s ./invoice.ts -m openai/gpt-5
@@ -297,3 +298,44 @@ The [migration guide](../../apps/docs/content/docs/guides/migration.mdx) lists e
 ## License
 
 MIT
+
+`--concurrency` overlaps model calls and file or network I/O. Local PDF parsing and rendering run on one thread. Higher concurrency does not make CPU-bound PDF work parallel. To keep a server responsive during that work, use `worker_threads` or a separate process.
+
+## Environment and credentials
+
+| Variable | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` | Credential for the locally installed model provider. |
+| `ANTHROPIC_API_KEY` | Credential for the locally installed model provider. |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Credential for the locally installed model provider. |
+| `MISTRAL_API_KEY` | Credential for the locally installed model provider. |
+| `GROQ_API_KEY` | Credential for the locally installed model provider. |
+| `XAI_API_KEY` | Credential for the locally installed model provider. |
+| `DEEPSEEK_API_KEY` | Credential for the locally installed model provider. |
+| `COHERE_API_KEY` | Credential for the locally installed model provider. |
+| `PERPLEXITY_API_KEY` | Credential for the locally installed model provider. |
+| `CEREBRAS_API_KEY` | Credential for the locally installed model provider. |
+| `FIREWORKS_API_KEY` | Credential for the locally installed model provider. |
+| `TOGETHER_AI_API_KEY` | Credential for the locally installed model provider. |
+| `DEEPINFRA_API_KEY` | Credential for the locally installed model provider. |
+| `OPENROUTER_API_KEY` | Credential for the locally installed model provider. |
+| `AI_GATEWAY_API_KEY` | Credential when routing through AI Gateway. |
+| `VERCEL_OIDC_TOKEN` | Alternative AI Gateway credential. |
+| `NO_COLOR` | Disable ANSI color on both streams. |
+| `OPENAI_BASE_URL` | Custom OpenAI-compatible endpoint, including keyless local endpoints. |
+
+Known provider routes and gateway model strings require credentials before document
+processing. A cache-enabled run may continue without a key to reuse cached responses.
+Configured model strings use the SDK gateway route and its credential checks. A
+configured provider instance controls its own credentials and supports keyless compatible
+endpoints. Missing dependencies name the failed import and suggest installation or a
+corrected path. Invalid config fields and unknown keys are usage errors naming the field.
+
+`Io.stdoutColor` controls stdout styling independently of diagnostic `Io.color`. Both
+honor `NO_COLOR` and `--no-color`. JSON and NDJSON error messages and hints strip terminal
+control sequences.
+
+`eval --min-f1 <number> --max-cost-usd <number>` applies the public eval gate. Failed
+thresholds exit with code 1, including when extraction itself succeeds. The output summary
+contains `passed`, `reasons`, and configured thresholds. Cost requires configured pricing;
+unpriced usage is excluded. Verbose output includes the worst normalized fields.

@@ -3,7 +3,7 @@
  * and the handful of its defaults that are wrong for reading a document.
  *
  * `await import()` at FIRST USE rather than at module import: constructing a
- * `PaddleOcrLoader` must be free, and a pipeline that never OCRs a page must not pay
+ * `DocumentLoaderPaddleOcr` must be free, and a pipeline that never OCRs a page must not pay
  * for loading onnxruntime-node's native addon or instantiating an OpenCV WASM
  * runtime.
  *
@@ -31,7 +31,7 @@
  * and every ppu-paddle-ocr name out of this package's public API.
  */
 
-import { importEngine } from "../../core/engines.js";
+import { importEngine, lazyEngine } from "../../core/engines.js";
 
 /** One recognized region as PaddleOCR reports it. */
 export interface Recognized {
@@ -219,25 +219,20 @@ interface PaddleExports {
   readonly MODEL_PRESETS: Readonly<Record<string, Readonly<Record<string, string>>>>;
 }
 
-let cached: Promise<PaddleExports> | undefined;
-
-async function loadPaddle(): Promise<PaddleExports> {
-  cached ??= (async () => {
-    // The engine imports ONNX Runtime itself, so a missing runtime surfaces here too.
-    const module = (await importEngine(
-      "docture/loaders/paddleocr",
-      ["ppu-paddle-ocr", "onnxruntime-node"],
-      () => import("ppu-paddle-ocr"),
-    )) as unknown as Partial<PaddleExports>;
-    if (typeof module.PaddleOcrService !== "function") {
-      throw new Error(
-        "ppu-paddle-ocr did not export PaddleOcrService; is the install intact?",
-      );
-    }
-    return module as PaddleExports;
-  })();
-  return cached;
-}
+const loadPaddle = lazyEngine(async (): Promise<PaddleExports> => {
+  // The engine imports ONNX Runtime itself, so a missing runtime surfaces here too.
+  const module = (await importEngine(
+    "docture/loaders/paddleocr",
+    ["ppu-paddle-ocr", "onnxruntime-node"],
+    () => import("ppu-paddle-ocr"),
+  )) as unknown as Partial<PaddleExports>;
+  if (typeof module.PaddleOcrService !== "function") {
+    throw new Error(
+      "ppu-paddle-ocr did not export PaddleOcrService; is the install intact?",
+    );
+  }
+  return module as PaddleExports;
+});
 
 /**
  * `bytes` as an `ArrayBuffer` the engine will accept, without handing over more than
@@ -424,7 +419,7 @@ export class PaddleEngine {
     if (preset === undefined) {
       throw new Error(
         `paddleocr: ppu-paddle-ocr no longer publishes the "${key}" model preset. ` +
-          `Pass explicit model files instead — new PaddleOcrLoader({ model: { detection, ` +
+          `Pass explicit model files instead — new DocumentLoaderPaddleOcr({ model: { detection, ` +
           `recognition, charactersDictionary } }).`,
       );
     }

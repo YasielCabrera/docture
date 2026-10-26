@@ -8,21 +8,21 @@
 # docture
 
 docture extracts structured data from documents and converts PDFs to grounded TXT,
-Markdown, or HTML. You pick the PDF or OCR library and, when needed, the model.
+Markdown, HTML, or versioned JSON. You pick the PDF or OCR library and, when needed, the model.
 
 ## Features
 
 - **Typed to the leaves**: `result.data` is inferred from your schema. No casts, no `any`.
-- **Any schema library**: Zod, Valibot, ArkType, or JSON Schema through the AI SDK schema helper.
+- **Any schema library**: Zod, Valibot, ArkType, or any Standard Schema. Wrap plain JSON Schema with `jsonSchema()` from `ai`.
 - **Any AI SDK model**: a provider instance, a gateway model string, or your own provider.
 - **Pluggable loaders**: pdf.js, MuPDF, Tesseract, PaddleOCR. Select each engine through an explicit subpath.
-- **Grounded conversion**: deterministic TXT, CommonMark, GFM tables, and escaped HTML with page and box provenance.
+- **Grounded conversion**: deterministic TXT, CommonMark, GFM tables, escaped HTML, and versioned JSON with page and box provenance.
 - **Capabilities**: loader types retain capability literals. Document facts determine strategy eligibility at runtime, and capability-specific APIs reject incompatible loader types.
 - **Classification**: each kind carries its own schema, so narrowing on `name` narrows `data`.
 - **Splitting**: one PDF holding several unrelated documents comes back as one typed result each.
 - **Explicit fallback**: strategies run in order, every attempt is recorded with its error.
 - **Cost and accuracy**: token usage and USD per run, plus field-level scoring for CI.
-- **Selected engines**: install only the PDF, OCR, or rendering engines your application uses. Some use WASM or native prebuilds.
+- **Selected engines**: install only the engines your application uses. MuPDF and Tesseract use WASM. `@napi-rs/canvas` and `onnxruntime-node` install native prebuilds.
 
 ## Installation
 
@@ -217,6 +217,29 @@ if (!outcome.ok) {
 `safeExtract` mirrors Zod's `parse` / `safeParse`. Nothing is silent: every attempt lands
 in `result.attempts` with its error.
 
+### Error codes
+
+<!-- docture-error-codes:start -->
+| Code | Meaning |
+| --- | --- |
+| `NO_ELIGIBLE_LOADER` | No registered loader accepts the input media type. |
+| `LOAD_FAILED` | Every eligible loader failed. |
+| `NO_CONVERTIBLE_CONTENT` | The loaded document contains no convertible text. |
+| `NO_ELIGIBLE_STRATEGY` | No strategy meets the loaded document's capabilities. |
+| `EXTRACTION_FAILED` | Every eligible extraction strategy failed. |
+| `PAGE_OUT_OF_RANGE` | The page selection is empty or includes unavailable pages. |
+| `MODEL_OUTPUT_FAILED` | A billed model response failed structured-output validation. |
+| `CONTRACT_VIOLATION` | Extracted data failed the requested contract. |
+| `UNSUPPORTED_SOURCE` | The source cannot be read. |
+| `TIMEOUT` | A library-owned stage deadline elapsed. |
+| `DUPLICATE_COMPONENT` | Two components use the same registered name. |
+| `SPLIT_FAILED` | Splitting is unavailable or failed. |
+| `UNCLASSIFIED_GROUP` | A split group matched none of the allowed kinds. |
+| `MISSING_ENGINE` | A selected integration's optional engine is not installed. |
+| `MISSING_COMPONENT` | Required wiring or call state is missing. |
+<!-- docture-error-codes:end -->
+
+
 ### Accuracy
 
 Field-level scoring, for a test or a CI gate:
@@ -259,7 +282,9 @@ new LLM(ollama("phi4"))              // or anything else with a provider
 
 The root `docture` entry does not import the AI SDK runtime or a PDF, OCR, or rendering
 engine. Its normal dependencies include `@ai-sdk/provider-utils` for schema helpers
-and `@types/json-schema` for declarations. The schema helper has a Zod peer. Model integrations use optional `ai@^7` and Zod peers; Zod 3.25.76 or later 3.x, or Zod 4.1.8 or later, satisfies both.
+and `@types/json-schema` for declarations. `parse5`, `htmlparser2`, and `entities`
+parse HTML/XHTML on demand, without optional engines or resource downloads.
+The schema helper has a Zod peer. Model integrations use optional `ai@^7` and Zod peers; Zod 3.25.76 or later 3.x, or Zod 4.1.8 or later, satisfies both.
 `loadLlm` accepts the core `ModelBackend` interface, implemented by `LLM`. The backend
 creates text, vision, classification, splitting, and layout components from one configuration.
 
@@ -272,7 +297,7 @@ creates text, vision, classification, splitting, and layout components from one 
 - **Classifications**: what kind of document this is, each carrying its own schema.
 - **Splitters**: cut a bundle into its constituent documents.
 - **Extractor**: routes one document through loaders and strategies, in declared order.
-- **DocumentConverter**: normalizes text, layout, links, and raster figures, then exports TXT, Markdown, or HTML.
+- **DocumentConverter**: normalizes text, layout, links, and raster figures, then exports TXT, Markdown, HTML, or versioned JSON.
 - **Process**: splits a file, then runs an `Extractor` over each document that comes out.
 
 Every plugin is a plain object with no base class, produced by a `define*` helper. Writing
@@ -439,7 +464,7 @@ the [migration guide](apps/docs/content/docs/guides/migration.mdx) for the compl
 - **Architecture**: [`packages/docture/ARCHITECTURE.md`](packages/docture/ARCHITECTURE.md) for the layering.
 
 ```bash
-pnpm --filter @docture/examples fetch        # ~2 MB, once
+pnpm --filter @docture/examples run fetch    # ~2 MB, once
 pnpm --filter @docture/examples quick-start  # the library in one screen
 pnpm --filter @docture/examples offline      # run examples without an API key
 ```

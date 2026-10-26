@@ -21,21 +21,12 @@
  * ```
  *
  * Loader choice is by media type and then declaration order, NOT a fallback on empty
- * text — see the note on wiring in `PaddleOcrLoader`.
+ * text — see the note on wiring in `DocumentLoaderPaddleOcr`.
  */
 
-export { PaddleOcrLoader as DocumentLoaderPaddleOcr } from "./loader.js";
-export type { PaddleOcrLoaderOptions as PaddleOcrConfig } from "./loader.js";
 
-/**
- * The library-first spelling, kept as an alias.
- *
- * `DocumentLoaderPaddleOcr` is the primary name — every loader in this library reads
- * `DocumentLoader<Library>`, so a list of them lines up and the prefix says what
- * kind of thing it is. `PaddleOcrLoader` says the same thing in the other order.
- */
-export { PaddleOcrLoader } from "./loader.js";
-export type { PaddleOcrLoaderOptions } from "./loader.js";
+export { DocumentLoaderPaddleOcr } from "./loader.js";
+export type { DocumentLoaderPaddleOcrOptions } from "./loader.js";
 
 /**
  * A value, not just a type, because "which models can I run?" is a question worth

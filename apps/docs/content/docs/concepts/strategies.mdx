@@ -68,6 +68,10 @@ classification names. When no candidate is named, it falls back to a sole candid
 for a bare schema or a `Contract` with that candidate's name. An unrelated sole candidate
 does not supply fallback hints for a different `Contract`.
 
+`ctx.reportFailureUsage?.(usage)` reports completed work before a strategy throws.
+The latest report replaces earlier reports for that attempt. This preserves usage
+from completed model requests when a sibling request fails.
+
 `StrategyOutcome` contains `data` and may include usage or a classification result. Core
 normalizes usage and performs schema validation after the strategy returns.
 

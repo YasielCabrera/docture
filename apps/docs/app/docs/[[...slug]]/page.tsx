@@ -8,7 +8,7 @@ import {
 } from "fumadocs-ui/layouts/docs/page";
 import { createRelativeLink } from "fumadocs-ui/mdx";
 import { getMDXComponents } from "@/components/mdx";
-import { source } from "@/lib/source";
+import { getPageMarkdownUrl, source } from "@/lib/source";
 
 export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   const params = await props.params;
@@ -21,6 +21,9 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
     <DocsPage toc={page.data.toc} full={page.data.full}>
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
+      <a href={getPageMarkdownUrl(page)} className="text-sm text-fd-muted-foreground underline">
+        View as Markdown
+      </a>
       <DocsBody>
         <MDX components={getMDXComponents({ a: createRelativeLink(source, page) })} />
       </DocsBody>

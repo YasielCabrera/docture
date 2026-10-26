@@ -20,7 +20,8 @@ import {
   type Rasterizer,
   type RawDocument,
 } from "../../core/index.js";
-import { importEngine } from "../../core/engines.js";
+import { importEngine, lazyEngine } from "../../core/engines.js";
+import { requestedPageNumbers } from "../../core/pipeline/pages.js";
 
 export interface NapiCanvasRasterizerOptions {
   /** Applied when a call does not say otherwise. */
@@ -64,8 +65,6 @@ interface LoadedDeps {
   readonly standardFontDataUrl: string;
 }
 
-let deps: Promise<LoadedDeps> | undefined;
-
 /**
  * Locate pdf.js's bundled standard fonts.
  *
@@ -83,24 +82,21 @@ function resolveStandardFonts(): string {
 }
 
 /** Both heavy dependencies, loaded on first render and cached thereafter. */
-async function loadDeps(): Promise<LoadedDeps> {
-  deps ??= (async () => {
-    const [pdfjs] = await importEngine("docture/raster/canvas", ["pdfjs-dist", "@napi-rs/canvas"], () =>
-      Promise.all([
-        // The legacy build is required in Node — the default one touches DOMMatrix
-        // at module scope.
-        import("pdfjs-dist/legacy/build/pdf.mjs") as Promise<unknown>,
-        // Imported only to report a missing peer. Pages are drawn on pdf.js's own canvas.
-        import("@napi-rs/canvas") as Promise<unknown>,
-      ]),
-    );
-    return {
-      pdfjs: pdfjs as PdfJsRenderModule,
-      standardFontDataUrl: resolveStandardFonts(),
-    };
-  })();
-  return deps;
-}
+const loadDeps = lazyEngine(async (): Promise<LoadedDeps> => {
+  const [pdfjs] = await importEngine("docture/raster/canvas", ["pdfjs-dist", "@napi-rs/canvas"], () =>
+    Promise.all([
+      // The legacy build is required in Node — the default one touches DOMMatrix
+      // at module scope.
+      import("pdfjs-dist/legacy/build/pdf.mjs") as Promise<unknown>,
+      // Imported only to report a missing peer. Pages are drawn on pdf.js's own canvas.
+      import("@napi-rs/canvas") as Promise<unknown>,
+    ]),
+  );
+  return {
+    pdfjs: pdfjs as PdfJsRenderModule,
+    standardFontDataUrl: resolveStandardFonts(),
+  };
+});
 
 /**
  * The scale that honours both `dpi` and `maxEdge`.
@@ -162,17 +158,11 @@ export class NapiCanvasRasterizer implements Rasterizer {
     }
 
     try {
-      const wanted =
-        options.pages ?? Array.from({ length: pdf.numPages }, (_unused, i) => i + 1);
+      const wanted = requestedPageNumbers(pdf.numPages, options.pages);
       const rendered: RasterPage[] = [];
 
       for (const pageNumber of wanted) {
         ctx.signal.throwIfAborted();
-        if (pageNumber < 1 || pageNumber > pdf.numPages) {
-          throw new Error(
-            `Page ${pageNumber} is out of range; the document has ${pdf.numPages}.`,
-          );
-        }
 
         const page = await pdf.getPage(pageNumber);
         try {

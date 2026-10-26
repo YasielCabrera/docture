@@ -28,10 +28,10 @@ import type { Logger } from "../domain/logger.js";
 import {
   UNCLASSIFIED,
   aggregateDocGroups,
-  pageWindows,
   type DocGroups,
   type SplitVerdict,
 } from "../domain/split.js";
+import { pageWindows } from "./page-windows.js";
 import type { Usage } from "../domain/result.js";
 import type { Classification } from "./classifier.js";
 
@@ -116,21 +116,22 @@ export async function runSplitter(
   const verdicts = await mapWithConcurrency(
     windows,
     Math.max(1, options.concurrency ?? 4),
-    async (window) => {
+    async (window, _index, signal) => {
       const [first, second] = window;
       if (first === undefined || second === undefined) {
         throw new TypeError("pageWindows produced an incomplete window.");
       }
-      ctx.signal.throwIfAborted();
-      return splitter.belongsToSameDocument(first, second, ctx);
+      signal.throwIfAborted();
+      return splitter.belongsToSameDocument(first, second, { ...ctx, signal });
     },
+    ctx.signal,
   );
 
   return aggregateDocGroups(verdicts, pages.length);
 }
 
 /**
- * `Promise.all` with a ceiling, preserving input order.
+ * Bounded work in input order. A failure aborts siblings and drains active work.
  *
  * A 60-page bundle is 59 seams, and 59 simultaneous model calls is a rate-limit
  * error rather than a fast split.
@@ -138,23 +139,42 @@ export async function runSplitter(
 async function mapWithConcurrency<In, Out>(
   items: readonly In[],
   limit: number,
-  fn: (item: In, index: number) => Promise<Out>,
+  fn: (item: In, index: number, signal: AbortSignal) => Promise<Out>,
+  signal?: AbortSignal,
 ): Promise<Out[]> {
+  if (!Number.isInteger(limit) || limit < 1) throw new RangeError("concurrency must be a positive integer");
   const results = new Array<Out>(items.length);
-  let next = 0;
+  const entries = items.entries();
+  const controller = new AbortController();
+  let failure: { readonly error: unknown } | undefined;
+  const fail = (error: unknown): void => {
+    failure ??= { error };
+    controller.abort(error);
+  };
+  const onAbort = (): void => fail(signal?.reason);
+  if (signal?.aborted) onAbort();
+  else signal?.addEventListener("abort", onAbort, { once: true });
 
   const worker = async (): Promise<void> => {
-    while (next < items.length) {
-      const index = next;
-      next += 1;
-      const item = items[index];
-      if (item === undefined) continue;
-      results[index] = await fn(item, index);
+    while (failure === undefined) {
+      const entry = entries.next();
+      if (entry.done) return;
+      const [index, item] = entry.value;
+      try {
+        results[index] = await fn(item, index, controller.signal);
+      } catch (error) {
+        fail(error);
+      }
     }
   };
 
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return results;
+  try {
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    if (failure !== undefined) throw failure.error;
+    return results;
+  } finally {
+    signal?.removeEventListener("abort", onAbort);
+  }
 }
 
 export { mapWithConcurrency };

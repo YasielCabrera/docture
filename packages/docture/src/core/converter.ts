@@ -1,3 +1,4 @@
+import { failedAttempt } from "./pipeline/attempt.js";
 /** Document conversion composition root. */
 
 import { basename, extname } from "node:path";
@@ -23,6 +24,7 @@ import {
   DuplicateComponentError,
   NoConvertibleContentError,
   ModelOutputError,
+  MissingComponentError,
   TimeoutError,
   errorCodeOf,
   isAbortError,
@@ -30,6 +32,7 @@ import {
 } from "./pipeline/errors.js";
 import { documentFeatures, preloadedFeatures } from "./pipeline/features.js";
 import { loadDocument } from "./pipeline/read.js";
+import { exportJsonDocument } from "./conversion/json.js";
 import { resolveSource } from "./pipeline/source.js";
 
 export interface DocumentConverterOptions {
@@ -68,16 +71,7 @@ function usageFrom(partial: Partial<Usage> | undefined): Usage {
   }], partial?.wallMs ?? 0);
 }
 
-function failedAttempt(name: string, ms: number, error: unknown): Attempt {
-  const code = errorCodeOf(error);
-  return {
-    strategy: name,
-    status: "failed",
-    ms,
-    error: messageOf(error),
-    ...(code === undefined ? {} : { errorCode: code }),
-  };
-}
+
 
 function snapshotConvertOptions(options: ConvertOptions): ConvertOptions {
   const { format, assets, signal, logger, stageTimeoutMs, ...extra } = options;
@@ -94,6 +88,17 @@ function snapshotConvertOptions(options: ConvertOptions): ConvertOptions {
   };
 }
 
+/**
+ * Convert loaded text and layout into grounded text, Markdown, HTML or versioned JSON.
+ *
+ * @remarks DocumentConverterOptions configures loaders, an optional layout analyzer, logging and stage deadlines. Asset handling and output format are per-call options.
+ * @throws MISSING_COMPONENT for missing wiring; NO_CONVERTIBLE_CONTENT for unreadable scans; loader errors retain their typed codes.
+ * @example
+ * ```ts
+ * import { DocumentConverter, DocumentLoaderData } from "docture";
+ * const converter = new DocumentConverter({ loaders: [new DocumentLoaderData()] });
+ * ```
+ */
 export class DocumentConverter {
   #loaders: DocumentLoader[];
   #layoutAnalyzer: LayoutAnalyzer | undefined;
@@ -132,7 +137,7 @@ export class DocumentConverter {
   /** Register a model backend's constrained layout analyzer. */
   loadLlm(backend: ModelBackend): this {
     if (backend.layout === undefined) {
-      throw new TypeError(`Model "${backend.id}" has no layout analyzer.`);
+      throw new MissingComponentError(`Model "${backend.id}" has no layout analyzer.`);
     }
     return this.loadLayoutAnalyzer(backend.layout());
   }
@@ -152,18 +157,20 @@ export class DocumentConverter {
     };
   }
 
-  /** Convert a source to deterministic text, Markdown, or HTML. */
+  /** Convert a source to text, Markdown, HTML, or versioned JSON. */
   async convert(
     source: DocumentSource,
     options: ConvertOptions = {},
   ): Promise<ConversionResult> {
     const started = Date.now();
     const signal = options.signal ?? new AbortController().signal;
+    signal.throwIfAborted();
     const logger = options.logger ?? this.#logger;
     const stageTimeoutMs = options.stageTimeoutMs ?? this.#stageTimeoutMs;
     const format = options.format ?? "markdown";
     const assetMode = options.assets ?? "referenced";
     const loaded = await this.#load(source, logger, signal, stageTimeoutMs, assetMode !== "omit");
+    signal.throwIfAborted();
 
     if (loaded.document.text.trim().length === 0) {
       throw new NoConvertibleContentError(loaded.features);
@@ -180,12 +187,15 @@ export class DocumentConverter {
       const analyzer = this.#layoutAnalyzer;
       const analyzerStarted = Date.now();
       const deadline = withDeadline(`layout:${analyzer.name}`, stageTimeoutMs, signal);
+      let returnedUsage: Partial<Usage> | undefined;
       try {
         const result = await analyzer.analyze({
           document: layout,
           signal: deadline.signal,
           logger: logger.child({ layoutAnalyzer: analyzer.name }),
         });
+        returnedUsage = result.usage;
+        deadline.signal.throwIfAborted();
         const applied = applyLayoutAnnotations(layout, result.annotations);
         modelUsage = usageFrom(result.usage);
         if (applied.valid) {
@@ -193,6 +203,7 @@ export class DocumentConverter {
           method = `deterministic+${analyzer.name}`;
           warnings.push(...(result.warnings ?? []));
           attempts.push({
+            stage: "layout",
             strategy: analyzer.name,
             status: "ok",
             ms: Date.now() - analyzerStarted,
@@ -205,6 +216,7 @@ export class DocumentConverter {
             message: `Layout analyzer "${analyzer.name}" was ignored: ${reason}.`,
           });
           attempts.push({
+            stage: "layout",
             strategy: analyzer.name,
             status: "failed",
             ms: Date.now() - analyzerStarted,
@@ -213,7 +225,8 @@ export class DocumentConverter {
           });
         }
       } catch (error) {
-        const failedUsage = error instanceof ModelOutputError ? error.usage : undefined;
+        signal.throwIfAborted();
+        const failedUsage = returnedUsage ?? (error instanceof ModelOutputError ? error.usage : undefined);
         const failure = deadline.expired()
           ? new TimeoutError(`layout:${analyzer.name}`, stageTimeoutMs ?? 0)
           : error;
@@ -224,7 +237,7 @@ export class DocumentConverter {
           message: `Layout analyzer "${analyzer.name}" failed; deterministic layout was kept: ${messageOf(failure)}.`,
         });
         attempts.push({
-          ...failedAttempt(analyzer.name, Date.now() - analyzerStarted, failure),
+          ...failedAttempt("layout", analyzer.name, Date.now() - analyzerStarted, failure),
           ...(failedUsage === undefined ? {} : { usage: failedUsage }),
         });
       } finally {
@@ -234,8 +247,14 @@ export class DocumentConverter {
 
     const stem = safeStem(loaded.fileName);
     const normalizedAssets = conversionAssets(loaded.document, `${stem}.assets`, assetMode);
-    const exported = exportDocument(layout, format, assetMode, normalizedAssets.assets);
-    warnings.push(...normalizedAssets.warnings, ...exported.warnings);
+    warnings.push(...normalizedAssets.warnings);
+    const exported = format === "json"
+      ? exportJsonDocument({
+        document: layout, loader: loaded.loader, method, mode: assetMode,
+        assets: normalizedAssets.assets, warnings,
+      })
+      : exportDocument(layout, format, assetMode, normalizedAssets.assets);
+    warnings.push(...exported.warnings);
 
     return {
       content: exported.content,
@@ -308,6 +327,10 @@ export class DocumentConverter {
   }
 
   /** Release every loader and analyzer. Idempotent. */
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.dispose();
+  }
+
   dispose(): Promise<void> {
     this.#disposed ??= (async () => {
       const components = [
@@ -340,13 +363,13 @@ export class DocumentConverter {
       return {
         document: source.loaded,
         loader: source.loaded.loader,
-        attempts: [{ strategy: source.loaded.loader, status: "ok", ms: 0 }],
+        attempts: [{ stage: "load", strategy: source.loaded.loader, status: "ok", ms: 0 }],
         features: preloadedFeatures(source),
         ...(source.fileName === undefined ? {} : { fileName: source.fileName }),
       };
     }
     if (this.#loaders.length === 0) {
-      throw new TypeError(
+      throw new MissingComponentError(
         "This DocumentConverter has no loader. Call loadDocumentLoader(...) before converting.",
       );
     }
@@ -380,7 +403,7 @@ function assertUnique(kind: string, named: readonly { readonly name: string }[])
 
 export function createDocumentConverter(options: DocumentConverterOptions): DocumentConverter {
   if ((options.loaders ?? []).length === 0) {
-    throw new TypeError("createDocumentConverter needs at least one loader.");
+    throw new MissingComponentError("createDocumentConverter needs at least one loader.");
   }
   return new DocumentConverter(options);
 }

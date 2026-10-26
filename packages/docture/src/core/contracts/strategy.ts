@@ -16,6 +16,8 @@ import type { ResolvedSchema } from "../pipeline/schema.js";
 export type ClassificationNeed = "required" | "hint" | "none";
 
 export interface StrategyContext {
+  /** Report complete known usage before throwing. The latest report replaces earlier reports. */
+  readonly reportFailureUsage?: (usage: Partial<Usage>) => void;
   readonly document: LoadedDocument;
   readonly features: DocumentFeatures;
   readonly schema: ResolvedSchema;

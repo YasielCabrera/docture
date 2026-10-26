@@ -80,6 +80,8 @@ or `unknown`.
 | `name` | `llm` | Strategy name. |
 | `completion` | `forbidden` | Single request, pagination, or concatenation. |
 | `maxCharsPerRequest` | `24000` | Character budget for concatenation. |
+| `concurrency` | `4` | Maximum chunk requests in flight. Positive integer. |
+| `providerOptions` | none | Provider-specific settings forwarded to the AI SDK and included in cache identity. |
 | `system` | `DEFAULT_SYSTEM_PROMPT` | Replacement system prompt. |
 | `instructions` | none | Text appended to the system prompt. |
 | `hints` | `{}` | Guidance keyed by classification name. |
@@ -110,10 +112,12 @@ and classification fields as text extraction. Vision-specific options are:
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `dpi` | `200` | Render resolution. |
-| `maxEdge` | none | Maximum image edge in pixels. |
+| `maxEdge` | `1568` | Maximum image edge in pixels. |
 | `format` | `png` | Render format. |
 | `maxPages` | all | Maximum pages sent. |
-| `pageMode` | `together` | One request for all selected pages or one per page. |
+| `pageMode` | `together` | Consecutive page groups or one request per page. |
+| `pagesPerRequest` | `20` | Maximum pages in a together group. Positive integer. |
+| `concurrency` | `4` | Maximum model requests in flight. Positive integer. |
 
 The strategy rejects when there are no pages, a page cannot render, the model fails, or
 the caller aborts. Per-page results are merged before core validation.
@@ -196,3 +200,14 @@ strategies under `before`, optional `vision`, and `classifyWithModel`.
 `before` strategies are registered before the text model. `vision: true` adds a default
 vision strategy; an object configures it. `classifyWithModel: true` appends an
 `LlmClassifier`. Loader requirements and duplicate component errors follow core rules.
+
+Both extraction capabilities call `generateText` with `Output.object`. They merge results
+and account usage in document order even when requests finish out of order. A failure
+aborts sibling requests and stops new requests. Multiple vision groups use a relaxed
+fragment schema; core validates the merged result against the original contract.
+`providerOptions` also applies to vision. Render and group settings separate cache entries.
+
+The 20-page group default is conservative and remains subject to provider payload and
+context limits. Original PNG or JPEG inputs from OCR loaders may ignore `format`, `dpi`,
+and `maxEdge`, returning the source image unchanged. The AI SDK detects MIME from actual
+bytes. Resize input images explicitly when a strict pixel limit is required.

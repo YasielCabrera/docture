@@ -60,7 +60,7 @@ describe("pageWindows", () => {
   });
 
   it("refuses a window narrower than a seam", () => {
-    expect(() => pageWindows([1, 2], 1)).toThrowError(TypeError);
+    expect(() => pageWindows([1, 2], 1)).toThrowError(/integer window of at least 2/);
   });
 });
 

@@ -129,4 +129,3 @@ it("keeps an unhinted Process selection from borrowing another candidate's hints
   expect(results[0]?.result.usage.inputTokens).toBe(200);
   expect(JSON.stringify(extraction.calls)).not.toContain("UNRELATED_RECEIPT_HINT");
 });
-

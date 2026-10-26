@@ -10,7 +10,7 @@
  * classifier must not fail a document that the UNKNOWN path could still handle.
  */
 
-import { generateObject, type LanguageModel } from "ai";
+import { generateText, Output, type LanguageModel } from "ai";
 import { z } from "zod/v4";
 import {
   ModelOutputError,
@@ -97,9 +97,9 @@ export class LlmClassifier implements Classifier {
         verdict = verdictSchema.parse(cached.data);
       } else {
         const started = Date.now();
-        const response = await generateObject({
+        const response = await generateText({
           model: this.options.model,
-          schema: verdictSchema,
+          output: Output.object({ schema: verdictSchema }),
           system,
           prompt,
           temperature: this.options.temperature ?? 0,
@@ -108,10 +108,10 @@ export class LlmClassifier implements Classifier {
         });
         usage = toUsage(response.usage, Date.now() - started, modelId, this.options.pricing);
         await this.options.cache?.set(key, {
-          data: response.object,
+          data: response.output,
           usage: storedUsage(response.usage),
         });
-        verdict = response.object;
+        verdict = response.output;
       }
 
       if (verdict.name === "UNKNOWN") {

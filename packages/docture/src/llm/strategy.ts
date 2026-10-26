@@ -10,14 +10,17 @@
  * ```
  *
  * No model wrapper of our own, no provider registry to keep current, and the schema
- * goes to `generateObject` in the caller's original form — Zod stays Zod, so
+ * goes to `generateText` in the caller's original form — Zod stays Zod, so
  * refinements and descriptions reach the provider intact instead of surviving a
  * round trip through JSON Schema.
  */
 
-import { generateObject, jsonSchema, type LanguageModel } from "ai";
+import { generateText, Output, jsonSchema, type LanguageModel } from "ai";
+import type { ProviderOptions } from "@ai-sdk/provider-utils";
 import {
   sumUsage,
+  mapWithConcurrency,
+  ModelOutputError,
   type ClassificationNeed,
   type CompletionStrategy,
   type ExtractionStrategy,
@@ -30,7 +33,7 @@ import { mergePartials } from "./merge.js";
 import { chunkByBudget, chunkByPage, buildPrompt, type Chunk } from "./prompt.js";
 import { toUsage, type PricingTable } from "./pricing.js";
 import { relaxJsonSchema } from "./relax.js";
-import { modelOutputError } from "./failure.js";
+import { modelOutputError, withCompletedUsage } from "./failure.js";
 import { modelIdOf, providerOf } from "./model-id.js";
 
 export interface LlmStrategyOptions {
@@ -53,8 +56,12 @@ export interface LlmStrategyOptions {
   readonly pricing?: PricingTable;
   /** Default 0 — extraction should be reproducible. */
   readonly temperature?: number;
+  /** Provider-specific request settings. Included in the response cache key. */
+  readonly providerOptions?: ProviderOptions;
   /** Passed to the AI SDK. Default 2. */
   readonly maxRetries?: number;
+  /** Requests in flight at once. Positive integer. Default 4. */
+  readonly concurrency?: number;
   readonly needsClassification?: ClassificationNeed;
 }
 
@@ -65,6 +72,9 @@ export class LlmStrategy implements ExtractionStrategy {
   readonly needsClassification: ClassificationNeed;
 
   constructor(private readonly options: LlmStrategyOptions) {
+    if (options.concurrency !== undefined && (!Number.isInteger(options.concurrency) || options.concurrency < 1)) {
+      throw new RangeError("concurrency must be a positive integer");
+    }
     this.name = options.name ?? "llm";
     // "hint" by default: a classification improves the prompt when one exists, but
     // this strategy reads an unrecognised document perfectly well without one — that
@@ -115,11 +125,10 @@ export class LlmStrategy implements ExtractionStrategy {
         : ctx.schema.flexible;
 
     const startedAt = Date.now();
-    const parts: unknown[] = [];
     const usages: Partial<Usage>[] = [];
 
-    for (const chunk of chunks) {
-      ctx.signal.throwIfAborted();
+    const parts = await mapWithConcurrency(chunks, this.options.concurrency ?? 4, async (chunk, index, signal) => {
+      signal.throwIfAborted();
 
       const { system, prompt } = buildPrompt(chunk.text, {
         ...(this.options.system === undefined ? {} : { system: this.options.system }),
@@ -132,6 +141,7 @@ export class LlmStrategy implements ExtractionStrategy {
 
       const key = cacheKey({
         provider: providerOf(this.options.model),
+        ...(this.options.providerOptions === undefined ? {} : { providerOptions: this.options.providerOptions }),
         temperature: this.options.temperature,
         modelId,
         system,
@@ -144,37 +154,36 @@ export class LlmStrategy implements ExtractionStrategy {
       const cached = await this.options.cache?.get(key);
 
       if (cached !== undefined) {
-        parts.push(cached.data);
         // A cache hit costs nothing, so it contributes tokens but no money.
-        usages.push(toUsage(cached.usage, 0));
-        continue;
+        usages[index] = toUsage(cached.usage, 0);
+        return cached.data;
       }
 
+      signal.throwIfAborted();
       const requestStarted = Date.now();
-      const response = await generateObject({
+      const response = await generateText({
         model: this.options.model,
-        schema: requestSchema,
+        output: Output.object({ schema: requestSchema }),
         system,
         prompt,
         temperature: this.options.temperature ?? 0,
         maxRetries: this.options.maxRetries ?? 2,
-        abortSignal: ctx.signal,
-      }).catch((error: unknown) => {
-        throw modelOutputError(error, {
+        abortSignal: signal,
+        ...(this.options.providerOptions === undefined ? {} : { providerOptions: this.options.providerOptions }),
+      }).then((response) => ({ output: response.output, usage: response.usage })).catch((error: unknown) => {
+        const failure = modelOutputError(error, {
           modelId,
           pricing: this.options.pricing,
           wallMs: Date.now() - startedAt,
-          completed: usages,
         });
+        if (failure instanceof ModelOutputError && failure.usage !== undefined) usages[index] = failure.usage;
+        throw failure;
       });
 
-      parts.push(response.object);
-      usages.push(
-        toUsage(response.usage, Date.now() - requestStarted, modelId, this.options.pricing),
-      );
+      usages[index] = toUsage(response.usage, Date.now() - requestStarted, modelId, this.options.pricing);
 
       await this.options.cache?.set(key, {
-        data: response.object,
+        data: response.output,
         usage: storedUsage(response.usage),
       });
 
@@ -182,7 +191,10 @@ export class LlmStrategy implements ExtractionStrategy {
         pages: chunk.pages.length,
         inputTokens: response.usage.inputTokens ?? 0,
       });
-    }
+      return response.output;
+    }, ctx.signal).catch((error: unknown) => {
+      throw withCompletedUsage(error, usages, Date.now() - startedAt, ctx.reportFailureUsage);
+    });
 
     return {
       // One chunk merges to itself, so `forbidden` pays nothing for this.

@@ -117,7 +117,14 @@ The conformance entry needs Vitest 3 or newer and PDFKit. The fixtures entry nee
 
 ## Check CLI invocations and bundle assumptions
 
-For an installed CLI, continue using `npx docture`. For a one-off run, use
+Install the CLI before using its binary:
+
+```sh
+npm install --save-dev @docture/cli
+npx docture --help
+```
+
+For a one-off run, use
 `npx --package @docture/cli docture` so npm selects the package that owns the executable. Update imports in
 `docture.config.ts` using the same mapping as application code.
 
@@ -126,3 +133,26 @@ narrow ESM imports let a production bundler remove unrelated modules. A used `LL
 can retain the implementations its methods reference. Unbundled Node dependencies are
 not pruned. See [bundling and download size](/docs/reference/packages#bundling-and-download-size)
 for the limits of tree shaking.
+
+## Update loader names and constructed records
+
+Loader entries now expose one class and one matching options type. Replace the old
+aliases and `Config` names with these canonical exports:
+
+| Entry | Removed names | Class | Options type |
+| --- | --- | --- | --- |
+| `docture/loaders/pdfjs` | `PdfJsLoader`, `PdfJsConfig`, `PdfJsLoaderOptions` | `DocumentLoaderPdfJs` | `DocumentLoaderPdfJsOptions` |
+| `docture/loaders/mupdf` | `MuPdfLoader`, `MuPdfConfig`, `MuPdfLoaderOptions` | `DocumentLoaderMuPdf` | `DocumentLoaderMuPdfOptions` |
+| `docture/loaders/tesseract` | `TesseractJsLoader`, `TesseractConfig`, `TesseractJsLoaderOptions` | `DocumentLoaderTesseract` | `DocumentLoaderTesseractOptions` |
+| `docture/loaders/paddleocr` | `PaddleOcrLoader`, `PaddleOcrConfig`, `PaddleOcrLoaderOptions` | `DocumentLoaderPaddleOcr` | `DocumentLoaderPaddleOcrOptions` |
+
+Custom code that constructs `Attempt` records must supply `stage`: `load`, `classify`,
+`extract`, `repair`, or `layout`. Keep `strategy` as the component name.
+
+Custom CLI `Io` implementations must supply `stdoutColor` separately from `color`.
+Use the stdout terminal capability for `stdoutColor` and the stderr capability for
+`color`. `NO_COLOR` and `--no-color` disable both streams.
+
+For custom OCR rasterizers, `maxPages` caps source page numbers, rather than the number
+of returned rasters. With `maxPages: 3`, a sparse response containing pages 2 and 5
+runs OCR only on page 2. Selected pages remain unique and in document order.

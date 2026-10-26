@@ -12,7 +12,7 @@ import type { LoadedDocument } from "../domain/geometry.js";
 
 export interface ExportedDocument {
   readonly content: string;
-  readonly mimeType: "text/plain" | "text/markdown" | "text/html";
+  readonly mimeType: "text/plain" | "text/markdown" | "text/html" | "application/json";
   readonly pages: readonly ConvertedPage[];
   readonly assets: readonly ConversionAsset[];
   readonly warnings: readonly ConversionWarning[];
@@ -307,7 +307,7 @@ function nonEmpty(parts: readonly string[]): string[] {
 /** Export one normalized layout without changing its source text. */
 export function exportDocument(
   document: LayoutDocument,
-  format: ConversionFormat,
+  format: Exclude<ConversionFormat, "json">,
   mode: ConversionAssetMode,
   assets: readonly ConversionAsset[],
 ): ExportedDocument {

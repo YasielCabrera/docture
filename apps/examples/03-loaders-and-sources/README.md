@@ -31,8 +31,9 @@ Which library reads your document is a real decision, so it is a real import:
 `DocumentLoaderPdfJs` or `DocumentLoaderMuPdf`. Both produce the same shape, and this
 example runs the same invoice through both.
 
-`DocumentLoaderData` is the one loader that lives in core, because it wraps no library —
-plain text, Markdown, CSV, JSON and HTML are bytes plus `TextDecoder`. It reads
+`DocumentLoaderData` lives in core and needs no optional engine. Plain text, Markdown,
+CSV, and JSON use `TextDecoder`; HTML and XHTML load syntax parsers to recover visible
+text. It reads
 `invoice-orlen`, which is a real invoice from the same corpus that ships as `.txt`.
 
 ## A gotcha this example does not hide

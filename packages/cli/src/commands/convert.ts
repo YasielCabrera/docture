@@ -26,7 +26,7 @@ import {
 } from "../output.js";
 import { buildConversionWiring } from "../wiring.js";
 
-const FORMATS = ["md", "html", "txt"] as const;
+const FORMATS = ["md", "html", "txt", "json"] as const;
 const ASSET_MODES = ["referenced", "embedded", "omit"] as const satisfies readonly ConversionAssetMode[];
 
 const FORMAT_MAP: Readonly<
@@ -35,6 +35,7 @@ const FORMAT_MAP: Readonly<
   md: { format: "markdown", extension: ".md" },
   html: { format: "html", extension: ".html" },
   txt: { format: "text", extension: ".txt" },
+  json: { format: "json", extension: ".json" },
 };
 
 function outputPaths(

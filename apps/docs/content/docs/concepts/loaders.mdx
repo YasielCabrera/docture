@@ -25,8 +25,7 @@ interface DocumentLoader {
 | `DocumentLoaderPaddleOcr` | PNG, JPEG, and PDF with a rasterizer | OCR text, geometry, confidence, images |
 
 The public subpath identifies the document library. See
-[installation recipes](/docs/guides/installation) for each adapter's engine peer. Loader aliases such as `PdfJsLoader`
-and `TesseractJsLoader` are also exported.
+[installation recipes](/docs/guides/installation) for each adapter's engine peer. Each loader exports one class name and one matching options type.
 
 ## Capabilities
 
@@ -71,3 +70,7 @@ loader fails, `LoadFailedError.attempts` contains all of their failures.
 
 See [sources and inputs](/docs/guides/sources-and-inputs) for source forms and
 [loader API pages](/docs/reference/api/loader-pdfjs) for options.
+
+PDF.js and MuPDF parse and render on the main thread in Node. MuPDF yields between
+pages, but individual engine calls still use that thread. Use a worker thread or a
+separate process to isolate CPU work from a server request loop.

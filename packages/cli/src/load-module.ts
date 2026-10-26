@@ -46,7 +46,10 @@ function importFailure(kind: string, path: string, error: unknown): UsageError {
   const message = error instanceof Error ? error.message : String(error);
 
   if (code === "ERR_MODULE_NOT_FOUND" || code === "ENOENT") {
-    return new UsageError(`Cannot find the ${kind} module "${path}".`);
+    return new UsageError(
+      `Loading the ${kind} "${path}" failed: ${message}`,
+      "Install the missing package or fix the import path in this module.",
+    );
   }
   // Node < 22.18 will not strip types; Node of any version refuses to strip inside
   // node_modules. Both surface here, and both have the same three ways out.

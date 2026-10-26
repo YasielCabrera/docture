@@ -25,13 +25,13 @@ import {
 import { describeLoaderConformance } from "docture/testing/conformance";
 import { formatMoney, makeInvoicePdf } from "docture/testing/fixtures";
 import { NapiCanvasRasterizer } from "docture/raster/canvas";
-import { PaddleOcrLoader, type PaddleOcrLoaderOptions } from "../../../src/loaders/paddleocr/index.js";
+import { DocumentLoaderPaddleOcr, type DocumentLoaderPaddleOcrOptions } from "../../../src/loaders/paddleocr/index.js";
 
 const ctx = { signal: new AbortController().signal, logger: silentLogger };
 const RUN_OCR = process.env["RUN_OCR"] === "1" || process.env["RUN_OCR"] === "true";
 
-function ocrLoader(options: PaddleOcrLoaderOptions = {}): PaddleOcrLoader {
-  return new PaddleOcrLoader({
+function ocrLoader(options: DocumentLoaderPaddleOcrOptions = {}): DocumentLoaderPaddleOcr {
+  return new DocumentLoaderPaddleOcr({
     rasterizer: new NapiCanvasRasterizer(),
     ...options,
   });
@@ -50,7 +50,7 @@ async function invoicePng(seed: number, dpi = 300): Promise<Uint8Array> {
 
 // ── Offline ─────────────────────────────────────────────────────────────────────
 
-describe("PaddleOcrLoader — what it advertises", () => {
+describe("DocumentLoaderPaddleOcr — what it advertises", () => {
   it("claims text, geometry and images", () => {
     const loader = ocrLoader();
     expect(loader.name).toBe("paddleocr");
@@ -68,22 +68,22 @@ describe("PaddleOcrLoader — what it advertises", () => {
   it("only claims PDFs when a rasterizer is wired", () => {
     // Honesty is what keeps routing working: with no way to turn a page into pixels,
     // the pipeline should pass a PDF to another loader rather than pick this one.
-    expect(new PaddleOcrLoader().capabilities.mimeTypes).toEqual(["image/png", "image/jpeg"]);
+    expect(new DocumentLoaderPaddleOcr().capabilities.mimeTypes).toEqual(["image/png", "image/jpeg"]);
     expect(ocrLoader().capabilities.mimeTypes).toContain("application/pdf");
   });
 });
 
-describe("PaddleOcrLoader — refusing work it cannot do", () => {
+describe("DocumentLoaderPaddleOcr — refusing work it cannot do", () => {
   it("explains how to fix a PDF with no rasterizer, instead of failing obscurely", async () => {
     const pdf = await makeInvoicePdf({ seed: 501 });
     await expect(
-      new PaddleOcrLoader().load({ bytes: pdf.bytes, mimeType: "application/pdf" }, ctx),
+      new DocumentLoaderPaddleOcr().load({ bytes: pdf.bytes, mimeType: "application/pdf" }, ctx),
     ).rejects.toThrow(/no rasterizer is wired/i);
   });
 
   it("rejects bytes that are not a readable image", async () => {
     await expect(
-      new PaddleOcrLoader().load(
+      new DocumentLoaderPaddleOcr().load(
         { bytes: new Uint8Array([1, 2, 3]), mimeType: "image/png" },
         ctx,
       ),
@@ -96,7 +96,7 @@ describe("PaddleOcrLoader — refusing work it cannot do", () => {
     const png = await invoicePng(502, 72);
 
     await expect(
-      new PaddleOcrLoader().load(
+      new DocumentLoaderPaddleOcr().load(
         { bytes: png, mimeType: "image/png" },
         { signal: controller.signal, logger: silentLogger },
       ),
@@ -173,14 +173,14 @@ describe("the line-grouping band", () => {
 
 if (RUN_OCR) {
   // The shared suite every loader package runs. Passing it is what makes
-  // PaddleOcrLoader interchangeable with PdfJsLoader and TesseractJsLoader rather
+  // DocumentLoaderPaddleOcr interchangeable with DocumentLoaderPdfJs and DocumentLoaderTesseract rather
   // than merely similarly shaped — the same fixtures, the same invariants.
   describeLoaderConformance({
-    name: "PaddleOcrLoader",
+    name: "DocumentLoaderPaddleOcr",
     create: () => ocrLoader(),
   });
 
-  describe("PaddleOcrLoader — OCR specifics", () => {
+  describe("DocumentLoaderPaddleOcr — OCR specifics", () => {
     it("recovers the invoice fields a schema would ask for", async () => {
       const pdf = await makeInvoicePdf({ seed: 601 });
       const loader = ocrLoader();
@@ -269,7 +269,7 @@ if (RUN_OCR) {
       const png = await invoicePng(605);
       const pdf = await makeInvoicePdf({ seed: 605 });
 
-      const loader = new PaddleOcrLoader();
+      const loader = new DocumentLoaderPaddleOcr();
       const document = await loader.load({ bytes: png, mimeType: "image/png" }, ctx);
 
       expect(document.pages).toHaveLength(1);
@@ -399,7 +399,7 @@ if (RUN_OCR) {
     });
   });
 } else {
-  describe.skip("PaddleOcrLoader — real OCR (set RUN_OCR=1 to run)", () => {
+  describe.skip("DocumentLoaderPaddleOcr — real OCR (set RUN_OCR=1 to run)", () => {
     it("runs the loader conformance suite and the OCR specifics", () => {});
   });
 }

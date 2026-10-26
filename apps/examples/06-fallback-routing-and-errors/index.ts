@@ -9,7 +9,7 @@
  *
  * Read top to bottom:
  *
- *   1. TWELVE REAL LAYOUTS, two parsers. Watch what happens to the other ten
+ *   1. ELEVEN REAL LAYOUTS, two parsers. Watch what happens to the other nine
  *   2. ORDER IS THE POLICY — and a `RoutingPolicy` when it should not be
  *   3. `only` — pin the run to one strategy
  *   4. EVERY FAILURE IS TYPED, and a `switch` over the codes is exhaustive
@@ -44,7 +44,7 @@ async function main(): Promise<void> {
 
   heading("Fallback, routing, and the typed failure contract");
 
-  // ── 1. Twelve real layouts, two parsers ───────────────────────────────────────
+  // ── 1. Eleven real layouts, two parsers ──────────────────────────────────────
 
   step("1. eleven real invoice layouts, two hand-written parsers");
 
@@ -221,6 +221,8 @@ async function main(): Promise<void> {
         return 'pages matched no classification; pass { onUnclassified: "skip" } to drop them';
       case "MISSING_ENGINE":
         return "install the optional engine the message names; the file was not read";
+      case "MISSING_COMPONENT":
+        return "supply the missing pipeline component before running";
     }
   }
 
@@ -246,6 +248,7 @@ async function main(): Promise<void> {
     ["SplitFailedError", "SPLIT_FAILED"],
     ["UnclassifiedGroupError", "UNCLASSIFIED_GROUP"],
     ["MissingEngineError", "MISSING_ENGINE"],
+    ["MissingComponentError", "MISSING_COMPONENT"],
   ] as const satisfies readonly (readonly [string, DoctureErrorCode])[];
 
   table(

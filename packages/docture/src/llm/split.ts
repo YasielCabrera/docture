@@ -17,7 +17,7 @@
  * ```
  */
 
-import { generateObject, type LanguageModel } from "ai";
+import { generateText, Output, type LanguageModel } from "ai";
 import { z } from "zod/v4";
 import {
   UNCLASSIFIED,
@@ -261,15 +261,15 @@ abstract class ModelSplitter implements Splitter {
     }
 
     const started = Date.now();
-    const result = await generateObject({
+    const result = await generateText({
       model: this.options.model,
-      schema,
+      output: Output.object({ schema }),
       system: this.system(),
       messages: [{ role: "user", content: content as never }],
       temperature: this.options.temperature ?? 0,
       maxRetries: this.options.maxRetries ?? 2,
       abortSignal: ctx.signal,
-    }).catch((error: unknown) => {
+    }).then((response) => ({ output: response.output, usage: response.usage })).catch((error: unknown) => {
       const failure = modelOutputError(error, {
         modelId: modelIdOf(this.options.model), pricing: this.options.pricing, wallMs: Date.now() - started,
       });
@@ -290,15 +290,13 @@ abstract class ModelSplitter implements Splitter {
 
     if (cache !== undefined && key !== undefined) {
       await cache.set(key, {
-        data: result.object,
+        data: result.output,
         // `LanguageModelUsage` leaves every count optional; `CachedResponse` wants
         // them present-or-absent, not present-and-undefined.
         usage: storedUsage(result.usage),
       });
     }
-    // `generateObject`'s return type widens to include the array form for a schema
-    // it cannot prove is an object. Both schemas here are objects.
-    return result.object as T;
+    return result.output;
   }
 }
 

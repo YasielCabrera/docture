@@ -1,66 +1,5 @@
-/**
- * `PaddleOcrLoader` — read a document that has no text layer, by recognizing the
- * pixels, using PaddleOCR's ONNX models through ppu-paddle-ocr.
- *
- * The library is in the class name on purpose. Swapping to Tesseract is
- * `new TesseractJsLoader()`, and the conformance suite both classes pass is what
- * makes that a guarantee rather than a hope.
- *
- * OCR needs pixels, so this loader needs a way to get them:
- *
- * ```ts
- * // A scanned PDF: hand it a rasterizer, whichever library you prefer.
- * new PaddleOcrLoader({ rasterizer: new NapiCanvasRasterizer() });
- *
- * // A photograph or a scan already in PNG/JPEG: nothing else required.
- * new PaddleOcrLoader();
- * ```
- *
- * The rasterizer is a CONSTRUCTOR argument, not something looked up at run time, so
- * "no rasterizer wired" is visible where the loader is built rather than a throw
- * partway through someone's document. Without one, `application/pdf` is absent from
- * `capabilities.mimeTypes` — so the pipeline routes PDFs to another loader instead of
- * choosing this one and then failing.
- *
- * ## Against `TesseractJsLoader`
- *
- * Both read pixels and report the same shape, so this is a real choice rather than a
- * migration. PaddleOCR is a detect-then-recognize pair of neural networks; Tesseract
- * is a line recognizer with a layout analyser in front of it. In practice PaddleOCR
- * holds up better on photographs, rotated and low-contrast scans, and non-Latin
- * scripts, and it reports REGIONS the detector found rather than words — which is
- * coarser geometry. Tesseract gives a box per word and needs no ONNX runtime.
- * Neither is a subset of the other; if the documents matter, run both through
- * `docture/eval` and let the score decide.
- *
- * ## How it gets chosen
- *
- * The pipeline picks the first loader that ACCEPTS THE MEDIA TYPE and does not throw
- * — so listing this loader after a text-layer one is not a fallback chain:
- * `PdfJsLoader` "succeeds" on a scan, with `form: "scanned"` and no text, and OCR
- * never gets a turn. Two wirings that do work:
- *
- * ```ts
- * // 1. By media type. Disjoint, so each input has exactly one loader: PDFs go to the
- * //    text layer, photographs and scans-as-images go to OCR.
- * loaders: [new PdfJsLoader(), new PaddleOcrLoader()]
- *
- * // 2. As a real fallback, by making "no text layer" a thrown error — which IS what
- * //    hands the document to the next loader.
- * const pdfjs = new PdfJsLoader();
- * const textLayerOrBust = defineLoader({
- *   name: pdfjs.name,
- *   capabilities: pdfjs.capabilities,
- *   async load(document, ctx) {
- *     const loaded = await pdfjs.load(document, ctx);
- *     if (loaded.form === "scanned") throw new Error("pdfjs: no text layer to read");
- *     return loaded;
- *   },
- * });
- * loaders: [textLayerOrBust, new PaddleOcrLoader({ rasterizer })]
- * ```
- */
-
+import { requestedPageNumbers } from "../../core/pipeline/pages.js";
+import { PageSelectionError } from "../../core/pipeline/errors.js";
 import {
   imageSize,
   inferForm,
@@ -133,7 +72,7 @@ interface RecognizedPage {
   readonly recognition: Recognition;
 }
 
-export interface PaddleOcrLoaderOptions {
+export interface DocumentLoaderPaddleOcrOptions {
   /**
    * How pages become pixels. Required to read anything that is not already a PNG or
    * JPEG — a PDF, most obviously.
@@ -148,7 +87,7 @@ export interface PaddleOcrLoaderOptions {
    * catalogue does not list:
    *
    * ```ts
-   * new PaddleOcrLoader({
+   * new DocumentLoaderPaddleOcr({
    *   model: {
    *     detection: "./models/det.onnx",
    *     recognition: "./models/rec.onnx",
@@ -166,7 +105,7 @@ export interface PaddleOcrLoaderOptions {
    * Drop regions PaddleOCR is less than this sure of, 0–1. Default 0.5, which is
    * upstream PaddleOCR's `drop_score` and this library's.
    *
-   * Worth knowing that `TesseractJsLoader` defaults to 0 instead. The difference is
+   * Worth knowing that `DocumentLoaderTesseract` defaults to 0 instead. The difference is
    * not an inconsistency: a detect-then-recognize model reports a CONFIDENT reading
    * of whatever the detector handed it, so hatch patterns, logos and barcodes come
    * back as plausible text at 0.2–0.45. Lower it to see everything the detector
@@ -238,7 +177,18 @@ export interface PaddleOcrLoaderOptions {
   readonly executionProviders?: readonly string[];
 }
 
-export class PaddleOcrLoader implements DocumentLoader<LoaderCapabilities<true, true, true>> {
+/**
+ * Recognize image or rasterized PDF text with PaddleOCR ONNX models.
+ *
+ * @remarks DocumentLoaderPaddleOcrOptions configures the model, recognition strategy, concurrency and an optional PDF rasterizer. Dispose or await using releases the engine.
+ * @throws MISSING_ENGINE when ppu-paddle-ocr or onnxruntime-node is absent; PAGE_OUT_OF_RANGE for unavailable selected pages. Recognition and rendering failures reject load.
+ * @example
+ * ```ts
+ * import { DocumentLoaderPaddleOcr } from "docture/loaders/paddleocr";
+ * const loader = new DocumentLoaderPaddleOcr();
+ * ```
+ */
+export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilities<true, true, true>> {
   readonly name = "paddleocr";
 
   /**
@@ -254,7 +204,7 @@ export class PaddleOcrLoader implements DocumentLoader<LoaderCapabilities<true, 
   /** Created on first `load()`, reused across loads, released by `dispose()`. */
   private engine: PaddleEngine | undefined;
 
-  constructor(private readonly options: PaddleOcrLoaderOptions = {}) {
+  constructor(private readonly options: DocumentLoaderPaddleOcrOptions = {}) {
     this.capabilities = {
       text: true,
       geometry: true,
@@ -274,7 +224,16 @@ export class PaddleOcrLoader implements DocumentLoader<LoaderCapabilities<true, 
       document.mimeType ?? sniffMimeType(document.bytes) ?? "application/octet-stream";
 
     const rendered = await this.render(document, mimeType, dpi, ctx);
-    const read = rendered.slice(0, this.options.maxPages ?? rendered.length);
+    const byPage = new Map(rendered.map((raster) => [raster.pageNumber, raster]));
+    const knownCount = rendered.reduce((count, raster) => Math.max(count, raster.pageNumber), 0);
+    const wanted = ctx.request?.pages === undefined
+      ? [...byPage.keys()].filter((number) => number <= (this.options.maxPages ?? Infinity)).sort((a, b) => a - b)
+      : requestedPageNumbers(knownCount, ctx.request.pages, this.options.maxPages);
+    const read = wanted.map((number) => {
+      const raster = byPage.get(number);
+      if (raster === undefined) throw new PageSelectionError([number], knownCount);
+      return raster;
+    });
     const recognized = await this.recognizeAll(read, ctx);
 
     // Rendering is memoized per page and per set of options, so asking twice costs
@@ -300,7 +259,7 @@ export class PaddleOcrLoader implements DocumentLoader<LoaderCapabilities<true, 
       form: inferForm(pages.map((p) => p.text.trim().length)),
       loader: this.name,
       meta: {
-        pageCount: rendered.length,
+        ...(ctx.request?.pages === undefined ? { pageCount: rendered.length } : {}),
         pagesRead: pages.length,
         dpi,
         // The model NAME, or "custom" — never the paths, which may be a user's
@@ -323,6 +282,10 @@ export class PaddleOcrLoader implements DocumentLoader<LoaderCapabilities<true, 
     const engine = this.engine;
     this.engine = undefined;
     await engine?.destroy();
+  }
+
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.dispose();
   }
 
   // ── Pixels in ─────────────────────────────────────────────────────────────────
@@ -364,14 +327,18 @@ export class PaddleOcrLoader implements DocumentLoader<LoaderCapabilities<true, 
     if (rasterizer === undefined) {
       throw new Error(
         `paddleocr: ${mimeType} has to be rendered before it can be recognized, and no ` +
-          `rasterizer is wired. Pass one — new PaddleOcrLoader({ rasterizer: new ` +
+          `rasterizer is wired. Pass one — new DocumentLoaderPaddleOcr({ rasterizer: new ` +
           `NapiCanvasRasterizer() }) — or hand this loader a PNG or JPEG.`,
       );
     }
 
     // PNG, always: the detector thresholds pixels, and JPEG artefacts around glyph
     // edges cost accuracy for a saving nobody here benefits from.
-    const rendered = await rasterizer.rasterize(document, { dpi, format: "png" }, ctx);
+    const rendered = await rasterizer.rasterize(document, {
+      dpi,
+      format: "png",
+      ...(ctx.request?.pages === undefined ? {} : { pages: ctx.request.pages }),
+    }, ctx);
     if (rendered.length === 0) {
       throw new Error(`paddleocr: ${rasterizer.name} rendered no pages for this document.`);
     }
@@ -460,14 +427,15 @@ export class PaddleOcrLoader implements DocumentLoader<LoaderCapabilities<true, 
       lineTolerance: this.lineTolerance(),
     });
 
+    const pageNumber = raster.pageNumber;
     return {
-      pageNumber: raster.pageNumber,
+      pageNumber,
       width: raster.widthPx * raster.scale,
       height: raster.heightPx * raster.scale,
       text: textFromLines(lines),
       lines,
       image: (options?: RasterOptions) =>
-        this.pageImage(raster, document, mimeType, dpi, options, ctx, renders),
+        this.pageImage(pageNumber, document, mimeType, dpi, options, ctx, renders),
     };
   }
 
@@ -490,7 +458,7 @@ export class PaddleOcrLoader implements DocumentLoader<LoaderCapabilities<true, 
    * wrong trade. It is re-rendered on demand and memoized instead.
    */
   private pageImage(
-    raster: RasterPage,
+    pageNumber: number,
     document: RawDocument,
     mimeType: string,
     dpi: number,
@@ -509,12 +477,12 @@ export class PaddleOcrLoader implements DocumentLoader<LoaderCapabilities<true, 
       dpi,
       format: "png",
       ...options,
-      pages: [raster.pageNumber],
+      pages: [pageNumber],
     };
     // The page number MUST be in the key: the cache is shared across every page of
     // the document, and keying on render options alone hands page 2 page 1's image.
     const key = JSON.stringify([
-      raster.pageNumber,
+      pageNumber,
       merged.dpi,
       merged.format,
       merged.quality,
@@ -529,12 +497,16 @@ export class PaddleOcrLoader implements DocumentLoader<LoaderCapabilities<true, 
           const first = rendered[0];
           if (first === undefined) {
             throw new Error(
-              `${rasterizer.name} rendered no image for page ${raster.pageNumber}.`,
+              `${rasterizer.name} rendered no image for page ${pageNumber}.`,
             );
           }
           return first.bytes;
         });
       renders.set(key, pending);
+      const stored = pending;
+      void stored.catch(() => {
+        if (renders.get(key) === stored) renders.delete(key);
+      });
     }
     return pending;
   }

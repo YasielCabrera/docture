@@ -4,20 +4,20 @@
  *
  * `await import()` at FIRST USE rather than at module import: `mupdf` runs a top-level
  * `await` that instantiates its WASM module, so a static import would make merely
- * naming `MuPdfLoader` cost the whole engine. Constructing either class must be free,
+ * naming `DocumentLoaderMuPdf` cost the whole engine. Constructing either class must be free,
  * and a pipeline that never opens a document must not pay for the engine at all.
  *
  * Unlike this repo's pdf.js packages, the types here are MuPDF's own: `mupdf` ships a
  * precise `.d.ts`, so hand-rolling a structural subset would only be a worse copy of it.
  *
  * ONE ENGINE, SHARED. `mupdf` instantiates a single WASM module at import and every
- * `Document` lives in its heap. `MuPdfLoader` and `MuPdfRasterizer` therefore share one
+ * `Document` lives in its heap. `DocumentLoaderMuPdf` and `MuPdfRasterizer` therefore share one
  * engine — which is exactly why they are one package: two packages would mean two copies
  * of a 10 MB WASM binary to read and render the same file.
  */
 
 import { silentLogger, type Logger } from "../../core/index.js";
-import { importEngine } from "../../core/engines.js";
+import { importEngine, lazyEngine } from "../../core/engines.js";
 
 /** MuPDF's module namespace. A type-only reference, so it is erased at build time. */
 export type MuPdf = typeof import("mupdf");
@@ -33,7 +33,6 @@ export type MuPdfDocument = ReturnType<MuPdf["Document"]["openDocument"]>;
 type MuPdfPage = ReturnType<MuPdfDocument["loadPage"]>;
 export type MuPdfStructuredText = ReturnType<MuPdfPage["toStructuredText"]>;
 
-let cached: Promise<MuPdf> | undefined;
 
 /**
  * Where MuPDF's own diagnostics go right now.
@@ -45,19 +44,16 @@ let cached: Promise<MuPdf> | undefined;
  */
 let sink: Logger = silentLogger;
 
-export async function loadMuPdf(): Promise<MuPdf> {
-  cached ??= (async () => {
-    const module = await importEngine("docture/loaders/mupdf", ["mupdf"], () => import("mupdf"));
-    module.setLog({
-      // MuPDF's "error" is a diagnostic about the document, not a failed call — a
-      // failed call throws. `warn` is the honest level for both.
-      error: (message) => sink.warn("mupdf reported an error", { detail: message }),
-      warning: (message) => sink.warn("mupdf reported a warning", { detail: message }),
-    });
-    return module;
-  })();
-  return cached;
-}
+export const loadMuPdf = lazyEngine(async (): Promise<MuPdf> => {
+  const module = await importEngine("docture/loaders/mupdf", ["mupdf"], () => import("mupdf"));
+  module.setLog({
+    // MuPDF's "error" is a diagnostic about the document, not a failed call — a
+    // failed call throws. `warn` is the honest level for both.
+    error: (message) => sink.warn("mupdf reported an error", { detail: message }),
+    warning: (message) => sink.warn("mupdf reported a warning", { detail: message }),
+  });
+  return module;
+});
 
 /**
  * Run `work` with MuPDF's diagnostics routed into `logger`.

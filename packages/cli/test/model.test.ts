@@ -62,26 +62,19 @@ describe("resolveModel", () => {
     expect(resolved.warning).toBeUndefined();
   });
 
-  it("warns before spending anything when neither route has a credential", async () => {
+  it("rejects the gateway when neither credential is set", async () => {
     const cwd = await tempDir("model-nokey");
 
-    const resolved = await resolveModel("openai/gpt-5", { cwd, env: {} });
-
-    expect(resolved.via).toBe("AI Gateway");
-    expect(resolved.warning).toContain("@ai-sdk/openai is not installed here");
-    expect(resolved.warning).toContain("AI_GATEWAY_API_KEY");
+    await expect(resolveModel("openai/gpt-5", { cwd, env: {} })).rejects.toThrow(/AI_GATEWAY_API_KEY/);
   });
 
-  it("warns when the provider is installed but its key is missing", async () => {
+  it("rejects a provider whose key is missing", async () => {
     const cwd = await withFakeProvider(
       "openai",
       `export function openai(id) { return { modelId: id }; }`,
     );
 
-    const resolved = await resolveModel("openai/gpt-5", { cwd, env: {} });
-
-    expect(resolved.via).toBe("@ai-sdk/openai");
-    expect(resolved.warning).toContain("OPENAI_API_KEY");
+    await expect(resolveModel("openai/gpt-5", { cwd, env: {} })).rejects.toThrow(/OPENAI_API_KEY/);
   });
 
   it("takes the gateway when told to, even with the provider right there", async () => {

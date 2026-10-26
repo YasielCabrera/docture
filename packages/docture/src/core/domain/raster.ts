@@ -3,7 +3,7 @@
  *
  * Rasterization is a SEPARATE concern from reading text. Folding it into the loader
  * would mean choosing an OCR engine also chooses how pages get rendered. Here they
- * are independent: a `MuPdfRasterizer` can feed a `TesseractJsLoader`.
+ * are independent: a `MuPdfRasterizer` can feed a `DocumentLoaderTesseract`.
  */
 
 export type RasterFormat = "png" | "jpeg";

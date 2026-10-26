@@ -1,8 +1,10 @@
 /**
  * `DocumentLoaderData` — the loader for text you already have.
  *
- * It lives in core, unlike every other loader, because it wraps no library: plain
- * text, Markdown, CSV, JSON and HTML are bytes plus `TextDecoder`. That makes
+ * It lives in core and requires no optional engine. Plain text, Markdown, CSV and
+ * JSON are decoded bytes. HTML and XHTML load pure JavaScript parsers and remove
+ * markup, head content, scripts, styles, templates, noscript and comments.
+ * Visible headings, lists and table cells retain plain-text hints. That makes
  * `docture` usable on its own for the case where the document was never a PDF,
  * and gives every test a real loader that installs nothing.
  *
@@ -40,6 +42,7 @@ const DEFAULT_TYPES = [
   "text/markdown",
   "text/csv",
   "text/html",
+  "application/xhtml+xml",
   "application/json",
   "application/xml",
   "text/xml",
@@ -66,8 +69,12 @@ export class DocumentLoaderData implements DocumentLoader<DataCapabilities> {
   }
 
   async load(document: RawDocument): Promise<LoadedDocument> {
-    const text = new TextDecoder(this.#encoding).decode(document.bytes);
-    const chunks = text.split(this.#delimiter as string);
+    const decoded = new TextDecoder(this.#encoding).decode(document.bytes);
+    const isHtml = document.mimeType === "text/html" || document.mimeType === "application/xhtml+xml";
+    const text = isHtml
+      ? (await import("./html.js")).htmlText(decoded, document.mimeType === "application/xhtml+xml" ? "xhtml" : "html")
+      : decoded;
+    const chunks = isHtml ? [text] : text.split(this.#delimiter as string);
 
     const pages: LoadedPage[] = chunks.map((chunk, index) => ({
       pageNumber: index + 1,

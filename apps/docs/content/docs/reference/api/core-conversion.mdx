@@ -32,7 +32,7 @@ convertBatch(
 ```
 
 `ConvertOptions` has `format`, `assets`, `signal`, `logger`, and `stageTimeoutMs`.
-`ConversionFormat` is `"text" | "markdown" | "html"`; Markdown is the default.
+`ConversionFormat` is `"text" | "markdown" | "html" | "json"`; Markdown is the default.
 `ConversionAssetMode` is `"referenced" | "embedded" | "omit"`; referenced is the
 default.
 
@@ -88,3 +88,21 @@ group label, and page-local order. The contract has no text property.
 
 Core validates IDs and order before applying an analysis. `LayoutAnalyzerContext` and
 `LayoutAnalysis` are public for custom analyzers.
+
+## Versioned JSON
+
+`ConversionFormat` also accepts `"json"`. Its MIME type is `application/json`.
+`DoctureDocument` has `schemaVersion: 1`, loader, method, normalized layout pages, assets,
+and final warnings. Page dimensions, element IDs, boxes, source IDs, and ordering match
+the in-process conversion result. The [version 1 JSON Schema](/schemas/docture-document-v1.schema.json)
+is generated from the TypeScript type. Breaking format changes require a new version.
+
+`DoctureDocumentAsset` contains either `{ id, mimeType, reference }` for referenced assets
+or `{ id, mimeType, data }` for embedded base64 bytes. Omitted assets produce an empty
+array. Original link targets remain data; an HTML renderer must apply its own URL policy.
+
+```ts
+const result = await converter.convert(source, { format: "json", assets: "embedded" });
+const document = JSON.parse(result.content);
+console.log(document.schemaVersion); // 1
+```

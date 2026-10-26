@@ -16,7 +16,7 @@ import {
   type ExtractionStrategy,
   type LoadedDocument,
 } from "docture";
-import { PdfJsLoader } from "docture/loaders/pdfjs";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { makeInvoicePdf } from "docture/testing/fixtures";
 import { formatFailures, formatScoreboard, recordRun, scoreExtraction } from "../../src/eval/index.js";
 
@@ -124,7 +124,7 @@ const invoiceParser: ExtractionStrategy = defineStrategy({
 
 describe("golden path — PDF in, typed data out, scored", () => {
   const extractor = createExtractor({
-    loaders: [new PdfJsLoader()],
+    loaders: [new DocumentLoaderPdfJs()],
     strategies: [invoiceParser],
   });
 

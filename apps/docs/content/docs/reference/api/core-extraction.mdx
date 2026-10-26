@@ -36,7 +36,7 @@ getter returns read-only copies of the current registrations.
 `ModelBackend` is the core interface accepted by `loadLlm()`. It provides `id` and
 `extraction()`, and may provide `vision()`, `classifier()`, `splitter()`, and `layout()`.
 `LoadLlmOptions` has `vision?: boolean` and `classify?: boolean`, both `false` by default.
-Requesting an unsupported component throws `TypeError`.
+Requesting an unsupported component throws `MissingComponentError` with code `MISSING_COMPONENT`.
 
 `DocumentExtractor` is the smaller interface used by classifications. It contains
 `extractResult()`.
@@ -93,8 +93,10 @@ caller abort failures. See the [error reference](/docs/reference/errors).
 | `usage` | `Usage` | Total model usage, cost when known, and elapsed time. |
 | `validation` | `ValidationOutcome` | Final schema validation result. It is valid on success. |
 
-`AttemptStatus` is `"ok" | "failed" | "skipped"`. An `Attempt` contains `strategy`,
-`status`, `ms`, and optional `error`, `errorCode`, and `usage`. Loader attempts use the
+`AttemptStatus` is `"ok" | "failed" | "skipped"`. An `Attempt` contains required `stage`, `strategy`, `status`, and `ms`. Its stage is
+`load`, `classify`, `extract`, `repair`, or `layout`. Optional fields are `error`,
+`errorCode`, `usage`, `rawOutput`, `finishReason`, and validation `issues`. Raw output is
+capped at 10,000 JavaScript string characters. Loader attempts use the
 historical `strategy` field for the loader name. A successful loader is represented by
 `result.loader` and is not duplicated in `attempts`.
 
@@ -141,3 +143,10 @@ dispose(): Promise<void>
 `dispose()` calls every registered disposable loader, strategy, and classifier. It is
 idempotent. All components are given a chance to dispose; one or more failures reject
 with `AggregateError`.
+
+## Bounded work
+
+`mapWithConcurrency(items, limit, fn, signal?)` runs at most `limit` tasks at once and
+returns results in input order. The callback receives the item, index, and a child
+abort signal. A first failure aborts sibling work, stops new tasks, drains active tasks,
+and rejects with that failure. The limit must be a positive integer.

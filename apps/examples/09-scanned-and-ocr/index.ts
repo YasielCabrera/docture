@@ -235,10 +235,8 @@ async function main(): Promise<void> {
      * A vision strategy needs pages it can render, so the loader is composed with a
      * rasterizer first. `pageMode` is the interesting knob:
      *
-     *   - `together` — every page in one request. The model sees the whole document and
-     *                  can resolve a total on page 3 against rows on page 1.
-     *   - `perPage`  — one request each, merged. Cheaper per request, and the only option
-     *                  when the document exceeds the model's image limit.
+     *   - `together` — groups of at most 20 pages, merged in page order.
+     *   - `perPage`  — one request per page, merged in page order.
      */
     const rows: unknown[][] = [];
     for (const pageMode of ["together", "perPage"] as const) {

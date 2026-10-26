@@ -4,6 +4,7 @@ import { extname, join, relative, resolve, sep } from "node:path";
 import ts from "typescript";
 import { z } from "zod";
 import { API_INVENTORY, type ApiEntrypointInventory } from "../api-reference.js";
+import { checkAdditionalDocs } from "./additional-docs.js";
 
 const ROOT = process.cwd();
 const DOCS_ROOT = resolve(ROOT, "content/docs");
@@ -140,7 +141,7 @@ function compareNames(packageName: string, actual: string[], listed: string[]): 
   }
 }
 
-async function checkApiCoverage(): Promise<void> {
+async function checkApiCoverage(): Promise<ts.Program> {
   const entrypoints = API_INVENTORY.map((item) => resolve(ROOT, item.entrypoint));
   const program = ts.createProgram(entrypoints, {
     target: ts.ScriptTarget.ESNext,
@@ -204,6 +205,7 @@ async function checkApiCoverage(): Promise<void> {
   for (const item of API_INVENTORY) {
     if (!exportedPaths.has(item.importPath)) fail(`API inventory contains an unsupported import path: ${item.importPath}`);
   }
+  return program;
 }
 
 async function checkPublicImports(files: readonly string[]): Promise<number> {
@@ -353,7 +355,8 @@ async function checkProse(files: readonly string[]): Promise<void> {
 }
 
 const files = await walk(DOCS_ROOT, ".mdx");
-await checkApiCoverage();
+const program = await checkApiCoverage();
+for (const failure of await checkAdditionalDocs(resolve(ROOT, "../.."), program)) fail(failure);
 const importCount = await checkPublicImports([
   ...files,
   ...await walk(resolve(ROOT, "examples"), ".ts"),

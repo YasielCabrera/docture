@@ -65,8 +65,15 @@ const extractor = new Extractor()
   .loadStrategy(parser);
 ```
 
-It accepts plain text, Markdown, CSV, HTML, JSON, and XML. It splits pages on form feed by
-default and does not provide geometry or page images.
+It accepts plain text, Markdown, CSV, HTML, XHTML, JSON, and XML. Text inputs split pages
+on form feed by default and provide neither geometry nor page images.
+
+HTML and XHTML produce one page of visible text. The loader removes markup, head
+content, scripts, styles, templates, noscript, and comments. It decodes character
+entities and preserves document order with heading markers, list markers, block line
+breaks, and tabs between table cells. HTML follows omitted-tag and textarea rules;
+XHTML preserves CDATA and self-closing tags. Syntax parsers load on the first HTML or
+XHTML call. They do not fetch resources or expand external DTD declarations.
 
 ```ts
 new DocumentLoaderData({

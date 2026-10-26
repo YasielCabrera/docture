@@ -53,6 +53,7 @@ export type AttemptStatus = "ok" | "failed" | "skipped";
  * whether it won, threw, or was skipped — so a fallback is never silent.
  */
 export interface Attempt {
+  readonly stage: "load" | "classify" | "extract" | "repair" | "layout";
   readonly strategy: string;
   readonly status: AttemptStatus;
   readonly ms: number;
@@ -61,6 +62,10 @@ export interface Attempt {
   /** The error's `code` when it was one of ours. */
   readonly errorCode?: string;
   readonly usage?: Partial<Usage>;
+  /** Model response text, truncated to the first 10,000 JavaScript characters. */
+  readonly rawOutput?: string;
+  readonly finishReason?: string;
+  readonly issues?: readonly ValidationIssue[];
 }
 
 export interface ValidationIssue {

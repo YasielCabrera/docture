@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { DocumentConverter, type ConversionResult, type DocumentElement } from "docture";
-import { PdfJsLoader } from "docture/loaders/pdfjs";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { makeRichDocumentPdf } from "docture/testing/fixtures";
-import { MuPdfLoader } from "../../../src/loaders/mupdf/index.js";
+import { DocumentLoaderMuPdf } from "../../../src/loaders/mupdf/index.js";
 
 function elementText(element: DocumentElement): string[] {
   switch (element.kind) {
@@ -58,8 +58,8 @@ describe("PDF loader conversion equivalence", () => {
       fileName: "rich.pdf",
     } as const;
     const [pdfjs, mupdf] = await Promise.all([
-      new DocumentConverter({ loaders: [new PdfJsLoader()] }).convert(raw),
-      new DocumentConverter({ loaders: [new MuPdfLoader()] }).convert(raw),
+      new DocumentConverter({ loaders: [new DocumentLoaderPdfJs()] }).convert(raw),
+      new DocumentConverter({ loaders: [new DocumentLoaderMuPdf()] }).convert(raw),
     ]);
 
     expect(pdfjs.pages).toHaveLength(2);

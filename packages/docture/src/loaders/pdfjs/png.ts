@@ -1,9 +1,10 @@
-import { deflateSync } from "node:zlib";
+import * as zlib from "node:zlib";
 import type { PdfJsImageData } from "./pdfjs.js";
 
 const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
 function crc32(bytes: Uint8Array): number {
+  if (typeof zlib.crc32 === "function") return zlib.crc32(bytes);
   let crc = 0xffffffff;
   for (const byte of bytes) {
     crc ^= byte;
@@ -84,7 +85,7 @@ export function pngFromPdfJsImage(
     Buffer.concat([
       Buffer.from(PNG_SIGNATURE),
       Buffer.from(chunk("IHDR", new Uint8Array(header))),
-      Buffer.from(chunk("IDAT", new Uint8Array(deflateSync(scanlines)))),
+      Buffer.from(chunk("IDAT", new Uint8Array(zlib.deflateSync(scanlines)))),
       Buffer.from(chunk("IEND", new Uint8Array())),
     ]),
   );

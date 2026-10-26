@@ -12,8 +12,8 @@
  *   2. Otherwise, if the provider's package resolves **from the working
  *      directory**, import it and build the model with it. Your project's provider,
  *      your project's version, your project's credentials.
- *   3. Otherwise, the gateway again — and if no gateway credential is set either,
- *      that is a warning on stderr before the first request, not a 401 after it.
+ *   3. Otherwise, the gateway again. Missing known credentials fail before loading
+ *      a document, except when a cache rerun may avoid the provider entirely.
  *
  * Which of the three happened is reported by {@link ResolvedModel.via}, and the CLI
  * prints it under `--verbose`.
@@ -25,6 +25,7 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { LanguageModel } from "ai";
 import { UsageError } from "./cli/errors.js";
+import { GATEWAY_ENV, KEY_ENV } from "./environment.js";
 
 export interface ResolvedModel {
   readonly model: LanguageModel;
@@ -100,31 +101,13 @@ async function isVisibleFromProject(cwd: string, specifier: string): Promise<boo
   }
 }
 
-/** Providers read a key from the environment; these are the usual names. */
-const KEY_ENV: Readonly<Record<string, readonly string[]>> = {
-  openai: ["OPENAI_API_KEY"],
-  anthropic: ["ANTHROPIC_API_KEY"],
-  google: ["GOOGLE_GENERATIVE_AI_API_KEY"],
-  mistral: ["MISTRAL_API_KEY"],
-  groq: ["GROQ_API_KEY"],
-  xai: ["XAI_API_KEY"],
-  deepseek: ["DEEPSEEK_API_KEY"],
-  cohere: ["COHERE_API_KEY"],
-  perplexity: ["PERPLEXITY_API_KEY"],
-  cerebras: ["CEREBRAS_API_KEY"],
-  fireworks: ["FIREWORKS_API_KEY"],
-  togetherai: ["TOGETHER_AI_API_KEY"],
-  deepinfra: ["DEEPINFRA_API_KEY"],
-  openrouter: ["OPENROUTER_API_KEY"],
-};
-
-const GATEWAY_ENV = ["AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"] as const;
-
 export interface ResolveModelOptions {
   readonly cwd: string;
   readonly env: Readonly<Record<string, string | undefined>>;
   /** Force route 1. */
   readonly gateway?: boolean;
+  /** A cache-only rerun can succeed without contacting the provider. */
+  readonly allowMissingCredential?: boolean;
 }
 
 export async function resolveModel(
@@ -150,7 +133,7 @@ export async function resolveModel(
   const modelId = trimmed.slice(slash + 1);
 
   if (options.gateway === true) {
-    return { model: trimmed, id: trimmed, via: GATEWAY, ...gatewayWarning(options.env, trimmed) };
+    return { model: trimmed, id: trimmed, via: GATEWAY, ...gatewayWarning(options, trimmed) };
   }
 
   const target = packageFor(provider);
@@ -166,11 +149,11 @@ export async function resolveModel(
       model: trimmed,
       id: trimmed,
       via: GATEWAY,
-      ...gatewayWarning(options.env, trimmed, target.package),
+      ...gatewayWarning(options, trimmed, target.package),
     };
   }
 
-  const factory = pickFactory(module, target.export);
+  let factory = pickFactory(module, target.export);
   if (factory === undefined) {
     throw new UsageError(
       `"${target.package}" is installed but exports no "${target.export}" provider.`,
@@ -178,18 +161,27 @@ export async function resolveModel(
     );
   }
 
-  const model = factory(modelId);
-  const missingKey = (KEY_ENV[provider] ?? []).filter((name) => options.env[name] === undefined);
+  const missingKey = (KEY_ENV[provider] ?? []).filter((name) => !hasCredential(options.env[name]));
   const warning =
     missingKey.length === 0
       ? undefined
       : `${missingKey.join(" / ")} is not set — ${target.package} will have no credential.`;
+  const compatibleBaseUrl = provider === "openai" && hasCredential(options.env["OPENAI_BASE_URL"]);
+  if (warning !== undefined && options.allowMissingCredential !== true && !compatibleBaseUrl) {
+    throw new UsageError(warning, `Set ${missingKey.join(" or ")} before running this command.`);
+  }
+  const createCompatible = module["createOpenAI"];
+  if (compatibleBaseUrl && missingKey.length > 0 && typeof createCompatible === "function") {
+    factory = pickFactory({ openai: createCompatible({ baseURL: options.env["OPENAI_BASE_URL"], apiKey: "" }) }, "openai");
+    if (factory === undefined) throw new UsageError(`"${target.package}" could not create an OpenAI-compatible provider.`);
+  }
+  const model = factory(modelId);
 
   return {
     model,
     id: trimmed,
     via: target.package,
-    ...(warning === undefined ? {} : { warning }),
+    ...(warning === undefined || compatibleBaseUrl ? {} : { warning }),
   };
 }
 
@@ -215,16 +207,22 @@ function pickFactory(
 }
 
 function gatewayWarning(
-  env: Readonly<Record<string, string | undefined>>,
+  options: ResolveModelOptions,
   spec: string,
   missingPackage?: string,
 ): { warning?: string } {
-  if (GATEWAY_ENV.some((name) => env[name] !== undefined)) return {};
+  if (GATEWAY_ENV.some((name) => hasCredential(options.env[name]))) return {};
   const because =
     missingPackage === undefined ? "" : ` (${missingPackage} is not installed here)`;
-  return {
-    warning:
+  const warning =
       `"${spec}" will go through the AI Gateway${because}, and neither ` +
-      `${GATEWAY_ENV.join(" nor ")} is set.`,
-  };
+      `${GATEWAY_ENV.join(" nor ")} is set.`;
+  if (options.allowMissingCredential !== true) {
+    throw new UsageError(warning, `Set ${GATEWAY_ENV.join(" or ")} before running this command.`);
+  }
+  return { warning };
+}
+
+function hasCredential(value: string | undefined): boolean {
+  return value !== undefined && value.trim().length > 0;
 }

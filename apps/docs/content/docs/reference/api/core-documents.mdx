@@ -169,3 +169,16 @@ settles both components and reports failures with `AggregateError`.
 `Logger` defines `debug`, `info`, `warn`, `error`, and `child`. `silentLogger` discards
 all messages and is the default. `consoleLogger(bindings?)` writes structured fields to
 the matching console method and returns child loggers with merged bindings.
+
+## Requested loading
+
+`LoadRequest.pages` is an optional list of original one-based page numbers. PDF loaders
+read only those pages, and OCR loaders pass the selection to rasterization before
+recognition. Numbers are deduplicated and results stay in document order. Constructor
+`maxPages` remains a cap on the original source prefix. Invalid or unavailable
+selections raise `PAGE_OUT_OF_RANGE`. A custom loader may ignore the optimization;
+the pipeline still projects and validates the selected pages.
+
+`DocumentFeatures.pageCount` describes the selected loaded pages. PDF loader metadata
+can also report the physical source count. Selected OCR loads omit that physical count
+when the rasterizer cannot provide it.

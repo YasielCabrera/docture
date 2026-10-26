@@ -1,10 +1,10 @@
 ---
 title: Convert documents
-description: Recover grounded PDF text and layout as TXT, Markdown, or HTML.
+description: Recover grounded PDF text and layout as TXT, Markdown, HTML, or versioned JSON.
 ---
 
 `DocumentConverter` turns the same loaded document used for extraction into indexable
-text, Markdown, or HTML. It does not ask for a schema and it does not paraphrase source
+text, Markdown, HTML, or versioned JSON. It does not ask for a schema and it does not paraphrase source
 text. The example writes `converted/report.md` and any referenced assets.
 
 <SourceExample file="document-conversion.ts" title="convert-document.ts" />
@@ -62,13 +62,15 @@ loader choice, cost, and recovered text visible.
 await converter.convert(source, { format: "text" });
 await converter.convert(source, { format: "markdown" });
 await converter.convert(source, { format: "html" });
+await converter.convert(source, { format: "json" });
 ```
 
 - TXT joins pages with form feeds and adds no image placeholders.
 - Markdown uses CommonMark, GFM tables, and `<!-- page: N -->` markers.
 - HTML is a complete escaped HTML5 document. Each page is a numbered `section`.
+- JSON exports the versioned `DoctureDocument` with semantic elements, provenance, and assets.
 
-All three formats read the same semantic elements. Headings, paragraphs, lists, tables,
+All four formats read the same semantic elements. Headings, paragraphs, lists, tables,
 code, figures, and page breaks retain page and bounding-box provenance.
 
 ## Assets
@@ -165,7 +167,15 @@ docture convert report.pdf -o converted/ --to html --assets embedded
 docture convert report.pdf -o converted/ --assist-layout --model openai/gpt-5
 ```
 
-It writes `<out>/<stem>.md`, `.html`, or `.txt`. Referenced assets go under
+It writes `<out>/<stem>.md`, `.html`, `.txt`, or `.json`. Referenced assets go under
 `<out>/<stem>.assets/`. Basename collisions are rejected before any document is loaded.
 In a batch, successful outputs remain on disk if another input fails, and the process
 returns exit code `1`.
+
+## Export structured JSON
+
+`format: "json"` returns a version 1 document with page dimensions, semantic elements,
+provenance, assets, and warnings. The CLI writes it with `docture convert report.pdf
+--out converted --to json`. `--format json` separately selects the command envelope.
+See the [JSON format reference](/docs/reference/api/core-conversion#versioned-json) and
+the [generated schema](/schemas/docture-document-v1.schema.json).

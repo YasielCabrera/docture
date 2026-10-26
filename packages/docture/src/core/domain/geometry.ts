@@ -126,6 +126,12 @@ export interface LoadedPage {
    * Lazy by design: a document may be 200 pages and a strategy may look at two of
    * them. Rendering the whole document up front would pay for all 200; this renders
    * what is asked for and nothing else.
+   *
+   * Returns encoded image bytes. For PNG or JPEG source images, a loader may
+   * return the original bytes unchanged and ignore format, dpi, and maxEdge.
+   * The returned encoding can therefore differ from the requested format.
+   * Consumers must identify the actual media type from the bytes. A strict
+   * image-size limit requires an explicit resize step for such inputs.
    */
   readonly image?: (opts?: RasterOptions) => Promise<Uint8Array>;
 }

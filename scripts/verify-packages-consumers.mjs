@@ -6,9 +6,9 @@ import { scoreExtraction } from "docture/eval";
 import { z } from "zod";
 
 const text = "Invoice INV-42 total=17. This text is long enough for the text extraction strategy.";
-const { PdfJsLoader } = await import("docture/loaders/pdfjs");
-assert.equal(new PdfJsLoader().capabilities.text, true);
-await assert.rejects(new PdfJsLoader().load({ bytes: new Uint8Array([1]), mimeType: "application/pdf" }, {
+const { DocumentLoaderPdfJs } = await import("docture/loaders/pdfjs");
+assert.equal(new DocumentLoaderPdfJs().capabilities.text, true);
+await assert.rejects(new DocumentLoaderPdfJs().load({ bytes: new Uint8Array([1]), mimeType: "application/pdf" }, {
   signal: new AbortController().signal,
 }), error => {
   assert.equal(error.code, "MISSING_ENGINE");
@@ -23,6 +23,16 @@ await assert.rejects(import("docture/testing/fixtures"), error => {
 });
 const schema = z.object({ invoice: z.string(), total: z.number() });
 const source = { bytes: new TextEncoder().encode(text), mimeType: "text/plain" };
+const html = await documentLoaderData().load({
+  bytes: new TextEncoder().encode("<head><title>Private</title><p>Caf&eacute; &#x80;</p><textarea><b>literal</b></textarea>"),
+  mimeType: "text/html",
+});
+assert.equal(html.text, "Café €\n<b>literal</b>");
+const xhtml = await documentLoaderData().load({
+  bytes: new TextEncoder().encode("<script/><p><![CDATA[Keep <literal> &amp;]]> &eacute;</p>"),
+  mimeType: "application/xhtml+xml",
+});
+assert.equal(xhtml.text, "Keep <literal> &amp; é");
 let received;
 const strategy = defineStrategy({
   name: "parse-invoice",
@@ -159,9 +169,9 @@ export const loaderRuntime = String.raw`
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { silentLogger, createDocumentConverter } from "docture";
-import { PdfJsLoader } from "docture/loaders/pdfjs";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { makeInvoicePdf, makeRichDocumentPdf } from "docture/testing/fixtures";
-const loader = new PdfJsLoader();
+const loader = new DocumentLoaderPdfJs();
 const context = { signal: new AbortController().signal, logger: silentLogger };
 const fixture = await makeInvoicePdf({ seed: 7, lineItemCount: 2 });
 assert.equal(new TextDecoder().decode(fixture.bytes.slice(0, 5)), "%PDF-");
@@ -180,7 +190,7 @@ const empty = await loader.load({ bytes: scan.bytes, mimeType: "application/pdf"
 assert.equal(empty.form, "scanned");
 assert.equal(empty.text.trim(), "");
 const rich = await makeRichDocumentPdf();
-const converter = createDocumentConverter({ loaders: [new PdfJsLoader()] });
+const converter = createDocumentConverter({ loaders: [new DocumentLoaderPdfJs()] });
 const converted = await converter.convert(rich.bytes, { format: "text" });
 assert.equal(converted.method, "deterministic");
 assert.ok(converted.content.includes(rich.expected.title));
@@ -192,7 +202,7 @@ await assert.rejects(loader.load(malformed, context), error => {
   assert.match(error.message, /^pdfjs could not open the document/);
   return true;
 });
-await assert.rejects(createDocumentConverter({ loaders: [new PdfJsLoader()] }).convert(malformed), error => {
+await assert.rejects(createDocumentConverter({ loaders: [new DocumentLoaderPdfJs()] }).convert(malformed), error => {
   assert.equal(error.code, "LOAD_FAILED");
   assert.match(error.message, /^Every loader failed: pdfjs \(pdfjs could not open the document/);
   return true;
@@ -202,10 +212,10 @@ console.log("selected PDF.js engine reads real generated digital and textless PD
 
 export const loaderTypes = String.raw`
 import { silentLogger, type LoadedDocument } from "docture";
-import { PdfJsLoader } from "docture/loaders/pdfjs";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { makeInvoicePdf } from "docture/testing/fixtures";
 const fixture = await makeInvoicePdf({ seed: 7 });
-const document: LoadedDocument = await new PdfJsLoader().load(
+const document: LoadedDocument = await new DocumentLoaderPdfJs().load(
   { bytes: fixture.bytes, mimeType: "application/pdf" },
   { signal: new AbortController().signal, logger: silentLogger },
 );
@@ -215,8 +225,8 @@ void text;
 
 export const conformanceTest = String.raw`
 import { describeLoaderConformance } from "docture/testing/conformance";
-import { PdfJsLoader } from "docture/loaders/pdfjs";
-describeLoaderConformance({ name: "packed PDF.js", create: () => new PdfJsLoader() });
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+describeLoaderConformance({ name: "packed PDF.js", create: () => new DocumentLoaderPdfJs() });
 `;
 
 export const bundleConsumers = {
@@ -289,10 +299,10 @@ export const missingEngineRuntime = String.raw`
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { DoctureError, LoadFailedError, MissingEngineError, createDocumentConverter, silentLogger } from "docture";
-import { PdfJsLoader } from "docture/loaders/pdfjs";
-import { MuPdfLoader, MuPdfRasterizer } from "docture/loaders/mupdf";
-import { TesseractJsLoader } from "docture/loaders/tesseract";
-import { PaddleOcrLoader } from "docture/loaders/paddleocr";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { DocumentLoaderMuPdf, MuPdfRasterizer } from "docture/loaders/mupdf";
+import { DocumentLoaderTesseract } from "docture/loaders/tesseract";
+import { DocumentLoaderPaddleOcr } from "docture/loaders/paddleocr";
 import { NapiCanvasRasterizer } from "docture/raster/canvas";
 
 const manifest = JSON.parse(await readFile("node_modules/docture/package.json", "utf8"));
@@ -301,12 +311,12 @@ const pdf = { bytes: new TextEncoder().encode("%PDF-1.7\n"), mimeType: "applicat
 const image = { bytes: png, mimeType: "image/png" };
 const context = { signal: new AbortController().signal, logger: silentLogger };
 const probes = [
-  ["docture/loaders/pdfjs", ["pdfjs-dist"], () => new PdfJsLoader().load(pdf, context)],
-  ["docture/loaders/mupdf", ["mupdf"], () => new MuPdfLoader().load(pdf, context)],
+  ["docture/loaders/pdfjs", ["pdfjs-dist"], () => new DocumentLoaderPdfJs().load(pdf, context)],
+  ["docture/loaders/mupdf", ["mupdf"], () => new DocumentLoaderMuPdf().load(pdf, context)],
   ["docture/loaders/mupdf", ["mupdf"], () => new MuPdfRasterizer().rasterize(pdf, { pages: [1] }, context)],
   ["docture/raster/canvas", ["pdfjs-dist", "@napi-rs/canvas"], () => new NapiCanvasRasterizer().rasterize(pdf, { pages: [1] }, context)],
-  ["docture/loaders/tesseract", ["tesseract.js"], () => new TesseractJsLoader().load(image, context)],
-  ["docture/loaders/paddleocr", ["ppu-paddle-ocr"], () => new PaddleOcrLoader().load(image, context)],
+  ["docture/loaders/tesseract", ["tesseract.js"], () => new DocumentLoaderTesseract().load(image, context)],
+  ["docture/loaders/paddleocr", ["ppu-paddle-ocr"], () => new DocumentLoaderPaddleOcr().load(image, context)],
 ];
 const reports = [];
 for (const [entry, engines, probe] of probes) {
@@ -321,7 +331,7 @@ for (const [entry, engines, probe] of probes) {
   assert.equal(error.cause?.code, "ERR_MODULE_NOT_FOUND");
   reports.push({ entry, engine: error.engine, range: error.range });
 }
-await assert.rejects(createDocumentConverter({ loaders: [new PdfJsLoader()] }).convert(pdf), error => {
+await assert.rejects(createDocumentConverter({ loaders: [new DocumentLoaderPdfJs()] }).convert(pdf), error => {
   assert.ok(error instanceof MissingEngineError);
   assert.equal(error instanceof LoadFailedError, false);
   assert.equal(error.engine, "pdfjs-dist");
@@ -334,10 +344,10 @@ export const paddleRuntimeWithoutOnnx = String.raw`
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { MissingEngineError, silentLogger } from "docture";
-import { PaddleOcrLoader } from "docture/loaders/paddleocr";
+import { DocumentLoaderPaddleOcr } from "docture/loaders/paddleocr";
 const manifest = JSON.parse(await readFile("node_modules/docture/package.json", "utf8"));
 const image = { bytes: new Uint8Array(Buffer.from("${pngBase64}", "base64")), mimeType: "image/png" };
-const error = await new PaddleOcrLoader().load(image, { signal: new AbortController().signal, logger: silentLogger }).then(() => undefined, failure => failure);
+const error = await new DocumentLoaderPaddleOcr().load(image, { signal: new AbortController().signal, logger: silentLogger }).then(() => undefined, failure => failure);
 assert.ok(error instanceof MissingEngineError, String(error?.stack ?? error));
 assert.equal(error.engine, "onnxruntime-node");
 assert.equal(error.range, manifest.peerDependencies["onnxruntime-node"]);
@@ -376,11 +386,11 @@ console.log(JSON.stringify({ rasterizer, pdfjs, engine: error.engine, range: err
 
 export const engineConformanceTest = String.raw`
 import { describeLoaderConformance, describeRasterizerConformance } from "docture/testing/conformance";
-import { PdfJsLoader } from "docture/loaders/pdfjs";
-import { MuPdfLoader, MuPdfRasterizer } from "docture/loaders/mupdf";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { DocumentLoaderMuPdf, MuPdfRasterizer } from "docture/loaders/mupdf";
 import { NapiCanvasRasterizer } from "docture/raster/canvas";
-describeLoaderConformance({ name: "pdfjs", create: () => new PdfJsLoader() });
-describeLoaderConformance({ name: "mupdf", create: () => new MuPdfLoader() });
+describeLoaderConformance({ name: "pdfjs", create: () => new DocumentLoaderPdfJs() });
+describeLoaderConformance({ name: "mupdf", create: () => new DocumentLoaderMuPdf() });
 describeRasterizerConformance({ name: "canvas", create: () => new NapiCanvasRasterizer() });
 describeRasterizerConformance({ name: "mupdf raster", create: () => new MuPdfRasterizer() });
 `;
@@ -389,7 +399,7 @@ export const pdfjsAdoptionRuntime = String.raw`
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createExtractor, defineStrategy, documentLoaderData, silentLogger } from "docture";
-import { PdfJsLoader } from "docture/loaders/pdfjs";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { z } from "zod";
 const schema = z.object({ text: z.string() });
 const core = createExtractor({
@@ -398,7 +408,7 @@ const core = createExtractor({
 });
 const result = await core.extract({ bytes: new TextEncoder().encode("core extraction beside an application's own PDF.js"), mimeType: "text/plain" }, schema);
 assert.deepEqual(result.data, { text: "core extraction beside an application's own PDF.js" });
-const document = await new PdfJsLoader().load({ bytes: new Uint8Array(await readFile("invoice.pdf")), mimeType: "application/pdf" }, { signal: new AbortController().signal, logger: silentLogger });
+const document = await new DocumentLoaderPdfJs().load({ bytes: new Uint8Array(await readFile("invoice.pdf")), mimeType: "application/pdf" }, { signal: new AbortController().signal, logger: silentLogger });
 assert.equal(document.form, "digital");
 assert.match(document.text, /INVOICE/);
 console.log("core extraction and the PDF.js adapter work beside the application's PDF.js version");

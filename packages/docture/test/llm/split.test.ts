@@ -1,5 +1,5 @@
 /**
- * `TextSplitter` and `ImageSplitter`, through the real `generateObject` path.
+ * `TextSplitter` and `ImageSplitter`, through the real `generateText` path.
  *
  * The interesting behaviour is not "does it call the model" — it is what happens
  * when the model answers badly, which for a splitter means a page silently

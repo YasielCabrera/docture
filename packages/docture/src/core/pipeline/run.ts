@@ -1,3 +1,5 @@
+import { selectPages } from "./pages.js";
+import { failedAttempt } from "./attempt.js";
 /**
  * The run loop: load → features → classify (only if wanted) → route → attempt.
  *
@@ -20,11 +22,12 @@ import {
   type Attempt,
   type ExtractionResult,
   type ValidationOutcome,
+  type Usage,
 } from "../domain/result.js";
 import type { Contract } from "../domain/contract.js";
 import type { Classification, Classifier } from "../contracts/classifier.js";
 import type { DocumentLoader } from "../contracts/loader.js";
-import type { ExtractionStrategy, StrategyContext } from "../contracts/strategy.js";
+import type { ExtractionStrategy, StrategyContext, StrategyOutcome } from "../contracts/strategy.js";
 import { classifyDocument, type ClassifyOptions } from "./classify.js";
 import { withDeadline } from "./deadline.js";
 import {
@@ -36,15 +39,14 @@ import {
 import {
   ContractViolationError,
   ExtractionFailedError,
-  NoEligibleStrategyError,
-  PageSelectionError,
   ModelOutputError,
+  NoEligibleStrategyError,
   TimeoutError,
   errorCodeOf,
   isAbortError,
   messageOf,
 } from "./errors.js";
-import { documentFeatures, inferForm, preloadedFeatures } from "./features.js";
+import { documentFeatures, preloadedFeatures } from "./features.js";
 import { loadDocument } from "./read.js";
 import { resolveSchema } from "./schema.js";
 import { resolveSource } from "./source.js";
@@ -154,16 +156,7 @@ function extractionHints(
   return contract === undefined || sole?.name === contract.name ? sole?.hints : undefined;
 }
 
-function failedAttempt(name: string, ms: number, error: unknown): Attempt {
-  const code = errorCodeOf(error);
-  return {
-    strategy: name,
-    status: "failed",
-    ms,
-    error: messageOf(error),
-    ...(code === undefined ? {} : { errorCode: code }),
-  };
-}
+
 
 
 /**
@@ -172,21 +165,6 @@ function failedAttempt(name: string, ms: number, error: unknown): Attempt {
  * Numbers are kept as they were in the bundle rather than renumbered from 1, so a
  * report can still say "the invoice was pages 4–6 of the scan".
  */
-function selectPages(document: LoadedDocument, pages: readonly number[]): LoadedDocument {
-  const known = new Set(document.pages.map((page) => page.pageNumber));
-  const missingPages = [...new Set(pages)].filter((number) => !known.has(number));
-  if (pages.length === 0 || missingPages.length > 0) {
-    throw new PageSelectionError(missingPages, document.pages.length);
-  }
-  const wanted = new Set(pages);
-  const kept = document.pages.filter((page) => wanted.has(page.pageNumber));
-  return {
-    ...document,
-    pages: kept,
-    text: kept.map((page) => page.text).join("\f"),
-    form: document.form === "mixed" ? inferForm(kept.map((page) => page.text.trim().length)) : document.form,
-  };
-}
 
 export async function runPipeline<T>(
   components: PipelineComponents,
@@ -219,7 +197,10 @@ export async function runPipeline<T>(
     featuresFor = (selected) => preloadedFeatures({ ...preloaded, loaded: selected });
   } else {
     const raw = await resolveSource(source, signal);
-    const loaded = await loadDocument(components.loaders, raw, logger, signal, stageTimeoutMs);
+    const loaded = await loadDocument(
+      components.loaders, raw, logger, signal, stageTimeoutMs,
+      options.pages === undefined ? undefined : { pages: options.pages },
+    );
     document = loaded.document;
     loaderName = loaded.loader.name;
     loadAttempts = loaded.attempts;
@@ -299,6 +280,8 @@ export async function runPipeline<T>(
     signal.throwIfAborted();
     const started = Date.now();
     const deadline = withDeadline(`extract:${strategy.name}`, stageTimeoutMs, signal);
+    let reportedFailureUsage: Partial<Usage> | undefined;
+    let outcome: StrategyOutcome | undefined;
     try {
       const ctx: StrategyContext = {
         document,
@@ -306,24 +289,28 @@ export async function runPipeline<T>(
         schema: resolved,
         signal: deadline.signal,
         logger: logger.child({ strategy: strategy.name }),
+        reportFailureUsage: (known) => { reportedFailureUsage = known; },
         ...(classification === undefined ? {} : { classification }),
         ...(hints === undefined ? {} : { hints }),
       };
-      const outcome = await strategy.extract(ctx);
-      usage = sumUsage([usage, outcome.usage], usage.wallMs);
+      outcome = await strategy.extract(ctx);
+      deadline.signal.throwIfAborted();
 
       const validation = await resolved.validate(outcome.data);
+      deadline.signal.throwIfAborted();
+      usage = sumUsage([usage, outcome.usage], usage.wallMs);
       if (!validation.ok) {
         const violation = new ContractViolationError(strategy.name, validation.issues);
         firstViolation ??= violation;
         attempts.push({
-          ...failedAttempt(strategy.name, Date.now() - started, violation),
+          ...failedAttempt("extract", strategy.name, Date.now() - started, violation),
           ...(outcome.usage === undefined ? {} : { usage: outcome.usage }),
         });
         continue;
       }
 
       attempts.push({
+        stage: "extract",
         strategy: strategy.name,
         status: "ok",
         ms: Date.now() - started,
@@ -344,7 +331,10 @@ export async function runPipeline<T>(
         ...(finalClassification === undefined ? {} : { classification: finalClassification }),
       };
     } catch (error) {
-      const failedUsage = error instanceof ModelOutputError ? error.usage : undefined;
+      signal.throwIfAborted();
+      const failedUsage = outcome === undefined
+        ? reportedFailureUsage ?? (error instanceof ModelOutputError ? error.usage : undefined)
+        : outcome.usage;
       const failure = deadline.expired()
         ? new TimeoutError(`extract:${strategy.name}`, stageTimeoutMs ?? 0)
         : error;
@@ -356,7 +346,7 @@ export async function runPipeline<T>(
         errorCode: errorCodeOf(failure),
       });
       attempts.push({
-        ...failedAttempt(strategy.name, Date.now() - started, failure),
+        ...failedAttempt("extract", strategy.name, Date.now() - started, failure),
         ...(failedUsage === undefined ? {} : { usage: failedUsage }),
       });
     } finally {
@@ -366,7 +356,11 @@ export async function runPipeline<T>(
 
   // Everything failed. A schema mismatch is the more actionable diagnosis, so it
   // wins over the generic "they all threw".
-  throw firstViolation ?? new ExtractionFailedError(attempts);
+  const failedUsage = { ...usage, wallMs: Date.now() - startedAt };
+  if (firstViolation !== undefined) {
+    throw new ContractViolationError(firstViolation.strategy, firstViolation.issues, { attempts, usage: failedUsage });
+  }
+  throw new ExtractionFailedError(attempts, { usage: failedUsage });
 }
 
 export { declarationOrder, silentLogger };

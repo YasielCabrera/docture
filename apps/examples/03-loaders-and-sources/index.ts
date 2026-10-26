@@ -69,8 +69,8 @@ async function main(): Promise<void> {
   step("2. a document that was never a PDF");
 
   /**
-   * `DocumentLoaderData` is the one loader that lives in core, because it wraps no
-   * library: plain text, Markdown, CSV, JSON and HTML are bytes plus `TextDecoder`.
+   * `DocumentLoaderData` needs no optional engine. Text, Markdown, CSV and JSON
+   * use TextDecoder; HTML and XHTML load syntax parsers for visible text.
    *
    * `invoice-orlen` is a real invoice from the same corpus that ships as `.txt`. No PDF
    * parser is involved in reading it — and `docture` on its own, with no loader

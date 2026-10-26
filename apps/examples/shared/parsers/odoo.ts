@@ -2,7 +2,7 @@
  * A deterministic parser for the Odoo invoice layout.
  *
  * Lifted unchanged from what used to be `src/01-invoice.ts`. It lives here rather than
- * inside an example because across fifteen examples the regex is the noise, not the
+ * inside an example because the shared regex would distract from the
  * lesson — example 05 is where a parser like this gets written and explained.
  *
  * `azure-interior-invoice`, as the text layer reports it:

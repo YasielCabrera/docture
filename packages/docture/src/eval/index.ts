@@ -12,4 +12,6 @@ export { failures, hallucinations, scoreExtraction } from "./scorer.js";
 export type { FieldResult, FieldStatus, Score, ScoreOptions } from "./scorer.js";
 
 export { aggregate, formatFailures, formatScoreboard, recordRun } from "./report.js";
-export type { Aggregate, RunRecord } from "./report.js";
+export type { Aggregate, FieldAggregate, RunRecord } from "./report.js";
+export { gate } from "./gate.js";
+export type { GateOptions, GateResult } from "./gate.js";

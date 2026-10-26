@@ -9,6 +9,7 @@
  * a test run, not like a log.
  */
 
+import { stripVTControlCharacters } from "node:util";
 import type { Attempt, ExtractionResult, Usage } from "docture";
 import type { Explained } from "./cli/errors.js";
 import type { Io, Style } from "./cli/io.js";
@@ -157,7 +158,14 @@ export function recordOf(
 }
 
 export function errorRecord(file: string, error: Explained): FailedItem {
-  return { file, ok: false, error };
+  return {
+    file, ok: false,
+    error: {
+      code: error.code,
+      message: stripVTControlCharacters(error.message),
+      ...(error.hint === undefined ? {} : { hint: stripVTControlCharacters(error.hint) }),
+    },
+  };
 }
 
 export function toJson(value: unknown): string {

@@ -9,11 +9,11 @@
  * Adding a loader for a new library means writing the adapter and adding one call:
  *
  * ```ts
- * describeLoaderConformance({ name: "MuPdfLoader", create: () => new MuPdfLoader() });
+ * describeLoaderConformance({ name: "DocumentLoaderMuPdf", create: () => new DocumentLoaderMuPdf() });
  * ```
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   loaderAccepts,
   silentLogger,
@@ -51,6 +51,12 @@ function looksLikeImage(bytes: Uint8Array): boolean {
 
 export function describeLoaderConformance(options: LoaderConformanceOptions): void {
   const ctx = { signal: new AbortController().signal, logger: silentLogger };
+  const owned = new Set<DocumentLoader>();
+  async function create(): Promise<DocumentLoader> {
+    const loader = await options.create();
+    owned.add(loader);
+    return loader;
+  }
 
   async function load(
     loader: DocumentLoader,
@@ -60,15 +66,39 @@ export function describeLoaderConformance(options: LoaderConformanceOptions): vo
   }
 
   describe(`loader conformance: ${options.name}`, () => {
+    afterEach(async () => {
+      const loaders = [...owned];
+      owned.clear();
+      await Promise.all(loaders.map((loader) => loader.dispose?.()));
+    });
+
+    it("loads distinct documents sequentially on one instance", async () => {
+      const loader = await create();
+      const first = await makeInvoicePdf({ seed: 21 });
+      const second = await makeInvoicePdf({ seed: 22 });
+      const firstResult = await load(loader, first);
+      const secondResult = await load(loader, second);
+      expect(firstResult.text).toContain(first.expected.invoiceNumber);
+      expect(secondResult.text).toContain(second.expected.invoiceNumber);
+    });
+
+    it("loads distinct documents concurrently on one instance", async () => {
+      const loader = await create();
+      const first = await makeInvoicePdf({ seed: 23 });
+      const second = await makeInvoicePdf({ seed: 24 });
+      const [firstResult, secondResult] = await Promise.all([load(loader, first), load(loader, second)]);
+      expect(firstResult.text).toContain(first.expected.invoiceNumber);
+      expect(secondResult.text).toContain(second.expected.invoiceNumber);
+    });
     it("declares itself honestly", async () => {
-      const loader = await options.create();
+      const loader = await create();
       expect(loader.name).toBeTruthy();
       expect(loader.capabilities.mimeTypes.length).toBeGreaterThan(0);
       expect(loaderAccepts(loader, "application/pdf")).toBe(true);
     });
 
     it("reads a text-layer PDF and finds its content", async () => {
-      const loader = await options.create();
+      const loader = await create();
       const pdf = await makeInvoicePdf({ seed: 11 });
 
       const document = await load(loader, pdf);
@@ -81,7 +111,7 @@ export function describeLoaderConformance(options: LoaderConformanceOptions): vo
     });
 
     it("numbers pages from 1, in order, with real dimensions", async () => {
-      const loader = await options.create();
+      const loader = await create();
       const pdf = await makeInvoicePdf({ seed: 12 });
 
       const document = await load(loader, pdf);
@@ -96,7 +126,7 @@ export function describeLoaderConformance(options: LoaderConformanceOptions): vo
     });
 
     it("keeps `text` consistent with the pages it came from", async () => {
-      const loader = await options.create();
+      const loader = await create();
       const pdf = await makeInvoicePdf({ seed: 13 });
 
       const document = await load(loader, pdf);
@@ -109,18 +139,17 @@ export function describeLoaderConformance(options: LoaderConformanceOptions): vo
       }
     });
 
-    it("reports a text PDF as digital", async () => {
-      const loader = await options.create();
-      if (!loader.capabilities.text) return;
+    it("reports a text PDF as digital", async (test) => {
+      const loader = await create();
+      if (!loader.capabilities.text) test.skip();
       const pdf = await makeInvoicePdf({ seed: 14 });
 
       const document = await load(loader, pdf);
       expect(document.form).toBe("digital");
     });
 
-    it("spans a long document across pages", async () => {
-      if (options.skip?.multiPage === true) return;
-      const loader = await options.create();
+    it.skipIf(options.skip?.multiPage === true)("spans a long document across pages", async () => {
+      const loader = await create();
       const pdf = await makeInvoicePdf({ seed: 15, lineItemCount: 45 });
 
       const document = await load(loader, pdf);
@@ -129,9 +158,8 @@ export function describeLoaderConformance(options: LoaderConformanceOptions): vo
       expect(document.pages.length).toBe(pdf.pageCount);
     });
 
-    it("handles a page with no text without throwing", async () => {
-      if (options.skip?.scanned === true) return;
-      const loader = await options.create();
+    it.skipIf(options.skip?.scanned === true)("handles a page with no text without throwing", async () => {
+      const loader = await create();
       const pdf = await makeInvoicePdf({ seed: 16, textless: true });
 
       // A loader may legitimately refuse a scan — but it must do so as a thrown
@@ -143,9 +171,9 @@ export function describeLoaderConformance(options: LoaderConformanceOptions): vo
       if (loader.capabilities.text) expect(document.form).toBe("scanned");
     });
 
-    it("produces positioned geometry inside the page box", async () => {
-      const loader = await options.create();
-      if (!loader.capabilities.geometry || options.skip?.geometry === true) return;
+    it.skipIf(options.skip?.geometry === true)("produces positioned geometry inside the page box", async (test) => {
+      const loader = await create();
+      if (!loader.capabilities.geometry) test.skip();
       const pdf = await makeInvoicePdf({ seed: 17 });
 
       const document = await load(loader, pdf);
@@ -173,9 +201,9 @@ export function describeLoaderConformance(options: LoaderConformanceOptions): vo
       }
     });
 
-    it("puts the invoice number in a line, not just in the page blob", async () => {
-      const loader = await options.create();
-      if (!loader.capabilities.geometry || options.skip?.geometry === true) return;
+    it.skipIf(options.skip?.geometry === true)("puts the invoice number in a line, not just in the page blob", async (test) => {
+      const loader = await create();
+      if (!loader.capabilities.geometry) test.skip();
       const pdf = await makeInvoicePdf({ seed: 18 });
 
       const document = await load(loader, pdf);
@@ -183,9 +211,9 @@ export function describeLoaderConformance(options: LoaderConformanceOptions): vo
       expect(lines.some((l) => l.text.includes(pdf.expected.invoiceNumber))).toBe(true);
     });
 
-    it("renders a page to an image on demand", async () => {
-      const loader = await options.create();
-      if (!loader.capabilities.images || options.skip?.images === true) return;
+    it.skipIf(options.skip?.images === true)("renders a page to an image on demand", async (test) => {
+      const loader = await create();
+      if (!loader.capabilities.images) test.skip();
       const pdf = await makeInvoicePdf({ seed: 19 });
 
       const document = await load(loader, pdf);
@@ -199,7 +227,7 @@ export function describeLoaderConformance(options: LoaderConformanceOptions): vo
     });
 
     it("rejects an already-aborted signal instead of doing the work", async () => {
-      const loader = await options.create();
+      const loader = await create();
       const pdf = await makeInvoicePdf({ seed: 20 });
       const controller = new AbortController();
       controller.abort();
@@ -213,14 +241,14 @@ export function describeLoaderConformance(options: LoaderConformanceOptions): vo
     });
 
     it("rejects bytes that are not a document of its kind", async () => {
-      const loader = await options.create();
+      const loader = await create();
       await expect(
         loader.load({ bytes: new Uint8Array([1, 2, 3, 4, 5]), mimeType: "application/pdf" }, ctx),
       ).rejects.toThrow();
     });
 
     it("can be disposed, twice, without complaint", async () => {
-      const loader = await options.create();
+      const loader = await create();
       await loader.dispose?.();
       await loader.dispose?.();
     });

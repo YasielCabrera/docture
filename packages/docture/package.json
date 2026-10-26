@@ -167,7 +167,10 @@
   },
   "dependencies": {
     "@ai-sdk/provider-utils": "5.0.20",
-    "@types/json-schema": "7.0.15"
+    "@types/json-schema": "7.0.15",
+    "entities": "8.1.0",
+    "htmlparser2": "12.0.0",
+    "parse5": "8.0.1"
   },
   "peerDependencies": {
     "ai": "^7.0.0",

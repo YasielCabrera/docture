@@ -3,7 +3,7 @@ import { z } from "zod";
 import { contract, createExtractor, withRasterizer, type Rasterizer } from "docture";
 import { inMemoryLoader, loadedDocument } from "docture/testing/doubles";
 import { makeInvoicePdf } from "docture/testing/fixtures";
-import { PdfJsLoader } from "docture/loaders/pdfjs";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { relaxJsonSchema, vision } from "../../src/llm/index.js";
 import { mockModel } from "./mock-model.js";
 
@@ -143,7 +143,7 @@ describe("VisionStrategy", () => {
       { invoiceNumber: "INV-REAL", total: 99, lineItems: [{ description: "X", amount: 99 }] },
     ]);
     const raster = stubRasterizer();
-    const loader = withRasterizer(new PdfJsLoader(), raster);
+    const loader = withRasterizer(new DocumentLoaderPdfJs(), raster);
     const pdf = await makeInvoicePdf({ seed: 501 });
 
     const result = await createExtractor({

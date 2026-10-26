@@ -36,6 +36,7 @@ import {
 } from "docture/llm";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import type { LanguageModel } from "ai";
+import { validateFactoryResult } from "./config-validation.js";
 import { CliError, UsageError } from "./cli/errors.js";
 import type { Io } from "./cli/io.js";
 import {
@@ -198,6 +199,7 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
   }
   if (supplied !== undefined) {
     const extractor = typeof supplied === "function" ? await supplied() : supplied;
+    validateFactoryResult(extractor, "extractor", config?.path ?? "<config>");
     notes.push("extractor from config — flags describing the pipeline are ignored");
     if (flags.model !== undefined) {
       warnings.push("--model is ignored: the config supplies a built extractor.");
@@ -347,6 +349,7 @@ export async function buildConversionWiring(
   const supplied = config?.config.converter;
   if (supplied !== undefined) {
     const converter = typeof supplied === "function" ? await supplied() : supplied;
+    validateFactoryResult(converter, "converter", config?.path ?? "<config>");
     notes.push("converter from config");
     if (flags.model !== undefined || flags.assistLayout === true) {
       warnings.push(
@@ -424,6 +427,7 @@ async function chooseModel(
     const resolved = await resolveModel(flags.model, {
       cwd: io.cwd,
       env: io.env,
+      allowMissingCredential: flags.cacheDir !== undefined || config?.config.cacheDir !== undefined,
       ...(flags.gateway === true ? { gateway: true } : {}),
     });
     notes.push(`model ${resolved.id} via ${resolved.via}`);
@@ -431,6 +435,17 @@ async function chooseModel(
     return resolved.model;
   }
   if (config?.config.model !== undefined) {
+    if (typeof config.config.model === "string") {
+      const resolved = await resolveModel(config.config.model, {
+        cwd: io.cwd,
+        env: io.env,
+        gateway: true,
+        allowMissingCredential: flags.cacheDir !== undefined || config.config.cacheDir !== undefined,
+      });
+      notes.push(`model ${resolved.id} from config via ${resolved.via}`);
+      if (resolved.warning !== undefined) warnings.push(resolved.warning);
+      return resolved.model;
+    }
     notes.push("model from config");
     return config.config.model;
   }

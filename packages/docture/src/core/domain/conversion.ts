@@ -10,7 +10,7 @@ import type { DocumentFeatures } from "./document.js";
 import type { DocumentMetadata, LayoutBox, LoadedAsset } from "./geometry.js";
 import type { Attempt, Usage } from "./result.js";
 
-export type ConversionFormat = "text" | "markdown" | "html";
+export type ConversionFormat = "text" | "markdown" | "html" | "json";
 export type ConversionAssetMode = "referenced" | "embedded" | "omit";
 
 export interface ElementProvenance {
@@ -100,6 +100,20 @@ export interface LayoutDocument {
   readonly metadata?: DocumentMetadata;
 }
 
+export type DoctureDocumentAsset =
+  | { readonly id: string; readonly mimeType: string; readonly reference: string; readonly data?: never }
+  | { readonly id: string; readonly mimeType: string; readonly data: string; readonly reference?: never };
+
+/** Portable conversion snapshot. Breaking shape changes require a new schema version. */
+export interface DoctureDocument {
+  readonly schemaVersion: 1;
+  readonly loader: string;
+  readonly method: string;
+  readonly pages: readonly LayoutPage[];
+  readonly assets: readonly DoctureDocumentAsset[];
+  readonly warnings: readonly ConversionWarning[];
+}
+
 export type ConversionWarningCode =
   | "LAYOUT_DEGRADED"
   | "AMBIGUOUS_READING_ORDER"
@@ -140,7 +154,7 @@ export interface ConvertOptions {
 export interface ConversionResult {
   readonly content: string;
   readonly format: ConversionFormat;
-  readonly mimeType: "text/plain" | "text/markdown" | "text/html";
+  readonly mimeType: "text/plain" | "text/markdown" | "text/html" | "application/json";
   readonly pages: readonly ConvertedPage[];
   readonly assets: readonly ConversionAsset[];
   readonly loader: string;

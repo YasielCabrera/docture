@@ -69,6 +69,29 @@ async function workspace(files: readonly string[] = ["report.pdf"], config = con
 }
 
 describe("convert", () => {
+  it.each(["referenced", "embedded", "omit"])("writes versioned JSON with %s assets", async (assets) => {
+    const cwd = await workspace();
+    const result = await cli(["convert", "report.pdf", "-o", "out", "--to", "json", "--assets", assets, "--format", "json"], { cwd });
+    expect(result.code).toBe(0);
+    const document = JSON.parse(await readFile(join(cwd, "out/report.json"), "utf8"));
+    expect(document.schemaVersion).toBe(1);
+    expect(document.loader).toBe("fake");
+    expect(document.method).toBe("deterministic");
+    expect(document.pages[0].elements[0]).toMatchObject({
+      id: "heading", kind: "heading", text: "Grounded Title",
+      provenance: { pageNumber: 1, sourceIds: ["heading"] },
+    });
+    if (assets === "referenced") {
+      expect(document.assets).toEqual([{ id: "image", mimeType: "image/png", reference: "report.assets/page-1-image-1.png" }]);
+      expect([...await readFile(join(cwd, "out/report.assets/page-1-image-1.png"))]).toEqual([1, 2, 3]);
+    } else if (assets === "embedded") {
+      expect(document.assets).toEqual([{ id: "image", mimeType: "image/png", data: "AQID" }]);
+    } else {
+      expect(document.assets).toEqual([]);
+    }
+    expect(JSON.parse(result.stdout)).toMatchObject({ version: 1, command: "convert", ok: true });
+  });
+
   it("requires an output directory", async () => {
     const cwd = await workspace();
     const run = await cli(["convert", "report.pdf"], { cwd });

@@ -78,14 +78,14 @@ back to an extractor as a `LoadedSource`. Original page numbers remain intact.
 For conversion, core uses the same source resolution and first-success loader routing.
 The loader receives optional requests for layout and asset data. Deterministic analysis
 turns the loaded blocks into semantic elements, optional validated annotations refine
-their roles and order, and the exporter produces TXT, Markdown, or HTML in memory.
+their roles and order, and the exporter produces TXT, Markdown, HTML, or versioned JSON in memory.
 
 ## Tested invariants
 
 The test suites enforce these behaviors:
 
 1. Domain and contract layers do not import higher layers.
-2. Importing `docture` does not load a document parser, OCR engine, canvas, ONNX
+2. Importing `docture` does not load a PDF parser, HTML syntax parser, OCR engine, canvas, ONNX
    Runtime, or the AI SDK runtime.
 3. Duplicate component names fail during registration.
 4. Eligibility is based on facts computed from the loaded document.

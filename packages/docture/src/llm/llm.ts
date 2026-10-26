@@ -1,24 +1,3 @@
-/**
- * `LLM` — a model, and everything it can be turned into.
- *
- * Core does not import the AI SDK runtime, so it cannot accept a
- * `LanguageModel` directly. It accepts a {@link ModelBackend} instead: something that
- * knows how to produce the strategies core already understands. This is that thing.
- *
- * ```ts
- * const extractor = new Extractor()
- *   .loadDocumentLoader(new DocumentLoaderPdfJs())
- *   .loadLlm(new LLM(openai("gpt-5")));
- *
- * // or, with everything a scanned mixed bundle needs:
- * .loadLlm(new LLM(openai("gpt-5")), { vision: true, classify: true })
- * ```
- *
- * Configure once, here, and every strategy this model produces inherits it — one
- * cache, one pricing table, one set of instructions, rather than three call sites
- * that can drift.
- */
-
 import type { LanguageModel } from "ai";
 import type {
   Classifier,
@@ -65,6 +44,17 @@ export interface LlmOptions {
   readonly splitter?: Shared<SplitterOptions> & { readonly mode?: "text" | "image" };
 }
 
+/**
+ * Build model-backed extraction, vision, classification, layout and splitting components.
+ *
+ * @remarks The model is an AI SDK LanguageModel. LlmOptions sets shared cache, pricing, temperature, retries and per-capability overrides. Used convenience methods retain their referenced capabilities.
+ * @throws MODEL_OUTPUT_FAILED when a selected capability receives invalid structured model output. Constructors do not call the provider.
+ * @example
+ * ```ts
+ * import { LLM } from "docture/llm";
+ * const backend = new LLM("openai/gpt-5", { temperature: 0 });
+ * ```
+ */
 export class LLM implements ModelBackend {
   readonly id: string;
   readonly model: LanguageModel;

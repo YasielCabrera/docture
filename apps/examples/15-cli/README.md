@@ -108,7 +108,7 @@ All five commands accept `--format json|ndjson|text`. JSON has the shape
 the other commands default to text. Each result names its file and has either
 `ok: true` plus command data or `ok: false` plus `error: { code, message, hint? }`.
 NDJSON streams those items one per line. `--full` adds extraction metadata.
-`convert --to md|html|txt` selects the written document format.
+`convert --to md|html|txt|json` selects the written document format.
 
 ## What to read next
 

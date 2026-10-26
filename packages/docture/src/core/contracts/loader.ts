@@ -6,7 +6,7 @@
  * object literal, and a real loader is whatever wraps your library of choice.
  *
  * Naming convention across this repo: one package per library, one class named
- * after that library (`PdfJsLoader`, `MuPdfLoader`, `TesseractJsLoader`). The
+ * after that library (`DocumentLoaderPdfJs`, `DocumentLoaderMuPdf`, `DocumentLoaderTesseract`). The
  * library you are depending on should be obvious from the call site.
  */
 
@@ -39,11 +39,13 @@ export interface LoaderCapabilities<
 export interface LoadContext {
   readonly signal: AbortSignal;
   readonly logger: Logger;
-  /** Optional conversion-only data. A loader may ignore fields it cannot provide. */
+  /** Optional work hints. A loader may ignore fields it cannot provide. */
   readonly request?: LoadRequest;
 }
 
 export interface LoadRequest {
+  /** Original one-based page numbers to read. The pipeline still projects ignored hints. */
+  readonly pages?: readonly number[];
   readonly layout?: boolean;
   readonly assets?: boolean;
 }
@@ -61,7 +63,7 @@ export interface DocumentLoader<C extends LoaderCapabilities = LoaderCapabilitie
  * A loader that is guaranteed AT COMPILE TIME to produce positioned geometry.
  *
  * ```ts
- * new TableStrategy({ loader: new PdfJsLoader() });     // ok — geometry: true
+ * new TableStrategy({ loader: new DocumentLoaderPdfJs() });     // ok — geometry: true
  * new TableStrategy({ loader: new PdfParseLoader() });   // Type error — geometry: false
  * ```
  */

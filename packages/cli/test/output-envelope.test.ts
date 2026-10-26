@@ -102,9 +102,7 @@ describe("uniform output contract", () => {
         }
         for (const item of items) {
           if (item.file === "bad.pdf") {
-            expect(item).toEqual({ file: "bad.pdf", ok: false, error: command === "classify"
-              ? { code: "INTERNAL", message: "broken document" }
-              : {
+            expect(item).toEqual({ file: "bad.pdf", ok: false, error: {
                 code: "LOAD_FAILED", message: "Every loader failed: fake (broken document).",
                 hint: "The file could not be read — it may be corrupt, truncated, or password-protected.",
               } });

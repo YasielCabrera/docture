@@ -61,3 +61,21 @@ formatFailures(score: Score, limit = 20): string
 `formatScoreboard()` returns a stable Markdown table and summary. `formatFailures()`
 returns a plain-text failure list and states when additional failures were omitted. Both
 functions are pure and return strings.
+
+## Field aggregates and gates
+
+`Aggregate.byField` maps normalized paths such as `items[].amount` to `FieldAggregate`.
+Each field reports match, mismatch, omission, and hallucination counts, plus precision,
+recall, and F1. Indexed paths fold together. Failed-document omissions remain part of
+the aggregate.
+
+`gate(summary, options?: GateOptions): GateResult` evaluates independent `minF1` and
+`maxCostUsd` thresholds. It returns `{ pass, reasons }`, with a reason for each failing
+threshold. Equality passes. F1 must be finite and between zero and one. Cost must be
+finite and nonnegative. Invalid thresholds throw `RangeError`. Cost includes only priced
+usage, so a cost gate requires a configured pricing table.
+
+```ts
+import { aggregate, gate } from "docture/eval";
+const verdict = gate(aggregate(records), { minF1: 0.95, maxCostUsd: 1 });
+```

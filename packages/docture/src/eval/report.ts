@@ -3,7 +3,7 @@
  */
 
 import type { Attempt, ExtractionResult, Usage } from "../core/index.js";
-import { failures, type Score } from "./scorer.js";
+import { failures, type FieldStatus, type Score } from "./scorer.js";
 
 export interface RunRecord {
   /** Document identifier — a file name, a fixture seed, anything stable. */
@@ -26,6 +26,17 @@ export interface Aggregate {
   readonly wallMs: number;
   /** How many documents each strategy answered — the fallback picture. */
   readonly byMethod: Readonly<Record<string, number>>;
+  readonly byField: Readonly<Record<string, FieldAggregate>>;
+}
+
+export interface FieldAggregate {
+  readonly match: number;
+  readonly mismatch: number;
+  readonly omission: number;
+  readonly hallucination: number;
+  readonly precision: number;
+  readonly recall: number;
+  readonly f1: number;
 }
 
 function mean(values: readonly number[]): number {
@@ -50,9 +61,16 @@ export function recordRun(
 }
 
 export function aggregate(records: readonly RunRecord[]): Aggregate {
-  const byMethod: Record<string, number> = {};
+  const byMethod = new Map<string, number>();
+  const byField = new Map<string, Record<FieldStatus, number>>();
   for (const record of records) {
-    byMethod[record.method] = (byMethod[record.method] ?? 0) + 1;
+    byMethod.set(record.method, (byMethod.get(record.method) ?? 0) + 1);
+    for (const field of record.score.fields) {
+      const path = field.path.replace(/\[\d+\]/g, "[]");
+      const counts = byField.get(path) ?? { match: 0, mismatch: 0, omission: 0, hallucination: 0 };
+      counts[field.status]++;
+      byField.set(path, counts);
+    }
   }
 
   return {
@@ -64,7 +82,15 @@ export function aggregate(records: readonly RunRecord[]): Aggregate {
     totalCostUsd: records.reduce((sum, r) => sum + (r.usage.costUsd ?? 0), 0),
     totalTokens: records.reduce((sum, r) => sum + r.usage.totalTokens, 0),
     wallMs: records.reduce((sum, r) => sum + r.usage.wallMs, 0),
-    byMethod,
+    byMethod: Object.fromEntries(byMethod),
+    byField: Object.fromEntries([...byField].map(([path, counts]) => {
+      const predicted = counts.match + counts.mismatch + counts.hallucination;
+      const relevant = counts.match + counts.mismatch + counts.omission;
+      const precision = predicted === 0 ? 1 : counts.match / predicted;
+      const recall = relevant === 0 ? 1 : counts.match / relevant;
+      const f1 = precision + recall === 0 ? 0 : 2 * precision * recall / (precision + recall);
+      return [path, { ...counts, precision, recall, f1 }];
+    })),
   };
 }
 

@@ -10,7 +10,7 @@
  *
  * ```ts
  * const extractor = createLlmExtractor({
- *   loaders: [new PdfJsLoader()],
+ *   loaders: [new DocumentLoaderPdfJs()],
  *   model: openai("gpt-5"),
  * });
  * ```

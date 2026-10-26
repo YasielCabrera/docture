@@ -81,3 +81,42 @@ returns `0.0.0` instead of throwing.
 
 See the [CLI guide](/docs/guides/cli) for commands, flags, streams, configuration files,
 and CI use.
+
+## Environment and credentials
+
+| Variable | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` | Credential for the locally installed model provider. |
+| `ANTHROPIC_API_KEY` | Credential for the locally installed model provider. |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Credential for the locally installed model provider. |
+| `MISTRAL_API_KEY` | Credential for the locally installed model provider. |
+| `GROQ_API_KEY` | Credential for the locally installed model provider. |
+| `XAI_API_KEY` | Credential for the locally installed model provider. |
+| `DEEPSEEK_API_KEY` | Credential for the locally installed model provider. |
+| `COHERE_API_KEY` | Credential for the locally installed model provider. |
+| `PERPLEXITY_API_KEY` | Credential for the locally installed model provider. |
+| `CEREBRAS_API_KEY` | Credential for the locally installed model provider. |
+| `FIREWORKS_API_KEY` | Credential for the locally installed model provider. |
+| `TOGETHER_AI_API_KEY` | Credential for the locally installed model provider. |
+| `DEEPINFRA_API_KEY` | Credential for the locally installed model provider. |
+| `OPENROUTER_API_KEY` | Credential for the locally installed model provider. |
+| `AI_GATEWAY_API_KEY` | Credential when routing through AI Gateway. |
+| `VERCEL_OIDC_TOKEN` | Alternative AI Gateway credential. |
+| `NO_COLOR` | Disable ANSI color on both streams. |
+| `OPENAI_BASE_URL` | Custom OpenAI-compatible endpoint, including keyless local endpoints. |
+
+Known provider routes and gateway model strings require credentials before document
+processing. A cache-enabled run may continue without a key to reuse cached responses.
+Configured model strings use the SDK gateway route and its credential checks. A
+configured provider instance controls its own credentials and supports keyless compatible
+endpoints. Missing dependencies name the failed import and suggest installation or a
+corrected path. Invalid config fields and unknown keys are usage errors naming the field.
+
+`Io.stdoutColor` controls stdout styling independently of diagnostic `Io.color`. Both
+honor `NO_COLOR` and `--no-color`. JSON and NDJSON error messages and hints strip terminal
+control sequences.
+
+`eval --min-f1 <number> --max-cost-usd <number>` applies the public eval gate. Failed
+thresholds exit with code 1, including when extraction itself succeeds. The output summary
+contains `passed`, `reasons`, and configured thresholds. Cost requires configured pricing;
+unpriced usage is excluded. Verbose output includes the worst normalized fields.

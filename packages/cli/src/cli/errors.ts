@@ -14,7 +14,7 @@
  * through and a different one might.
  */
 
-import { DoctureError, type DoctureErrorCode } from "docture";
+import type { DoctureError, DoctureErrorCode } from "docture";
 
 export type ExitCode = 0 | 1 | 2;
 
@@ -80,6 +80,8 @@ const HINTS: Readonly<Record<DoctureErrorCode, string>> = {
   MISSING_ENGINE:
     "The file was not read. Install the engine named above in the project that runs docture, " +
     "or remove that component from docture.config.ts.",
+  MISSING_COMPONENT:
+    "Supply the missing component in docture.config.ts before running this command.",
 };
 
 export interface Explained {
@@ -97,13 +99,27 @@ export function explain(error: unknown): Explained {
       ...(error.hint === undefined ? {} : { hint: error.hint }),
     };
   }
-  if (error instanceof DoctureError) {
+  if (hasDoctureIdentity(error)) {
     return { message: error.message, code: error.code, hint: HINTS[error.code] };
   }
   if (error instanceof Error) {
     return { code: "INTERNAL", message: error.message };
   }
   return { code: "INTERNAL", message: String(error) };
+}
+
+function hasDoctureIdentity(error: unknown): error is DoctureError {
+  if (!(error instanceof Error)) return false;
+  for (let prototype: unknown = Object.getPrototypeOf(error);
+    typeof prototype === "object" && prototype !== null;
+    prototype = Object.getPrototypeOf(prototype)) {
+    const constructor: unknown = Object.getOwnPropertyDescriptor(prototype, "constructor")?.value;
+    if (typeof constructor === "function"
+      && Object.getOwnPropertyDescriptor(constructor, "doctureErrorIdentity")?.value === "DoctureError") {
+      return true;
+    }
+  }
+  return false;
 }
 
 /** 130 is the shell's convention for "killed by SIGINT", and CI readers know it. */

@@ -1,6 +1,6 @@
 /** Constrained model assistance for deterministic document layout. */
 
-import { generateObject, type LanguageModel } from "ai";
+import { generateText, Output, type LanguageModel } from "ai";
 import { z } from "zod/v4";
 import type {
   DocumentElement,
@@ -130,15 +130,15 @@ export class LlmLayoutAnalyzer implements LayoutAnalyzer {
     }
 
     const started = Date.now();
-    const response = await generateObject({
+    const response = await generateText({
       model: this.options.model,
-      schema: analysisSchema,
+      output: Output.object({ schema: analysisSchema }),
       system,
       prompt,
       temperature: this.options.temperature ?? 0,
       maxRetries: this.options.maxRetries ?? 2,
       abortSignal: ctx.signal,
-    }).catch((error: unknown) => {
+    }).then((response) => ({ output: response.output, usage: response.usage })).catch((error: unknown) => {
       throw modelOutputError(error, {
         modelId, pricing: this.options.pricing, wallMs: Date.now() - started,
       });
@@ -151,11 +151,11 @@ export class LlmLayoutAnalyzer implements LayoutAnalyzer {
     );
     if (key !== undefined) {
       await this.options.cache?.set(key, {
-        data: response.object,
+        data: response.output,
         usage: storedUsage(response.usage),
       });
     }
-    return { annotations: annotationsOf(response.object.annotations), usage };
+    return { annotations: annotationsOf(response.output.annotations), usage };
   }
 }
 

@@ -59,7 +59,7 @@ function importsOf(source: string): string[] {
   return specifiers;
 }
 
-describe("core pulls no document library", () => {
+describe("core isolates optional document engines", () => {
   const banned = [
     "pdfjs-dist",
     "mupdf",
@@ -80,7 +80,7 @@ describe("core pulls no document library", () => {
     ) as { dependencies?: Record<string, string> };
     const declared = Object.keys(manifest.dependencies ?? {});
 
-    expect(declared).toEqual(["@ai-sdk/provider-utils", "@types/json-schema"]);
+    expect(declared).toEqual(["@ai-sdk/provider-utils", "@types/json-schema", "entities", "htmlparser2", "parse5"]);
     for (const name of banned) expect(declared).not.toContain(name);
   });
 
@@ -96,7 +96,7 @@ describe("core pulls no document library", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("imports only node: builtins and the schema helper", async () => {
+  it("keeps syntax parser imports inside the HTML loader boundary", async () => {
     const allowed = new Set(["@ai-sdk/provider-utils"]);
     const offenders: string[] = [];
 
@@ -104,6 +104,7 @@ describe("core pulls no document library", () => {
       for (const specifier of importsOf(await readFile(file, "utf8"))) {
         const isRelative = specifier.startsWith(".");
         const isNodeBuiltin = specifier.startsWith("node:");
+        if (relative(srcDir, file) === "loaders/html.ts" && ["entities", "htmlparser2", "parse5"].includes(specifier)) continue;
         if (isRelative || isNodeBuiltin || allowed.has(specifier)) continue;
         offenders.push(`${relative(srcDir, file)} imports ${specifier}`);
       }
@@ -170,6 +171,9 @@ describe("the public API is an exact list", () => {
     "DocumentConverter",
     "createDocumentConverter",
     "Process",
+    "mapWithConcurrency",
+    "MissingComponentError",
+    "isDoctureError",
     // contracts (named schemas)
     "contract",
     "contractName",

@@ -17,6 +17,7 @@ napiCanvasRasterizer(options?: NapiCanvasRasterizerOptions): Rasterizer
 
 Both forms create a rasterizer named `napi-canvas` that supports PNG and JPEG.
 
+{/* options: NapiCanvasRasterizerOptions */}
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `dpi` | `300` | Render resolution. |
@@ -26,8 +27,8 @@ Both forms create a rasterizer named `napi-canvas` that supports PNG and JPEG.
 | `password` | none | Password for an encrypted PDF. |
 
 Per-call `RasterOptions` override DPI, format, quality, maximum edge, and selected pages.
-The returned `RasterPage` values preserve requested order and report actual pixel
-dimensions and scale.
+The returned `RasterPage` values contain unique selected pages in document order and
+report actual pixel dimensions and scale.
 
 PDF.js and the canvas binding load on the first render. Pages are drawn on canvases from
 the `@napi-rs/canvas` that PDF.js loads, so rendering still works when a package manager

@@ -14,6 +14,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { RawUsage } from "./pricing.js";
+import type { ProviderOptions } from "@ai-sdk/provider-utils";
 
 /**
  * What goes into one user message.
@@ -69,6 +70,7 @@ export interface LlmCache {
 
 export interface CacheKeyParts {
   readonly provider: string;
+  readonly providerOptions?: ProviderOptions;
   readonly modelId: string;
   readonly temperature: number | undefined;
   readonly system: string;
@@ -93,6 +95,13 @@ export function cacheKey(parts: CacheKeyParts): string {
   hash.update(JSON.stringify(parts.jsonSchema));
   hash.update("\0");
   hash.update(parts.variant ?? "");
+  if (parts.providerOptions !== undefined && Object.keys(parts.providerOptions).length > 0) {
+    hash.update("\0providerOptions\0");
+    hash.update(JSON.stringify(parts.providerOptions, (_key, value: unknown) =>
+      typeof value === "object" && value !== null && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
+        : value));
+  }
   return hash.digest("hex");
 }
 

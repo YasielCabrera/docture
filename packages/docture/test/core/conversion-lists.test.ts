@@ -1,39 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { DocumentConverter, type LoadedDocument, type TextLayoutBlock } from "../../src/core/index.js";
 
-function block(text: string, y: number, role?: TextLayoutBlock["role"]): TextLayoutBlock {
-  return {
-    id: `block-${y}`,
-    kind: "text",
-    x: 20,
-    y,
-    width: 200,
-    height: 12,
-    ...(role === undefined ? {} : { role }),
-    ...(role === "heading" ? { level: 1 } : {}),
-    lines: [{
-      text,
-      y,
-      height: 12,
-      spans: [{ text, x: 20, y, width: 200, height: 12 }],
-    }],
-  };
-}
-
-function document(blocks: readonly TextLayoutBlock[]): LoadedDocument {
-  const text = blocks.flatMap((item) => item.lines.map((line) => line.text)).join("\n");
-  return {
-    loader: "tagged-list-fixture",
-    form: "digital",
-    text,
-    pages: [{ pageNumber: 1, width: 600, height: 800, text, blocks }],
-  };
-}
+import { block, listDocument } from "./conversion-fixtures.js";
 
 describe("unmarked tagged list boundaries", () => {
   it("keeps two paragraphs and a heading after an unmarked list item", async () => {
     const result = await new DocumentConverter().convert({
-      loaded: document([
+      loaded: listDocument([
         block("First", 20, "list-item"),
         block("Para A", 50),
         block("Para B", 80),
@@ -56,7 +29,7 @@ describe("unmarked tagged list boundaries", () => {
 
   it("groups consecutive unmarked list items before the next paragraph", async () => {
     const result = await new DocumentConverter().convert({
-      loaded: document([
+      loaded: listDocument([
         block("First", 20, "list-item"),
         block("Second", 50, "list-item"),
         block("After the list", 80),

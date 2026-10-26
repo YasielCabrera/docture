@@ -30,15 +30,16 @@ try {
 | `LOAD_FAILED` | `LoadFailedError` | `attempts` | Every eligible loader failed. Inspect its loader attempts for corrupt, encrypted, or unsupported input. |
 | `NO_CONVERTIBLE_CONTENT` | `NoConvertibleContentError` | `features` | The selected loader returned no indexable text. Configure an OCR loader explicitly for a scan. |
 | `NO_ELIGIBLE_STRATEGY` | `NoEligibleStrategyError` | `features`, `gaps` | The document loaded, but no requested strategy satisfies its runtime requirements. Add a suitable strategy or rasterizer. |
-| `EXTRACTION_FAILED` | `ExtractionFailedError` | `attempts` | Every eligible strategy failed. The attempts contain each strategy error and code. |
+| `EXTRACTION_FAILED` | `ExtractionFailedError` | `attempts`, `usage` when reported | Every eligible strategy failed. The attempts contain each strategy error and code. |
 | `PAGE_OUT_OF_RANGE` | `PageSelectionError` | `missingPages`, `pageCount` | The page selection is empty or names pages absent from the document. Select existing 1-based pages. |
-| `MODEL_OUTPUT_FAILED` | `ModelOutputError` | `usage` when reported, `cause` | A billed model response failed its requested schema. Inspect the schema and instructions. Failed extraction attempts retain the call's usage. |
-| `CONTRACT_VIOLATION` | `ContractViolationError` | `strategy`, `issues` | Strategy output did not pass the requested schema. Adjust the schema, parser, or prompt. |
+| `MODEL_OUTPUT_FAILED` | `ModelOutputError` | `usage`, `rawOutput`, `finishReason`, `issues` when reported, `cause` | A billed model response failed its requested schema. Inspect the schema and instructions. Failed extraction attempts retain the call's usage. |
+| `CONTRACT_VIOLATION` | `ContractViolationError` | `strategy`, `issues`, `attempts`, `usage` when reported | Strategy output did not pass the requested schema. Adjust the schema, parser, or prompt. |
 | `UNSUPPORTED_SOURCE` | `UnsupportedSourceError` | `cause` when supplied | The source uses an unsupported protocol, an HTTP request failed, the input is empty, or a loaded source was passed to `resolveSource()`. |
 | `TIMEOUT` | `TimeoutError` | `stage`, `ms` | A library-owned stage deadline elapsed. A later loader or strategy may still run. |
 | `DUPLICATE_COMPONENT` | `DuplicateComponentError` | no additional public fields | Two registered components share a name. Rename or remove one component. |
 | `SPLIT_FAILED` | `SplitFailedError` | `reason`, `gaps` | Splitting was not configured or the splitter requirements were not met. |
 | `UNCLASSIFIED_GROUP` | `UnclassifiedGroupError` | `pages`, `classification`, `candidates` | A split group did not match the allowed kinds. Add the kind or handle it explicitly. |
+| `MISSING_COMPONENT` | `MissingComponentError` | `message` | Required wiring or call state is missing. Configure the named component or call loadFile first. |
 | `MISSING_ENGINE` | `MissingEngineError` | `engine`, `range`, `entry`, `cause` | An integration's optional peer is not installed, so no file was read. Install `engine` at a version in `range` beside `docture`. |
 
 ## Constructors
@@ -49,10 +50,15 @@ new NoEligibleLoaderError(mimeType: string, gaps: readonly Ineligibility[])
 new LoadFailedError(attempts: readonly Attempt[])
 new NoConvertibleContentError(features: DocumentFeatures)
 new NoEligibleStrategyError(features: DocumentFeatures, gaps: readonly Ineligibility[])
-new ExtractionFailedError(attempts: readonly Attempt[])
+new ExtractionFailedError(attempts: readonly Attempt[], options?: { usage?: Usage })
 new PageSelectionError(missingPages: readonly number[], pageCount: number)
-new ModelOutputError(message: string, options?: { cause?: unknown; usage?: Partial<Usage> })
-new ContractViolationError(strategy: string, issues: readonly ValidationIssue[])
+new ModelOutputError(message: string, options?: {
+  cause?: unknown; usage?: Partial<Usage>; rawOutput?: string;
+  finishReason?: string; issues?: readonly ValidationIssue[];
+})
+new ContractViolationError(strategy: string, issues: readonly ValidationIssue[], options?: {
+  attempts?: readonly Attempt[]; usage?: Usage;
+})
 new UnsupportedSourceError(message: string, options?: { cause?: unknown })
 new TimeoutError(stage: string, ms: number)
 new DuplicateComponentError(kind: string, name: string)
@@ -62,6 +68,7 @@ new UnclassifiedGroupError(
   classification: string,
   candidates: readonly string[],
 )
+new MissingComponentError(message: string)
 new MissingEngineError(engine: string, range: string, entry: string, options?: { cause?: unknown })
 ```
 
@@ -111,11 +118,15 @@ try {
 }
 ```
 
-An `Attempt` has `strategy`, `status`, elapsed `ms`, and optional `error`, `errorCode`,
-and `usage`. The field is named `strategy` for both pipeline stages for compatibility. On
-a loader attempt, it contains the loader name. `ExtractionFailedError.attempts` contains
-strategy attempts only. `ContractViolationError` exposes the first invalid strategy and
-its issues, not the full attempt history.
+An `Attempt` has required `stage`, `strategy`, `status`, and elapsed `ms`. Optional
+fields include `error`, `errorCode`, `usage`, `rawOutput`, `finishReason`, and `issues`.
+`stage` is `load`, `classify`, `extract`, `repair`, or `layout`; `strategy` is the component
+name. Model `rawOutput` keeps at most 10,000 JavaScript characters.
+
+`ExtractionFailedError.attempts` contains strategy attempts. A final
+`ContractViolationError` identifies the first invalid strategy and retains the full
+strategy attempt history. Both exhausted errors carry total known usage, including
+classification and unsuccessful strategies, so eval cost gates include paid failures.
 
 A strategy that returns invalid data records a failed strategy attempt. Core continues
 to the next strategy. If no strategy succeeds, the first validation failure is raised as
@@ -125,13 +136,16 @@ to the next strategy. If no strategy succeeds, the first validation failure is r
 ## Abort and timeout behavior
 
 A caller abort is not wrapped in `DoctureError`. It propagates and stops fallback. This
-includes an `AbortError` and a caller-provided `AbortSignal.timeout()` error.
+includes an `AbortError`, a caller-provided `AbortSignal.timeout()` error, and any
+custom reason passed to `AbortController.abort(reason)`. The pipeline preserves the
+reason even when a component returns a value after cancellation.
 
 A `TimeoutError` is created by `stageTimeoutMs`. Loader and strategy deadlines record a
 failed attempt and allow fallback. A classifier deadline is recorded as an abstaining
 signal so the remaining classifiers can run.
 
-Use `isAbortError(error)` to recognize caller aborts. Use `errorCodeOf(error)` to read a
+`isAbortError(error)` recognizes standard abort and timeout errors. For a custom abort
+reason, inspect the caller signal's `aborted` state and `reason`. Use `errorCodeOf(error)` to read a
 Docture code without an `instanceof` chain. `messageOf(error)` returns an error message
 or converts a non-error value to text.
 
@@ -160,3 +174,14 @@ the full batch.
 
 For split groups, `Process.extract({ onUnclassified: "skip" })` drops unknown groups. The
 default is `"throw"` because dropping pages changes the result set.
+
+## Structured errors
+
+`isDoctureError(value)` narrows unknown values through docture error identity, including
+errors from another installed copy. Matching never relies on a class name or code alone.
+`DoctureError.toJSON()` returns `{ code, message, hint? }`; payload fields and causes stay
+on the in-process error. `MissingComponentError` reports missing wiring and call order
+with `MISSING_COMPONENT`.
+
+Model errors and attempts can retain `rawOutput`, `finishReason`, and validation `issues`.
+Raw output is capped at 10,000 JavaScript string characters.

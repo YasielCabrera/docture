@@ -12,21 +12,16 @@ import { explain, exitCodeOf, UsageError, type ExitCode } from "./cli/errors.js"
 import { commandHelp, topLevelHelp } from "./cli/help.js";
 import { styleFor, type Io } from "./cli/io.js";
 import { COMMANDS, findCommand } from "./cli/specs.js";
-import { classifyCommand } from "./commands/classify.js";
-import { convertCommand } from "./commands/convert.js";
-import { evalCommand } from "./commands/eval.js";
-import { extractCommand } from "./commands/extract.js";
-import { inspectCommand } from "./commands/inspect.js";
 import { version } from "./version.js";
 
 type Handler = (parsed: Parsed, io: Io, signal: AbortSignal) => Promise<ExitCode>;
 
-const HANDLERS: Readonly<Record<string, Handler>> = {
-  extract: extractCommand,
-  convert: convertCommand,
-  classify: classifyCommand,
-  inspect: inspectCommand,
-  eval: evalCommand,
+const HANDLERS: Readonly<Record<string, () => Promise<Handler>>> = {
+  extract: async () => (await import("./commands/extract.js")).extractCommand,
+  convert: async () => (await import("./commands/convert.js")).convertCommand,
+  classify: async () => (await import("./commands/classify.js")).classifyCommand,
+  inspect: async () => (await import("./commands/inspect.js")).inspectCommand,
+  eval: async () => (await import("./commands/eval.js")).evalCommand,
 };
 
 function suggestCommand(name: string): string | undefined {
@@ -40,15 +35,23 @@ export interface RunOptions {
 }
 
 export async function run(argv: readonly string[], options: RunOptions): Promise<ExitCode> {
-  const { io } = options;
+  const supplied = options.io;
+  const io: Io = {
+    cwd: supplied.cwd,
+    env: supplied.env,
+    write: (chunk) => supplied.write(chunk),
+    diagnostic: (chunk) => supplied.diagnostic(chunk),
+    color: supplied.color && supplied.env["NO_COLOR"] === undefined,
+    stdoutColor: supplied.stdoutColor && supplied.env["NO_COLOR"] === undefined,
+  };
   const signal = options.signal ?? new AbortController().signal;
-  const color = io.color && !argv.includes("--no-color");
-  const style = styleFor(color);
+  const color = io.color && !argv.includes("--no-color") && io.env["NO_COLOR"] === undefined;
+  const stdoutStyle = styleFor(io.stdoutColor && !argv.includes("--no-color") && io.env["NO_COLOR"] === undefined);
 
   const [first, ...rest] = argv;
 
   if (first === undefined || first === "--help" || first === "-h") {
-    io.write(topLevelHelp(style, version()));
+    io.write(topLevelHelp(stdoutStyle, version()));
     return 0;
   }
   if (first === "--version" || first === "-V") {
@@ -58,7 +61,7 @@ export async function run(argv: readonly string[], options: RunOptions): Promise
   // `docture help extract` is the same request as `docture extract --help`.
   if (first === "help") {
     const target = rest[0] === undefined ? undefined : findCommand(rest[0]);
-    io.write(target === undefined ? topLevelHelp(style, version()) : commandHelp(target, style));
+    io.write(target === undefined ? topLevelHelp(stdoutStyle, version()) : commandHelp(target, stdoutStyle));
     return 0;
   }
 
@@ -82,12 +85,12 @@ export async function run(argv: readonly string[], options: RunOptions): Promise
   try {
     const parsed = parseCommand(spec, rest);
     if (boolFlag(parsed, "help")) {
-      io.write(commandHelp(spec, styleFor(io.color && !boolFlag(parsed, "no-color"))));
+      io.write(commandHelp(spec, stdoutStyle));
       return 0;
     }
     const handler = HANDLERS[spec.name];
     if (handler === undefined) throw new UsageError(`"${spec.name}" is not implemented.`);
-    return await handler(parsed, io, signal);
+    return await (await handler())(parsed, io, signal);
   } catch (error) {
     return report(error, io, color);
   }

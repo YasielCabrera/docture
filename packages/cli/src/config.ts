@@ -8,13 +8,13 @@
  *
  * ```ts
  * import { defineConfig } from "@docture/cli";
- * import { PdfJsLoader } from "docture/loaders/pdfjs";
+ * import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
  * import { llm } from "docture/llm";
  * import { openai } from "@ai-sdk/openai";
  * import { Invoice } from "./schemas/invoice.js";
  *
  * export default defineConfig({
- *   loaders: [new PdfJsLoader()],
+ *   loaders: [new DocumentLoaderPdfJs()],
  *   strategies: [llm({ model: openai("gpt-5") })],
  *   schema: Invoice,
  * });
@@ -42,6 +42,7 @@ import type { PricingTable } from "docture/llm";
 import type { LanguageModel } from "ai";
 import { UsageError } from "./cli/errors.js";
 import { loadExport } from "./load-module.js";
+import { parseConfig } from "./config-validation.js";
 
 /**
  * The extractor methods the CLI calls.
@@ -155,20 +156,13 @@ export async function resolveConfig(
 
   if (path === undefined) return undefined;
 
-  const loaded = await loadExport<DoctureConfig>(path, {
+  const loaded = await loadExport<unknown>(path, {
     kind: "config",
     cwd: options.cwd,
     names: ["config"],
   });
 
-  if (typeof loaded.value !== "object" || loaded.value === null) {
-    throw new UsageError(
-      `"${loaded.from}" must export a config object, got ${typeof loaded.value}.`,
-      "Wrap it in `defineConfig({ … })`.",
-    );
-  }
-
-  return { config: loaded.value, path: loaded.from };
+  return { config: parseConfig(loaded.value, loaded.from), path: loaded.from };
 }
 
 /** Resolve a path from a config against the config's own directory, not the cwd. */

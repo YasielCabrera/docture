@@ -294,6 +294,7 @@ describe("direct Contract guidance", () => {
     try {
       const messages: string[] = [];
       const deadlines: ({ stage: string; ms: number } | null)[] = [];
+      const selected: unknown[] = [];
       const logger: Logger = {
         ...silentLogger,
         info(message) { messages.push(message); },
@@ -310,6 +311,7 @@ describe("direct Contract guidance", () => {
           defineStrategy({
             name: "recorder", needsClassification: "hint",
             async extract(ctx) {
+              selected.push({ text: ctx.document.text, classification: ctx.classification });
               await new Promise<void>((resolve) => setTimeout(resolve, 20));
               const reason: unknown = ctx.signal.reason;
               deadlines.push(reason instanceof TimeoutError ? { stage: reason.stage, ms: reason.ms } : null);
@@ -322,13 +324,17 @@ describe("direct Contract guidance", () => {
       const options = new GetterOptions({
         ...selectionOptions(), stageTimeoutMs: 10, classify: { threshold: 0.9 }, logger,
       });
-      const pending = extractor.extract(BYTES, hintedInvoice, options);
+      const pending = extractor.safeExtract(BYTES, hintedInvoice, options);
       await vi.advanceTimersByTimeAsync(20);
-      const result = await pending;
-      expect(result.data).toEqual({ invoiceNumber: "page two" });
-      expect(result.method).toBe("recorder");
-      expect(result.classification).toMatchObject({ name: "UNKNOWN", confidence: 0 });
-      expect(result.classification?.signals).toEqual([{ classifier: "fixed", name: "invoice", confidence: 0.8 }]);
+      const outcome = await pending;
+      expect(outcome.ok).toBe(false);
+      if (!outcome.ok) expect(outcome.error).toMatchObject({
+        code: "EXTRACTION_FAILED", attempts: [{ strategy: "recorder", errorCode: "TIMEOUT" }],
+      });
+      expect(selected).toEqual([{ text: "page two", classification: {
+        name: "UNKNOWN", confidence: 0,
+        signals: [{ classifier: "fixed", name: "invoice", confidence: 0.8 }],
+      } }]);
       expect(messages).toEqual(["selected strategy"]);
       expect(deadlines).toEqual([{ stage: "extract:recorder", ms: 10 }]);
     } finally {

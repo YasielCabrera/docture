@@ -2,13 +2,13 @@
  * Composing a loader with a rasterizer.
  *
  * This is the seam that keeps "which library reads text" and "which library renders
- * pages" independent while still letting a strategy demand both. `PdfJsLoader` does
+ * pages" independent while still letting a strategy demand both. `DocumentLoaderPdfJs` does
  * not render; `MuPdfRasterizer` does not read; together they are a loader that does
  * both — and the RETURN TYPE says so, so an image-requiring strategy accepts the
  * composition and rejects the bare loader.
  *
  * ```ts
- * const loader = withRasterizer(new PdfJsLoader(), new MuPdfRasterizer({ dpi: 300 }));
+ * const loader = withRasterizer(new DocumentLoaderPdfJs(), new MuPdfRasterizer({ dpi: 300 }));
  * //    ^? DocumentLoader<LoaderCapabilities<true, true, true>>
  * ```
  */
@@ -16,7 +16,6 @@
 import type { RawDocument } from "../domain/document.js";
 import type { LoadedDocument, LoadedPage } from "../domain/geometry.js";
 import type { RasterOptions } from "../domain/raster.js";
-import { DEFAULT_RASTER_OPTIONS } from "../domain/raster.js";
 import type { DocumentLoader, LoaderCapabilities } from "./loader.js";
 import type { Rasterizer } from "./rasterizer.js";
 
@@ -44,7 +43,7 @@ export function withRasterizer<C extends LoaderCapabilities>(
   loader: DocumentLoader<C>,
   rasterizer: Rasterizer,
   options: WithRasterizerOptions = {},
-): DocumentLoader<WithImages<C>> {
+): DocumentLoader<WithImages<C>> & AsyncDisposable & { dispose(): Promise<void> } {
   const capabilities = {
     ...loader.capabilities,
     images: true,
@@ -62,7 +61,6 @@ export function withRasterizer<C extends LoaderCapabilities>(
         ...page,
         image: (callOptions?: RasterOptions): Promise<Uint8Array> => {
           const merged: RasterOptions = {
-            ...DEFAULT_RASTER_OPTIONS,
             ...options.defaults,
             ...callOptions,
             pages: [page.pageNumber],
@@ -92,12 +90,20 @@ export function withRasterizer<C extends LoaderCapabilities>(
                 return first.bytes;
               });
             cache.set(key, pending);
+            const stored = pending;
+            void stored.catch(() => {
+              if (cache.get(key) === stored) cache.delete(key);
+            });
           }
           return pending;
         },
       }));
 
       return { ...loaded, pages };
+    },
+
+    [Symbol.asyncDispose](): Promise<void> {
+      return this.dispose();
     },
 
     async dispose(): Promise<void> {

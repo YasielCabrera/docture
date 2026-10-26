@@ -1,35 +1,18 @@
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Code } from "./code";
 
-/**
- * The claim that is hardest to make and easiest to check.
- *
- * Both snippets were compiled before they were pasted here, and the error text is
- * what `tsc` actually printed for the first one. `capabilities.images` is a type
- * parameter rather than a runtime flag, which is the only reason this is possible.
- */
-const broken = `import { type ImageLoader } from "docture";
-import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
-
-const loader = new DocumentLoaderPdfJs();
-new VisionStrategy({
-  loader,
-});`;
-
-const fixed = `import { withRasterizer } from "docture";
-import { NapiCanvasRasterizer } from "docture/raster/canvas";
-
-const rasterizer = new NapiCanvasRasterizer();
-new VisionStrategy({
-  loader: withRasterizer(new DocumentLoaderPdfJs(), rasterizer),
-});`;
-
-const error = `Type 'PdfJsLoader' is not assignable to type 'ImageLoader'.
+const error = `Type 'DocumentLoaderPdfJs' is not assignable to type 'ImageLoader'.
   The types of 'capabilities.images' are incompatible between these types.
     Type 'false' is not assignable to type 'true'.`;
 
 export async function TypedWiring() {
+  const [broken, fixed] = await Promise.all([
+    readFile(resolve(process.cwd(), "examples/typed-wiring-broken.ts"), "utf8"),
+    readFile(resolve(process.cwd(), "examples/typed-wiring-fixed.ts"), "utf8"),
+  ]);
   const [brokenCode, fixedCode] = await Promise.all([
     Code({ code: broken, lang: "ts" }),
     Code({ code: fixed, lang: "ts" }),
@@ -40,12 +23,12 @@ export async function TypedWiring() {
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:py-28">
         <div className="reveal max-w-2xl">
           <h2 className="text-3xl leading-[1.12] font-semibold tracking-[-0.02em] text-balance sm:text-4xl">
-            A wiring mistake is a compile error.
+            Capability-specific types reject incompatible loaders.
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-fd-muted-foreground">
-            A strategy that needs page images will not accept a loader that cannot render
-            them. You find out on the line where you wired it, not on page 200 of a run
-            you are paying for.
+            An ImageLoader annotation requires image support at compile time. Extractor
+            checks strategy requirements against the loaded document at runtime and
+            reports a mismatch as NO_ELIGIBLE_STRATEGY.
           </p>
         </div>
 

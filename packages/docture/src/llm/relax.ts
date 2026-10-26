@@ -3,7 +3,7 @@
  *
  * THE BUG THIS EXISTS TO FIX: under `paginate` or `concatenate` each request sees
  * only part of the document, so page 2 legitimately has no invoice number. But
- * `generateObject` validates every response against the schema it was given — so a
+ * `generateText` validates every response against the schema it was given — so a
  * strict schema makes the model's honest partial answer a hard failure ("response did
  * not match schema"), and the document fails even though every field was readable
  * somewhere.

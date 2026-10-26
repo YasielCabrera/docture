@@ -3,7 +3,7 @@
  * handful of defaults tesseract.js will otherwise make the caller's problem.
  *
  * `await import()` at FIRST USE rather than at module import: constructing a
- * `TesseractJsLoader` must be free, and a pipeline that never OCRs a page must not
+ * `DocumentLoaderTesseract` must be free, and a pipeline that never OCRs a page must not
  * pay for spawning a worker thread or instantiating a WASM engine.
  *
  * Four things this file exists to get right, each of which is a silent wrong answer
@@ -31,7 +31,7 @@
 import { mkdir } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { importEngine } from "../../core/engines.js";
+import { importEngine, lazyEngine } from "../../core/engines.js";
 
 /** One word as Tesseract reports it: text, a pixel box, and 0–1 confidence. */
 export interface RecognizedWord {
@@ -131,25 +131,20 @@ interface TesseractModule {
 /** LSTM only. The legacy engine needs a second, much larger model file. */
 const OEM_LSTM_ONLY = 1;
 
-let cached: Promise<TesseractModule> | undefined;
-
-async function loadTesseract(): Promise<TesseractModule> {
-  cached ??= (async () => {
-    // tesseract.js is CommonJS; Node's interop exposes the named exports, but a
-    // bundler may hand back only `default`. Accept either.
-    const module = (await importEngine("docture/loaders/tesseract", ["tesseract.js"], () =>
-      import("tesseract.js"),
-    )) as unknown as
-      | TesseractModule
-      | { default: TesseractModule };
-    const resolved = "createWorker" in module ? module : module.default;
-    if (typeof resolved?.createWorker !== "function") {
-      throw new Error("tesseract.js did not export createWorker; is the install intact?");
-    }
-    return resolved;
-  })();
-  return cached;
-}
+const loadTesseract = lazyEngine(async (): Promise<TesseractModule> => {
+  // tesseract.js is CommonJS; Node's interop exposes the named exports, but a
+  // bundler may hand back only `default`. Accept either.
+  const module = (await importEngine("docture/loaders/tesseract", ["tesseract.js"], () =>
+    import("tesseract.js"),
+  )) as unknown as
+    | TesseractModule
+    | { default: TesseractModule };
+  const resolved = "createWorker" in module ? module : module.default;
+  if (typeof resolved?.createWorker !== "function") {
+    throw new Error("tesseract.js did not export createWorker; is the install intact?");
+  }
+  return resolved;
+});
 
 /**
  * Where traineddata is cached when the caller does not say.
@@ -167,17 +162,20 @@ export function defaultCachePath(): string {
  *
  * Worker startup is the expensive part — a thread, a WASM instantiation and a model
  * read each time — so workers are created on demand up to `concurrency` and then
- * reused until `dispose()`. With the default concurrency of 1 this is simply "one
- * worker, created on first use", and pages are recognized one after another.
+ * reused until `dispose()`. The default leaves one available CPU free and caps the
+ * pool at four workers. Each worker can use about 100 MB.
  */
 export class TesseractPool {
   private readonly all = new Set<TesseractWorker>();
   private readonly idle: TesseractWorker[] = [];
   private readonly waiting: {
     resolve: (worker: TesseractWorker) => void;
-    reject: (error: Error) => void;
+    reject: (error: unknown) => void;
   }[] = [];
-  private starting = 0;
+  private readonly spawning = new Set<Promise<TesseractWorker>>();
+  private disposed = false;
+  private terminating: Promise<void> | undefined;
+  private readonly terminationFailures: unknown[] = [];
 
   constructor(private readonly options: EngineOptions) {}
 
@@ -206,7 +204,13 @@ export class TesseractPool {
    * Terminate every worker. Safe to call twice — the second call has nothing left
    * to do, which is what `dispose()` on a loader has to tolerate.
    */
-  async terminate(): Promise<void> {
+  terminate(): Promise<void> {
+    this.disposed = true;
+    this.terminating ??= this.terminateAll();
+    return this.terminating;
+  }
+
+  private async terminateAll(): Promise<void> {
     const workers = [...this.all];
     const stranded = [...this.waiting];
     this.all.clear();
@@ -219,27 +223,48 @@ export class TesseractPool {
       waiter.reject(new Error("tesseract: the engine was disposed while this page was queued."));
     }
 
-    const results = await Promise.allSettled(workers.map((worker) => worker.terminate()));
-    const failures = results
-      .filter((r): r is PromiseRejectedResult => r.status === "rejected")
-      .map((r) => r.reason);
-    if (failures.length > 0) {
-      throw new AggregateError(failures, "Some Tesseract workers failed to terminate.");
+    await Promise.allSettled([
+      ...workers.map((worker) => this.terminateWorker(worker)),
+      ...[...this.spawning].map((pending) => pending.then(() => undefined, () => undefined)),
+    ]);
+    if (this.terminationFailures.length > 0) {
+      throw new AggregateError(this.terminationFailures, "Some Tesseract workers failed to terminate.");
+    }
+  }
+
+  private async terminateWorker(worker: TesseractWorker): Promise<void> {
+    try {
+      await worker.terminate();
+    } catch (error) {
+      this.terminationFailures.push(error);
+      throw error;
     }
   }
 
   private async acquire(): Promise<TesseractWorker> {
+    if (this.disposed) throw new Error("tesseract: the engine was disposed while this page was queued.");
     const free = this.idle.pop();
     if (free !== undefined) return free;
 
-    if (this.all.size + this.starting < this.options.concurrency) {
-      this.starting += 1;
-      try {
-        const worker = await this.spawn();
+    if (this.all.size + this.spawning.size < this.options.concurrency) {
+      const pending = this.spawn().then(async (worker) => {
+        if (this.disposed) {
+          await this.terminateWorker(worker);
+          throw new Error("tesseract: the engine was disposed while this page was starting.");
+        }
         this.all.add(worker);
         return worker;
+      });
+      this.spawning.add(pending);
+      try {
+        return await pending;
+      } catch (error) {
+        if (!this.disposed && this.all.size === 0 && this.spawning.size === 1) {
+          for (const waiter of this.waiting.splice(0)) waiter.reject(error);
+        }
+        throw error;
       } finally {
-        this.starting -= 1;
+        this.spawning.delete(pending);
       }
     }
 
@@ -271,11 +296,16 @@ export class TesseractPool {
       errorHandler: () => {},
     });
 
-    await worker.setParameters({
-      tessedit_pageseg_mode: PAGE_SEGMENTATION_MODES[this.options.pageSegmentation],
-      user_defined_dpi: String(Math.round(this.options.dpi)),
-      ...this.options.parameters,
-    });
+    try {
+      await worker.setParameters({
+        tessedit_pageseg_mode: PAGE_SEGMENTATION_MODES[this.options.pageSegmentation],
+        user_defined_dpi: String(Math.round(this.options.dpi)),
+        ...this.options.parameters,
+      });
+    } catch (error) {
+      await this.terminateWorker(worker).catch(() => undefined);
+      throw error;
+    }
 
     return worker;
   }

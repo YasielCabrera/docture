@@ -19,6 +19,9 @@ const roleCases = [
   ["the extractor factory reaching a capability it does not compose", "llm/extractor.ts", 'export { TextSplitter as Leaked } from "./split.js";', "llm/extractor.ts crosses into ./split.js"],
 ];
 const cases = [
+  ["HTML parser imports outside their syntax boundary", 'import { parse } from "parse5"; export const leaked = parse;', "undeclared boundary parse5"],
+  ["XML parser imports outside their syntax boundary", 'import { Parser } from "htmlparser2"; export const leaked = Parser;', "undeclared boundary htmlparser2"],
+  ["entity decoder imports outside their syntax boundary", 'import { decodeHTMLStrict } from "entities"; export const leaked = decodeHTMLStrict;', "undeclared boundary entities"],
   ["static imports", 'import { generateText } from "ai";', "undeclared boundary ai"],
   ["re-exports", 'export { generateText } from "ai";', "undeclared boundary ai"],
   ["namespace re-exports", 'export * as ai from "ai";', "undeclared boundary ai"],
@@ -109,6 +112,14 @@ test("runtime boundary checks reject every supported foreign import form", async
     await t.test("permits a capability to use helpers and shared modules", () => withChange(
       "llm/split.ts",
       'export { mergePartials as mergedAgain } from "./merge.js";\nexport { modelIdOf as idAgain } from "./model-id.js";',
+      () => {
+        const result = check();
+        assert.equal(result.status, 0, result.stdout + result.stderr);
+      },
+    ));
+    await t.test("permits installed schema-helper types in an engine-free LLM helper", () => withChange(
+      "llm/cache.ts",
+      'export type ProviderConfiguration = import("@ai-sdk/provider-utils").ProviderOptions;',
       () => {
         const result = check();
         assert.equal(result.status, 0, result.stdout + result.stderr);

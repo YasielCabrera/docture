@@ -1,20 +1,5 @@
-/**
- * `MuPdfLoader` — read a PDF's text layer, with positions, using MuPDF compiled to WASM.
- *
- * The library is in the class name on purpose. Swapping pdf.js for MuPDF is
- * `new MuPdfLoader()`, and the conformance suite both classes pass is what makes that a
- * guarantee rather than a hope.
- *
- * This loader does NOT render pages, even though MuPDF can. Reading and rendering stay
- * separate plugins so that either half can be swapped alone — `MuPdfLoader` can feed
- * `NapiCanvasRasterizer`, and `PdfJsLoader` can feed `MuPdfRasterizer`. Compose when you
- * want both:
- *
- * ```ts
- * withRasterizer(new MuPdfLoader(), new MuPdfRasterizer({ dpi: 300 }))
- * ```
- */
-
+import { setImmediate } from "node:timers/promises";
+import { requestedPageNumbers } from "../../core/pipeline/pages.js";
 import {
   inferForm,
   linesFromWords,
@@ -39,7 +24,7 @@ import {
   type MuPdfStructuredText,
 } from "./mupdf.js";
 
-export interface MuPdfLoaderOptions {
+export interface DocumentLoaderMuPdfOptions {
   /** Password for an encrypted PDF. */
   readonly password?: string;
   /** Stop after this many pages. Useful for a cheap classification pass. */
@@ -51,7 +36,18 @@ export interface MuPdfLoaderOptions {
   readonly lineTolerance?: number;
 }
 
-export class MuPdfLoader implements DocumentLoader<LoaderCapabilities<true, true, false>> {
+/**
+ * Read PDF text, geometry and optional conversion layout using MuPDF.
+ *
+ * @remarks DocumentLoaderMuPdfOptions sets password, maxPages and text grouping. LoadRequest.pages restricts original pages read. Page processing yields between pages.
+ * @throws MISSING_ENGINE when mupdf is absent; PAGE_OUT_OF_RANGE for unavailable selected pages. Other PDF decode errors retain their engine cause.
+ * @example
+ * ```ts
+ * import { DocumentLoaderMuPdf } from "docture/loaders/mupdf";
+ * const loader = new DocumentLoaderMuPdf({ maxPages: 10 });
+ * ```
+ */
+export class DocumentLoaderMuPdf implements DocumentLoader<LoaderCapabilities<true, true, false>> {
   readonly name = "mupdf";
 
   readonly capabilities = {
@@ -61,45 +57,40 @@ export class MuPdfLoader implements DocumentLoader<LoaderCapabilities<true, true
     mimeTypes: ["application/pdf"],
   } as const;
 
-  constructor(private readonly options: MuPdfLoaderOptions = {}) {}
+  constructor(private readonly options: DocumentLoaderMuPdfOptions = {}) {}
 
   async load(document: RawDocument, ctx: LoadContext): Promise<LoadedDocument> {
     ctx.signal.throwIfAborted();
     const mupdf = await loadMuPdf();
 
-    return withMuPdfLog(ctx.logger, () => {
-      const pdf = openDocument(mupdf, document.bytes, this.options.password);
-      try {
-        const pageCount = pdf.countPages();
-        const limit = Math.min(pageCount, this.options.maxPages ?? pageCount);
-        const pages: LoadedPage[] = [];
+    const pdf = withMuPdfLog(ctx.logger, () => openDocument(mupdf, document.bytes, this.options.password));
+    try {
+      const pageCount = withMuPdfLog(ctx.logger, () => pdf.countPages());
+      const wanted = requestedPageNumbers(pageCount, ctx.request?.pages, this.options.maxPages);
+      const pages: LoadedPage[] = [];
 
-        for (let index = 0; index < limit; index += 1) {
-          // Every MuPDF call below is a blocking WASM call, so this loop cannot yield and
-          // nothing can flip the signal once it starts. What the check does catch is an
-          // abort that landed during `await loadMuPdf()` above — and it keeps the loop
-          // correct for whatever MuPDF makes async later.
-          ctx.signal.throwIfAborted();
-          pages.push(this.readPage(pdf, index, ctx));
-        }
-
-        const metadata = ctx.request?.layout === true ? metadataFrom(pdf) : undefined;
-        return {
-          pages,
-          // Form feed between pages: a page break is not a line break, and a parser
-          // looking for a page boundary should be able to find one.
-          text: pages.map((p) => p.text).join("\f"),
-          form: inferForm(pages.map((p) => p.text.trim().length)),
-          loader: this.name,
-          ...(metadata === undefined ? {} : { metadata }),
-          meta: { pageCount, pagesRead: pages.length },
-        };
-      } finally {
-        // Frees the document's WASM allocation. Without it a long batch grows the heap
-        // until the engine can no longer allocate.
-        pdf.destroy();
+      for (const [position, pageNumber] of wanted.entries()) {
+        if (position > 0) await setImmediate();
+        ctx.signal.throwIfAborted();
+        pages.push(withMuPdfLog(ctx.logger, () => this.readPage(pdf, pageNumber - 1, ctx)));
       }
-    });
+
+      const metadata = ctx.request?.layout === true
+        ? withMuPdfLog(ctx.logger, () => metadataFrom(pdf))
+        : undefined;
+      return {
+        pages,
+        // Form feed between pages: a page break is not a line break, and a parser
+        // looking for a page boundary should be able to find one.
+        text: pages.map((p) => p.text).join("\f"),
+        form: inferForm(pages.map((p) => p.text.trim().length)),
+        loader: this.name,
+        ...(metadata === undefined ? {} : { metadata }),
+        meta: { pageCount, pagesRead: pages.length },
+      };
+    } finally {
+      withMuPdfLog(ctx.logger, () => pdf.destroy());
+    }
   }
 
   private readPage(pdf: MuPdfDocument, index: number, ctx: LoadContext): LoadedPage {

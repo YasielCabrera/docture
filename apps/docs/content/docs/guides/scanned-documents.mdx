@@ -41,8 +41,10 @@ The complete typechecked setup is available here:
 
 <SourceExample file="scanned-invoice.ts" title="extract-scan.ts" />
 
-`vision()` sends all pages in one request by default. Set `pageMode: "perPage"` when the
-model cannot accept the whole document. `maxPages` limits how many pages it sees.
+`vision()` groups at most 20 pages per request by default. Set `pagesPerRequest` to
+match your provider's image limit, or `pageMode: "perPage"` for one request per page.
+`maxPages` limits the total pages it sees. Calls run with concurrency 4 by default,
+and partial results merge in page order.
 
 ## Use Tesseract OCR
 

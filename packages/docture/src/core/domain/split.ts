@@ -38,23 +38,6 @@ export interface SplitVerdict {
 export const UNCLASSIFIED = "UNKNOWN";
 
 /**
- * Adjacent windows over a page list — `[p1,p2], [p2,p3], …` for `size` 2.
- *
- * Overlapping on purpose: the question a lazy splitter answers is about the SEAM
- * between two pages, so every seam must appear in exactly one window. A document
- * with fewer pages than the window has no seams and yields no windows — the
- * single-document case is not a degenerate split, it is not a split at all.
- */
-export function pageWindows<T>(pages: readonly T[], size = 2): T[][] {
-  if (size < 2) throw new TypeError("pageWindows needs a window of at least 2.");
-  const windows: T[][] = [];
-  for (let i = 0; i + size <= pages.length; i += 1) {
-    windows.push(pages.slice(i, i + size));
-  }
-  return windows;
-}
-
-/**
  * Fold pairwise verdicts into groups.
  *
  * `verdicts[i]` is the answer for the seam between page `i+1` and page `i+2`, so

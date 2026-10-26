@@ -100,7 +100,11 @@ for (const path of await files(source)) {
       return;
     }
     if (value.startsWith("node:")) return;
-    const dependencies = owner === "core" ? ["@ai-sdk/provider-utils"] : engines[owner] ?? [];
+    const dependencies = [
+      ...(owner === "core" || owner.startsWith("llm/") ? ["@ai-sdk/provider-utils"] : []),
+      ...(name === "core/loaders/html.ts" ? ["parse5", "htmlparser2", "entities"] : []),
+      ...(engines[owner] ?? []),
+    ];
     if (!dependencies.some(dependency => value === dependency || value.startsWith(`${dependency}/`))) {
       failures.push(`${name} imports undeclared boundary ${value}`);
     }
@@ -125,7 +129,7 @@ for (const path of await files(source)) {
   for (const specifier of specifiers) check(specifier);
 }
 
-assert.deepEqual(Object.keys(manifest.dependencies), ["@ai-sdk/provider-utils", "@types/json-schema"]);
+assert.deepEqual(Object.keys(manifest.dependencies), ["@ai-sdk/provider-utils", "@types/json-schema", "entities", "htmlparser2", "parse5"]);
 assert.equal(manifest.sideEffects, false);
 assert.equal(Object.keys(manifest.exports).some(key => key.includes("*")), false);
 for (const engine of new Set(Object.values(engines).flat())) {

@@ -14,20 +14,16 @@ import { isMain, run } from "../shared/run.js";
 
 export async function convertRichFixture() {
   const fixture = await makeRichDocumentPdf();
-  const converter = new DocumentConverter()
+  await using converter = new DocumentConverter()
     .loadDocumentLoader(new DocumentLoaderPdfJs());
-  try {
-    return await converter.convert(
+  return await converter.convert(
       {
         bytes: fixture.bytes,
         mimeType: "application/pdf",
         fileName: "rich-document.pdf",
       },
       { format: "markdown", assets: "referenced" },
-    );
-  } finally {
-    await converter.dispose();
-  }
+  );
 }
 
 async function main(): Promise<void> {

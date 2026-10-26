@@ -2,6 +2,8 @@
 
 A browsable tour of the library, one folder per concept, on **real documents**.
 
+Sixteen examples. Eleven need no API key, and four more run part of the way without one.
+
 Use Node.js 22 or later. From the repository root, install the workspace before running
 an example:
 
@@ -73,7 +75,7 @@ happened and why.
 | 13 | [under-the-hood](13-under-the-hood) | config-driven wiring, read-once, `runPipeline` | — |
 | 14 | [testing-your-pipeline](14-testing-your-pipeline) | doubles, fixtures, conformance, mocking a model | — |
 | 15 | [cli](15-cli) | `inspect`, `extract`, `classify`, `eval`, a config file | —² |
-| 16 | [document-conversion](16-document-conversion) | `DocumentConverter`, TXT/Markdown/HTML, assets, provenance | — |
+| 16 | [document-conversion](16-document-conversion) | `DocumentConverter`, TXT/Markdown/HTML/JSON, assets, provenance | — |
 
 ¹ Part of the example runs without a key; the rest says what it would have done and skips.
 ² `extract` and `classify` work keyless through the config file in that folder.

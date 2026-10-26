@@ -5,7 +5,7 @@
  * Zod, Valibot, ArkType, any Standard Schema, and raw JSON Schema, and that infers
  * the output type from whichever you passed (`FlexibleSchema` / `InferSchema`).
  * Reusing it buys three things: no adapter code, types that compose exactly with
- * `generateObject`, and one definition of "valid" shared by the deterministic
+ * `generateText with Output.object`, and one definition of "valid" shared by the deterministic
  * parsers and the model path.
  */
 
@@ -27,7 +27,7 @@ export interface ResolvedSchema<T = unknown> {
   /** JSON Schema, for a prompt, a doc page, or a non-AI-SDK validator. */
   readonly jsonSchema: JsonSchemaObject;
   /**
-   * The caller's original schema, untouched. Hand this to `generateObject` rather
+   * The caller's original schema, untouched. Hand this to `generateText with Output.object` rather
    * than the JSON Schema — providers do better with the native shape, and a
    * round trip through JSON Schema loses refinements.
    */

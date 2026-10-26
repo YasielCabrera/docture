@@ -3,13 +3,13 @@ import { describe, expect, it } from "vitest";
 import { silentLogger, type Logger } from "docture";
 import { describeLoaderConformance } from "docture/testing/conformance";
 import { makeInvoicePdf } from "docture/testing/fixtures";
-import { MuPdfLoader } from "../../../src/loaders/mupdf/index.js";
+import { DocumentLoaderMuPdf } from "../../../src/loaders/mupdf/index.js";
 
-// The shared suite every loader package runs. Passing the same suite as PdfJsLoader is
+// The shared suite every loader package runs. Passing the same suite as DocumentLoaderPdfJs is
 // what makes the two interchangeable rather than merely similarly shaped.
 describeLoaderConformance({
-  name: "MuPdfLoader",
-  create: () => new MuPdfLoader(),
+  name: "DocumentLoaderMuPdf",
+  create: () => new DocumentLoaderMuPdf(),
 });
 
 const ctx = { signal: new AbortController().signal, logger: silentLogger };
@@ -40,10 +40,10 @@ function makeEncryptedPdf(userPassword: string): Promise<Uint8Array> {
   });
 }
 
-describe("MuPdfLoader — specifics", () => {
+describe("DocumentLoaderMuPdf — specifics", () => {
   it("recovers the invoice fields a schema would ask for", async () => {
     const pdf = await makeInvoicePdf({ seed: 301 });
-    const document = await new MuPdfLoader().load(
+    const document = await new DocumentLoaderMuPdf().load(
       { bytes: pdf.bytes, mimeType: "application/pdf" },
       ctx,
     );
@@ -59,9 +59,9 @@ describe("MuPdfLoader — specifics", () => {
   it("groups a row's cells into one line, so a table parser can read across", async () => {
     // MuPDF reports each cell as its own text run — four "lines" for one visual row — so
     // this is the assertion that the run-to-row regrouping actually happened, and that a
-    // table parser written against PdfJsLoader reads MuPdfLoader unchanged.
+    // table parser written against DocumentLoaderPdfJs reads DocumentLoaderMuPdf unchanged.
     const pdf = await makeInvoicePdf({ seed: 302, lineItemCount: 3 });
-    const document = await new MuPdfLoader().load(
+    const document = await new DocumentLoaderMuPdf().load(
       { bytes: pdf.bytes, mimeType: "application/pdf" },
       ctx,
     );
@@ -78,7 +78,7 @@ describe("MuPdfLoader — specifics", () => {
 
   it("puts the header near the top of the page, not the bottom", async () => {
     const pdf = await makeInvoicePdf({ seed: 303 });
-    const document = await new MuPdfLoader().load(
+    const document = await new DocumentLoaderMuPdf().load(
       { bytes: pdf.bytes, mimeType: "application/pdf" },
       ctx,
     );
@@ -92,7 +92,7 @@ describe("MuPdfLoader — specifics", () => {
 
   it("reports a textless PDF as scanned instead of inventing content", async () => {
     const pdf = await makeInvoicePdf({ seed: 304, textless: true });
-    const document = await new MuPdfLoader().load(
+    const document = await new DocumentLoaderMuPdf().load(
       { bytes: pdf.bytes, mimeType: "application/pdf" },
       ctx,
     );
@@ -105,7 +105,7 @@ describe("MuPdfLoader — specifics", () => {
     const pdf = await makeInvoicePdf({ seed: 305, lineItemCount: 45 });
     expect(pdf.pageCount).toBeGreaterThan(1);
 
-    const document = await new MuPdfLoader({ maxPages: 1 }).load(
+    const document = await new DocumentLoaderMuPdf({ maxPages: 1 }).load(
       { bytes: pdf.bytes, mimeType: "application/pdf" },
       ctx,
     );
@@ -118,18 +118,18 @@ describe("MuPdfLoader — specifics", () => {
     const pdf = await makeInvoicePdf({ seed: 306 });
     const raw = { bytes: pdf.bytes, mimeType: "application/pdf" };
 
-    await new MuPdfLoader().load(raw, ctx);
+    await new DocumentLoaderMuPdf().load(raw, ctx);
     // MuPDF copies into its own WASM heap rather than detaching the caller's buffer the
     // way pdf.js does — so unlike the pdf.js loader, this one needs no defensive copy.
     expect(raw.bytes.length).toBeGreaterThan(0);
 
-    const second = await new MuPdfLoader().load(raw, ctx);
+    const second = await new DocumentLoaderMuPdf().load(raw, ctx);
     expect(second.text).toContain(pdf.expected.invoiceNumber);
   });
 
   it("separates pages with a form feed", async () => {
     const pdf = await makeInvoicePdf({ seed: 307, lineItemCount: 45 });
-    const document = await new MuPdfLoader().load(
+    const document = await new DocumentLoaderMuPdf().load(
       { bytes: pdf.bytes, mimeType: "application/pdf" },
       ctx,
     );
@@ -139,7 +139,7 @@ describe("MuPdfLoader — specifics", () => {
 
   it("fails with a useful message on bytes that are not a PDF", async () => {
     await expect(
-      new MuPdfLoader().load({ bytes: new Uint8Array([1, 2, 3]), mimeType: "application/pdf" }, ctx),
+      new DocumentLoaderMuPdf().load({ bytes: new Uint8Array([1, 2, 3]), mimeType: "application/pdf" }, ctx),
     ).rejects.toThrow(/mupdf could not open/i);
   });
 
@@ -150,7 +150,7 @@ describe("MuPdfLoader — specifics", () => {
     const { logger, warnings } = recordingLogger();
 
     await expect(
-      new MuPdfLoader().load(
+      new DocumentLoaderMuPdf().load(
         { bytes: new Uint8Array([1, 2, 3, 4, 5]), mimeType: "application/pdf" },
         { signal: ctx.signal, logger },
       ),
@@ -164,7 +164,7 @@ describe("MuPdfLoader — specifics", () => {
     const bytes = await makeEncryptedPdf("hunter2");
 
     await expect(
-      new MuPdfLoader().load({ bytes, mimeType: "application/pdf" }, ctx),
+      new DocumentLoaderMuPdf().load({ bytes, mimeType: "application/pdf" }, ctx),
     ).rejects.toThrow(/encrypted and no `password` was given/i);
   });
 
@@ -172,10 +172,10 @@ describe("MuPdfLoader — specifics", () => {
     const bytes = await makeEncryptedPdf("hunter2");
 
     await expect(
-      new MuPdfLoader({ password: "wrong" }).load({ bytes, mimeType: "application/pdf" }, ctx),
+      new DocumentLoaderMuPdf({ password: "wrong" }).load({ bytes, mimeType: "application/pdf" }, ctx),
     ).rejects.toThrow(/password.+rejected/i);
 
-    const document = await new MuPdfLoader({ password: "hunter2" }).load(
+    const document = await new DocumentLoaderMuPdf({ password: "hunter2" }).load(
       { bytes, mimeType: "application/pdf" },
       ctx,
     );
@@ -189,7 +189,7 @@ describe("MuPdfLoader — specifics", () => {
     const pdf = await makeInvoicePdf({ seed: 308, lineItemCount: 45 });
     const controller = new AbortController();
 
-    const pending = new MuPdfLoader().load(
+    const pending = new DocumentLoaderMuPdf().load(
       { bytes: pdf.bytes, mimeType: "application/pdf" },
       { signal: controller.signal, logger: silentLogger },
     );
@@ -198,11 +198,11 @@ describe("MuPdfLoader — specifics", () => {
     await expect(pending).rejects.toThrow();
   });
 
-  it("agrees with PdfJsLoader's coordinate convention on the same page", async () => {
+  it("agrees with DocumentLoaderPdfJs's coordinate convention on the same page", async () => {
     // Not a comparison against pdf.js (that would need the dependency) but against the
     // convention both must satisfy: PDF points, top-left origin, y down, sorted.
     const pdf = await makeInvoicePdf({ seed: 309 });
-    const document = await new MuPdfLoader().load(
+    const document = await new DocumentLoaderMuPdf().load(
       { bytes: pdf.bytes, mimeType: "application/pdf" },
       ctx,
     );

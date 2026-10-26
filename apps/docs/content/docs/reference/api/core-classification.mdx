@@ -98,10 +98,11 @@ extractor.classifyTree(
 ): Promise<{ leaf: ClassificationResponse; path: readonly ClassificationResponse[] }>
 ```
 
-Direct classification uses the first eligible loader and propagates its load failure. It
-does not run the extraction pipeline's loader fallback or loader deadline. A `LoadedSource`
-skips that load. `stageTimeoutMs` applies to its classifiers. A classifier deadline becomes
-an abstention, while a caller abort thrown by a classifier propagates.
+Direct classification tries eligible loaders in order until one succeeds. Each loader
+uses `stageTimeoutMs`; a failed or timed-out loader allows the next loader to run.
+A `LoadedSource` skips loading. Eligible classifiers run concurrently with independent
+deadlines, and their signals retain registration order. A classifier deadline becomes
+an abstention. Caller cancellation stops classification and preserves its reason.
 
 ## Splitter contract
 
@@ -177,3 +178,7 @@ Missing source, loaders, splitter, classifications, or extractor configuration t
 Unknown groups throw `UnclassifiedGroupError` unless skipping is explicit. `dispose()`
 settles the splitter, default extractor, and process loaders, then reports failures with
 `AggregateError`.
+
+Classification uses the same loader fallback and stage deadlines as extraction.
+Eligible classifiers run concurrently, while their signals retain registration order.
+A throwing classifier records an abstention. Caller aborts propagate.

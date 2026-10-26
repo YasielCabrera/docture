@@ -1,7 +1,7 @@
 /**
  * Prompt construction, and the chunking the completion strategies need.
  *
- * The schema is NOT put in the prompt: `generateObject` sends it as the model's
+ * The schema is NOT put in the prompt: `generateText` sends it as the model's
  * structured-output contract, which is both cheaper and more reliable than asking
  * in prose. What goes in the prompt is the document, plus the few instructions that
  * change behaviour we care about.

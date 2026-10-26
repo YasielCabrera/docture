@@ -47,6 +47,7 @@ const names = [
   "SplitFailedError",
   "UnclassifiedGroupError",
   "MissingEngineError",
+  "MissingComponentError",
 ] as const;
 type ErrorName = (typeof names)[number];
 
@@ -65,6 +66,7 @@ const samples: Record<ErrorName, (m: ErrorsModule) => DoctureError> = {
   SplitFailedError: (m: ErrorsModule) => new m.SplitFailedError("no splitter"),
   UnclassifiedGroupError: (m: ErrorsModule) => new m.UnclassifiedGroupError([1], "memo", ["invoice"]),
   MissingEngineError: (m: ErrorsModule) => new m.MissingEngineError("mupdf", "~1.28.0", "docture/loaders/mupdf"),
+  MissingComponentError: (m: ErrorsModule) => new m.MissingComponentError("missing loader"),
 };
 
 const codes: Record<ErrorName, string> = {
@@ -82,6 +84,7 @@ const codes: Record<ErrorName, string> = {
   SplitFailedError: "SPLIT_FAILED",
   UnclassifiedGroupError: "UNCLASSIFIED_GROUP",
   MissingEngineError: "MISSING_ENGINE",
+  MissingComponentError: "MISSING_COMPONENT",
 };
 
 describe("errors from another installed copy of docture", () => {

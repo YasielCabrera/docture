@@ -29,7 +29,7 @@ npm install --save-dev @docture/cli @ai-sdk/openai zod@^4
 | Command | Job |
 |---|---|
 | `extract <file...>` | Extract data that matches a schema |
-| `convert <file...>` | Convert PDFs to TXT, Markdown, or HTML |
+| `convert <file...>` | Convert PDFs to TXT, Markdown, HTML, or JSON |
 | `classify <file...>` | Choose a document classification without extracting it |
 | `inspect <file...>` | Show loaded text, geometry, and document facts without a model |
 | `eval <file...>` | Extract and compare results with ground truth |
@@ -43,9 +43,9 @@ docture convert reports/*.pdf --out converted/
 ```
 
 `--out <directory>` is required. Markdown and referenced assets are the defaults. Use
-`--to md|html|txt` and `--assets referenced|embedded|omit` to change them.
+`--to md|html|txt|json` and `--assets referenced|embedded|omit` to change them.
 Referenced images are written to `<out>/<stem>.assets/`. The document is written as
-`<out>/<stem>.md`, `.html`, or `.txt`.
+`<out>/<stem>.md`, `.html`, `.txt`, or `.json`.
 
 ```sh
 docture convert report.pdf \
@@ -75,7 +75,7 @@ Valibot, ArkType, or other Standard Schema value when validation is required.
 ## Output streams
 
 All five commands accept `--format json|ndjson|text`. `extract` defaults to JSON;
-the others default to text. `--json` is removed. `convert --to md|html|txt` selects the
+the others default to text. `--json` is removed. `convert --to md|html|txt|json` selects the
 document format, independently of the result format.
 
 JSON always prints one envelope, including for a single failed input:
@@ -235,3 +235,5 @@ not met. Exit code `2` means the invocation was invalid.
 
 The complete flag and library API reference is under
 [`@docture/cli`](/docs/reference/api/cli).
+
+`--concurrency` overlaps model calls and file or network I/O. Local PDF parsing and rendering run on one thread. Higher concurrency does not make CPU-bound PDF work parallel. To keep a server responsive during that work, use `worker_threads` or a separate process.

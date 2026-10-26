@@ -1,16 +1,9 @@
-/**
- * `VisionStrategy` — extract from page IMAGES rather than page text.
- *
- * This is what reads a scan, and it is why no local VLM sidecar is needed: any
- * vision-capable AI SDK model does the job, chosen by the caller.
- *
- * It requires `RENDERABLE_PAGES`, so it is only ever a candidate when the loader can
- * actually produce images — compose one with `withRasterizer(loader, rasterizer)`.
- */
-
-import { generateObject, jsonSchema, type LanguageModel } from "ai";
+import { generateText, Output, jsonSchema, type LanguageModel } from "ai";
+import type { ProviderOptions } from "@ai-sdk/provider-utils";
 import {
   sumUsage,
+  mapWithConcurrency,
+  ModelOutputError,
   type ClassificationNeed,
   type ExtractionStrategy,
   type LoadedPage,
@@ -25,32 +18,36 @@ import { buildPrompt } from "./prompt.js";
 import { modelIdOf, providerOf } from "./model-id.js";
 import { toUsage, type PricingTable } from "./pricing.js";
 import { relaxJsonSchema } from "./relax.js";
-import { modelOutputError } from "./failure.js";
+import { modelOutputError, withCompletedUsage } from "./failure.js";
 
 export interface VisionStrategyOptions {
   readonly model: LanguageModel;
   readonly name?: string;
   /** Render resolution. 200 is usually enough for a model; OCR wants 300. */
   readonly dpi?: number;
-  /** Cap the long edge in pixels. Keeps a model's image budget predictable. */
+  /** Cap the long edge in pixels. Default 1568. */
   readonly maxEdge?: number;
   readonly format?: RasterFormat;
   /** Stop after this many pages. */
   readonly maxPages?: number;
   /**
-   * `together` sends every page in one request, so the model sees the whole
-   * document and can resolve a total on page 3 against rows on page 1.
-   * `perPage` sends one request each and merges — cheaper per request, and the only
-   * option when the document exceeds the model's image limit.
+   * `together` sends consecutive groups of up to pagesPerRequest pages.
+   * `perPage` sends one request each and merges.
    */
   readonly pageMode?: "together" | "perPage";
+  /** Maximum pages per together request. Positive integer. Default 20. */
+  readonly pagesPerRequest?: number;
   readonly system?: string;
   readonly instructions?: string;
   readonly hints?: Readonly<Record<string, string>>;
   readonly cache?: LlmCache;
   readonly pricing?: PricingTable;
   readonly temperature?: number;
+  /** Provider-specific request settings. Included in the response cache key. */
+  readonly providerOptions?: ProviderOptions;
   readonly maxRetries?: number;
+  /** Requests in flight at once. Positive integer. Default 4. */
+  readonly concurrency?: number;
   readonly needsClassification?: ClassificationNeed;
 }
 
@@ -59,12 +56,30 @@ const MEDIA_TYPES: Readonly<Record<RasterFormat, string>> = {
   jpeg: "image/jpeg",
 };
 
+/**
+ * Extract structured values from renderable page images.
+ *
+ * @remarks VisionStrategyOptions requires a model. Defaults are maxEdge 1568, pagesPerRequest 20 and concurrency 4. Provider options and render settings are part of cache identity.
+ * @throws MODEL_OUTPUT_FAILED for schema-invalid model responses. Invalid concurrency or image-group limits throw RangeError.
+ * @example
+ * ```ts
+ * import { VisionStrategy } from "docture/llm/vision";
+ * const strategy = new VisionStrategy({ model: "openai/gpt-5", maxEdge: 1568 });
+ * ```
+ */
 export class VisionStrategy implements ExtractionStrategy {
   readonly name: string;
   readonly requires = ["RENDERABLE_PAGES"] as const;
   readonly needsClassification: ClassificationNeed;
 
   constructor(private readonly options: VisionStrategyOptions) {
+    if (options.pagesPerRequest !== undefined &&
+        (!Number.isInteger(options.pagesPerRequest) || options.pagesPerRequest < 1)) {
+      throw new RangeError("pagesPerRequest must be a positive integer");
+    }
+    if (options.concurrency !== undefined && (!Number.isInteger(options.concurrency) || options.concurrency < 1)) {
+      throw new RangeError("concurrency must be a positive integer");
+    }
     this.name = options.name ?? "vision";
     this.needsClassification = options.needsClassification ?? "hint";
   }
@@ -74,7 +89,7 @@ export class VisionStrategy implements ExtractionStrategy {
     const rasterOptions = {
       dpi: this.options.dpi ?? 200,
       format,
-      ...(this.options.maxEdge === undefined ? {} : { maxEdge: this.options.maxEdge }),
+      maxEdge: this.options.maxEdge ?? 1568,
     };
 
     const images: Uint8Array[] = [];
@@ -116,8 +131,10 @@ export class VisionStrategy implements ExtractionStrategy {
       },
     );
 
-    const groups =
-      (this.options.pageMode ?? "together") === "together" ? [pages] : pages.map((page) => [page]);
+    const pagesPerRequest = this.options.pagesPerRequest ?? 20;
+    const groupSize = this.options.pageMode === "perPage" ? 1 : pagesPerRequest;
+    const groups = Array.from({ length: Math.ceil(pages.length / groupSize) }, (_, index) =>
+      pages.slice(index * groupSize, (index + 1) * groupSize));
 
     // Same reason as LlmStrategy: a single page cannot satisfy a whole-document
     // schema, so per-page requests get a `required`-free copy and the pipeline
@@ -128,11 +145,10 @@ export class VisionStrategy implements ExtractionStrategy {
         : ctx.schema.flexible;
 
     const startedAt = Date.now();
-    const parts: unknown[] = [];
     const usages: Partial<Usage>[] = [];
 
-    for (const group of groups) {
-      ctx.signal.throwIfAborted();
+    const parts = await mapWithConcurrency(groups, this.options.concurrency ?? 4, async (group, index, signal) => {
+      signal.throwIfAborted();
       const images = await this.render(group);
 
       const content: ContentPart[] = [
@@ -144,28 +160,29 @@ export class VisionStrategy implements ExtractionStrategy {
       // different request from the same prompt over page 1.
       const key = cacheKey({
         provider: providerOf(this.options.model),
+        ...(this.options.providerOptions === undefined ? {} : { providerOptions: this.options.providerOptions }),
         temperature: this.options.temperature,
         modelId,
         system,
         prompt: fingerprint(content),
         jsonSchema: ctx.schema.jsonSchema,
         variant:
-          `vision:${format}:${this.options.dpi ?? 200}:` +
+          `vision:${format}:${this.options.dpi ?? 200}:${this.options.maxEdge ?? 1568}:${pagesPerRequest}:` +
           `${groups.length > 1 ? "relaxed" : "strict"}:` +
           `${group.map((p) => p.pageNumber).join(",")}`,
       });
 
       const cached = await this.options.cache?.get(key);
       if (cached !== undefined) {
-        parts.push(cached.data);
-        usages.push(toUsage(cached.usage, 0));
-        continue;
+        usages[index] = toUsage(cached.usage, 0);
+        return cached.data;
       }
 
+      signal.throwIfAborted();
       const requestStarted = Date.now();
-      const response = await generateObject({
+      const response = await generateText({
         model: this.options.model,
-        schema: requestSchema,
+        output: Output.object({ schema: requestSchema }),
         system,
         messages: [
           {
@@ -175,26 +192,28 @@ export class VisionStrategy implements ExtractionStrategy {
         ],
         temperature: this.options.temperature ?? 0,
         maxRetries: this.options.maxRetries ?? 2,
-        abortSignal: ctx.signal,
-      }).catch((error: unknown) => {
-        throw modelOutputError(error, {
+        abortSignal: signal,
+        ...(this.options.providerOptions === undefined ? {} : { providerOptions: this.options.providerOptions }),
+      }).then((response) => ({ output: response.output, usage: response.usage })).catch((error: unknown) => {
+        const failure = modelOutputError(error, {
           modelId,
           pricing: this.options.pricing,
           wallMs: Date.now() - startedAt,
-          completed: usages,
         });
+        if (failure instanceof ModelOutputError && failure.usage !== undefined) usages[index] = failure.usage;
+        throw failure;
       });
 
-      parts.push(response.object);
-      usages.push(
-        toUsage(response.usage, Date.now() - requestStarted, modelId, this.options.pricing),
-      );
+      usages[index] = toUsage(response.usage, Date.now() - requestStarted, modelId, this.options.pricing);
 
       await this.options.cache?.set(key, {
-        data: response.object,
+        data: response.output,
         usage: storedUsage(response.usage),
       });
-    }
+      return response.output;
+    }, ctx.signal).catch((error: unknown) => {
+      throw withCompletedUsage(error, usages, Date.now() - startedAt, ctx.reportFailureUsage);
+    });
 
     return {
       data: mergePartials(parts),

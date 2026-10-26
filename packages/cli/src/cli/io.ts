@@ -23,6 +23,8 @@ export interface Io {
   readonly env: Readonly<Record<string, string | undefined>>;
   /** Whether stderr can take ANSI colour. */
   readonly color: boolean;
+  /** Whether stdout can take ANSI colour. */
+  readonly stdoutColor: boolean;
 }
 
 export interface Style {
@@ -65,8 +67,7 @@ export function styleFor(color: boolean): Style {
 /**
  * The real process.
  *
- * Colour follows stderr — the stream the decorated text goes to — and honours
- * `NO_COLOR`, which is the convention every other tool in the pipeline respects.
+ * Each stream follows its own terminal and honours `NO_COLOR`.
  */
 export function processIo(): Io {
   return {
@@ -75,6 +76,7 @@ export function processIo(): Io {
     cwd: process.cwd(),
     env: process.env,
     color: process.stderr.isTTY === true && process.env["NO_COLOR"] === undefined,
+    stdoutColor: process.stdout.isTTY === true && process.env["NO_COLOR"] === undefined,
   };
 }
 
@@ -96,7 +98,8 @@ export function captureIo(overrides: Partial<Io> = {}): CapturedIo {
     },
     cwd: overrides.cwd ?? process.cwd(),
     env: overrides.env ?? {},
-    color: overrides.color ?? false,
+    color: overrides.env?.["NO_COLOR"] === undefined && (overrides.color ?? false),
+    stdoutColor: overrides.env?.["NO_COLOR"] === undefined && (overrides.stdoutColor ?? false),
     get stdout() {
       return stdout;
     },

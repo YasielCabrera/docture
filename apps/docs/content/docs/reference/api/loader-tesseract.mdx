@@ -13,12 +13,8 @@ For PDF inputs, also install and configure a rasterizer. See the
 [complete OCR install commands](/docs/guides/installation).
 
 ```ts
-new DocumentLoaderTesseract(options?: TesseractConfig)
-new TesseractJsLoader(options?: TesseractJsLoaderOptions)
+new DocumentLoaderTesseract(options?: DocumentLoaderTesseractOptions)
 ```
-
-`DocumentLoaderTesseract` and `TesseractJsLoader` are the same class. `TesseractConfig`
-and `TesseractJsLoaderOptions` are the same option type.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -30,7 +26,7 @@ and `TesseractJsLoaderOptions` are the same option type.
 | `minConfidence` | `0` | Minimum word confidence from 0 to 1. |
 | `lineTolerance` | core default `0.5` | Word-to-line vertical band. |
 | `autoRotate` | `false` | Run skew detection and correction. |
-| `concurrency` | `1` | Tesseract worker count. |
+| `concurrency` | CPU-based, at most `4` | `max(1, min(4, availableParallelism() - 1))`; explicit values override it. |
 | `langPath` | jsDelivr | Directory or base URL for trained data. |
 | `cachePath` | platform cache directory | Trained-data cache. |
 | `parameters` | none | Raw Tesseract variables. |
@@ -46,3 +42,6 @@ and is safe to call more than once.
 
 The load rejects on rasterization, language-data, worker, recognition, image, or caller
 abort failures. Tesseract.js and its OCR engine run through WASM.
+
+Workers start on demand and may each use roughly 100 MB. This is an estimate; model and
+image sizes affect memory use. Disposing during worker creation waits for cleanup.
