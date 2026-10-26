@@ -11,7 +11,7 @@ import type {
 } from "../core/index.js";
 import { cacheKey, storedUsage, type LlmCache } from "./cache.js";
 import { toUsage, type PricingTable } from "./pricing.js";
-import { modelIdOf } from "./model-id.js";
+import { modelIdOf, providerOf } from "./model-id.js";
 import { modelOutputError } from "./failure.js";
 
 export interface LlmLayoutAnalyzerOptions {
@@ -120,12 +120,12 @@ export class LlmLayoutAnalyzer implements LayoutAnalyzer {
     const key =
       this.options.cache === undefined
         ? undefined
-        : cacheKey({ modelId, system, prompt, jsonSchema: schema, variant: "layout" });
+        : cacheKey({ provider: providerOf(this.options.model), modelId, temperature: this.options.temperature, system, prompt, jsonSchema: schema, variant: "layout" });
     const cached = key === undefined ? undefined : await this.options.cache?.get(key);
     if (cached !== undefined) {
       return {
         annotations: annotationsOf((cached.data as z.infer<typeof analysisSchema>).annotations),
-        usage: toUsage(cached.usage, 0, modelId, this.options.pricing),
+        usage: toUsage(cached.usage, 0),
       };
     }
 

@@ -39,6 +39,7 @@ default.
 `SafeConversion` is `{ ok: true, result } | { ok: false, error }`.
 `ConversionBatchOptions` adds `concurrency`, default `4`. A `ConversionBatchItem` contains
 the original source, input index, and safe outcome. Items are yielded as they finish.
+Leaving the generator early aborts in-flight jobs and waits for them to settle.
 
 `dispose()` settles every disposable loader and analyzer once. Multiple teardown failures
 reject with `AggregateError`.

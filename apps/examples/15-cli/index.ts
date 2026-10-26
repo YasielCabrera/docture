@@ -84,15 +84,15 @@ async function main(): Promise<void> {
 
   // ── 2. inspect, across the corpus ─────────────────────────────────────────────
 
-  step("2. inspect --json, across everything");
+  step("2. inspect --format json, across everything");
 
   note(
-    "`--json` makes it pipeable, which is where a CLI earns its place. This is the\n" +
+    "`--format json` makes it pipeable, which is where a CLI earns its place. This is the\n" +
       "one-liner for “which of these 4,000 documents are scans?”:\n\n" +
-      "  docture inspect documents/*.pdf --json | jq -r 'select(.form==\"scanned\") | .file'",
+      "  docture inspect documents/*.pdf --format json | jq -r '.results[] | select(.ok and .features.form==\"scanned\") | .file'",
   );
 
-  await cli(["inspect", ...idsOfKind("invoice").slice(0, 4).map((id) => pathOf(id)), "--json"], {
+  await cli(["inspect", ...idsOfKind("invoice").slice(0, 4).map((id) => pathOf(id)), "--format", "json"], {
     quiet: true,
   });
 
@@ -111,7 +111,7 @@ async function main(): Promise<void> {
 
   step("4. --full, when the answer is not the whole question");
 
-  note("Adds method, loader, attempts, usage and features — the envelope from example 01.");
+  note("Adds method, loader, attempts, usage and features to each envelope result item.");
 
   await cli(["extract", pathOf("invoice-services"), "--config", config, "--full"], { quiet: true });
 

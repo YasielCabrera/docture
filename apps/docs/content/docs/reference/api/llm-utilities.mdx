@@ -18,11 +18,14 @@ Import from `docture/llm/prompt`.
 
 ```ts
 buildPrompt(text: string, options?: BuildPromptOptions): PromptParts
+wrapUntrusted(tag: "document" | "excerpt", text: string): string
 ```
 
 `BuildPromptOptions` has `system`, `instructions`, optional `classification`, and `hints`.
 `system` replaces the default; instructions and hints are appended. `PromptParts` contains
 the final `system` and user `prompt`. The document text is wrapped in document delimiters.
+`wrapUntrusted()` neutralizes matching open and close tag forms inside the text, ignoring
+case and surrounding whitespace, then wraps it in one tag pair. Other text is unchanged.
 
 ## Chunking
 
@@ -48,8 +51,9 @@ Import from `docture/llm/cache`.
 `inputTokenDetails` for provider cache reads and writes.
 `LlmCache` defines asynchronous `get()` and `set()`, plus optional `clear()`.
 
-`CacheKeyParts` contains `modelId`, system prompt, user prompt, JSON Schema, and optional
-request `variant`.
+`CacheKeyParts` requires `provider`, `modelId`, `temperature`, system prompt, user prompt,
+and JSON Schema, with an optional request `variant`. An undefined temperature hashes as
+`0`. Capabilities resolve a string model to provider `"gateway"`.
 
 `ContentPart` is a text part with `text`, or a file part with byte `data` and `mediaType`.
 `fingerprint()` hashes these parts in order, including file bytes and media types.
@@ -62,8 +66,9 @@ fileCache(root: string): LlmCache
 ```
 
 `cacheKey()` returns a SHA-256 hex digest. `memoryCache()` is a bounded least-recently-used
-process cache. `fileCache()` shards JSON entries below the supplied directory. Missing or
-unreadable disk entries are cache misses; write failures reject `set()`.
+process cache that copies responses on reads and writes. `fileCache()` shards JSON entries
+below the supplied directory. Missing or unreadable disk entries are cache misses; write
+failures reject `set()`.
 
 ## Pricing and usage
 
@@ -97,8 +102,9 @@ mergePartials(parts: readonly unknown[]): unknown
 ```
 
 Arrays concatenate in document order. Plain objects merge recursively. For scalar or
-mismatched values, the first non-null, non-undefined, non-blank value wins. No usable
-parts returns `undefined`.
+mismatched values, the first non-null, non-undefined, non-blank value wins, except that
+a later same-type non-zero value replaces an earlier `0` or `false`. A genuine early
+zero can therefore be replaced. No usable parts returns `undefined`.
 
 ## Schema relaxation
 
@@ -110,6 +116,6 @@ Import from `docture/llm/relax`.
 relaxJsonSchema(schema: unknown): unknown
 ```
 
-`relaxJsonSchema()` recursively removes `required` arrays while preserving types,
-descriptions, enums, and nesting. It is used for partial model requests. Core still
-validates the merged data against the original schema.
+`relaxJsonSchema()` recursively removes `required` arrays and keeps schema properties
+named `required`, including nested properties. It is used for partial model requests.
+Core still validates the merged data against the original schema.

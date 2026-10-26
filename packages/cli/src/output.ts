@@ -10,7 +10,8 @@
  */
 
 import type { Attempt, ExtractionResult, Usage } from "docture";
-import type { Style } from "./cli/io.js";
+import type { Explained } from "./cli/errors.js";
+import type { Io, Style } from "./cli/io.js";
 
 export function formatMs(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)}ms`;
@@ -59,6 +60,21 @@ export function failureLine(label: string, message: string, style: Style): strin
   return `${style.red("✗")} ${style.bold(label)} ${style.dim("→")} ${message}\n`;
 }
 
+export function reportFailure(
+  io: Io,
+  label: string,
+  error: Explained,
+  style: Style,
+  hintsShown: Set<string>,
+): void {
+  io.diagnostic(failureLine(label, error.message, style));
+  const key = error.code;
+  if (error.hint !== undefined && !hintsShown.has(key)) {
+    hintsShown.add(key);
+    io.diagnostic(`  ${style.dim(error.hint)}\n`);
+  }
+}
+
 /** Every attempt, in order. What `--verbose` is for: a fallback is never silent. */
 export function attemptLines(attempts: readonly Attempt[], style: Style): string {
   return attempts
@@ -76,19 +92,50 @@ export function attemptLines(attempts: readonly Attempt[], style: Style): string
     .join("");
 }
 
-/** One record in `--full` / `--format ndjson` output. */
-export interface DocumentRecord {
+export const OUTPUT_FORMATS = ["json", "ndjson", "text"] as const;
+export type Command = "extract" | "convert" | "classify" | "inspect" | "eval";
+
+export interface FailedItem {
   readonly file: string;
+  readonly ok: false;
+  readonly error: Explained;
+}
+
+export type Item<R> = ({ readonly file: string; readonly ok: true } & R) | FailedItem;
+
+export interface Envelope<R, S = never> {
+  readonly version: 1;
+  readonly command: Command;
   readonly ok: boolean;
-  readonly data?: unknown;
+  readonly results: readonly Item<R>[];
+  readonly summary?: S;
+}
+
+export function envelope<R, S = never>(
+  command: Command,
+  results: readonly Item<R>[],
+  summary?: S,
+): Envelope<R, S> {
+  return {
+    version: 1,
+    command,
+    ok: results.every((item) => item.ok),
+    results,
+    ...(summary === undefined ? {} : { summary }),
+  };
+}
+
+export interface ExtractionData {
+  readonly data: unknown;
   readonly method?: string;
   readonly loader?: string;
   readonly attempts?: readonly Attempt[];
   readonly usage?: Usage;
   readonly features?: ExtractionResult<unknown>["features"];
   readonly classification?: ExtractionResult<unknown>["classification"];
-  readonly error?: { readonly code?: string; readonly message: string };
 }
+
+export type DocumentRecord = Item<ExtractionData>;
 
 export function recordOf(
   file: string,
@@ -109,12 +156,8 @@ export function recordOf(
   };
 }
 
-export function errorRecord(file: string, code: string | undefined, message: string): DocumentRecord {
-  return {
-    file,
-    ok: false,
-    error: { ...(code === undefined ? {} : { code }), message },
-  };
+export function errorRecord(file: string, error: Explained): FailedItem {
+  return { file, ok: false, error };
 }
 
 export function toJson(value: unknown): string {

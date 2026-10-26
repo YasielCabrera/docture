@@ -651,13 +651,16 @@ async function main() {
     assert.equal(version.trim(), cli.manifest.version);
     const help = await run(`${manager}-cli-help`, bin, ["--help"], consumer);
     assert.match(help, /inspect/); assert.match(help, /extract/);
-    const report = JSON.parse(await run(`${manager}-cli-inspect`, bin, ["inspect", join(consumers.npm, "invoice.pdf"), "--json", "--text", "--no-config"], consumer));
+    const envelope = JSON.parse(await run(`${manager}-cli-inspect`, bin, ["inspect", join(consumers.npm, "invoice.pdf"), "--format", "json", "--text", "--no-config"], consumer));
+    assert.deepEqual([envelope.version, envelope.command, envelope.ok, envelope.results.length], [1, "inspect", true, 1]);
+    const report = envelope.results[0];
+    assert.equal(report.ok, true);
     assert.equal(report.loader, "pdfjs");
     assert.equal(report.features.pageCount, 1);
     assert.equal(report.features.hasTextLayer, true);
     assert.match(report.text, /INVOICE/);
     assert.match(report.text, /INV-2026-/);
-    await save(join(consumer, "inspect.json"), report);
+    await save(join(consumer, "inspect.json"), envelope);
     await save(join(consumer, "cli-types.ts"), 'type PublicCli = typeof import("@docture/cli");\ndeclare const cli: PublicCli;\nconst version: string = cli.version();\nvoid version;\n');
     await run(`${manager}-cli-types`, tsc, ["--noEmit", "--strict", "--skipLibCheck", "false", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--target", "ES2023", "--types", "node", "cli-types.ts"], consumer);
   });
@@ -761,7 +764,10 @@ async function main() {
     assert.deepEqual(await versionOf(consumer, "@napi-rs/canvas"), [packed["@docture/cli"].manifest.optionalDependencies["@napi-rs/canvas"]],
       "PDF.js and the rasterizer share the CLI's canvas");
     const bin = join(consumer, "node_modules", ".bin", "docture");
-    const report = JSON.parse(await run(`${label}-inspect`, bin, ["inspect", invoice, "--json", "--text", "--no-config"], consumer));
+    const envelope = JSON.parse(await run(`${label}-inspect`, bin, ["inspect", invoice, "--format", "json", "--text", "--no-config"], consumer));
+    assert.deepEqual([envelope.version, envelope.command, envelope.ok, envelope.results.length], [1, "inspect", true, 1]);
+    const report = envelope.results[0];
+    assert.equal(report.ok, true);
     assert.equal(report.loader, "pdfjs");
     assert.match(report.text, /INVOICE/);
     await save(join(consumer, "schema.json"), cliPeerContexts.schema);
@@ -834,8 +840,9 @@ async function main() {
     assert.ok(ocrOverride, "the documented override passed the core check");
     const consumer = await cliOnlyBesideOcrEngines("npm-cli-only-ocr-override", { ".": `file:${packed.docture.target}`, ...ocrOverride });
     for (const [name, version] of Object.entries(applicationOcrEngines)) assert.deepEqual(await versionOf(consumer, name), [version], `docture shares the application's ${name}`);
-    const report = JSON.parse(await run("npm-cli-only-ocr-override-inspect", join(consumer, "node_modules", ".bin", "docture"), ["inspect", invoice, "--json", "--text", "--no-config"], consumer));
-    assert.match(report.text, /INVOICE/);
+    const envelope = JSON.parse(await run("npm-cli-only-ocr-override-inspect", join(consumer, "node_modules", ".bin", "docture"), ["inspect", invoice, "--format", "json", "--text", "--no-config"], consumer));
+    assert.deepEqual([envelope.version, envelope.command, envelope.ok, envelope.results.length], [1, "inspect", true, 1]);
+    assert.match(envelope.results[0].text, /INVOICE/);
   });
   await check("pnpm installs an application's own OCR engine release with an unmet-peer warning", async () => {
     const consumer = await newConsumer("pnpm-ocr-conflict");
@@ -932,7 +939,7 @@ async function main() {
     assert.equal(await readFile(join(extraction, "extractor-disposed.txt"), "utf8"), "disposed");
     const conversion = join(peerContexts, "typed-convert");
     await mkdir(conversion);
-    await run("pnpm-typed-converter-run", bin, ["convert", invoice, "--out", "out", "--format", "txt", "--config", "../typed/converter-async.config.ts"], conversion);
+    await run("pnpm-typed-converter-run", bin, ["convert", invoice, "--out", "out", "--to", "txt", "--config", "../typed/converter-async.config.ts"], conversion);
     assert.match(await readFile(join(conversion, "out", "invoice.txt"), "utf8"), /INVOICE/);
     assert.equal(await readFile(join(conversion, "converter-disposed.txt"), "utf8"), "disposed");
   });

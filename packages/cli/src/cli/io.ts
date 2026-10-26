@@ -5,7 +5,7 @@
  * carries everything a human reads**. That is what makes
  *
  * ```sh
- * docture extract invoice.pdf --schema ./invoice.ts | jq .total
+ * docture extract invoice.pdf --schema ./invoice.ts | jq '.results[0].data.total'
  * ```
  *
  * work while still printing which strategy answered and what it cost.

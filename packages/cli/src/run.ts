@@ -97,7 +97,7 @@ export async function run(argv: readonly string[], options: RunOptions): Promise
 function report(error: unknown, io: Io, color: boolean): ExitCode {
   const style = styleFor(color);
   const explained = explain(error);
-  const code = explained.code === undefined ? "" : style.dim(` [${explained.code}]`);
+  const code = style.dim(` [${explained.code}]`);
 
   io.diagnostic(`${style.red("error")}${code} ${explained.message}\n`);
   if (explained.hint !== undefined) io.diagnostic(`      ${style.dim(explained.hint)}\n`);

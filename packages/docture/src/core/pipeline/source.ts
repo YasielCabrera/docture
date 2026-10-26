@@ -33,6 +33,8 @@ const EXTENSION_TYPES: Readonly<Record<string, string>> = {
   ".md": "text/markdown",
 };
 
+const KNOWN_TYPES = new Set([...Object.values(EXTENSION_TYPES), "image/gif", "application/zip", "application/octet-stream"]);
+
 function startsWith(bytes: Uint8Array, signature: readonly number[]): boolean {
   if (bytes.length < signature.length) return false;
   return signature.every((byte, i) => bytes[i] === byte);
@@ -52,7 +54,7 @@ export function sniffMimeType(bytes: Uint8Array): string | undefined {
   if (startsWith(bytes, [0x47, 0x49, 0x46, 0x38])) return "image/gif";
   if (startsWith(bytes, [0x49, 0x49, 0x2a, 0x00])) return "image/tiff";
   if (startsWith(bytes, [0x4d, 0x4d, 0x00, 0x2a])) return "image/tiff";
-  if (startsWith(bytes, [0x52, 0x49, 0x46, 0x46])) return "image/webp"; // RIFF….WEBP
+  if (startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && startsWith(bytes.subarray(8), [0x57, 0x45, 0x42, 0x50])) return "image/webp";
   if (startsWith(bytes, [0x50, 0x4b, 0x03, 0x04])) return "application/zip";
   return undefined;
 }
@@ -73,9 +75,9 @@ function toUint8Array(value: Uint8Array | ArrayBuffer): Uint8Array {
 /**
  * Resolve `source` to bytes and a media type.
  *
- * Precedence for the media type: what the caller said → magic bytes → file
- * extension → `application/octet-stream`. The zip case inverts the middle two,
- * since `PK` cannot distinguish a .docx from a .xlsx.
+ * Specific magic bytes override generic or conflicting known declarations.
+ * Custom declarations and ZIP types stay authoritative. Otherwise use the
+ * signature, then extension, then `application/octet-stream`.
  */
 export async function resolveSource(
   source: DocumentSource,
@@ -142,8 +144,11 @@ export async function resolveSource(
 
   const sniffed = sniffMimeType(bytes);
   const fromName = typeFromName(fileName);
+  declared = declared?.split(";")[0]?.trim() || undefined;
+  const useSignature = sniffed !== undefined && sniffed !== "application/zip"
+    && (declared === undefined || KNOWN_TYPES.has(declared.toLowerCase()));
   const mimeType =
-    declared ??
+    (useSignature ? sniffed : declared) ??
     // `PK` alone cannot tell .docx from .xlsx — let the name break the tie.
     (sniffed === "application/zip" ? (fromName ?? sniffed) : (sniffed ?? fromName)) ??
     "application/octet-stream";

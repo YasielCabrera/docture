@@ -88,10 +88,10 @@ invoice-odoo.pdf
   a strategy requiring TEXT_LAYER ✓  GEOMETRY ✓  RENDERABLE_PAGES ✗
 ```
 
-And `--json` makes it pipeable, which is where a CLI earns its place:
+Use `--format json` to read the versioned envelope:
 
 ```sh
-docture inspect documents/*.pdf --json | jq -r 'select(.form=="scanned") | .file'
+docture inspect documents/*.pdf --format json | jq -r '.results[] | select(.ok and .features.form=="scanned") | .file'
 ```
 
 ## `eval` as a CI gate
@@ -100,6 +100,15 @@ docture inspect documents/*.pdf --json | jq -r 'select(.form=="scanned") | .file
 `--min-f1` is not met. The truth-completeness trap from
 [example 12](../12-accuracy-and-batch) applies here in full: a partial answer key will
 report hallucinations that are not hallucinations.
+
+## Output formats
+
+All five commands accept `--format json|ndjson|text`. JSON has the shape
+`{ version: 1, command, ok, results, summary? }`. `extract` defaults to JSON;
+the other commands default to text. Each result names its file and has either
+`ok: true` plus command data or `ok: false` plus `error: { code, message, hint? }`.
+NDJSON streams those items one per line. `--full` adds extraction metadata.
+`convert --to md|html|txt` selects the written document format.
 
 ## What to read next
 

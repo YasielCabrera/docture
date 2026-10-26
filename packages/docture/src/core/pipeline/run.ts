@@ -21,6 +21,7 @@ import {
   type ExtractionResult,
   type ValidationOutcome,
 } from "../domain/result.js";
+import type { Contract } from "../domain/contract.js";
 import type { Classification, Classifier } from "../contracts/classifier.js";
 import type { DocumentLoader } from "../contracts/loader.js";
 import type { ExtractionStrategy, StrategyContext } from "../contracts/strategy.js";
@@ -74,6 +75,83 @@ export interface RunOptions {
   readonly classifications?: readonly Classification[];
   readonly classify?: ClassifyOptions;
   readonly logger?: Logger;
+}
+
+const PROCESS_HINTS_KEY = "docture.internal.process-hints.v1";
+
+export function withProcessHints(options: RunOptions, hints: string | undefined): RunOptions {
+  return {
+    ...snapshotRunOptions(options),
+    [Symbol.for(PROCESS_HINTS_KEY)]: hints === undefined ? {} : { hints },
+  };
+}
+
+function processHintsOf(options: RunOptions): { readonly hints?: string } | undefined {
+  const key = Symbol.for(PROCESS_HINTS_KEY);
+  if (!(key in options)) return undefined;
+  const selection: unknown = options[key];
+  if (typeof selection !== "object" || selection === null) return undefined;
+  if (!("hints" in selection) || selection.hints === undefined) return {};
+  if (typeof selection.hints !== "string") return undefined;
+  return { hints: selection.hints };
+}
+
+const CONTRACT_GUIDANCE_KEY = "docture.internal.contract-guidance.v1";
+
+type ContractGuidance = Pick<Contract, "name" | "hints">;
+
+export function snapshotRunOptions(options: RunOptions): RunOptions {
+  const { signal, pages, stageTimeoutMs, only, classifications, classify, logger, ...extra } = options;
+  const fields: { [K in keyof RunOptions]-?: RunOptions[K] | undefined } = {
+    signal, pages, stageTimeoutMs, only, classifications, classify, logger,
+  };
+  const selected = processHintsOf(options);
+  return {
+    ...extra,
+    ...(fields.signal === undefined ? {} : { signal: fields.signal }),
+    ...(fields.pages === undefined ? {} : { pages: fields.pages }),
+    ...(fields.stageTimeoutMs === undefined ? {} : { stageTimeoutMs: fields.stageTimeoutMs }),
+    ...(fields.only === undefined ? {} : { only: fields.only }),
+    ...(fields.classifications === undefined ? {} : { classifications: fields.classifications }),
+    ...(fields.classify === undefined ? {} : { classify: fields.classify }),
+    ...(fields.logger === undefined ? {} : { logger: fields.logger }),
+    ...(selected === undefined ? {} : { [Symbol.for(PROCESS_HINTS_KEY)]: selected }),
+  };
+}
+
+export function withContractGuidance(options: RunOptions, contract: ContractGuidance): RunOptions {
+  return {
+    ...snapshotRunOptions(options),
+    [Symbol.for(CONTRACT_GUIDANCE_KEY)]: contract.hints === undefined
+      ? { name: contract.name }
+      : { name: contract.name, hints: contract.hints },
+  };
+}
+
+function contractGuidanceOf(options: RunOptions): ContractGuidance | undefined {
+  const key = Symbol.for(CONTRACT_GUIDANCE_KEY);
+  if (!(key in options)) return undefined;
+  const guidance: unknown = options[key];
+  if (typeof guidance !== "object" || guidance === null) return undefined;
+  if (!("name" in guidance) || typeof guidance.name !== "string") return undefined;
+  if (!("hints" in guidance) || guidance.hints === undefined) return { name: guidance.name };
+  if (typeof guidance.hints !== "string") return undefined;
+  return { name: guidance.name, hints: guidance.hints };
+}
+
+function extractionHints(
+  options: RunOptions,
+  candidates: readonly Classification[],
+  verdict: string | undefined,
+): string | undefined {
+  const selected = processHintsOf(options);
+  if (selected !== undefined) return selected.hints;
+  const contract = contractGuidanceOf(options);
+  if (contract?.hints !== undefined) return contract.hints;
+  const named = candidates.find((candidate) => candidate.name === verdict);
+  if (named !== undefined) return named.hints;
+  const sole = candidates.length === 1 ? candidates[0] : undefined;
+  return contract === undefined || sole?.name === contract.name ? sole?.hints : undefined;
 }
 
 function failedAttempt(name: string, ms: number, error: unknown): Attempt {
@@ -183,6 +261,8 @@ export async function runPipeline<T>(
       )
     : undefined;
 
+  const hints = extractionHints(options, candidates, classification?.name);
+
   // A strategy that REQUIRES a classification cannot run on an UNKNOWN verdict.
   const routable = eligible.filter(
     (s) =>
@@ -227,6 +307,7 @@ export async function runPipeline<T>(
         signal: deadline.signal,
         logger: logger.child({ strategy: strategy.name }),
         ...(classification === undefined ? {} : { classification }),
+        ...(hints === undefined ? {} : { hints }),
       };
       const outcome = await strategy.extract(ctx);
       usage = sumUsage([usage, outcome.usage], usage.wallMs);

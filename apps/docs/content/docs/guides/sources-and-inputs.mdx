@@ -49,7 +49,9 @@ await extractor.extract(
 );
 ```
 
-The declared `mimeType` takes precedence over signature and extension detection.
+Specific magic bytes override a generic or conflicting known `mimeType`. A custom
+declared type keeps its routing choice. ZIP bytes and formats without a known signature
+keep the declared type.
 
 ## Text and data files
 
@@ -106,13 +108,14 @@ several page groups without loading the file again.
 
 `resolveSource()` applies this order:
 
-1. Declared media type.
-2. Known magic bytes.
+1. Specific magic bytes, when the declared type is missing, generic, or known to the library.
+2. Declared media type, including custom routing types and ZIP-based formats.
 3. File extension.
 4. `application/octet-stream`.
 
-ZIP-based Office formats use the extension because the shared ZIP header cannot identify
-whether the file is DOCX, XLSX, or PPTX.
+ZIP-based Office formats keep a declared type, then use the extension, then fall back to
+`application/zip`. The shared ZIP header cannot identify DOCX, XLSX, or PPTX. With no known
+signature, the declared type wins. WEBP detection requires both `RIFF` and `WEBP` markers.
 
 The low-level `sniffMimeType()` and `resolveSource()` functions are documented in the
 [core documents API](/docs/reference/api/core-documents).

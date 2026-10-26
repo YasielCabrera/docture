@@ -21,6 +21,11 @@ export interface StrategyContext {
   readonly schema: ResolvedSchema;
   /** Present when some eligible strategy asked for classification. */
   readonly classification?: ClassificationResult;
+  /**
+   * Process-selected guidance, then the Contract's defined hints, then the named candidate's.
+   * A sole candidate applies only to a bare schema or a Contract with the same name.
+   */
+  readonly hints?: string;
   readonly signal: AbortSignal;
   readonly logger: Logger;
 }

@@ -19,13 +19,22 @@ import {
   type LoadedPage,
 } from "docture";
 import { jsonSchema } from "ai";
-import { boolFlag, numberFlag, type Parsed } from "../cli/args.js";
+import { boolFlag, choiceFlag, numberFlag, type Parsed } from "../cli/args.js";
 import { explain, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io, type Style } from "../cli/io.js";
 import { resolveConfig } from "../config.js";
 import { expandInputs } from "../inputs.js";
 import { commonOptions, wiringFlags } from "../options.js";
-import { formatCount, toJson } from "../output.js";
+import {
+  envelope,
+  errorRecord,
+  formatCount,
+  reportFailure,
+  toJson,
+  toNdjson,
+  OUTPUT_FORMATS,
+  type Item,
+} from "../output.js";
 import { buildWiring } from "../wiring.js";
 
 interface PageReport {
@@ -186,7 +195,7 @@ export async function inspectCommand(
 ): Promise<ExitCode> {
   const common = commonOptions(parsed, io.color);
   const style = styleFor(common.color);
-  const asJson = boolFlag(parsed, "json");
+  const format = choiceFlag(parsed, "format", OUTPUT_FORMATS) ?? "text";
   const maxPages = numberFlag(parsed, "pages", { min: 1, integer: true });
 
   const options: ProbeOptions = {
@@ -224,7 +233,8 @@ export async function inspectCommand(
     for (const warning of wiring.warnings) io.diagnostic(`${style.yellow("!")} ${warning}\n`);
   }
 
-  const reports: Report[] = [];
+  const reports: Item<Report>[] = [];
+  const hintsShown = new Set<string>();
   let failed = 0;
 
   try {
@@ -235,28 +245,28 @@ export async function inspectCommand(
           only: ["inspect"],
         });
         const probe = result.data as Probe;
-        reports.push({ ...probe, file: input.label, loader: result.loader });
+        const record: Item<Report> = { ...probe, file: input.label, ok: true, loader: result.loader };
+        reports.push(record);
+        if (format === "ndjson") io.write(toNdjson(record));
       } catch (error) {
         failed += 1;
         const explained = explain(error);
-        if (!common.quiet) {
-          io.diagnostic(`${style.red("✗")} ${style.bold(input.label)} — ${explained.message}\n`);
-          if (explained.hint !== undefined) io.diagnostic(`  ${style.dim(explained.hint)}\n`);
-        }
+        reportFailure(io, input.label, explained, style, hintsShown);
+        const record = errorRecord(input.label, explained);
+        reports.push(record);
+        if (format === "ndjson") io.write(toNdjson(record));
       }
     }
   } finally {
     await wiring.dispose();
   }
 
-  if (asJson) {
-    // One document reports as an object, several as an array — but a document that
-    // failed reports as neither, and `JSON.stringify(undefined)` is the string
-    // "undefined", which is not JSON and would break whatever is reading this.
-    const single = reports.length === 1 && inputs.length === 1 ? reports[0] : undefined;
-    io.write(toJson(single ?? reports));
-  } else {
-    io.write(reports.map((report) => renderReport(report, style, options)).join("\n"));
+  if (format === "json") {
+    io.write(toJson(envelope("inspect", reports)));
+  } else if (format === "text") {
+    const rendered = reports.filter((report) => report.ok)
+      .map((report) => renderReport(report, style, options)).join("\n");
+    io.write(rendered);
   }
 
   return failed === 0 ? 0 : 1;

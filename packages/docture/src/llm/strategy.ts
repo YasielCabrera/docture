@@ -31,7 +31,7 @@ import { chunkByBudget, chunkByPage, buildPrompt, type Chunk } from "./prompt.js
 import { toUsage, type PricingTable } from "./pricing.js";
 import { relaxJsonSchema } from "./relax.js";
 import { modelOutputError } from "./failure.js";
-import { modelIdOf } from "./model-id.js";
+import { modelIdOf, providerOf } from "./model-id.js";
 
 export interface LlmStrategyOptions {
   /** Any AI SDK language model: a provider instance or a gateway model string. */
@@ -98,8 +98,10 @@ export class LlmStrategy implements ExtractionStrategy {
       throw new Error("the document has no text to send to a model");
     }
 
-    const hint =
-      ctx.classification === undefined ? undefined : this.options.hints?.[ctx.classification.name];
+    const hint = [
+      ctx.hints,
+      ctx.classification === undefined ? undefined : this.options.hints?.[ctx.classification.name],
+    ].filter((value): value is string => value !== undefined).join("\n") || undefined;
 
     /**
      * A fragment cannot satisfy a whole-document schema, so multi-request runs send a
@@ -129,6 +131,8 @@ export class LlmStrategy implements ExtractionStrategy {
       });
 
       const key = cacheKey({
+        provider: providerOf(this.options.model),
+        temperature: this.options.temperature,
         modelId,
         system,
         prompt,

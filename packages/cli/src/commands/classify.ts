@@ -7,23 +7,24 @@
  */
 
 import type { ClassificationResult } from "docture";
-import { boolFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
+import { choiceFlag, numberFlag, type Parsed } from "../cli/args.js";
 import { explain, UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io } from "../cli/io.js";
 import { resolveConfig } from "../config.js";
 import { expandInputs } from "../inputs.js";
 import { commonOptions, wiringFlags } from "../options.js";
-import { toJson } from "../output.js";
+import {
+  envelope,
+  errorRecord,
+  reportFailure,
+  toJson,
+  toNdjson,
+  OUTPUT_FORMATS,
+  type Item,
+} from "../output.js";
 import { buildWiring } from "../wiring.js";
 
-interface Verdict {
-  readonly file: string;
-  readonly ok: boolean;
-  readonly name?: string;
-  readonly confidence?: number;
-  readonly signals?: ClassificationResult["signals"];
-  readonly error?: string;
-}
+type Verdict = Item<Pick<ClassificationResult, "name" | "confidence" | "signals">>;
 
 /**
  * Run `task` over `items`, `limit` at a time, keeping results in input order.
@@ -60,7 +61,7 @@ export async function classifyCommand(
 ): Promise<ExitCode> {
   const common = commonOptions(parsed, io.color);
   const style = styleFor(common.color);
-  const asJson = boolFlag(parsed, "json");
+  const format = choiceFlag(parsed, "format", OUTPUT_FORMATS) ?? "text";
   const concurrency = numberFlag(parsed, "concurrency", { min: 1, max: 64, integer: true });
 
   const config = await resolveConfig({
@@ -108,6 +109,7 @@ export async function classifyCommand(
     }
   }
 
+  const hintsShown = new Set<string>();
   let failed = 0;
   let verdicts: Verdict[];
 
@@ -115,37 +117,43 @@ export async function classifyCommand(
     verdicts = await pooled(inputs, concurrency ?? wiring.concurrency, async (input) => {
       try {
         const result = await wiring.extractor.classify(input.source, undefined, { signal });
-        return {
+        const record: Verdict = {
           file: input.label,
           ok: true,
           name: result.name,
           confidence: result.confidence,
           signals: result.signals,
         };
+        if (format === "ndjson") io.write(toNdjson(record));
+        return record;
       } catch (error) {
         failed += 1;
-        return { file: input.label, ok: false, error: explain(error).message };
+        const explained = explain(error);
+        reportFailure(io, input.label, explained, style, hintsShown);
+        const record = errorRecord(input.label, explained);
+        if (format === "ndjson") io.write(toNdjson(record));
+        return record;
       }
     });
   } finally {
     await wiring.dispose();
   }
 
-  if (asJson) {
-    io.write(toJson(verdicts));
-  } else {
+  if (format === "json") {
+    io.write(toJson(envelope("classify", verdicts)));
+  } else if (format === "text") {
     const width = Math.max(...verdicts.map((v) => v.file.length));
     for (const verdict of verdicts) {
       if (!verdict.ok) {
-        io.write(`${verdict.file.padEnd(width)}  ${style.red("error")}  ${verdict.error ?? ""}\n`);
+        io.write(`${verdict.file.padEnd(width)}  ${style.red("error")}  ${verdict.error.message}\n`);
         continue;
       }
-      const confidence = `${((verdict.confidence ?? 0) * 100).toFixed(0)}%`;
-      const name = verdict.name === "UNKNOWN" ? style.yellow("UNKNOWN") : style.bold(verdict.name ?? "");
+      const confidence = `${(verdict.confidence * 100).toFixed(0)}%`;
+      const name = verdict.name === "UNKNOWN" ? style.yellow("UNKNOWN") : style.bold(verdict.name);
       io.write(`${verdict.file.padEnd(width)}  ${name}  ${style.dim(confidence)}\n`);
 
       if (common.verbose) {
-        for (const s of verdict.signals ?? []) {
+        for (const s of verdict.signals) {
           const said = s.name ?? "abstained";
           const note = s.note === undefined ? "" : ` — ${s.note}`;
           io.write(

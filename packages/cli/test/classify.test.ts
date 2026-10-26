@@ -59,12 +59,12 @@ describe("classify", () => {
   it("reports a verdict per document", async () => {
     const cwd = await workspace();
     const run = await cli(
-      ["classify", "one.txt", "two.txt", "--classifications", "./kinds.mjs", "--json"],
+      ["classify", "one.txt", "two.txt", "--classifications", "./kinds.mjs", "--format", "json"],
       { cwd },
     );
 
     expect(run.code).toBe(0);
-    const verdicts = JSON.parse(run.stdout) as { file: string; name: string; confidence: number }[];
+    const verdicts = JSON.parse(run.stdout).results as { file: string; name: string; confidence: number }[];
     expect(verdicts).toEqual([
       expect.objectContaining({ file: "one.txt", name: "invoice", confidence: 0.9 }),
       expect.objectContaining({ file: "two.txt", name: "receipt", confidence: 0.9 }),
@@ -73,11 +73,11 @@ describe("classify", () => {
 
   it("says UNKNOWN rather than guessing", async () => {
     const cwd = await workspace();
-    const run = await cli(["classify", "three.txt", "--classifications", "./kinds.mjs", "--json"], {
+    const run = await cli(["classify", "three.txt", "--classifications", "./kinds.mjs", "--format", "json"], {
       cwd,
     });
 
-    const verdicts = JSON.parse(run.stdout) as { name: string }[];
+    const verdicts = JSON.parse(run.stdout).results as { name: string }[];
     expect(verdicts[0]?.name).toBe("UNKNOWN");
     expect(run.code).toBe(0);
   });
@@ -138,7 +138,7 @@ describe("classify", () => {
     await writeFixture(dir, "one.txt", "This invoice is due on the first.");
 
     const run = await cli(
-      ["classify", "one.txt", "--classifications", "./kinds.mjs", "-m", "openai/gpt-5", "--json", "--verbose"],
+      ["classify", "one.txt", "--classifications", "./kinds.mjs", "-m", "openai/gpt-5", "--format", "json", "--verbose"],
       { cwd: dir, env: { AI_GATEWAY_API_KEY: "unused — the keyword classifier answers first" } },
     );
 
@@ -146,6 +146,6 @@ describe("classify", () => {
     expect(run.stderr).toContain("classifier llm");
     expect(run.stderr).toContain("--model is used for classification only");
     // The keyword classifier is more confident than an unreached model call.
-    expect((JSON.parse(run.stdout) as { name: string }[])[0]?.name).toBe("invoice");
+    expect((JSON.parse(run.stdout).results as { name: string }[])[0]?.name).toBe("invoice");
   });
 });

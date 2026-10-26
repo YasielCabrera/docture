@@ -7,9 +7,10 @@
  * 499 — and the exit code still says something failed.
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
-import { errorCodeOf, messageOf, type ExtractionResult, type Usage } from "docture";
+import { lstat, mkdir, readlink, realpath, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { ExtractionResult, Usage } from "docture";
 import { boolFlag, choiceFlag, listFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { explain, UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io, type Style } from "../cli/io.js";
@@ -18,8 +19,10 @@ import { expandInputs, stem, type Input } from "../inputs.js";
 import { commonOptions, wiringFlags } from "../options.js";
 import {
   attemptLines,
+  envelope,
   errorRecord,
-  failureLine,
+  OUTPUT_FORMATS,
+  reportFailure,
   formatCount,
   formatMs,
   formatUsd,
@@ -31,8 +34,6 @@ import {
 } from "../output.js";
 import { resolveSchemaSource } from "../schema.js";
 import { buildWiring } from "../wiring.js";
-
-const FORMATS = ["json", "ndjson"] as const;
 
 /** Where each document goes when `--out` names a directory. */
 function outputPaths(inputs: readonly Input[], out: string, cwd: string): Map<number, string> {
@@ -55,6 +56,127 @@ function outputPaths(inputs: readonly Input[], out: string, cwd: string): Map<nu
   });
 
   return paths;
+}
+
+function localPathOf(input: Input): string | undefined {
+  if (isAbsolute(input.source)) return input.source;
+  if (/^file:/i.test(input.source)) {
+    try {
+      return fileURLToPath(input.source);
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+type FileIdentity =
+  | { kind: "present"; key: string }
+  | { kind: "unresolvable" }
+  | { kind: "uninspectable" };
+
+async function identity(path: string): Promise<FileIdentity> {
+  try {
+    const { dev, ino } = await stat(path, { bigint: true });
+    return { kind: "present", key: `${dev}:${ino}` };
+  } catch (error) {
+    if (error instanceof Error && "code" in error && (
+      error.code === "ENOENT" || error.code === "ENOTDIR" || error.code === "ELOOP"
+    )) {
+      return { kind: "unresolvable" };
+    }
+    return { kind: "uninspectable" };
+  }
+}
+
+async function refuseInputAliases(inputs: readonly Input[], outputs: readonly string[]): Promise<void> {
+  if (outputs.length === 0) return;
+  const sources = await Promise.all(inputs.map(async (input) => {
+    const path = localPathOf(input);
+    return path === undefined ? undefined : { source: input.source, path, identity: await identity(path) };
+  }));
+  for (const output of outputs) {
+    const outputIdentity = await identity(output);
+    const source = sources.find((input) => input !== undefined && (
+      input.path === output || (outputIdentity.kind === "present" && input.identity.kind === "present"
+        && input.identity.key === outputIdentity.key)
+    ));
+    if (source !== undefined) {
+      throw new UsageError(
+        `--out target "${output}" would overwrite input "${source.source}".`,
+        "Choose a different --out, or omit --out.",
+      );
+    }
+    if (outputIdentity.kind === "uninspectable") {
+      throw new UsageError(
+        `Cannot inspect --out target "${output}" to verify it does not overwrite a local input.`,
+        "Choose a new --out destination, or omit --out.",
+      );
+    }
+    if (outputIdentity.kind === "present") {
+      const uninspectable = sources.find((input) => input?.identity.kind === "uninspectable");
+      if (uninspectable !== undefined) {
+        throw new UsageError(
+          `Cannot verify --out target "${output}" against input "${uninspectable.source}" because the input cannot be inspected.`,
+          "Choose a new --out destination, or omit --out.",
+        );
+      }
+    }
+  }
+}
+
+async function missingLeafTarget(rawPath: string): Promise<string | undefined> {
+  try {
+    await stat(rawPath);
+    return undefined;
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) return undefined;
+  }
+
+  let current = rawPath;
+  const visited = new Set<string>();
+  while (true) {
+    const leaf = basename(current);
+    if (current.endsWith(sep) || leaf === "" || leaf === "." || leaf === "..") return undefined;
+    try {
+      const parent = dirname(current);
+      const parentIdentity = await identity(parent);
+      if (parentIdentity.kind !== "present") return undefined;
+      const key = `${parentIdentity.key}/${leaf}`;
+      let entry: Awaited<ReturnType<typeof lstat>>;
+      try {
+        entry = await lstat(current);
+      } catch (error) {
+        return error instanceof Error && "code" in error && error.code === "ENOENT" ? key : undefined;
+      }
+      if (!entry.isSymbolicLink() || visited.has(key)) return undefined;
+      visited.add(key);
+      const target = await readlink(current);
+      // Keep symlink traversal before any .. segments for the next native lookup.
+      current = isAbsolute(target) ? target : `${await realpath(parent)}${sep}${target}`;
+    } catch {
+      return undefined;
+    }
+  }
+}
+
+async function refuseMissingLeafAliases(inputs: readonly Input[], outputs: readonly string[]): Promise<void> {
+  if (outputs.length === 0) return;
+  const sources = await Promise.all(inputs.map(async (input) => {
+    const path = localPathOf(input);
+    return path === undefined ? undefined : { source: input.source, key: await missingLeafTarget(path) };
+  }));
+  for (const output of outputs) {
+    const key = await missingLeafTarget(output);
+    if (key === undefined) continue;
+    const source = sources.find((input) => input?.key === key);
+    if (source !== undefined) {
+      throw new UsageError(
+        `--out target "${output}" would overwrite input "${source.source}".`,
+        "Choose a different --out, or omit --out.",
+      );
+    }
+  }
 }
 
 function sumUsage(results: readonly ExtractionResult<unknown>[]): Usage {
@@ -92,12 +214,31 @@ export async function extractCommand(
 ): Promise<ExitCode> {
   const common = commonOptions(parsed, io.color);
   const style = styleFor(common.color);
-  const format = choiceFlag(parsed, "format", FORMATS) ?? "json";
+  const format = choiceFlag(parsed, "format", OUTPUT_FORMATS) ?? "json";
   const full = boolFlag(parsed, "full");
   const out = stringFlag(parsed, "out");
   const schemaFlag = stringFlag(parsed, "schema");
   const only = listFlag(parsed, "only");
   const concurrencyFlag = numberFlag(parsed, "concurrency", { min: 1, max: 64, integer: true });
+
+  const inputs = await expandInputs(parsed.positionals, io.cwd);
+
+  // `--out` is a file for one document and a directory for many. An explicit
+  // trailing slash forces the directory reading even for one.
+  const perFile = out !== undefined && (inputs.length > 1 || out.endsWith("/"));
+  // Resolve the layout BEFORE the first model call, so a name collision costs
+  // nothing rather than everything.
+  const targets = perFile && out !== undefined ? outputPaths(inputs, out, io.cwd) : undefined;
+  const outFile = out !== undefined && !perFile ? resolve(io.cwd, out) : undefined;
+  const outputs = targets ? [...targets.values()] : outFile ? [outFile] : [];
+  await refuseInputAliases(inputs, outputs);
+  if (perFile) {
+    for (const parent of new Set(outputs.map((path) => dirname(path)))) {
+      await mkdir(parent, { recursive: true });
+    }
+    await refuseInputAliases(inputs, outputs);
+  }
+  await refuseMissingLeafAliases(inputs, outputs);
 
   const config = await resolveConfig({
     cwd: io.cwd,
@@ -111,15 +252,6 @@ export async function extractCommand(
     cwd: io.cwd,
     command: "extract",
   });
-
-  const inputs = await expandInputs(parsed.positionals, io.cwd);
-
-  // `--out` is a file for one document and a directory for many. An explicit
-  // trailing slash forces the directory reading even for one.
-  const perFile = out !== undefined && (inputs.length > 1 || out.endsWith("/"));
-  // Resolve the layout BEFORE the first model call, so a name collision costs
-  // nothing rather than everything.
-  const targets = perFile && out !== undefined ? outputPaths(inputs, out, io.cwd) : undefined;
 
   const wiring = await buildWiring({
     io,
@@ -182,49 +314,33 @@ export async function extractCommand(
           if (common.verbose) io.diagnostic(attemptLines(result.attempts, style));
         }
         if (format === "ndjson") emit(toNdjson(record));
+        if (format === "text") emit(`${label}\n${toJson(result.data)}`);
         const path = targets?.get(item.index);
-        if (path !== undefined) await writeJson(path, full ? record : record.data);
+        if (path !== undefined) await writeJson(path, record);
       } else {
         failed += 1;
         const error = item.outcome.error;
         const explained = explain(error);
-        const record = errorRecord(label, errorCodeOf(error), explained.message);
+        const record = errorRecord(label, explained);
         records[item.index] = record;
 
-        if (!common.quiet) {
-          io.diagnostic(failureLine(label, explained.message, style));
-          // One hint per distinct failure code: the fix is the same for all of
-          // them, and 500 copies of it is not more helpful than one.
-          const key = explained.code ?? explained.message;
-          if (explained.hint !== undefined && !hintsShown.has(key)) {
-            hintsShown.add(key);
-            io.diagnostic(`  ${style.dim(explained.hint)}\n`);
-          }
-        }
+        reportFailure(io, label, explained, style, hintsShown);
         if (format === "ndjson") emit(toNdjson(record));
+        const path = targets?.get(item.index);
+        if (path !== undefined) await writeJson(path, record);
       }
     }
   } finally {
     await wiring.dispose();
   }
 
-  // `json` describes the whole run, so it can only be written once it is over.
   if (format === "json") {
     const ordered = records.filter((record): record is DocumentRecord => record !== undefined);
-    const single = inputs.length === 1 ? ordered[0] : undefined;
-
-    if (single === undefined) {
-      emit(toJson(ordered));
-    } else if (full || single.ok) {
-      emit(toJson(full ? single : single.data));
-    }
-    // One document that failed, without --full: nothing goes to stdout. The error
-    // is on stderr and the exit code carries it — an empty file or a `null` would
-    // both read as "this document contains nothing".
+    emit(toJson(envelope("extract", ordered)));
   }
 
-  if (out !== undefined && !perFile && collected.length > 0) {
-    await writeFile(resolve(io.cwd, out), collected, "utf8");
+  if (outFile !== undefined && collected.length > 0) {
+    await writeFile(outFile, collected, "utf8");
   }
 
   if (!common.quiet) {

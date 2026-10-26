@@ -43,7 +43,7 @@ docture convert reports/*.pdf --out converted/
 ```
 
 `--out <directory>` is required. Markdown and referenced assets are the defaults. Use
-`--format md|html|txt` and `--assets referenced|embedded|omit` to change them.
+`--to md|html|txt` and `--assets referenced|embedded|omit` to change them.
 Referenced images are written to `<out>/<stem>.assets/`. The document is written as
 `<out>/<stem>.md`, `.html`, or `.txt`.
 
@@ -74,15 +74,69 @@ Valibot, ArkType, or other Standard Schema value when validation is required.
 
 ## Output streams
 
-Extracted data goes to stdout. Diagnostics go to stderr. This keeps pipelines valid:
+All five commands accept `--format json|ndjson|text`. `extract` defaults to JSON;
+the others default to text. `--json` is removed. `convert --to md|html|txt` selects the
+document format, independently of the result format.
 
-```sh
-docture extract invoice.pdf -s ./invoice.ts -m openai/gpt-5 | jq .total
+JSON always prints one envelope, including for a single failed input:
+
+```json
+{
+  "version": 1,
+  "command": "extract",
+  "ok": true,
+  "results": [{ "file": "invoice.pdf", "ok": true, "data": { "total": 42 } }]
+}
 ```
 
-Use `--full` to include method, loader, attempts, usage, features, and classification in
-the output. The CLI does not include the redundant successful `validation` object. Use
-`--format ndjson` to stream one batch result per line.
+Every result names `file` and has either `ok: true` with command data or `ok: false`
+with `error: { code, message, hint? }`. JSON keeps input order. NDJSON streams the
+same result items in completion order, one per line without an envelope.
+
+| Command | Successful result fields |
+| --- | --- |
+| `extract` | `data`; `--full` adds method, loader, attempts, usage, features, and optional classification |
+| `convert` | `output` and `assets` as absolute paths, `warnings` |
+| `classify` | `name`, `confidence`, `signals` |
+| `inspect` | `loader`, `features`, `pages`, and requested text, lines, or render information |
+| `eval` | `score` with F1, precision, recall, and exact match; `method`, `usage` |
+
+Eval adds `summary` with aggregate metrics, `failed`, optional `minF1`, and `passed`.
+The envelope's `ok` also reflects the accuracy gate. `--report` always writes the
+Markdown scoreboard.
+
+Diagnostics go to stderr. To read an extracted value:
+
+```sh
+docture extract invoice.pdf -s ./invoice.ts -m openai/gpt-5 | jq '.results[0].data.total'
+```
+
+With one input, `extract --out <file>` writes the envelope. `--out <directory>/`
+writes one result item per file, including failures. `--full` adds fields only to
+successful extraction items and preserves the envelope.
+
+Before importing config or schema modules or resolving a model, `extract` refuses
+`--out` destinations known to overwrite a local input. This includes file URLs,
+symbolic links, hard links, and missing files whose native parent traversal and
+terminal symlinks resolve to the same destination after planned output folders exist.
+It exits with code `2`. Choose a different `--out` destination, or omit `--out`.
+
+Sources and output files remain untouched on refusal. Directory output prepares its
+destination folders before the final alias check, so empty folders may remain after
+a refusal or a later config, schema, or model error. Single-file output does not
+create parent folders. Unsafe output takes precedence over invalid config or schema
+errors.
+
+If permissions or another unknown filesystem error prevent inspecting a local
+input, `extract` also refuses existing destinations because it cannot rule out an
+alias, even if the destination is unrelated. Choose a new output path, or omit
+`--out`. Uninspectable destinations are also refused. Safe new output paths still record
+per-document errors and let other batch inputs continue. Missing inputs and symlink
+loops retain per-document errors with safe existing destinations.
+
+`--quiet` keeps per-document failures and the first hint per error code on stderr.
+It hides success, progress, warning, and summary diagnostics. Result output still
+follows the selected format.
 
 ## Models and vision
 
@@ -172,6 +226,9 @@ docture eval 'corpus/*.pdf' \
   --min-f1 0.95 \
   --report score.md
 ```
+
+Failed extractions score F1, precision, and recall zero. They remain in the scoreboard,
+report, and accuracy gate.
 
 Exit code `0` means success. Exit code `1` means a document failed or an accuracy gate was
 not met. Exit code `2` means the invocation was invalid.

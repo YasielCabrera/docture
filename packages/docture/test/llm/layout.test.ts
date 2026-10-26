@@ -45,6 +45,22 @@ function context(): LayoutAnalyzerContext {
 }
 
 describe("LlmLayoutAnalyzer", () => {
+  it("retains layout tokens without charging again for a cached analysis", async () => {
+    const { model, calls } = mockModel([
+      { annotations: [{ id: "title", role: "heading", order: 0 }] },
+    ], { inputTokens: 12, outputTokens: 4 });
+    const analyzer = llmLayout({
+      model, cache: memoryCache(),
+      pricing: { "mock-model": { inputPerMillion: 1_000_000, outputPerMillion: 1_000_000 } },
+    });
+    const first = await analyzer.analyze(context());
+    const second = await analyzer.analyze(context());
+    expect(first.usage?.costUsd).toBe(16);
+    expect(second.usage).toMatchObject({ inputTokens: 12, outputTokens: 4, totalTokens: 16 });
+    expect(second.usage?.costUsd).toBeUndefined();
+    expect(calls).toHaveLength(1);
+  });
+
   it("returns only constrained id, role, level, and order annotations", async () => {
     const handle = mockModel(
       [

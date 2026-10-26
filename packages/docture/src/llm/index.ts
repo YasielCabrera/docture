@@ -39,7 +39,7 @@ export { createLlmExtractor } from "./extractor.js";
 export type { LlmExtractorOptions } from "./extractor.js";
 
 // Prompting — exported so a caller can build on the defaults rather than replace them.
-export { DEFAULT_SYSTEM_PROMPT, buildPrompt, chunkByBudget, chunkByPage, estimateTokens } from "./prompt.js";
+export { DEFAULT_SYSTEM_PROMPT, buildPrompt, wrapUntrusted, chunkByBudget, chunkByPage, estimateTokens } from "./prompt.js";
 export type { BuildPromptOptions, Chunk, PromptParts } from "./prompt.js";
 
 // Response caching — an eval re-scoring a corpus should not pay twice.

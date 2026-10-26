@@ -1,18 +1,6 @@
-/**
- * `docture eval` — extract a corpus and score it against ground truth.
- *
- * The scoring is `docture/eval`'s, unchanged: the same precision/recall/F1 over
- * leaf paths that the library's own tests assert on. A CLI that graded differently
- * from the test suite would be worse than no CLI at all — you would have two
- * numbers and no way to reconcile them.
- *
- * `--min-f1` is the point of the command. It turns "did that prompt change help?"
- * into an exit code a CI job can gate on.
- */
-
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
-import { messageOf } from "docture";
+import { EMPTY_USAGE, messageOf } from "docture";
 import {
   aggregate,
   failures,
@@ -22,15 +10,30 @@ import {
   type RunRecord,
   type ScoreOptions,
 } from "docture/eval";
-import { listFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
+import { choiceFlag, listFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { CliError, explain, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io } from "../cli/io.js";
 import { resolveConfig } from "../config.js";
 import { expandInputs, stem, type Input } from "../inputs.js";
 import { commonOptions, wiringFlags } from "../options.js";
-import { failureLine, formatMs, formatUsd, successLine } from "../output.js";
+import {
+  envelope,
+  errorRecord,
+  formatMs,
+  formatUsd,
+  reportFailure,
+  successLine,
+  toJson,
+  toNdjson,
+  OUTPUT_FORMATS,
+  type Item,
+} from "../output.js";
 import { resolveSchemaSource } from "../schema.js";
 import { buildWiring } from "../wiring.js";
+
+type EvalData = Pick<RunRecord, "method" | "usage"> & {
+  readonly score: Pick<RunRecord["score"], "f1" | "precision" | "recall" | "exactMatch">;
+};
 
 /**
  * Where a document's ground truth lives.
@@ -82,6 +85,7 @@ async function readTruth(path: string): Promise<unknown> {
 export async function evalCommand(parsed: Parsed, io: Io, signal: AbortSignal): Promise<ExitCode> {
   const common = commonOptions(parsed, io.color);
   const style = styleFor(common.color);
+  const format = choiceFlag(parsed, "format", OUTPUT_FORMATS) ?? "text";
   const truth = stringFlag(parsed, "truth");
   const report = stringFlag(parsed, "report");
   const alignBy = stringFlag(parsed, "align-by");
@@ -140,6 +144,8 @@ export async function evalCommand(parsed: Parsed, io: Io, signal: AbortSignal): 
   }
 
   const records: RunRecord[] = [];
+  const results = new Array<Item<EvalData> | undefined>(inputs.length);
+  const hintsShown = new Set<string>();
   let failed = 0;
 
   try {
@@ -159,13 +165,31 @@ export async function evalCommand(parsed: Parsed, io: Io, signal: AbortSignal): 
       if (!item.outcome.ok) {
         failed += 1;
         const explained = explain(item.outcome.error);
-        if (!common.quiet) io.diagnostic(failureLine(label, explained.message, style));
+        reportFailure(io, label, explained, style, hintsShown);
+        const score = scoreExtraction(expected.get(item.index), undefined, scoreOptions);
+        records.push(recordRun(label, {
+          ...score,
+          f1: 0,
+          precision: 0,
+          recall: 0,
+          exactMatch: false,
+        }, { method: "failed", loader: "none", usage: EMPTY_USAGE, attempts: [] }));
+        const record = errorRecord(label, explained);
+        results[item.index] = record;
+        if (format === "ndjson") io.write(toNdjson(record));
         continue;
       }
 
       const result = item.outcome.result;
       const score = scoreExtraction(expected.get(item.index), result.data, scoreOptions);
       records.push(recordRun(label, score, result));
+      const record: Item<EvalData> = {
+        file: label, ok: true,
+        score: { f1: score.f1, precision: score.precision, recall: score.recall, exactMatch: score.exactMatch },
+        method: result.method, usage: result.usage,
+      };
+      results[item.index] = record;
+      if (format === "ndjson") io.write(toNdjson(record));
 
       if (!common.quiet) {
         const grade =
@@ -191,13 +215,20 @@ export async function evalCommand(parsed: Parsed, io: Io, signal: AbortSignal): 
   }
 
   const scoreboard = formatScoreboard(records);
-  io.write(`${scoreboard}\n`);
+  if (format === "text") io.write(`${scoreboard}\n`);
   if (report !== undefined) {
     await writeFile(resolve(io.cwd, report), `${scoreboard}\n`, "utf8");
     if (!common.quiet) io.diagnostic(`${style.dim("→")} scoreboard written to ${report}\n`);
   }
 
   const summary = aggregate(records);
+  const gatePassed = minF1 === undefined || summary.meanF1 >= minF1;
+  if (format === "json") {
+    const output = envelope("eval", results.filter((record) => record !== undefined), {
+      ...summary, failed, ...(minF1 === undefined ? {} : { minF1 }), passed: failed === 0 && gatePassed,
+    });
+    io.write(toJson({ ...output, ok: output.ok && gatePassed }));
+  }
   if (!common.quiet) {
     io.diagnostic(
       `${style.dim("─")} ${summary.documents} scored · mean F1 ${summary.meanF1.toFixed(3)} · ` +

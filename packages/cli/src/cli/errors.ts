@@ -84,7 +84,7 @@ const HINTS: Readonly<Record<DoctureErrorCode, string>> = {
 
 export interface Explained {
   readonly message: string;
-  readonly code?: string;
+  readonly code: string;
   readonly hint?: string;
 }
 
@@ -92,6 +92,7 @@ export interface Explained {
 export function explain(error: unknown): Explained {
   if (error instanceof UsageError || error instanceof CliError) {
     return {
+      code: error instanceof UsageError ? "USAGE" : "CLI",
       message: error.message,
       ...(error.hint === undefined ? {} : { hint: error.hint }),
     };
@@ -100,9 +101,9 @@ export function explain(error: unknown): Explained {
     return { message: error.message, code: error.code, hint: HINTS[error.code] };
   }
   if (error instanceof Error) {
-    return { message: error.message };
+    return { code: "INTERNAL", message: error.message };
   }
-  return { message: String(error) };
+  return { code: "INTERNAL", message: String(error) };
 }
 
 /** 130 is the shell's convention for "killed by SIGINT", and CI readers know it. */

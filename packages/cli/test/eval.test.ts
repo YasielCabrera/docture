@@ -28,6 +28,28 @@ async function workspace(extracted: unknown, options: { truth?: unknown } = {}) 
 }
 
 describe("eval", () => {
+  it.each([TRUTH, {}])("includes failed extractions with zero metrics in reports and gates for truth %j", async (truth) => {
+    const cwd = await workspace(TRUTH);
+    await writeFixture(cwd, "docture.config.mjs", textLoaderConfig(["Invoice"], `{
+      name: "fixed",
+      async extract(ctx) {
+        if (ctx.features.mimeType !== "application/pdf") throw new Error("only PDFs, sorry");
+        return { data: ${JSON.stringify(TRUTH)} };
+      }
+    }`));
+    await writeFixture(cwd, "bad.png", "pretend PNG");
+    await writeFixture(cwd, "bad.expected.json", JSON.stringify(truth));
+    const run = await cli([
+      "eval", "invoice.pdf", "bad.png", "-s", "./invoice.schema.json",
+      "--min-f1", "0.9", "--report", "score.md",
+    ], { cwd });
+    expect(run.code).toBe(1);
+    expect(run.stdout).toContain("bad.png | 0.000 | 0.0% | 0.0% | no | failed |");
+    expect(run.stdout).toContain("**2 documents** · mean F1 0.500 · 1 exact");
+    expect(await readFile(join(cwd, "score.md"), "utf8")).toBe(run.stdout);
+    expect(run.stderr).toContain("below the --min-f1 gate");
+  });
+
   it("scores a perfect extraction at F1 1.000 and finds the truth beside the document", async () => {
     const cwd = await workspace(TRUTH);
     const run = await cli(["eval", "invoice.pdf", "-s", "./invoice.schema.json"], { cwd });

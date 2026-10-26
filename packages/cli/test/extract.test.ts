@@ -46,7 +46,7 @@ describe("extract", () => {
     const run = await cli(["extract", "invoice.pdf", "--schema", "./invoice.schema.json"], { cwd });
 
     expect(run.code).toBe(0);
-    expect(JSON.parse(run.stdout)).toEqual(INVOICE);
+    expect(JSON.parse(run.stdout)).toMatchObject({ version: 1, command: "extract", ok: true, results: [{ file: "invoice.pdf", ok: true, data: INVOICE }] });
     // The split is the contract: nothing decorative may reach stdout.
     expect(run.stderr).toContain("invoice.pdf");
     expect(run.stderr).toContain("fixed");
@@ -68,11 +68,11 @@ describe("extract", () => {
     expect(lines[0]).toHaveProperty("features");
   });
 
-  it("returns an array in input order for several documents", async () => {
+  it("returns envelope items in input order for several documents", async () => {
     const cwd = await workspace(INVOICE, { files: ["b.pdf", "a.pdf"] });
     const run = await cli(["extract", "b.pdf", "a.pdf", "-s", "./invoice.schema.json"], { cwd });
 
-    const records = JSON.parse(run.stdout) as { file: string }[];
+    const records = JSON.parse(run.stdout).results as { file: string }[];
     expect(records.map((r) => r.file)).toEqual(["b.pdf", "a.pdf"]);
   });
 
@@ -85,8 +85,8 @@ describe("extract", () => {
 
     expect(run.code).toBe(0);
     expect(run.stdout).toBe("");
-    expect(JSON.parse(await readFile(join(cwd, "out", "a.json"), "utf8"))).toEqual(INVOICE);
-    expect(JSON.parse(await readFile(join(cwd, "out", "b.json"), "utf8"))).toEqual(INVOICE);
+    expect(JSON.parse(await readFile(join(cwd, "out", "a.json"), "utf8"))).toEqual({ file: "a.pdf", ok: true, data: INVOICE });
+    expect(JSON.parse(await readFile(join(cwd, "out", "b.json"), "utf8"))).toEqual({ file: "b.pdf", ok: true, data: INVOICE });
   });
 
   it("refuses an --out directory where two inputs would collide", async () => {
@@ -167,7 +167,7 @@ export default z.object({ invoiceNumber: z.string(), total: z.number() });
     expect(run.code).toBe(1);
     expect(run.stderr).toContain("total");
     expect(run.stderr).toContain("does not satisfy");
-    expect(run.stdout).toBe("");
+    expect(JSON.parse(run.stdout)).toMatchObject({ version: 1, command: "extract", ok: false, results: [{ file: "invoice.pdf", ok: false, error: { code: "CONTRACT_VIOLATION" } }] });
     // The hint is the CLI's job: core says what broke, this says what to do.
     expect(run.stderr).toContain("loosen the schema");
   });
@@ -195,7 +195,7 @@ export const Receipt = z.object({ merchant: z.string() });
 
     const named = await cli(["extract", "invoice.pdf", "-s", "./schemas.ts#Invoice"], { cwd: dir });
     expect(named.code).toBe(0);
-    expect(JSON.parse(named.stdout)).toEqual(INVOICE);
+    expect(JSON.parse(named.stdout).results[0].data).toEqual(INVOICE);
   });
 
   it("uses the config's schema when --schema is omitted", async () => {
@@ -213,7 +213,7 @@ ${textLoaderConfig(["Invoice"], fixedStrategyBody(INVOICE)).replace(
 
     const run = await cli(["extract", "invoice.pdf"], { cwd: dir });
     expect(run.code).toBe(0);
-    expect(JSON.parse(run.stdout)).toEqual(INVOICE);
+    expect(JSON.parse(run.stdout)).toMatchObject({ version: 1, command: "extract", ok: true, results: [{ file: "invoice.pdf", ok: true, data: INVOICE }] });
   });
 
   it("needs a model when nothing is wired", async () => {
@@ -255,13 +255,13 @@ ${textLoaderConfig(["Invoice"], fixedStrategyBody(INVOICE)).replace(
     await writeFixture(dir, "invoice.pdf", "%PDF-1.7 pretend");
 
     const first = await cli(["extract", "invoice.pdf", "-s", "./invoice.schema.json"], { cwd: dir });
-    expect((JSON.parse(first.stdout) as { invoiceNumber: string }).invoiceNumber).toBe("first");
+    expect((JSON.parse(first.stdout).results[0].data as { invoiceNumber: string }).invoiceNumber).toBe("first");
 
     const second = await cli(
       ["extract", "invoice.pdf", "-s", "./invoice.schema.json", "--only", "second"],
       { cwd: dir },
     );
-    expect((JSON.parse(second.stdout) as { invoiceNumber: string }).invoiceNumber).toBe("second");
+    expect((JSON.parse(second.stdout).results[0].data as { invoiceNumber: string }).invoiceNumber).toBe("second");
   });
 
   it("ignores a config entirely under --no-config", async () => {

@@ -9,14 +9,19 @@ npx docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5
 
 ```json
 {
-  "invoiceNumber": "INV-2026-4311",
-  "issuedAt": "2026-03-14",
-  "total": 1284.5
+  "version": 1,
+  "command": "extract",
+  "ok": true,
+  "results": [{
+    "file": "invoice.pdf",
+    "ok": true,
+    "data": { "invoiceNumber": "INV-2026-4311", "issuedAt": "2026-03-14", "total": 1284.5 }
+  }]
 }
 ```
 
-Extracted data goes to stdout. Diagnostics go to stderr, so the command pipes into
-`jq` while reporting the selected strategy and cost:
+A JSON envelope goes to stdout. Pipe values with `jq '.results[0].data.total'`.
+Diagnostics go to stderr:
 
 ```
 ✓ invoice.pdf → llm via pdfjs · 2.1s · 3,412 tokens · $0.0041
@@ -57,6 +62,35 @@ credentials configured for that provider.
 
 `docture <command> --help` for the flags.
 
+## Output
+
+Every command accepts `--format json|ndjson|text`. `extract` defaults to JSON;
+`convert`, `classify`, `inspect`, and `eval` default to text. `--json` is removed.
+
+JSON always has the shape `{ version: 1, command, ok, results, summary? }`, for one
+or many inputs, including failures. Each result is `{ file, ok: true, ...data }` or
+`{ file, ok: false, error: { code, message, hint? } }`. NDJSON streams the same result
+items one per line without an envelope. JSON keeps input order; NDJSON uses completion
+order. Text prints extracted data, classification tables, inspection reports, or the
+eval scoreboard. Conversion writes its documents and assets beneath `--out`.
+
+| Command | Successful result fields |
+| --- | --- |
+| `extract` | `data`, plus metadata with `--full` |
+| `convert` | `output` and `assets` as absolute paths, `warnings` |
+| `classify` | `name`, `confidence`, `signals` |
+| `inspect` | `loader`, `features`, `pages`, plus requested `text`, `lines`, or `render` |
+| `eval` | `score` with `f1`, `precision`, `recall`, `exactMatch`; `method`, `usage` |
+
+Eval adds `summary` with aggregate metrics, `failed`, optional `minF1`, and `passed`.
+Its top-level `ok` also reflects the accuracy gate. `--report` always writes a Markdown
+scoreboard, regardless of stdout format. A failed document has zero F1, precision, and
+recall in that scoreboard and the aggregate.
+
+`--quiet` keeps each failure and the first hint per error code on stderr while hiding
+success, progress, warning, and summary diagnostics. Result output still follows the
+selected format.
+
 ## Conversion
 
 ```sh
@@ -64,7 +98,7 @@ docture convert reports/*.pdf --out converted/
 ```
 
 Conversion requires an output directory. Markdown and referenced raster assets are the
-defaults. Use `--format md|html|txt`, `--assets referenced|embedded|omit`, and optional
+defaults. Use `--to md|html|txt`, `--assets referenced|embedded|omit`, and optional
 `--assist-layout --model <provider/id>`. A scan needs an OCR loader in the config.
 
 ## The schema
@@ -143,9 +177,11 @@ each as it finishes, and never lets one bad document sink the rest:
 docture extract 'invoices/*.pdf' -s ./invoice.ts -m openai/gpt-5 --out out/ --cache .cache
 ```
 
-- `--out <dir>` writes `out/<name>.json` per document; `--out <file>` collects one.
-- `--format ndjson` streams `{ file, ok, data }` per line as each finishes.
-- `--full` adds `method`, `loader`, `attempts`, `usage` and `features` to each record.
+- `--out <dir>/` writes one result item to `out/<name>.json`, including failures.
+  With one input, `--out <file>` writes the envelope.
+- `--format ndjson` streams one result item per line as each finishes.
+- `--full` adds `method`, `loader`, `attempts`, `usage`, `features`, and optional
+  `classification` to successful extraction items.
 - `--cache <dir>` caches model responses, so re-running a corpus after a schema tweak
   only pays for what changed.
 
@@ -234,6 +270,9 @@ Ground truth is `--truth <dir>/<name>.json`, or a `<name>.expected.json` beside 
 document. A missing truth file fails the run before anything is sent to a model,
 scoring a document against nothing and calling it 1.0 would be the worst thing this
 command could do.
+
+Failed extractions score F1, precision, and recall zero and remain in the scoreboard,
+report, and accuracy gate.
 
 ## As a library
 

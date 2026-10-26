@@ -114,7 +114,7 @@ if (!outcome.ok) {
   {
     id: "cli",
     label: "Terminal",
-    note: "stdout is the data, so it pipes into jq. stderr is the story.",
+    note: "stdout is a versioned JSON envelope. Pipe .results[0].data into jq; diagnostics go to stderr.",
     lang: "bash",
     code: `npm install --save-dev @docture/cli @ai-sdk/openai zod@^4
 npx docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5

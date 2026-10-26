@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { z } from "zod";
-import { createExtractor, silentLogger } from "docture";
+import { contract, createExtractor, silentLogger } from "docture";
 import { inMemoryLoader, loadedDocument } from "docture/testing/doubles";
 import { LlmStrategy, llm, memoryCache, mergePartials, modelIdOf, toUsage } from "../../src/llm/index.js";
 import { createLlmExtractor } from "../../src/llm/index.js";
@@ -20,6 +20,38 @@ function threePageDoc(): ReturnType<typeof loadedDocument> {
 }
 
 describe("LlmStrategy", () => {
+  it.each(["UNKNOWN", "invoice"])("sends contract hints before strategy hints in the system prompt (%s)", async (name) => {
+    const { model, calls } = mockModel([{ total: 60 }]);
+    const extractor = createExtractor({
+      loaders: [inMemoryLoader(loadedDocument([PAGE_ONE]))],
+      strategies: [llm({ model, hints: { [name]: "STRATEGY_HINT" } })],
+      classifiers: name === "UNKNOWN" ? [] : [{ name: "test-kind", async classify() { return { classifier: "test-kind", name, confidence: 1 }; } }],
+    });
+    const result = await extractor.extract(new Uint8Array([1]), contract({
+      name: "invoice", hints: "CONTRACT_HINT", schema: z.object({ total: z.number() }),
+    }));
+    expect(result.data).toEqual({ total: 60 });
+    expect(JSON.stringify(calls[0]?.prompt)).toContain("CONTRACT_HINT\\nSTRATEGY_HINT");
+  });
+
+  it("sends selected classification hints without leaking other candidate hints", async () => {
+    const { model, calls } = mockModel([{ total: 60 }]);
+    const extractor = createExtractor({
+      loaders: [inMemoryLoader(loadedDocument([PAGE_ONE]))],
+      strategies: [llm({ model, hints: { invoice: "STRATEGY_HINT" } })],
+      classifiers: [{ name: "test-kind", async classify() { return { classifier: "test-kind", name: "invoice", confidence: 1 }; } }],
+      classifications: [
+        { name: "other", description: "Other", schema: Invoice, hints: "OTHER_HINT" },
+        { name: "invoice", description: "Invoice", schema: Invoice, hints: "CLASSIFICATION_HINT" },
+      ],
+    });
+    const result = await extractor.extract(new Uint8Array([1]), z.object({ total: z.number() }));
+    expect(result.data).toEqual({ total: 60 });
+    const sent = JSON.stringify(calls[0]?.prompt);
+    expect(sent).toContain("CLASSIFICATION_HINT\\nSTRATEGY_HINT");
+    expect(sent).not.toContain("OTHER_HINT");
+  });
+
   it("extracts through the AI SDK and returns typed data", async () => {
     const { model, calls } = mockModel([
       { invoiceNumber: "INV-1", total: 60, lineItems: [{ description: "Widget A", amount: 10 }] },
@@ -121,6 +153,17 @@ describe("LlmStrategy", () => {
 });
 
 describe("completion strategies", () => {
+  it("replaces a zero total with a later page total during paginate", async () => {
+    const { model, calls } = mockModel([{ total: 0 }, { total: 60 }]);
+    const extractor = createExtractor({
+      loaders: [inMemoryLoader(loadedDocument([PAGE_ONE, PAGE_TWO]))],
+      strategies: [llm({ model, completion: "paginate" })],
+    });
+    const result = await extractor.extract(new Uint8Array([1]), z.object({ total: z.number() }));
+    expect(result.data).toEqual({ total: 60 });
+    expect(calls).toHaveLength(2);
+  });
+
   it("forbidden sends the whole document in one request", async () => {
     const { model, calls } = mockModel([{ invoiceNumber: "INV-1", total: 60, lineItems: [] }]);
     const strategy = new LlmStrategy({ model, completion: "forbidden" });

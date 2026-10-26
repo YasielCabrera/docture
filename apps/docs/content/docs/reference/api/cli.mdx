@@ -66,8 +66,9 @@ explain(error: unknown): Explained
 ```
 
 `UsageError` has exit code `2`. `CliError` has exit code `1`. `Explained` contains a
-message and optional code and hint. `explain()` adds recovery hints for core
-`DoctureError` codes and converts other thrown values to printable messages.
+required message and code, plus an optional hint. `explain()` preserves core
+`DoctureError` codes and adds recovery hints. Other errors use `USAGE`, `CLI`, or
+`INTERNAL` and a printable message.
 
 ## Version
 

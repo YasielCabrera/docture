@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createExtractor, withRasterizer, type Rasterizer } from "docture";
+import { contract, createExtractor, withRasterizer, type Rasterizer } from "docture";
 import { inMemoryLoader, loadedDocument } from "docture/testing/doubles";
 import { makeInvoicePdf } from "docture/testing/fixtures";
 import { PdfJsLoader } from "docture/loaders/pdfjs";
@@ -36,6 +36,19 @@ function stubRasterizer(): Rasterizer & { calls: number[] } {
 }
 
 describe("VisionStrategy", () => {
+  it("sends contract hints before vision strategy hints in the system prompt", async () => {
+    const { model, calls } = mockModel([{ total: 60 }]);
+    const extractor = createExtractor({
+      loaders: [withRasterizer(inMemoryLoader(loadedDocument(["Invoice page"])), stubRasterizer())],
+      strategies: [vision({ model, hints: { UNKNOWN: "VISION_HINT" } })],
+    });
+    const result = await extractor.extract(new Uint8Array([1]), contract({
+      name: "invoice", hints: "CONTRACT_HINT", schema: z.object({ total: z.number() }),
+    }));
+    expect(result.data).toEqual({ total: 60 });
+    expect(JSON.stringify(calls[0]?.prompt)).toContain("CONTRACT_HINT\\nVISION_HINT");
+  });
+
   it("is not a candidate unless the loader can render pages", async () => {
     // A plain text loader: images: false, so RENDERABLE_PAGES does not hold.
     const extractor = createExtractor({

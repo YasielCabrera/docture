@@ -175,8 +175,11 @@ The class name is the default splitter name.
 | `maxEagerPages` | `40` | Pages sent by an eager split request. |
 
 Unknown model names are reconciled to `UNKNOWN`. Splitter calls reject on model,
-rendering, or abort failures. Pages beyond `maxEagerPages` are not sent to the model. Eager
-results are then normalized so every source page remains in a group.
+rendering, or abort failures. Eager splitting sends every page in windows of at most
+`maxEagerPages`. A page-pair seam check joins adjacent windows only when the second page
+continues the first document. A joined group keeps the earlier classification and the
+lower group confidence. Each window ignores page numbers outside its own pages and
+fills any gaps so every source page remains in a group.
 
 ## Extractor factory
 

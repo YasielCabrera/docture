@@ -57,6 +57,18 @@ const ctx = (recordUsage?: SplitContext["recordUsage"]): SplitContext => ({
 });
 
 describe("TextSplitter", () => {
+  it.each([0, -1, 1.5, Number.NaN])("rejects invalid eager window sizes (%s)", async (maxEagerPages) => {
+    const { model } = mockModel([{}]);
+    await expect(new TextSplitter({ model, maxEagerPages }).splitEager(pages(["a"]), ctx()))
+      .rejects.toThrow("maxEagerPages must be a positive integer");
+  });
+
+  it("returns no groups without model requests for an empty eager bundle", async () => {
+    const { model, calls } = mockModel([{}]);
+    const groups = await new TextSplitter({ model }).splitEager([], ctx());
+    expect({ groups, calls: calls.length }).toEqual({ groups: [], calls: 0 });
+  });
+
   it("declares that it needs a text layer", () => {
     const { model } = mockModel([{}]);
     expect(new TextSplitter({ model }).requires).toEqual(["TEXT_LAYER"]);
@@ -262,20 +274,51 @@ describe("TextSplitter under EAGER", () => {
     expect(groups[0]?.pages).toEqual([1, 2, 3]);
   });
 
-  /** Silent truncation reads exactly like "there was nothing after page 40". */
-  it("says so when it truncates a bundle it cannot send whole", async () => {
-    const { model } = mockModel([
-      { documents: [{ pages: [1, 2], classification: "invoice", confidence: 1 }] },
+  it("sends every eager window and keeps groups separate when the seam rejects a merge", async () => {
+    const { model, calls } = mockModel([
+      { documents: [{ pages: [1, 2, 3], classification: "invoice", confidence: 0.9 }] },
+      { documents: [{ pages: [2, 3, 4], classification: "licence", confidence: 0.8 }] },
+      { belongsToSameDocument: false, classificationPage1: "invoice", classificationPage2: "licence", confidence: 1 },
     ]);
-    const warnings: string[] = [];
     const groups = await new TextSplitter({ model, maxEagerPages: 2 }).splitEager(
-      pages(["a", "b", "c", "d"]),
-      { ...ctx(), logger: { ...silentLogger, warn: (m) => warnings.push(m) } },
+      pages(["alpha", "bravo", "charlie", "delta"]), ctx(),
     );
 
-    expect(warnings).toContain("eager split truncated");
-    // Truncated or not, every page is still accounted for.
-    expect(groups.flatMap((g) => g.pages)).toEqual([1, 2, 3, 4]);
+    expect(groups).toEqual([
+      { pages: [1, 2], classification: "invoice", confidence: 0.9 },
+      { pages: [3, 4], classification: "licence", confidence: 0.8 },
+    ]);
+    expect(calls).toHaveLength(3);
+    const sent = JSON.stringify(calls);
+    for (const text of ["alpha", "bravo", "charlie", "delta"]) expect(sent).toContain(text);
+  });
+
+  it("joins eager windows only after seam approval and keeps the earlier classification and lower confidence", async () => {
+    const { model, calls } = mockModel([
+      { documents: [{ pages: [1, 2], classification: "invoice", confidence: 0.9 }] },
+      { documents: [{ pages: [3, 4], classification: "licence", confidence: 0.7 }] },
+      { belongsToSameDocument: true, classificationPage1: "licence", classificationPage2: "licence", confidence: 1 },
+    ]);
+    const groups = await new TextSplitter({ model, maxEagerPages: 2 }).splitEager(pages(["a", "b", "c", "d"]), ctx());
+    expect(groups).toEqual([{ pages: [1, 2, 3, 4], classification: "invoice", confidence: 0.7 }]);
+    expect(calls).toHaveLength(3);
+  });
+
+  it("joins an eager seam to the group that owns the actual boundary page", async () => {
+    const { model, calls } = mockModel([
+      { documents: [
+        { pages: [1, 4], classification: "invoice", confidence: 0.9 },
+        { pages: [2, 3], classification: "licence", confidence: 0.8 },
+      ] },
+      { documents: [{ pages: [5, 6], classification: "invoice", confidence: 0.7 }] },
+      { belongsToSameDocument: true, classificationPage1: "invoice", classificationPage2: "invoice", confidence: 1 },
+    ]);
+    const groups = await new TextSplitter({ model, maxEagerPages: 4 }).splitEager(pages(["a", "b", "c", "d", "e", "f"]), ctx());
+    expect(groups).toEqual([
+      { pages: [1, 4, 5, 6], classification: "invoice", confidence: 0.7 },
+      { pages: [2, 3], classification: "licence", confidence: 0.8 },
+    ]);
+    expect(calls).toHaveLength(3);
   });
 });
 

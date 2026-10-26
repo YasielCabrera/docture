@@ -32,7 +32,7 @@ import {
 } from "../core/index.js";
 import { cacheKey, storedUsage, fingerprint, type ContentPart, type LlmCache } from "./cache.js";
 import { toUsage, type PricingTable } from "./pricing.js";
-import { modelIdOf } from "./model-id.js";
+import { modelIdOf, providerOf } from "./model-id.js";
 import { modelOutputError } from "./failure.js";
 
 export interface SplitterOptions {
@@ -77,6 +77,8 @@ const eagerSchema = z.object({
     )
     .describe("Every document in the bundle, in page order, covering every page once."),
 });
+
+type EagerGroup = z.infer<typeof eagerSchema>["documents"][number];
 
 const SYSTEM = [
   "You are given the pages of a scanned batch that may contain several unrelated documents.",
@@ -143,42 +145,52 @@ abstract class ModelSplitter implements Splitter {
 
   async splitEager(pages: readonly LoadedPage[], ctx: SplitContext): Promise<DocGroups> {
     const limit = this.options.maxEagerPages ?? 40;
-    const sent = pages.slice(0, limit);
-    if (sent.length < pages.length) {
-      // Never truncate silently: a bundle cut short reads exactly like a bundle that
-      // was fully considered and simply had nothing after page 40.
-      ctx.logger.warn("eager split truncated", {
-        sent: String(sent.length),
-        total: String(pages.length),
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new RangeError("maxEagerPages must be a positive integer");
+    }
+    const groups: EagerGroup[] = [];
+    for (let offset = 0; offset < pages.length; offset += limit) {
+      const sent = pages.slice(offset, offset + limit);
+      const content: ContentPart[] = [
+        { type: "text", text: `Document types:\n${catalogue(ctx.classifications)}` },
+      ];
+      for (const page of sent) {
+        content.push({ type: "text", text: `--- Page ${page.pageNumber} ---` });
+        content.push(await this.pageContent(page));
+      }
+      content.push({
+        type: "text",
+        text:
+          `List every document in these ${sent.length} pages. ` +
+          "Each page must appear in exactly one document, and page numbers must ascend.",
       });
+      const value = await this.#ask(eagerSchema, content, "eager", ctx);
+      const known = new Set(sent.map((page) => page.pageNumber));
+      const normalized = this.#coverEveryPage(value.documents
+        .map((document) => ({
+          pages: [...new Set(document.pages)].filter((n) => known.has(n)).sort((a, b) => a - b),
+          classification: reconcile(document.classification, ctx.classifications),
+          confidence: document.confidence,
+        }))
+        .filter((group) => group.pages.length > 0), sent);
+
+      const previousPage = pages[offset - 1];
+      const last = previousPage === undefined
+        ? undefined
+        : groups.find((group) => group.pages.includes(previousPage.pageNumber));
+      const first = normalized[0];
+      const nextPage = sent[0];
+      if (last !== undefined && first !== undefined && previousPage !== undefined && nextPage !== undefined) {
+        const seam = await this.belongsToSameDocument(previousPage, nextPage, ctx);
+        if (seam.belongsToSameDocument) {
+          last.pages.push(...first.pages);
+          last.confidence = Math.min(last.confidence, first.confidence);
+          normalized.shift();
+        }
+      }
+      groups.push(...normalized);
     }
-
-    const content: ContentPart[] = [
-      { type: "text", text: `Document types:\n${catalogue(ctx.classifications)}` },
-    ];
-    for (const page of sent) {
-      content.push({ type: "text", text: `--- Page ${page.pageNumber} ---` });
-      content.push(await this.pageContent(page));
-    }
-    content.push({
-      type: "text",
-      text:
-        `List every document in these ${sent.length} pages. ` +
-        "Each page must appear in exactly one document, and page numbers must ascend.",
-    });
-
-    const value = await this.#ask(eagerSchema, content, "eager", ctx);
-
-    const known = new Set(pages.map((page) => page.pageNumber));
-    const groups = value.documents
-      .map((document) => ({
-        pages: [...new Set(document.pages)].filter((n) => known.has(n)).sort((a, b) => a - b),
-        classification: reconcile(document.classification, ctx.classifications),
-        confidence: document.confidence,
-      }))
-      .filter((group) => group.pages.length > 0);
-
-    return this.#coverEveryPage(groups, pages);
+    return groups;
   }
 
   /**
@@ -188,9 +200,9 @@ abstract class ModelSplitter implements Splitter {
    * extraction with nothing in the output to say it ever existed.
    */
   #coverEveryPage(
-    groups: { pages: number[]; classification: string; confidence: number }[],
+    groups: EagerGroup[],
     pages: readonly LoadedPage[],
-  ): DocGroups {
+  ): EagerGroup[] {
     const claimed = new Set(groups.flatMap((group) => group.pages));
     const ordered = [...groups].sort((a, b) => (a.pages[0] ?? 0) - (b.pages[0] ?? 0));
 
@@ -234,6 +246,8 @@ abstract class ModelSplitter implements Splitter {
       cache === undefined
         ? undefined
         : cacheKey({
+            provider: providerOf(this.options.model),
+            temperature: this.options.temperature,
             modelId: modelIdOf(this.options.model),
             system: this.system(),
             prompt: fingerprint(content),

@@ -37,7 +37,7 @@ export function relaxJsonSchema(schema: unknown): unknown {
 
   const relaxed: JsonSchemaLike = {};
   for (const [key, value] of Object.entries(schema)) {
-    if (key === "required") continue;
+    if (key === "required" && Array.isArray(value)) continue;
     relaxed[key] = relaxJsonSchema(value);
   }
   return relaxed;

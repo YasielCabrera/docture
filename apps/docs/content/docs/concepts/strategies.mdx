@@ -55,7 +55,18 @@ extraction because an empty object or array may be a valid result.
 ## Strategy context and outcome
 
 `StrategyContext` contains the loaded document, computed document features, resolved
-schema, optional classification, abort signal, and logger.
+schema, optional classification and hints, abort signal, and logger. LLM text and vision
+strategies append their own classification-specific hints after these context hints.
+
+`Process` supplies its selected kind's guidance without adding a classification request.
+It uses the extraction contract's hints when that kind has none. If neither supplies
+guidance, it does not borrow hints from a different candidate.
+
+Outside `Process`, a `Contract` that defines `hints` supplies them, and an empty string
+counts as defined. Otherwise the pipeline supplies the hints of the candidate the
+classification names. When no candidate is named, it falls back to a sole candidate only
+for a bare schema or a `Contract` with that candidate's name. An unrelated sole candidate
+does not supply fallback hints for a different `Contract`.
 
 `StrategyOutcome` contains `data` and may include usage or a classification result. Core
 normalizes usage and performs schema validation after the strategy returns.

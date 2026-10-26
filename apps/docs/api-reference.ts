@@ -260,6 +260,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "PromptParts",
         "RawUsage",
         "buildPrompt",
+        "wrapUntrusted",
         "cacheKey",
         "chunkByBudget",
         "chunkByPage",
@@ -387,6 +388,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       "content/docs/reference/api/llm-utilities.mdx": [
         "DEFAULT_SYSTEM_PROMPT",
         "buildPrompt",
+        "wrapUntrusted",
         "chunkByBudget",
         "chunkByPage",
         "estimateTokens",

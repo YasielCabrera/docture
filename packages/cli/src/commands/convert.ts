@@ -13,7 +13,17 @@ import { styleFor, type Io } from "../cli/io.js";
 import { resolveConfig } from "../config.js";
 import { expandInputs, stem, type Input } from "../inputs.js";
 import { commonOptions, wiringFlags } from "../options.js";
-import { attemptLines, failureLine, formatMs } from "../output.js";
+import {
+  attemptLines,
+  envelope,
+  errorRecord,
+  formatMs,
+  reportFailure,
+  toJson,
+  toNdjson,
+  OUTPUT_FORMATS,
+  type Item,
+} from "../output.js";
 import { buildConversionWiring } from "../wiring.js";
 
 const FORMATS = ["md", "html", "txt"] as const;
@@ -76,10 +86,11 @@ export async function convertCommand(
   if (out === undefined) {
     throw new UsageError(
       "docture convert requires --out <directory>.",
-      "Conversion can create both a document and an asset directory, so stdout is not used.",
+      "Conversion writes documents and assets beneath this directory.",
     );
   }
-  const selectedFormat = choiceFlag(parsed, "format", FORMATS) ?? "md";
+  const outputFormat = choiceFlag(parsed, "format", OUTPUT_FORMATS) ?? "text";
+  const selectedFormat = choiceFlag(parsed, "to", FORMATS) ?? "md";
   const format = FORMAT_MAP[selectedFormat];
   const assets = choiceFlag(parsed, "assets", ASSET_MODES) ?? "referenced";
   const concurrency = numberFlag(parsed, "concurrency", { min: 1, max: 64, integer: true });
@@ -107,6 +118,12 @@ export async function convertCommand(
     for (const warning of wiring.warnings) io.diagnostic(`${style.yellow("!")} ${warning}\n`);
   }
 
+  const records = new Array<Item<{
+    output: string;
+    assets: readonly string[];
+    warnings: ConversionResult["warnings"];
+  }> | undefined>(inputs.length);
+  const hintsShown = new Set<string>();
   let failed = 0;
   let succeeded = 0;
   try {
@@ -125,10 +142,10 @@ export async function convertCommand(
       if (!item.outcome.ok) {
         failed += 1;
         const explained = explain(item.outcome.error);
-        if (!common.quiet) {
-          io.diagnostic(failureLine(label, explained.message, style));
-          if (explained.hint !== undefined) io.diagnostic(`  ${style.dim(explained.hint)}\n`);
-        }
+        reportFailure(io, label, explained, style, hintsShown);
+        const record = errorRecord(label, explained);
+        records[item.index] = record;
+        if (outputFormat === "ndjson") io.write(toNdjson(record));
         continue;
       }
 
@@ -144,6 +161,13 @@ export async function convertCommand(
           await writeFile(assetPath, asset.bytes);
         }
       }
+      const record = {
+        file: label, ok: true as const, output: target,
+        assets: assets === "referenced" ? result.assets.map((asset) => within(root, asset.reference)) : [],
+        warnings: result.warnings,
+      };
+      records[item.index] = record;
+      if (outputFormat === "ndjson") io.write(toNdjson(record));
       succeeded += 1;
       if (!common.quiet) {
         io.diagnostic(successLine(label, result));
@@ -155,6 +179,10 @@ export async function convertCommand(
     }
   } finally {
     await wiring.dispose();
+  }
+
+  if (outputFormat === "json") {
+    io.write(toJson(envelope("convert", records.filter((record) => record !== undefined))));
   }
 
   if (!common.quiet) {

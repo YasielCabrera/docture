@@ -50,7 +50,7 @@ import { classifyDocument, type ClassifyOptions } from "./pipeline/classify.js";
 import { declarationOrder, eligibleLoaders, type RoutingPolicy } from "./pipeline/eligibility.js";
 import { DuplicateComponentError, NoEligibleLoaderError } from "./pipeline/errors.js";
 import { documentFeatures, preloadedFeatures } from "./pipeline/features.js";
-import { runPipeline, type RunOptions } from "./pipeline/run.js";
+import { runPipeline, snapshotRunOptions, withContractGuidance, type RunOptions } from "./pipeline/run.js";
 import { resolveSource } from "./pipeline/source.js";
 import { silentLogger } from "./domain/logger.js";
 
@@ -279,6 +279,8 @@ export class Extractor implements DocumentExtractor {
    * Extract many documents, yielding each as it finishes. Never rejects — a failed
    * document arrives as an `ok: false` item, so one bad scan in a batch of 500 does
    * not lose the other 499.
+   * Early exit aborts and awaits in-flight jobs. A job that ignores cancellation
+   * delays the return until it settles.
    */
   async *extractBatch<C extends ContractLike>(
     sources: readonly DocumentSource[],
@@ -286,6 +288,13 @@ export class Extractor implements DocumentExtractor {
     options?: BatchOptions,
   ): AsyncGenerator<BatchItem<InferContract<C>>, void, undefined> {
     const limit = Math.max(1, options?.concurrency ?? 4);
+    const controller = new AbortController();
+    const snapshot = snapshotRunOptions(options ?? {});
+    const callerSignal = snapshot.signal;
+    const signal = callerSignal === undefined
+      ? controller.signal
+      : AbortSignal.any([callerSignal, controller.signal]);
+    const jobOptions = { ...snapshot, signal };
     let next = 0;
     const inFlight = new Map<number, Promise<BatchItem<InferContract<C>>>>();
 
@@ -294,17 +303,22 @@ export class Extractor implements DocumentExtractor {
       if (source === undefined) return;
       inFlight.set(
         index,
-        this.safeExtract(source, contract, options).then((outcome) => ({ source, index, outcome })),
+        this.safeExtract(source, contract, jobOptions).then((outcome) => ({ source, index, outcome })),
       );
     };
 
-    while (next < sources.length && inFlight.size < limit) start(next++);
+    try {
+      while (next < sources.length && inFlight.size < limit) start(next++);
 
-    while (inFlight.size > 0) {
-      const item = await Promise.race(inFlight.values());
-      inFlight.delete(item.index);
-      yield item;
-      if (next < sources.length) start(next++);
+      while (inFlight.size > 0) {
+        const item = await Promise.race(inFlight.values());
+        inFlight.delete(item.index);
+        yield item;
+        if (next < sources.length) start(next++);
+      }
+    } finally {
+      controller.abort(new DOMException("Batch consumer stopped", "AbortError"));
+      await Promise.allSettled(inFlight.values());
     }
   }
 
@@ -412,12 +426,11 @@ export class Extractor implements DocumentExtractor {
    * word "invoice" repeated in an options bag.
    */
   #runOptions(contract: ContractLike, options: RunOptions | undefined): RunOptions {
-    if (!isContract(contract) || options?.classifications !== undefined) {
-      return options ?? {};
-    }
-    if (this.#classifications.length > 0) return options ?? {};
+    if (!isContract(contract)) return options ?? {};
+    const guided = withContractGuidance(options ?? {}, contract);
+    if (guided.classifications !== undefined || this.#classifications.length > 0) return guided;
     return {
-      ...options,
+      ...guided,
       classifications: [
         {
           name: contract.name,

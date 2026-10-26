@@ -79,6 +79,21 @@ function failedAttempt(name: string, ms: number, error: unknown): Attempt {
   };
 }
 
+function snapshotConvertOptions(options: ConvertOptions): ConvertOptions {
+  const { format, assets, signal, logger, stageTimeoutMs, ...extra } = options;
+  const fields: { [K in keyof ConvertOptions]-?: ConvertOptions[K] | undefined } = {
+    format, assets, signal, logger, stageTimeoutMs,
+  };
+  return {
+    ...extra,
+    ...(fields.format === undefined ? {} : { format: fields.format }),
+    ...(fields.assets === undefined ? {} : { assets: fields.assets }),
+    ...(fields.signal === undefined ? {} : { signal: fields.signal }),
+    ...(fields.logger === undefined ? {} : { logger: fields.logger }),
+    ...(fields.stageTimeoutMs === undefined ? {} : { stageTimeoutMs: fields.stageTimeoutMs }),
+  };
+}
+
 export class DocumentConverter {
   #loaders: DocumentLoader[];
   #layoutAnalyzer: LayoutAnalyzer | undefined;
@@ -249,12 +264,23 @@ export class DocumentConverter {
     }
   }
 
-  /** Convert many documents, yielding each result as it finishes. */
+  /**
+   * Convert many documents, yielding each result as it finishes.
+   * Early exit aborts and awaits in-flight jobs. A job that ignores cancellation
+   * delays the return until it settles.
+   */
   async *convertBatch(
     sources: readonly DocumentSource[],
     options?: ConversionBatchOptions,
   ): AsyncGenerator<ConversionBatchItem, void, undefined> {
     const limit = Math.max(1, options?.concurrency ?? 4);
+    const controller = new AbortController();
+    const snapshot = snapshotConvertOptions(options ?? {});
+    const callerSignal = snapshot.signal;
+    const signal = callerSignal === undefined
+      ? controller.signal
+      : AbortSignal.any([callerSignal, controller.signal]);
+    const jobOptions = { ...snapshot, signal };
     let next = 0;
     const inFlight = new Map<number, Promise<ConversionBatchItem>>();
 
@@ -263,16 +289,21 @@ export class DocumentConverter {
       if (source === undefined) return;
       inFlight.set(
         index,
-        this.safeConvert(source, options).then((outcome) => ({ source, index, outcome })),
+        this.safeConvert(source, jobOptions).then((outcome) => ({ source, index, outcome })),
       );
     };
 
-    while (next < sources.length && inFlight.size < limit) start(next++);
-    while (inFlight.size > 0) {
-      const item = await Promise.race(inFlight.values());
-      inFlight.delete(item.index);
-      yield item;
-      if (next < sources.length) start(next++);
+    try {
+      while (next < sources.length && inFlight.size < limit) start(next++);
+      while (inFlight.size > 0) {
+        const item = await Promise.race(inFlight.values());
+        inFlight.delete(item.index);
+        yield item;
+        if (next < sources.length) start(next++);
+      }
+    } finally {
+      controller.abort(new DOMException("Batch consumer stopped", "AbortError"));
+      await Promise.allSettled(inFlight.values());
     }
   }
 

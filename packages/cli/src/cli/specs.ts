@@ -24,10 +24,18 @@ const COMMON: readonly FlagSpec[] = [
     short: "v",
     describe: "Report the wiring, the routing, and every attempt",
   },
-  { name: "quiet", type: "boolean", short: "q", describe: "Errors only on stderr" },
+  { name: "quiet", type: "boolean", short: "q", describe: "Only failures and the first hint per error code on stderr" },
   { name: "no-color", type: "boolean", describe: "Never emit ANSI colour" },
   { name: "help", type: "boolean", short: "h", describe: "Show this help" },
 ];
+
+const OUTPUT_FORMAT: FlagSpec = {
+  name: "format",
+  type: "string",
+  placeholder: "<fmt>",
+  describe: "json | ndjson | text. JSON is a versioned envelope; NDJSON streams result items",
+  defaultLabel: "text",
+};
 
 /** Choosing and paying for a model. */
 const MODEL: readonly FlagSpec[] = [
@@ -136,7 +144,7 @@ export const EXTRACT: CommandSpec = {
   summary: "Extract structured data from one or many documents",
   args: "<file...>",
   description:
-    "Runs the pipeline over every input and writes the extracted data to stdout.\n" +
+    "Runs the pipeline over every input and writes a JSON envelope to stdout.\n" +
     "Diagnostics go to stderr, so the output stays pipeable.",
   flags: [
     {
@@ -153,17 +161,11 @@ export const EXTRACT: CommandSpec = {
       placeholder: "<path>",
       describe: "Write to a file — or, with several inputs, to a directory",
     },
-    {
-      name: "format",
-      type: "string",
-      placeholder: "<fmt>",
-      describe: "json | ndjson. ndjson streams one line per document as it finishes",
-      defaultLabel: "json",
-    },
+    { ...OUTPUT_FORMAT, defaultLabel: "json" },
     {
       name: "full",
       type: "boolean",
-      describe: "Emit the whole result — method, loader, attempts, usage, features — not just the data",
+      describe: "Add method, loader, attempts, usage, features, and classification to result items",
     },
     ...MODEL,
     ...RUN,
@@ -172,7 +174,7 @@ export const EXTRACT: CommandSpec = {
   examples: [
     "docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5",
     "docture extract scans/*.pdf -s ./invoice.ts -m openai/gpt-5 --vision -o out/",
-    "docture extract invoice.pdf -s ./invoice.ts -m openai/gpt-5 | jq .total",
+    "docture extract invoice.pdf -s ./invoice.ts -m openai/gpt-5 | jq '.results[0].data.total'",
   ],
   notes: [
     "A schema module may export `default`, `schema`, or a single named export.",
@@ -195,8 +197,9 @@ export const CONVERT: CommandSpec = {
       placeholder: "<directory>",
       describe: "Output directory. Required",
     },
+    OUTPUT_FORMAT,
     {
-      name: "format",
+      name: "to",
       type: "string",
       placeholder: "<fmt>",
       describe: "md | html | txt",
@@ -221,7 +224,7 @@ export const CONVERT: CommandSpec = {
   ],
   examples: [
     "docture convert report.pdf --out converted/",
-    "docture convert corpus/*.pdf -o converted/ --format html --assets embedded",
+    "docture convert corpus/*.pdf -o converted/ --to html --assets embedded",
     "docture convert report.pdf -o converted/ --assist-layout -m openai/gpt-5",
   ],
   notes: [
@@ -244,7 +247,7 @@ export const CLASSIFY: CommandSpec = {
       placeholder: "<path>",
       describe: "Module exporting the candidate document kinds. Required unless the config supplies them",
     },
-    { name: "json", type: "boolean", describe: "Emit JSON rather than a table" },
+    OUTPUT_FORMAT,
     ...MODEL.filter((f) => f.name !== "instructions"),
     { name: "timeout", type: "string", placeholder: "<ms>", describe: "Per-stage deadline. Omit for none" },
     { name: "concurrency", type: "string", placeholder: "<n>", describe: "Documents in flight at once", defaultLabel: "4" },
@@ -263,7 +266,7 @@ export const INSPECT: CommandSpec = {
   flags: [
     { name: "text", type: "boolean", describe: "Print the extracted text as well" },
     { name: "lines", type: "boolean", describe: "Print positioned lines with their coordinates" },
-    { name: "json", type: "boolean", describe: "Emit JSON rather than a report" },
+    OUTPUT_FORMAT,
     {
       name: "pages",
       type: "string",
@@ -285,6 +288,7 @@ export const EVAL: CommandSpec = {
     "Extracts each document, scores it field by field, and prints a Markdown\n" +
     "scoreboard. Exits 1 when --min-f1 is not met, so CI can gate on accuracy.",
   flags: [
+    OUTPUT_FORMAT,
     {
       name: "schema",
       type: "string",

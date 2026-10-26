@@ -19,7 +19,8 @@ import {
   type Classifier,
   type ClassifyContext,
 } from "../core/index.js";
-import { modelIdOf } from "./model-id.js";
+import { modelIdOf, providerOf } from "./model-id.js";
+import { wrapUntrusted } from "./prompt.js";
 import { cacheKey, storedUsage, type LlmCache } from "./cache.js";
 import { toUsage, type PricingTable } from "./pricing.js";
 import { modelOutputError } from "./failure.js";
@@ -72,9 +73,7 @@ export class LlmClassifier implements Classifier {
       "Document types:",
       catalogue,
       "",
-      "<excerpt>",
-      excerpt,
-      "</excerpt>",
+      wrapUntrusted("excerpt", excerpt),
     ].join("\n");
 
     const modelId = modelIdOf(this.options.model);
@@ -82,6 +81,8 @@ export class LlmClassifier implements Classifier {
     const startedAt = Date.now();
     try {
       const key = cacheKey({
+        provider: providerOf(this.options.model),
+        temperature: this.options.temperature,
         modelId,
         system,
         prompt,

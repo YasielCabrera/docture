@@ -215,7 +215,7 @@ async function main(): Promise<void> {
       );
       field(
         "a key looks like",
-        `${cacheKey({ modelId: "gpt-5", system: "s", prompt: "p", jsonSchema: {} }).slice(0, 24)}…`,
+        `${cacheKey({ provider: "openai.chat", modelId: "gpt-5", temperature: 0, system: "s", prompt: "p", jsonSchema: {} }).slice(0, 24)}…`,
       );
     } finally {
       await cached.dispose();

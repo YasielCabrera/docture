@@ -68,7 +68,9 @@ export interface LlmCache {
 }
 
 export interface CacheKeyParts {
+  readonly provider: string;
   readonly modelId: string;
+  readonly temperature: number | undefined;
   readonly system: string;
   readonly prompt: string;
   readonly jsonSchema: unknown;
@@ -78,7 +80,11 @@ export interface CacheKeyParts {
 
 export function cacheKey(parts: CacheKeyParts): string {
   const hash = createHash("sha256");
+  hash.update(parts.provider);
+  hash.update("\0");
   hash.update(parts.modelId);
+  hash.update("\0");
+  hash.update(String(parts.temperature ?? 0));
   hash.update("\0");
   hash.update(parts.system);
   hash.update("\0");
@@ -101,11 +107,11 @@ export function memoryCache(maxEntries = 500): LlmCache {
         entries.delete(key);
         entries.set(key, value);
       }
-      return value;
+      return value === undefined ? undefined : structuredClone(value);
     },
     async set(key, value) {
       entries.delete(key);
-      entries.set(key, value);
+      entries.set(key, structuredClone(value));
       while (entries.size > maxEntries) {
         const oldest = entries.keys().next();
         if (oldest.done === true) break;

@@ -46,9 +46,12 @@ function rgbaOf(image: PdfJsImageData, imageKinds: Readonly<Record<string, numbe
     }
     return rgba;
   }
-  if (image.kind === grayKind || source.length === Math.ceil(pixels / 8)) {
+  const rowBytes = Math.ceil(image.width / 8);
+  if (image.kind === grayKind || source.length === rowBytes * image.height) {
     for (let index = 0; index < pixels; index += 1) {
-      const value = ((source[index >> 3] ?? 0) & (1 << (7 - (index & 7)))) === 0 ? 0 : 255;
+      const row = Math.floor(index / image.width);
+      const column = index % image.width;
+      const value = ((source[row * rowBytes + (column >> 3)] ?? 0) & (1 << (7 - (column & 7)))) === 0 ? 0 : 255;
       rgba[index * 4] = value;
       rgba[index * 4 + 1] = value;
       rgba[index * 4 + 2] = value;

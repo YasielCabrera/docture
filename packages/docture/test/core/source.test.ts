@@ -64,7 +64,7 @@ describe("resolveSource", () => {
     expect(raw.mimeType).toBe("application/pdf");
   });
 
-  it("prefers the caller's declared type over the sniffed one", async () => {
+  it("keeps a custom declared type the library does not know", async () => {
     const raw = await resolveSource({ bytes: PDF_BYTES, mimeType: "application/x-custom" });
     expect(raw.mimeType).toBe("application/x-custom");
   });

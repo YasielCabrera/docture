@@ -6,14 +6,12 @@
  *
  *   - **arrays concatenate.** A table split across pages is one table; page 2's rows
  *     come after page 1's.
- *   - **scalars: first present wins.** An invoice number appears once, usually on
- *     the first page. A later chunk that guessed at it must not overwrite the chunk
- *     that actually read it.
+ *   - **scalars: first present wins**, except a later same-type non-zero value
+ *     replaces an earlier `0` or `false`. Mismatched types keep first-present.
  *   - **objects recurse**, so a nested address block merges field by field.
  *
- * "First present wins" is the load-bearing choice. The alternative — last wins —
- * lets the final chunk, which has the least context, overwrite good values with
- * nulls.
+ * A genuine early zero can be replaced by this rule. Nulls and blank strings
+ * still cannot overwrite present values.
  */
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -35,7 +33,8 @@ function mergeTwo(first: unknown, second: unknown): unknown {
     return merged;
   }
 
-  // Scalars, and mismatched shapes: keep whichever actually carries a value.
+  if (first === 0 && typeof second === "number" && second !== 0) return second;
+  if (first === false && second === true) return second;
   if (isPresent(first)) return first;
   return isPresent(second) ? second : first;
 }

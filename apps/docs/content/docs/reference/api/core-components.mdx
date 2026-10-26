@@ -13,7 +13,20 @@ Import these APIs from `docture`.
 `ClassificationNeed` is `"required" | "hint" | "none"`.
 
 `StrategyContext` contains `document`, runtime `features`, resolved `schema`, optional
-`classification`, `signal`, and `logger`.
+`classification`, optional `hints`, `signal`, and `logger`. Core picks `hints` from the
+first source that applies:
+
+1. `Process` uses its selected kind's hints, or that kind's extraction contract's hints
+   when the kind has none. A selection with neither sends no hints.
+2. A `Contract` passed to an extraction method sends its own `hints` when it defines
+   them, including an empty string.
+3. The candidate named by the classification sends its hints, or none when it has
+   none.
+4. When no candidate is named, a sole candidate sends its hints only when you passed a
+   bare schema or a `Contract` with the same name.
+
+Otherwise `hints` is absent. Hint selection does not change the classification or its
+usage.
 
 `StrategyOutcome` contains unknown `data` and optional `usage` and `classification`. Core
 validates the data after the method returns.

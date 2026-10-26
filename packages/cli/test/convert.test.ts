@@ -114,11 +114,11 @@ describe("convert", () => {
   it("honours format and asset modes", async () => {
     const cwd = await workspace(["embedded.pdf", "plain.pdf"]);
     const html = await cli(
-      ["convert", "embedded.pdf", "-o", "html", "--format", "html", "--assets", "embedded"],
+      ["convert", "embedded.pdf", "-o", "html", "--to", "html", "--assets", "embedded"],
       { cwd },
     );
     const text = await cli(
-      ["convert", "plain.pdf", "-o", "text", "--format", "txt", "--assets", "omit"],
+      ["convert", "plain.pdf", "-o", "text", "--to", "txt", "--assets", "omit"],
       { cwd },
     );
     expect(html.code).toBe(0);

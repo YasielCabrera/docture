@@ -22,7 +22,7 @@ import {
 import { cacheKey, storedUsage, fingerprint, type ContentPart, type LlmCache } from "./cache.js";
 import { mergePartials } from "./merge.js";
 import { buildPrompt } from "./prompt.js";
-import { modelIdOf } from "./model-id.js";
+import { modelIdOf, providerOf } from "./model-id.js";
 import { toUsage, type PricingTable } from "./pricing.js";
 import { relaxJsonSchema } from "./relax.js";
 import { modelOutputError } from "./failure.js";
@@ -99,8 +99,10 @@ export class VisionStrategy implements ExtractionStrategy {
     const pages = ctx.document.pages.slice(0, this.options.maxPages ?? ctx.document.pages.length);
     if (pages.length === 0) throw new Error("the document has no pages to render");
 
-    const hint =
-      ctx.classification === undefined ? undefined : this.options.hints?.[ctx.classification.name];
+    const hint = [
+      ctx.hints,
+      ctx.classification === undefined ? undefined : this.options.hints?.[ctx.classification.name],
+    ].filter((value): value is string => value !== undefined).join("\n") || undefined;
 
     const { system, prompt } = buildPrompt(
       "(the document is supplied as page images below)",
@@ -141,6 +143,8 @@ export class VisionStrategy implements ExtractionStrategy {
       // The page numbers are part of the key: the same prompt over page 2 is a
       // different request from the same prompt over page 1.
       const key = cacheKey({
+        provider: providerOf(this.options.model),
+        temperature: this.options.temperature,
         modelId,
         system,
         prompt: fingerprint(content),

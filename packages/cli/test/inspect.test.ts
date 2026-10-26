@@ -42,10 +42,10 @@ interface Report {
 
 describe("inspect", () => {
   it("reports what the loader found, with no model wired at all", async () => {
-    const run = await cli(["inspect", "invoice.pdf", "--json", "--no-config"], { cwd });
+    const run = await cli(["inspect", "invoice.pdf", "--format", "json", "--no-config"], { cwd });
 
     expect(run.code).toBe(0);
-    const report = JSON.parse(run.stdout) as Report;
+    const report = JSON.parse(run.stdout).results[0] as Report;
     expect(report.loader).toBe("pdfjs");
     expect(report.features.mimeType).toBe("application/pdf");
     expect(report.features.hasTextLayer).toBe(true);
@@ -58,9 +58,9 @@ describe("inspect", () => {
   });
 
   it("says `scanned` for a PDF with no text layer — the answer to “why did nothing run?”", async () => {
-    const run = await cli(["inspect", "scan.pdf", "--json", "--no-config"], { cwd });
+    const run = await cli(["inspect", "scan.pdf", "--format", "json", "--no-config"], { cwd });
 
-    const report = JSON.parse(run.stdout) as Report;
+    const report = JSON.parse(run.stdout).results[0] as Report;
     expect(report.features.hasTextLayer).toBe(false);
     expect(report.features.form).toBe("scanned");
   });
@@ -75,43 +75,44 @@ describe("inspect", () => {
   });
 
   it("includes the text under --text and not otherwise", async () => {
-    const withText = await cli(["inspect", "invoice.pdf", "--json", "--text", "--no-config"], { cwd });
-    const without = await cli(["inspect", "invoice.pdf", "--json", "--no-config"], { cwd });
+    const withText = await cli(["inspect", "invoice.pdf", "--format", "json", "--text", "--no-config"], { cwd });
+    const without = await cli(["inspect", "invoice.pdf", "--format", "json", "--no-config"], { cwd });
 
-    expect((JSON.parse(withText.stdout) as Report).text).toContain("Invoice");
-    expect((JSON.parse(without.stdout) as Report).text).toBeUndefined();
+    expect((JSON.parse(withText.stdout).results[0] as Report).text).toContain("Invoice");
+    expect((JSON.parse(without.stdout).results[0] as Report).text).toBeUndefined();
   });
 
-  it("returns an array for several documents and keeps going past a broken one", async () => {
+  it("returns envelope items for several documents and keeps going past a broken one", async () => {
     await writeFixture(cwd, "broken.pdf", "not a pdf at all");
 
-    const run = await cli(["inspect", "invoice.pdf", "broken.pdf", "--json", "--no-config"], { cwd });
+    const run = await cli(["inspect", "invoice.pdf", "broken.pdf", "--format", "json", "--no-config"], { cwd });
 
     expect(run.code).toBe(1);
-    const reports = JSON.parse(run.stdout) as Report[];
-    expect(reports).toHaveLength(1);
+    const reports = JSON.parse(run.stdout).results as Report[];
+    expect(reports).toHaveLength(2);
+    expect(reports[1]).toMatchObject({ file: "broken.pdf", ok: false, error: { code: "LOAD_FAILED" } });
     expect(reports[0]?.file).toBe("invoice.pdf");
     expect(run.stderr).toContain("broken.pdf");
   });
 
   it("takes a file: URL as a document, not as a filename", async () => {
     const run = await cli(
-      ["inspect", pathToFileURL(join(cwd, "invoice.pdf")).href, "--json", "--no-config"],
+      ["inspect", pathToFileURL(join(cwd, "invoice.pdf")).href, "--format", "json", "--no-config"],
       { cwd: "/" },
     );
 
     expect(run.code).toBe(0);
-    expect((JSON.parse(run.stdout) as Report).file).toBe("invoice.pdf");
+    expect((JSON.parse(run.stdout).results[0] as Report).file).toBe("invoice.pdf");
   });
 
   it("emits valid JSON even when every document failed", async () => {
     const dir = await tempDir("inspect-allbad");
     await writeFixture(dir, "broken.pdf", "not a pdf at all");
 
-    const run = await cli(["inspect", "broken.pdf", "--json", "--no-config"], { cwd: dir });
+    const run = await cli(["inspect", "broken.pdf", "--format", "json", "--no-config"], { cwd: dir });
 
     expect(run.code).toBe(1);
-    expect(JSON.parse(run.stdout)).toEqual([]);
+    expect(JSON.parse(run.stdout)).toMatchObject({ version: 1, command: "inspect", ok: false, results: [{ file: "broken.pdf", ok: false, error: { code: "LOAD_FAILED" } }] });
   });
 
   it("says so when a config's built extractor cannot be introspected", async () => {
@@ -129,13 +130,13 @@ export default {
     );
     await writeFile(join(dir, "invoice.pdf"), (await makeInvoicePdf({ seed: 3 })).bytes);
 
-    const run = await cli(["inspect", "invoice.pdf", "--json"], { cwd: dir });
+    const run = await cli(["inspect", "invoice.pdf", "--format", "json"], { cwd: dir });
 
     // It still works — the probe needs loaders, not the extractor — but the
     // fallback is stated rather than silently taken.
     expect(run.code).toBe(0);
     expect(run.stderr).toContain("cannot be used here");
-    expect((JSON.parse(run.stdout) as Report).loader).toBe("pdfjs");
+    expect((JSON.parse(run.stdout).results[0] as Report).loader).toBe("pdfjs");
   });
 
   it("uses the loaders a config declares", async () => {
@@ -163,9 +164,9 @@ export default {
     );
     await writeFixture(dir, "anything.txt", "ignored — the stub answers regardless");
 
-    const run = await cli(["inspect", "anything.txt", "--json"], { cwd: dir });
+    const run = await cli(["inspect", "anything.txt", "--format", "json"], { cwd: dir });
 
-    const report = JSON.parse(run.stdout) as Report;
+    const report = JSON.parse(run.stdout).results[0] as Report;
     expect(report.loader).toBe("stub");
     expect(report.features.hasGeometry).toBe(false);
   });

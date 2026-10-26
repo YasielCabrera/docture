@@ -35,6 +35,7 @@ import { runSplitter, type SplitContext, type Splitter } from "./contracts/split
 import type { DocumentSource } from "./domain/document.js";
 import { isLoadedSource } from "./domain/document.js";
 import { SplittingStrategy } from "./domain/enums.js";
+import { isContract } from "./domain/contract.js";
 import type { LoadedDocument } from "./domain/geometry.js";
 import type { Logger } from "./domain/logger.js";
 import { EMPTY_USAGE, sumUsage, type Usage } from "./domain/result.js";
@@ -45,7 +46,7 @@ import { Extractor } from "./extractor.js";
 import { SplitFailedError, UnclassifiedGroupError } from "./pipeline/errors.js";
 import { preloadedFeatures } from "./pipeline/features.js";
 import { loadDocument } from "./pipeline/read.js";
-import type { RunOptions } from "./pipeline/run.js";
+import { withProcessHints, type RunOptions } from "./pipeline/run.js";
 import { resolveSource } from "./pipeline/source.js";
 
 export interface ProcessExtractOptions extends RunOptions {
@@ -203,12 +204,13 @@ export class Process<C extends readonly Classification[] = readonly Classificati
         }
 
         const contract = extractionContractOf(job.classification);
-        const result = await extractor.extractResult(preloaded, contract, {
+        const hints = job.classification.hints ?? (isContract(contract) ? contract.hints : undefined);
+        const result = await extractor.extractResult(preloaded, contract, withProcessHints({
           ...options,
           pages: job.group.pages,
           signal,
           logger,
-        });
+        }, hints));
 
         results[index] = {
           name: job.classification.name,

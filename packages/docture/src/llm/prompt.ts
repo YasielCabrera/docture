@@ -38,6 +38,12 @@ export interface BuildPromptOptions {
   readonly hints?: string;
 }
 
+export function wrapUntrusted(tag: "document" | "excerpt", text: string): string {
+  const delimiter = new RegExp(`<\\s*\\/?\\s*${tag}\\s*>`, "gi");
+  const content = text.replace(delimiter, (match) => `<\\${match.slice(1)}`);
+  return `<${tag}>\n${content}\n</${tag}>`;
+}
+
 /**
  * Wrap the document so the model can tell content from instruction.
  *
@@ -62,9 +68,7 @@ export function buildPrompt(text: string, options: BuildPromptOptions = {}): Pro
     kind,
     "Extract the requested fields from the document below.",
     "",
-    "<document>",
-    text,
-    "</document>",
+    wrapUntrusted("document", text),
   ]
     .filter((part): part is string => part !== undefined)
     .join("\n");

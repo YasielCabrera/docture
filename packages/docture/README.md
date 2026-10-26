@@ -235,7 +235,8 @@ npm install --save-dev @docture/cli @ai-sdk/openai zod@^4
 npx docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5
 ```
 
-stdout is the data, so it pipes into `jq`. stderr is the story:
+stdout is a versioned JSON envelope. Read extracted values with
+`jq ".results[0].data.total"`. Diagnostics go to stderr:
 
 ```
 ✓ invoice.pdf → llm via pdfjs · 2.1s · 3,412 tokens · $0.0041
