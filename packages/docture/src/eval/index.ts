@@ -1,5 +1,5 @@
 /**
- * docture/eval — grade an extraction run.
+ * docture/eval — grade an extraction run or a conversion.
  *
  * ```ts
  * const result = await extractor.extract(pdf.bytes, Invoice);
@@ -15,3 +15,15 @@ export { aggregate, formatFailures, formatScoreboard, recordRun } from "./report
 export type { Aggregate, FieldAggregate, RunRecord } from "./report.js";
 export { gate } from "./gate.js";
 export type { GateOptions, GateResult } from "./gate.js";
+export { checkConversion } from "./conversion.js";
+export type {
+  AbsentCheck,
+  ConversionCheck,
+  ConversionCheckKind,
+  ConversionCheckResult,
+  ConversionReport,
+  ConvertedPages,
+  OrderCheck,
+  PresentCheck,
+  TableCheck,
+} from "./conversion.js";

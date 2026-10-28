@@ -40,7 +40,7 @@ export type { LlmTelemetryOptions } from "./telemetry.js";
 
 export interface SplitterOptions {
   readonly model: LanguageModel;
-  /** Splitter id. Defaults to the class name. */
+  /** Splitter id. Defaults to `"TextSplitter"` or `"ImageSplitter"`, also in a subclass. */
   readonly name?: string;
   /** Characters of each page to send. Default 1200 — a heading is near the top. */
   readonly excerptChars?: number;
@@ -113,12 +113,13 @@ abstract class ModelSplitter implements Splitter {
   readonly name: string;
   abstract readonly requires: readonly string[];
 
-  constructor(protected readonly options: SplitterOptions) {
-    this.name = options.name ?? this.constructor.name;
+  /** `defaultName` is a literal so a minifier or a subclass cannot change it. */
+  constructor(protected readonly options: SplitterOptions, defaultName: string) {
+    this.name = options.name ?? defaultName;
   }
 
   /** What one page contributes to a message. Text or a picture — the whole difference. */
-  protected abstract pageContent(page: LoadedPage): Promise<ContentPart>;
+  protected abstract pageContent(page: LoadedPage, signal: AbortSignal): Promise<ContentPart>;
 
   protected system(): string {
     const extra = this.options.instructions;
@@ -133,9 +134,9 @@ abstract class ModelSplitter implements Splitter {
     const content: ContentPart[] = [
       { type: "text", text: `Document types:\n${catalogue(ctx.classifications)}` },
       { type: "text", text: `--- Page ${first.pageNumber} ---` },
-      await this.pageContent(first),
+      await this.pageContent(first, ctx.signal),
       { type: "text", text: `--- Page ${second.pageNumber} ---` },
-      await this.pageContent(second),
+      await this.pageContent(second, ctx.signal),
       { type: "text", text: "Does page two continue page one's document? Classify each page." },
     ];
 
@@ -161,7 +162,7 @@ abstract class ModelSplitter implements Splitter {
       ];
       for (const page of sent) {
         content.push({ type: "text", text: `--- Page ${page.pageNumber} ---` });
-        content.push(await this.pageContent(page));
+        content.push(await this.pageContent(page, ctx.signal));
       }
       content.push({
         type: "text",
@@ -313,6 +314,10 @@ abstract class ModelSplitter implements Splitter {
 export class TextSplitter extends ModelSplitter {
   override readonly requires = ["TEXT_LAYER"] as const;
 
+  constructor(options: SplitterOptions) {
+    super(options, "TextSplitter");
+  }
+
   protected override async pageContent(
     page: LoadedPage,
   ): Promise<{ type: "text"; text: string }> {
@@ -326,8 +331,13 @@ export class TextSplitter extends ModelSplitter {
 export class ImageSplitter extends ModelSplitter {
   override readonly requires = ["RENDERABLE_PAGES"] as const;
 
+  constructor(options: SplitterOptions) {
+    super(options, "ImageSplitter");
+  }
+
   protected override async pageContent(
     page: LoadedPage,
+    signal: AbortSignal,
   ): Promise<{ type: "file"; data: Uint8Array; mediaType: string }> {
     if (page.image === undefined) {
       throw new TypeError(
@@ -340,7 +350,7 @@ export class ImageSplitter extends ModelSplitter {
       dpi: this.options.dpi ?? 120,
       format,
       ...(this.options.maxEdge === undefined ? {} : { maxEdge: this.options.maxEdge }),
-    });
+    }, { signal });
     return {
       type: "file",
       data: bytes,

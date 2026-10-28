@@ -10,6 +10,7 @@
  */
 
 import { asSchema, safeValidateTypes, type FlexibleSchema } from "@ai-sdk/provider-utils";
+import { formatFieldPath } from "../domain/field-path.js";
 import type { ValidationIssue } from "../domain/result.js";
 
 /** A JSON Schema object. Structural, so we do not re-export the SDK's type. */
@@ -29,13 +30,14 @@ export interface ResolvedSchema<T = unknown> {
   /**
    * The caller's original schema, untouched. Hand this to `generateText with Output.object` rather
    * than the JSON Schema — providers do better with the native shape, and a
-   * round trip through JSON Schema loses refinements.
+   * round trip through JSON Schema loses refinements. Return the answer as the
+   * model gave it, not the schema's transformed output: the pipeline validates
+   * `outcome.data` with this schema, so a transform would otherwise run twice.
    */
   readonly flexible: FlexibleSchema<T>;
   validate(value: unknown): Promise<ValidateResult<T>>;
 }
 
-/** Best-effort dotted path out of a validation error message. */
 function issuesFromError(error: Error): readonly ValidationIssue[] {
   const cause = (error as { cause?: unknown }).cause;
 
@@ -45,13 +47,10 @@ function issuesFromError(error: Error): readonly ValidationIssue[] {
     return issues.map((raw): ValidationIssue => {
       const issue = raw as { path?: unknown; message?: unknown };
       const path = Array.isArray(issue.path)
-        ? issue.path
-            .map((segment) =>
-              typeof segment === "object" && segment !== null && "key" in segment
-                ? String((segment as { key: unknown }).key)
-                : String(segment),
-            )
-            .join(".")
+        ? formatFieldPath(issue.path.map((segment) =>
+            typeof segment === "object" && segment !== null && "key" in segment
+              ? String((segment as { key: unknown }).key)
+              : String(segment)))
         : "";
       return { path, message: typeof issue.message === "string" ? issue.message : String(raw) };
     });

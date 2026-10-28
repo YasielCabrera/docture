@@ -20,7 +20,7 @@
 import { inferForm } from "../pipeline/features.js";
 import type { RawDocument } from "../domain/document.js";
 import type { LoadedDocument, LoadedPage } from "../domain/geometry.js";
-import type { DocumentLoader, LoaderCapabilities } from "../contracts/loader.js";
+import type { DocumentLoader, LoadContext, LoaderCapabilities } from "../contracts/loader.js";
 
 export interface DataLoaderConfig {
   /** Override the loader's id. Useful when two are wired with different splits. */
@@ -68,12 +68,16 @@ export class DocumentLoaderData implements DocumentLoader<DataCapabilities> {
     };
   }
 
-  async load(document: RawDocument): Promise<LoadedDocument> {
+  async load(document: RawDocument, ctx?: LoadContext): Promise<LoadedDocument> {
+    ctx?.signal.throwIfAborted();
     const decoded = new TextDecoder(this.#encoding).decode(document.bytes);
     const isHtml = document.mimeType === "text/html" || document.mimeType === "application/xhtml+xml";
-    const text = isHtml
-      ? (await import("./html.js")).htmlText(decoded, document.mimeType === "application/xhtml+xml" ? "xhtml" : "html")
-      : decoded;
+    let text = decoded;
+    if (isHtml) {
+      const { htmlText } = await import("./html.js");
+      ctx?.signal.throwIfAborted();
+      text = htmlText(decoded, document.mimeType === "application/xhtml+xml" ? "xhtml" : "html");
+    }
     const chunks = isHtml ? [text] : text.split(this.#delimiter as string);
 
     const pages: LoadedPage[] = chunks.map((chunk, index) => ({

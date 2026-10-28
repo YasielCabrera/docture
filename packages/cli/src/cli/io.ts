@@ -14,6 +14,8 @@
  * whole CLI in-process and asserts on captured strings.
  */
 
+import { addAbortSignal, type Readable } from "node:stream";
+
 export interface Io {
   /** Data. Machine-readable, pipeable, never decorated. */
   write(chunk: string): void;
@@ -75,19 +77,25 @@ export function processIo(): Io {
   return {
     write: (chunk) => void process.stdout.write(chunk),
     diagnostic: (chunk) => void process.stderr.write(chunk),
-    readStdin: async (signal) => {
-      const chunks: Uint8Array[] = [];
-      for await (const chunk of process.stdin) {
-        signal?.throwIfAborted();
-        chunks.push(chunk as Uint8Array);
-      }
-      return Buffer.concat(chunks);
-    },
+    readStdin: (signal) => readAll(process.stdin, signal),
     cwd: process.cwd(),
     env: process.env,
     color: process.stderr.isTTY === true && process.env["NO_COLOR"] === undefined,
     stdoutColor: process.stdout.isTTY === true && process.env["NO_COLOR"] === undefined,
   };
+}
+
+async function readAll(stream: Readable, signal: AbortSignal | undefined): Promise<Uint8Array> {
+  signal?.throwIfAborted();
+  if (signal !== undefined) addAbortSignal(signal, stream);
+  const chunks: Uint8Array[] = [];
+  try {
+    for await (const chunk of stream) chunks.push(chunk as Uint8Array);
+  } catch (error) {
+    signal?.throwIfAborted();
+    throw error;
+  }
+  return Buffer.concat(chunks);
 }
 
 /** Collects both streams. The whole reason commands take an `Io`. */

@@ -32,6 +32,11 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./config": {
+      "source": "./src/define-config.ts",
+      "types": "./dist/define-config.d.ts",
+      "default": "./dist/define-config.js"
+    },
     "./mcp": {
       "source": "./src/mcp/index.ts",
       "types": "./dist/mcp/index.d.ts",

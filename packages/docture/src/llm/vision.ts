@@ -21,7 +21,7 @@ import type { PricingTable } from "./pricing.js";
 import { relaxJsonSchema } from "./relax.js";
 import { withCompletedUsage } from "./failure.js";
 import { repairFingerprint, repairMessages } from "./repair.js";
-import { requestObject, type ObjectRequest, type ObjectResponse } from "./request.js";
+import { EXTRACTION_CACHE_VERSION, requestObject, untransformed, type ObjectRequest, type ObjectResponse } from "./request.js";
 import { callTelemetry, type LlmTelemetryOptions, type TelemetryScope } from "./telemetry.js";
 
 export type { LlmTelemetryOptions } from "./telemetry.js";
@@ -92,7 +92,7 @@ export class VisionStrategy implements ExtractionStrategy {
     this.needsClassification = options.needsClassification ?? "hint";
   }
 
-  private async render(pages: readonly LoadedPage[]): Promise<Uint8Array[]> {
+  private async render(pages: readonly LoadedPage[], signal: AbortSignal): Promise<Uint8Array[]> {
     const format = this.options.format ?? "png";
     const rasterOptions = {
       dpi: this.options.dpi ?? 200,
@@ -107,7 +107,7 @@ export class VisionStrategy implements ExtractionStrategy {
           `page ${page.pageNumber} cannot be rendered — compose the loader with a rasterizer`,
         );
       }
-      images.push(await page.image(rasterOptions));
+      images.push(await page.image(rasterOptions, { signal }));
     }
     return images;
   }
@@ -122,6 +122,7 @@ export class VisionStrategy implements ExtractionStrategy {
       ...(this.options.instructions === undefined ? {} : { instructions: this.options.instructions }),
       ...(ctx.classification === undefined ? {} : { classification: ctx.classification }),
       ...(hint === undefined ? {} : { hints: hint }),
+      ...(ctx.examples === undefined ? {} : { examples: ctx.examples }),
     });
   }
 
@@ -132,9 +133,9 @@ export class VisionStrategy implements ExtractionStrategy {
       pages.slice(index * groupSize, (index + 1) * groupSize));
   }
 
-  private async content(prompt: string, group: readonly LoadedPage[]): Promise<ContentPart[]> {
+  private async content(prompt: string, group: readonly LoadedPage[], signal: AbortSignal): Promise<ContentPart[]> {
     const mediaType = MEDIA_TYPES[this.options.format ?? "png"];
-    const images = await this.render(group);
+    const images = await this.render(group, signal);
     return [
       { type: "text", text: prompt },
       ...images.map((data) => ({ type: "file" as const, data, mediaType })),
@@ -165,7 +166,7 @@ export class VisionStrategy implements ExtractionStrategy {
         prompt: keyPrompt,
         jsonSchema: ctx.schema.jsonSchema,
         variant:
-          `vision:${format}:${this.options.dpi ?? 200}:${this.options.maxEdge ?? 1568}:` +
+          `${EXTRACTION_CACHE_VERSION}:vision:${format}:${this.options.dpi ?? 200}:${this.options.maxEdge ?? 1568}:` +
           `${this.options.pagesPerRequest ?? 20}:${variant}`,
       }),
       temperature: this.options.temperature,
@@ -188,14 +189,14 @@ export class VisionStrategy implements ExtractionStrategy {
     const requestSchema =
       groups.length > 1
         ? jsonSchema(relaxJsonSchema(ctx.schema.jsonSchema) as Record<string, never>)
-        : ctx.schema.flexible;
+        : untransformed(ctx.schema.flexible);
 
     const startedAt = Date.now();
     const usages: Partial<Usage>[] = [];
 
     const parts = await mapWithConcurrency(groups, this.options.concurrency ?? 4, async (group, index, signal) => {
       signal.throwIfAborted();
-      const content = await this.content(prompt, group);
+      const content = await this.content(prompt, group, signal);
       // The page numbers are part of the key: the same prompt over page 2 is a
       // different request from the same prompt over page 1.
       const response = await this.request(ctx, {
@@ -229,9 +230,9 @@ export class VisionStrategy implements ExtractionStrategy {
     const groups = this.groups(ctx);
     const only = groups.length === 1 ? groups[0] : undefined;
     const { system, prompt } = this.prompt(ctx);
-    const messages = repairMessages(only === undefined ? undefined : await this.content(prompt, only), previous);
+    const messages = repairMessages(only === undefined ? undefined : await this.content(prompt, only, ctx.signal), previous);
     const response = await this.request(ctx, {
-      schema: ctx.schema.flexible, system, input: { messages }, signal: ctx.signal, startedAt: Date.now(),
+      schema: untransformed(ctx.schema.flexible), system, input: { messages }, signal: ctx.signal, startedAt: Date.now(),
     }, repairFingerprint(messages), "repair", {
       stage: "repair", pages: (only ?? groups.flat()).map((p) => p.pageNumber),
     });

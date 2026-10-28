@@ -157,6 +157,7 @@ export class LlmLayoutAnalyzer implements LayoutAnalyzer {
       ...callTelemetry(this.options.telemetry, {
         stage: "layout",
         component: this.name,
+        document: ctx.documentLabel,
         pages: ctx.document.pages.map((page) => page.pageNumber),
       }),
     }).then((response) => ({ output: response.output, usage: response.usage })).catch((error: unknown) => {

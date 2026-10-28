@@ -49,6 +49,7 @@ import {
   convertGroupHeaderTable,
   convertRichFixture,
   convertRunningHeaders,
+  convertSelectedPage,
 } from "../16-document-conversion/index.js";
 
 describe("document conversion", () => {
@@ -58,6 +59,13 @@ describe("document conversion", () => {
     expect(result.pages).toHaveLength(2);
     expect(result.content).toContain("Document Conversion Fixture");
     expect(result.assets.length).toBeGreaterThan(0);
+  });
+
+  it("converts only a selected page and keeps its original number", async () => {
+    const selected = await convertSelectedPage();
+    expect(selected.pages).toEqual([2]);
+    expect(selected.markdown.startsWith("<!-- page: 2 -->\n\n")).toBe(true);
+    expect(selected.markdown).not.toContain("<!-- page: 1 -->");
   });
 
   it("keeps running headers and footers out of Markdown and in saved JSON", async () => {

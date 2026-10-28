@@ -19,6 +19,7 @@ import {
   wordSpanRows,
   yearHeaderRows,
 } from "./table-span-fixtures.js";
+import { bySourceId } from "./conversion-fixtures.js";
 
 async function convert(loaded: LoadedDocument, format: "markdown" | "html" | "text" | "json") {
   return new DocumentConverter().convert({ loaded }, { format });
@@ -176,7 +177,7 @@ describe("spanning table cells", () => {
     );
     const json = await convert(tableDocument(uniformRows), "json");
     expect(JSON.parse(json.content).pages[0].elements[0]).toEqual({
-      id: "p1-text-1",
+      id: "p1-9cecc64ac022",
       kind: "table",
       rows: [["Name", "Units", "Total"], ["Alpha", "3", "30"], ["Beta", "4", "40"]],
       headerRows: 1,
@@ -244,8 +245,8 @@ describe("table group annotations", () => {
     return new DocumentConverter({
       layoutAnalyzer: {
         name: "grouper",
-        async analyze(_ctx: LayoutAnalyzerContext) {
-          return { annotations: ids.map((id) => ({ id, group: "g" })) };
+        async analyze(ctx: LayoutAnalyzerContext) {
+          return { annotations: bySourceId(ctx.document, ids.map((id) => ({ id, group: "g" }))) };
         },
       },
     });

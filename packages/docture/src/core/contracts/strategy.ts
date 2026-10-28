@@ -29,6 +29,11 @@ export interface StrategyContext {
    * A sole candidate applies only to a bare schema or a Contract with the same name.
    */
   readonly hints?: string;
+  /**
+   * The extracted contract's worked examples, already checked against the schema.
+   * `output` is JSON text. Process-selected examples replace the contract's own.
+   */
+  readonly examples?: readonly { readonly text: string; readonly output: string }[];
   readonly signal: AbortSignal;
   readonly logger: Logger;
   /** The source's file name, when it has one. Model telemetry may record it. */
@@ -67,6 +72,12 @@ export interface OutcomeCitation {
   /** For `verified`, the lines the match spans. Otherwise every cited line that exists. */
   readonly ids: readonly LineSourceId[];
   readonly value: unknown;
+  /**
+   * For `verified`, the spans the matched occurrence covers: `span` indexes the
+   * `spans` of the loaded line `line`. Omit it when the match cannot be pinned to
+   * spans; the pipeline then reports no OCR confidence for the value.
+   */
+  readonly spans?: readonly { readonly line: LineSourceId; readonly span: number }[];
 }
 
 /**

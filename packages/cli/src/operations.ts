@@ -10,7 +10,7 @@ import {
 import { jsonSchema } from "ai";
 import { explain } from "./cli/errors.js";
 import type { Io } from "./cli/io.js";
-import type { CliConverter, CliExtractor } from "./config.js";
+import type { CliConverter, CliExtractor } from "./define-config.js";
 import { sourcesOf, type Input } from "./inputs.js";
 import { errorRecord, type Item } from "./output.js";
 
@@ -77,9 +77,10 @@ export function inspectProbe(options: InspectOptions): ExtractionStrategy {
           render = { pageNumber: 0, error: "no page can be rendered" };
         } else {
           try {
-            const bytes = await first.image();
+            const bytes = await first.image(undefined, { signal: ctx.signal });
             render = { pageNumber: first.pageNumber, bytes: bytes.byteLength };
           } catch (error) {
+            ctx.signal.throwIfAborted();
             render = { pageNumber: first.pageNumber, error: explain(error).message };
           }
         }

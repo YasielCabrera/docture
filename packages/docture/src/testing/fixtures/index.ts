@@ -7,3 +7,5 @@ export type {
 } from "./invoice.js";
 export { makeRichDocumentPdf, richDocumentExpected } from "./rich-document.js";
 export type { RichDocumentExpected } from "./rich-document.js";
+export { conversionCorpus } from "./conversion-corpus/index.js";
+export type { ConversionCase } from "./conversion-corpus/index.js";

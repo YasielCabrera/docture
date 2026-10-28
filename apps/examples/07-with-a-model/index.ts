@@ -326,7 +326,10 @@ async function main(): Promise<void> {
     try {
       const withCitations = await cited.extract(path, Invoice, { maxRepairs: 0 });
       for (const citation of (withCitations.citations ?? []).slice(0, 6)) {
-        field(citation.path, `${citation.status} ${citation.ids.join(", ")}`);
+        const ocr = citation.status === "uncited" || citation.minOcrConfidence === undefined
+          ? ""
+          : ` OCR ${citation.minOcrConfidence}`;
+        field(citation.path, `${citation.status} ${citation.ids.join(", ")}${ocr}`);
       }
       const total = withCitations.citations?.find((citation) => citation.path === "total");
       const line = withCitations.citationSources?.find((source) => source.id === total?.ids[0]);

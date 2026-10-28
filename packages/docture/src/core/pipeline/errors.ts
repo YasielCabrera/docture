@@ -212,22 +212,30 @@ export class ExtractionFailedError extends DoctureError {
   }
 }
 
-/** A strategy produced data that does not satisfy the caller's schema. */
+/**
+ * A strategy produced data that does not satisfy the caller's schema, or
+ * schema-valid data that a validation rule rejected in `"fail"` mode.
+ */
 export class ContractViolationError extends DoctureError {
   protected static override readonly doctureErrorIdentity = "ContractViolationError";
   override readonly code = "CONTRACT_VIOLATION" as const;
+  /** `"schema"` when the data does not satisfy the schema; `"rule"` when a validation rule rejected it. */
+  readonly failedCheck: "schema" | "rule";
   readonly attempts?: readonly Attempt[];
   readonly usage?: Usage;
   constructor(
     readonly strategy: string,
     readonly issues: readonly ValidationIssue[],
-    options: { attempts?: readonly Attempt[]; usage?: Usage } = {},
+    options: { failedCheck?: "schema" | "rule"; attempts?: readonly Attempt[]; usage?: Usage } = {},
   ) {
+    const failedCheck = options.failedCheck ?? "schema";
     super(
-      `"${strategy}" produced data that does not satisfy the schema: ` +
+      `"${strategy}" produced ` +
+        (failedCheck === "rule" ? "schema-valid data that failed a validation rule: " : "data that does not satisfy the schema: ") +
         issues.map((i) => `${i.path || "(root)"}: ${i.message}`).join("; ") +
         ".",
     );
+    this.failedCheck = failedCheck;
     if (options.attempts !== undefined) this.attempts = options.attempts;
     if (options.usage !== undefined) this.usage = options.usage;
   }

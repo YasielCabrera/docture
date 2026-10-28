@@ -3,7 +3,7 @@ import { failedAttempt } from "./pipeline/attempt.js";
 
 import { basename, extname } from "node:path";
 import type { LayoutAnalyzer } from "./contracts/layout-analyzer.js";
-import type { DocumentLoader } from "./contracts/loader.js";
+import type { DocumentLoader, LoadRequest } from "./contracts/loader.js";
 import type { ModelBackend } from "./contracts/model.js";
 import { applyLayoutAnnotations, analyzeDocument, withoutFurniture } from "./conversion/analyze.js";
 import { conversionAssets, exportDocument } from "./conversion/export.js";
@@ -31,6 +31,7 @@ import {
   messageOf,
 } from "./pipeline/errors.js";
 import { documentFeatures, preloadedFeatures } from "./pipeline/features.js";
+import { selectPages } from "./pipeline/pages.js";
 import { readDocument } from "./pipeline/read.js";
 import { exportJsonDocument } from "./conversion/json.js";
 import { resolveSource } from "./pipeline/source.js";
@@ -74,13 +75,14 @@ function usageFrom(partial: Partial<Usage> | undefined): Usage {
 
 
 function snapshotConvertOptions(options: ConvertOptions): ConvertOptions {
-  const { format, assets, signal, logger, stageTimeoutMs, ...extra } = options;
+  const { format, pages, assets, signal, logger, stageTimeoutMs, ...extra } = options;
   const fields: { [K in keyof ConvertOptions]-?: ConvertOptions[K] | undefined } = {
-    format, assets, signal, logger, stageTimeoutMs,
+    format, pages, assets, signal, logger, stageTimeoutMs,
   };
   return {
     ...extra,
     ...(fields.format === undefined ? {} : { format: fields.format }),
+    ...(fields.pages === undefined ? {} : { pages: [...fields.pages] }),
     ...(fields.assets === undefined ? {} : { assets: fields.assets }),
     ...(fields.signal === undefined ? {} : { signal: fields.signal }),
     ...(fields.logger === undefined ? {} : { logger: fields.logger }),
@@ -169,7 +171,12 @@ export class DocumentConverter {
     const stageTimeoutMs = options.stageTimeoutMs ?? this.#stageTimeoutMs;
     const format = options.format ?? "markdown";
     const assetMode = options.assets ?? "referenced";
-    const loaded = await this.#load(source, logger, signal, stageTimeoutMs, assetMode !== "omit");
+    const pages = options.pages === undefined ? undefined : [...options.pages];
+    const loaded = await this.#load(source, logger, signal, stageTimeoutMs, {
+      ...(pages === undefined ? {} : { pages }),
+      layout: true,
+      assets: assetMode !== "omit",
+    });
     signal.throwIfAborted();
 
     if (loaded.document.text.trim().length === 0) {
@@ -193,6 +200,7 @@ export class DocumentConverter {
           document: withoutFurniture(layout),
           signal: deadline.signal,
           logger: logger.child({ layoutAnalyzer: analyzer.name }),
+          ...(loaded.fileName === undefined ? {} : { documentLabel: loaded.fileName }),
         });
         returnedUsage = result.usage;
         deadline.signal.throwIfAborted();
@@ -357,14 +365,17 @@ export class DocumentConverter {
     logger: Logger,
     signal: AbortSignal,
     stageTimeoutMs: number | undefined,
-    requestAssets: boolean,
+    request: LoadRequest,
   ): Promise<LoadedConversion> {
+    const selected = (document: LoadedDocument): LoadedDocument =>
+      request.pages === undefined ? document : selectPages(document, request.pages);
     if (isLoadedSource(source)) {
+      const document = selected(source.loaded);
       return {
-        document: source.loaded,
+        document,
         loader: source.loaded.loader,
         attempts: [{ stage: "load", strategy: source.loaded.loader, status: "ok", ms: 0 }],
-        features: preloadedFeatures(source),
+        features: preloadedFeatures({ ...source, loaded: document }),
         ...(source.fileName === undefined ? {} : { fileName: source.fileName }),
       };
     }
@@ -374,17 +385,15 @@ export class DocumentConverter {
       );
     }
     const raw = await resolveSource(source, signal);
-    const read = await readDocument(this.#loaders, raw, logger, signal, stageTimeoutMs, {
-      layout: true,
-      assets: requestAssets,
-    });
+    const read = await readDocument(this.#loaders, raw, logger, signal, stageTimeoutMs, request);
+    const document = selected(read.document);
     return {
-      document: read.document,
+      document,
       raw,
       loader: read.loader.name,
       attempts: read.attempts,
       features: documentFeatures(
-        read.document,
+        document,
         read.loader,
         raw.mimeType ?? "application/octet-stream",
       ),

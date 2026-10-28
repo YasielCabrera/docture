@@ -61,6 +61,14 @@ export interface InlineText {
 }
 
 interface ElementBase {
+  /**
+   * Unique within the document. Conversion derives it from the element's content and
+   * position: `p<page>-` and 12 hex characters of a SHA-256 digest over the identity
+   * class (`text` for headings, paragraphs, code and furniture), the page, the start
+   * page's rounded left and top position, and the whitespace-normalized content. An exact
+   * duplicate gets `-2`, `-3`, ... in document order; a page break is `p<page>-page-break`.
+   * Reflow, segmentation or loader changes alter it. It is an anchor, not a checksum.
+   */
   readonly id: string;
   readonly provenance: ElementProvenance;
 }
@@ -245,6 +253,12 @@ export interface ConvertedPage {
 export interface ConvertOptions {
   /** Default `"markdown"`. */
   readonly format?: ConversionFormat;
+  /**
+   * Original one-based page numbers to convert. Default: every page. Loaders that honor
+   * page hints read only these pages, and the result keeps the original page numbers.
+   * An empty selection or a page the document lacks raises `PAGE_OUT_OF_RANGE`.
+   */
+  readonly pages?: readonly number[];
   /** Default `"referenced"`. */
   readonly assets?: ConversionAssetMode;
   readonly signal?: AbortSignal;

@@ -52,12 +52,17 @@ interface PdfJsRenderModule {
       };
       getPage(n: number): Promise<{
         getViewport(o: { scale: number }): { width: number; height: number };
-        render(o: Record<string, unknown>): { promise: Promise<void> };
+        render(o: Record<string, unknown>): RenderTask;
         cleanup(): boolean;
       }>;
     }>;
     destroy(): Promise<void>;
   };
+}
+
+interface RenderTask {
+  readonly promise: Promise<void>;
+  cancel(): void;
 }
 
 interface LoadedDeps {
@@ -177,11 +182,10 @@ export class NapiCanvasRasterizer implements Rasterizer {
           // install a second canvas for pdf.js, so its own factory creates the surface.
           const surface = pdf.canvasFactory.create(widthPx, heightPx);
 
-          await page.render({
-            canvas: surface.canvas,
-            canvasContext: surface.context,
-            viewport,
-          }).promise;
+          await untilRendered(
+            page.render({ canvas: surface.canvas, canvasContext: surface.context, viewport }),
+            ctx.signal,
+          );
 
           const bytes =
             format === "jpeg"
@@ -208,6 +212,25 @@ export class NapiCanvasRasterizer implements Rasterizer {
     } finally {
       await task.destroy().catch(() => {});
     }
+  }
+}
+
+/**
+ * PDF.js stops a cancelled render the next time drawing yields, then rejects with
+ * its own `RenderingCancelledException`. The caller's reason replaces it, so the
+ * failure still reads as an abort.
+ */
+async function untilRendered(task: RenderTask, signal: AbortSignal): Promise<void> {
+  const cancel = (): void => task.cancel();
+  if (signal.aborted) cancel();
+  signal.addEventListener("abort", cancel, { once: true });
+  try {
+    await task.promise;
+  } catch (error) {
+    signal.throwIfAborted();
+    throw error;
+  } finally {
+    signal.removeEventListener("abort", cancel);
   }
 }
 

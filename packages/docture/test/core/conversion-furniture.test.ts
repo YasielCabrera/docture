@@ -6,6 +6,7 @@ import {
   type LayoutAnalyzerContext,
   type LoadedDocument,
 } from "../../src/core/index.js";
+import { bySourceId } from "./conversion-fixtures.js";
 import { acmeReport, bookSpread, documentOf, pdfPage, threePages } from "./furniture-fixtures.js";
 
 function summary(elements: readonly DocumentElement[]): string[] {
@@ -59,7 +60,7 @@ describe("running headers and footers", () => {
     const document = JSON.parse(json.content) as DoctureDocument;
     expect(document.schemaVersion).toBe(2);
     expect(document.pages[1]?.elements[2]).toEqual({
-      id: "p2-text-3",
+      id: "p2-67fc6262053d",
       kind: "page-footer",
       text: "Page 2 of 3",
       runs: [{ text: "Page 2 of 3" }],
@@ -192,6 +193,8 @@ describe("running headers and footers", () => {
   });
 
   it("hides furniture from layout analyzers and ignores annotations that name it", async () => {
+    const furnitureId = (await convert(acmeReport(), "json")).pages[0]?.elements[0]?.id ?? "";
+    expect(furnitureId).toBe("p1-336c32c7e8ed");
     const seen: string[][] = [];
     const result = await new DocumentConverter({
       layoutAnalyzer: {
@@ -200,17 +203,17 @@ describe("running headers and footers", () => {
           seen.push(...ctx.document.pages.map((page) => page.elements.map((element) => element.id)));
           return {
             annotations: [
-              { id: "p1-text-1", role: "heading" },
-              { id: "p1-text-2", role: "heading", level: 2 },
+              { id: furnitureId, role: "heading" },
+              ...bySourceId(ctx.document, [{ id: "p1-text-2", role: "heading", level: 2 }]),
             ],
           };
         },
       },
     }).convert({ loaded: acmeReport() }, { format: "markdown" });
     expect(seen).toEqual([
-      ["p1-text-2", "p1-page-break"],
-      ["p2-text-2", "p2-page-break"],
-      ["p3-text-2"],
+      ["p1-45ebf7eff336", "p1-page-break"],
+      ["p2-2f99f243f033", "p2-page-break"],
+      ["p3-40e1431e372f"],
     ]);
     expect(result.method).toBe("deterministic+probe");
     expect(summary(result.pages[0]?.elements ?? [])).toEqual([

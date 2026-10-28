@@ -59,6 +59,12 @@ describe("the MCP server", () => {
       properties: {
         source: { type: "string", description: "A path relative to the server's working directory, an absolute path, or an http(s) or file: URL" },
         format: { type: "string", enum: ["markdown", "html", "text", "json"], default: "markdown" },
+        pages: {
+          type: "array",
+          items: { type: "integer", minimum: 1 },
+          minItems: 1,
+          description: "One-based page numbers to convert, keeping their original numbers. Default: every page",
+        },
       },
       required: ["source"],
       additionalProperties: false,

@@ -161,7 +161,7 @@ describe("model telemetry", () => {
     }).convert(source);
 
     expect(starts.map((start) => start.functionId)).toEqual(["docture.layout.llm-layout"]);
-    expect(starts[0]?.runtimeContext).toEqual({ docture: { stage: "layout", component: "llm-layout", pages: [1] } });
+    expect(starts[0]?.runtimeContext).toEqual({ docture: { stage: "layout", component: "llm-layout", document: "invoice.pdf", pages: [1] } });
   });
 
   it("tags a splitter seam with both pages and the bundle label", async () => {

@@ -10,7 +10,7 @@ import { readFile } from "node:fs/promises";
 import { basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isLoadedSource, type DocumentSource, type RawDocument } from "../domain/document.js";
-import { UnsupportedSourceError } from "./errors.js";
+import { UnsupportedSourceError, messageOf } from "./errors.js";
 
 const EXTENSION_TYPES: Readonly<Record<string, string>> = {
   ".pdf": "application/pdf",
@@ -80,6 +80,25 @@ function toUint8Array(value: Uint8Array | ArrayBuffer): Uint8Array {
   return value instanceof Uint8Array ? value : new Uint8Array(value);
 }
 
+const READ_FAILURES: Readonly<Record<string, readonly [problem: string, fix: string]>> = {
+  ENOENT: ["no such file", "Check the path; a relative path resolves from the current directory."],
+  ENOTDIR: ["a parent of this path is not a directory", "Check the path."],
+  EISDIR: ["it is a directory", "Pass a file inside it instead."],
+  EACCES: ["permission denied", "Grant read access to the file, or run as a user who has it."],
+  EPERM: ["permission denied", "Grant read access to the file, or run as a user who has it."],
+};
+
+async function readSourceFile(path: string): Promise<Uint8Array> {
+  try {
+    return new Uint8Array(await readFile(path));
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException | undefined)?.code;
+    const known = code === undefined ? undefined : READ_FAILURES[code];
+    const reason = known === undefined ? messageOf(error) : `${known[0]} (${code}). ${known[1]}`;
+    throw new UnsupportedSourceError(`Cannot read ${path}: ${reason}`, { cause: error });
+  }
+}
+
 /**
  * Resolve `source` to bytes and a media type.
  *
@@ -123,11 +142,11 @@ export async function resolveSource(
 
     if (asUrl === undefined) {
       // A plain filesystem path.
-      bytes = new Uint8Array(await readFile(source as string));
+      bytes = await readSourceFile(source as string);
       fileName = basename(source as string);
     } else if (asUrl.protocol === "file:") {
       const path = fileURLToPath(asUrl);
-      bytes = new Uint8Array(await readFile(path));
+      bytes = await readSourceFile(path);
       fileName = basename(path);
     } else if (asUrl.protocol === "http:" || asUrl.protocol === "https:") {
       const response = await fetch(asUrl, signal === undefined ? {} : { signal });

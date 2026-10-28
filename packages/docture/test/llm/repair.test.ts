@@ -102,6 +102,12 @@ describe("validation repair", () => {
     await expect(run).rejects.toThrow(RangeError);
   });
 
+  it("rejects a null per-call repair budget instead of using the extractor's budget", async () => {
+    const run = createExtractor({ loaders: [loader()], strategies: [fixedStrategy("f", { value: "x" })] })
+      .extract(bytes, Value, { maxRepairs: null as never });
+    await expect(run).rejects.toThrow(new RangeError("maxRepairs must be a non-negative integer"));
+  });
+
   it("rejects an extractor-level repair budget when the extractor is built", () => {
     for (const maxRepairs of [1.5, -1, Number.NaN]) {
       expect(() => createExtractor({ loaders: [loader()], strategies: [fixedStrategy("f", { value: "x" })], maxRepairs }))

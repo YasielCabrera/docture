@@ -24,6 +24,17 @@
  */
 
 import type { FlexibleSchema, InferSchema } from "@ai-sdk/provider-utils";
+import { exampleJson } from "./example-json.js";
+
+/**
+ * A worked example for the prompt: document text and the data it should yield.
+ * `output` is typed by the schema. It is sent as JSON, so a `Date` becomes its ISO
+ * string, and it must then pass the schema as a model answer would.
+ */
+export interface ContractExample<T = unknown> {
+  readonly text: string;
+  readonly output: T;
+}
 
 /**
  * A named output contract.
@@ -42,6 +53,8 @@ export interface Contract<T = unknown> {
   readonly schema: FlexibleSchema<T>;
   /** Extra prompt guidance: layout quirks, unit conventions, gotchas. */
   readonly hints?: string;
+  /** Worked examples sent with every text and vision extraction prompt for this contract. */
+  readonly examples?: readonly ContractExample<T>[];
 }
 
 /** Anything the extraction API accepts as an output contract. */
@@ -56,6 +69,8 @@ export interface ContractDefinition<S extends FlexibleSchema> {
   readonly description?: string;
   readonly schema: S;
   readonly hints?: string;
+  /** Typed by `schema`; they never widen the contract's type. */
+  readonly examples?: readonly ContractExample<NoInfer<InferSchema<S>>>[];
 }
 
 /**
@@ -63,6 +78,21 @@ export interface ContractDefinition<S extends FlexibleSchema> {
  *
  * The one cast is the same one `extract` makes: `S extends FlexibleSchema` cannot be
  * *proven* to be `FlexibleSchema<InferSchema<S>>` structurally, though it always is.
+ * Examples are copied. An example output that JSON cannot carry, such as a function,
+ * a `Map` or `NaN`, throws a `TypeError` here.
+ *
+ * @example
+ * ```ts
+ * import { z } from "zod";
+ * import { contract } from "docture";
+ *
+ * const Invoice = contract({
+ *   name: "invoice",
+ *   schema: z.object({ invoiceNumber: z.string(), total: z.number() }),
+ *   examples: [{ text: "Invoice INV-7. Total due: 1.234,50 EUR", output: { invoiceNumber: "INV-7", total: 1234.5 } }],
+ * });
+ * console.log(Invoice.examples?.length); // 1
+ * ```
  */
 export function contract<S extends FlexibleSchema>(
   definition: ContractDefinition<S>,
@@ -72,7 +102,13 @@ export function contract<S extends FlexibleSchema>(
     schema: definition.schema as FlexibleSchema<InferSchema<S>>,
     ...(definition.description === undefined ? {} : { description: definition.description }),
     ...(definition.hints === undefined ? {} : { hints: definition.hints }),
+    ...(definition.examples === undefined ? {} : { examples: copyExamples(definition.examples, definition.name) }),
   };
+}
+
+function copyExamples<T>(examples: readonly ContractExample<T>[], owner: string): readonly ContractExample<T>[] {
+  examples.forEach((example, index) => exampleJson(example, `contract "${owner}" example ${index + 1}`));
+  return Object.freeze(examples.map((example) => Object.freeze({ text: example.text, output: structuredClone(example.output) })));
 }
 
 /**

@@ -15,7 +15,7 @@ const descriptions = {
   EXTRACTION_FAILED: "Every eligible extraction strategy failed.",
   PAGE_OUT_OF_RANGE: "The page selection is empty or includes unavailable pages.",
   MODEL_OUTPUT_FAILED: "A billed model response failed structured-output validation.",
-  CONTRACT_VIOLATION: "Extracted data failed the requested contract.",
+  CONTRACT_VIOLATION: "Extracted data failed the requested schema or a fail-mode validation rule.",
   UNSUPPORTED_SOURCE: "The source cannot be read.",
   TIMEOUT: "A library-owned stage deadline elapsed.",
   DUPLICATE_COMPONENT: "Two components use the same registered name.",

@@ -1,4 +1,4 @@
-import type { LoadedDocument, TextLine, TextSpan, TextLayoutBlock } from "../../src/core/index.js";
+import type { LayoutAnnotation, LayoutDocument, LoadedDocument, TextLine, TextSpan, TextLayoutBlock } from "../../src/core/index.js";
 
 export function span(
   text: string,
@@ -108,4 +108,13 @@ export function listDocument(blocks: readonly TextLayoutBlock[]): LoadedDocument
     text,
     pages: [{ pageNumber: 1, width: 600, height: 800, text, blocks }],
   };
+}
+
+export function bySourceId(document: LayoutDocument, annotations: readonly LayoutAnnotation[]): LayoutAnnotation[] {
+  const ids = new Map(document.pages.flatMap((page) =>
+    page.elements.flatMap((element) => {
+      const [source] = element.provenance.sourceIds;
+      return source === undefined ? [] : [[source, element.id] as const];
+    })));
+  return annotations.map((annotation) => ({ ...annotation, id: ids.get(annotation.id) ?? annotation.id }));
 }

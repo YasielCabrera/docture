@@ -49,8 +49,11 @@ A TIFF loads one page per image file directory, in file order. The loader decode
 selected pages with the optional `utif2` peer, loaded only for TIFF input, and gives the
 engine PNG. `maxPages` and requested pages apply before decoding. Classic TIFF in either
 byte order is supported with no compression, LZW, Deflate, PackBits, CCITT Group 3, or
-CCITT Group 4, up to 8192 x 8192 pixels per page. The load rejects before decoding or
-recognition when the file is malformed, uses another compression, or has a larger page.
+CCITT Group 4, up to 8192 x 8192 pixels per page whose samples decode to at most 256 MiB,
+as in 8-bit RGBA at that size. A 16-bit RGBA page fits at up to 8192 x 4096. The load
+rejects before decoding or recognition when the file is malformed, uses another
+compression, or has a larger page. A Deflate page is inflated once, within the size its
+layout declares, and converted to PNG a band of rows at a time.
 Pages decode one at a time, and an abort stops decoding before the next page. The
 decoder reads only the page chain, never sub-IFD, Exif, or GPS directories. TIFF bytes
 labelled PNG or JPEG are read as TIFF. BigTIFF is not supported. `page.image()` on a TIFF page returns the decoded PNG.

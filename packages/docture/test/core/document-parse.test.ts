@@ -103,7 +103,7 @@ describe("parseDoctureDocument", () => {
   it("enforces cross-field rules the JSON Schema cannot express", async () => {
     const saved = await convertedJson();
     const broken = edit(saved, (copy) => {
-      copy.pages[1].elements[0].id = "p1-text-1";
+      copy.pages[1].elements[0].id = "p1-336c32c7e8ed";
       copy.pages[1].elements[0].provenance.sourceIds = ["p1-text-1"];
       copy.pages[1].elements[1].provenance.pageNumber = 3;
       copy.pages[1].elements[2].provenance.lineIds = ["p1-line-3"];
@@ -111,7 +111,7 @@ describe("parseDoctureDocument", () => {
     expect(parseDoctureDocument(broken)).toEqual({
       ok: false,
       issues: [
-        { path: "pages.1.elements.0.id", message: 'duplicates element id "p1-text-1"' },
+        { path: "pages.1.elements.0.id", message: 'duplicates element id "p1-336c32c7e8ed"' },
         { path: "pages.1.elements.1.provenance.pageNumber", message: "must equal the holding page number 2" },
         { path: "pages.1.elements.1.provenance.lineIds.0", message: "must name a line on page 3" },
         { path: "pages.1.elements.2.provenance.lineIds.0", message: "must name a line on page 2" },

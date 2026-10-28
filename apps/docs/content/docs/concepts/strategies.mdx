@@ -44,7 +44,8 @@ Core classifies only when at least one eligible strategy asks for it.
 ## Running and validation
 
 Eligible strategies run in configured order. Returning data does not make a strategy
-the winner. Core first validates that data against the requested schema.
+the winner. Core first validates that data against the requested schema, which also
+applies the schema's transforms once. Return data before any transform.
 
 If validation fails, the attempt is recorded and the next eligible strategy runs. A
 strategy wins only when its returned data passes validation.

@@ -14,7 +14,7 @@ import { unionBox } from "./candidates.js";
  * const result = await converter.convert("report.pdf", { format: "json" });
  * for (const element of result.pages.flatMap((page) => page.elements)) {
  *   const pages = provenanceSegments(element.provenance).map((segment) => segment.pageNumber);
- *   console.log(element.id, pages); // "p1-text-4" [1, 2] for a table that continues onto page 2
+ *   console.log(element.id, pages); // "p1-010d3a61615a" [1, 2] for a table that continues onto page 2
  * }
  * ```
  */

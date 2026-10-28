@@ -55,7 +55,10 @@ export default {
   }],
   ${options.assisted === true ? `layoutAnalyzer: {
     name: "configured-layout",
-    async analyze() { return { annotations: [{ id: "body", role: "heading", level: 2 }] }; },
+    async analyze({ document }) {
+      const body = document.pages[0].elements.find((element) => element.provenance.sourceIds[0] === "body");
+      return { annotations: [{ id: body.id, role: "heading", level: 2 }] };
+    },
   },` : ""}
 };
 `;
@@ -78,7 +81,7 @@ describe("convert", () => {
     expect(document.loader).toBe("fake");
     expect(document.method).toBe("deterministic");
     expect(document.pages[0].elements[0]).toMatchObject({
-      id: "heading", kind: "heading", text: "Grounded Title",
+      id: "p1-8c59100bab43", kind: "heading", text: "Grounded Title",
       provenance: { pageNumber: 1, sourceIds: ["heading"] },
     });
     if (assets === "referenced") {

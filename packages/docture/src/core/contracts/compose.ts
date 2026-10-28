@@ -17,6 +17,7 @@ import type { RawDocument } from "../domain/document.js";
 import type { LoadedDocument, LoadedPage } from "../domain/geometry.js";
 import type { RasterOptions } from "../domain/raster.js";
 import type { DocumentLoader, LoaderCapabilities } from "./loader.js";
+import { pageImageRenderer } from "./page-images.js";
 import type { Rasterizer } from "./rasterizer.js";
 
 /** Same text and geometry as the wrapped loader; `images` is now `true`. */
@@ -55,48 +56,11 @@ export function withRasterizer<C extends LoaderCapabilities>(
 
     async load(document: RawDocument, ctx): Promise<LoadedDocument> {
       const loaded = await loader.load(document, ctx);
-      const cache = new Map<string, Promise<Uint8Array>>();
-
+      const render = pageImageRenderer(rasterizer, document, ctx);
       const pages: LoadedPage[] = loaded.pages.map((page) => ({
         ...page,
-        image: (callOptions?: RasterOptions): Promise<Uint8Array> => {
-          const merged: RasterOptions = {
-            ...options.defaults,
-            ...callOptions,
-            pages: [page.pageNumber],
-          };
-          // The page number MUST be in the key. The cache is shared across every
-          // page of the document, so keying on render options alone made page 2
-          // return page 1's image — silently, and identically for every page.
-          const key = JSON.stringify([
-            page.pageNumber,
-            merged.dpi,
-            merged.format,
-            merged.quality,
-            merged.maxEdge,
-          ]);
-
-          let pending = cache.get(key);
-          if (pending === undefined) {
-            pending = rasterizer
-              .rasterize(document, merged, { signal: ctx.signal, logger: ctx.logger })
-              .then((rendered) => {
-                const first = rendered[0];
-                if (first === undefined) {
-                  throw new Error(
-                    `${rasterizer.name} rendered no image for page ${page.pageNumber}.`,
-                  );
-                }
-                return first.bytes;
-              });
-            cache.set(key, pending);
-            const stored = pending;
-            void stored.catch(() => {
-              if (cache.get(key) === stored) cache.delete(key);
-            });
-          }
-          return pending;
-        },
+        image: (callOptions?: RasterOptions, call?: { readonly signal?: AbortSignal }) =>
+          render(page.pageNumber, { ...options.defaults, ...callOptions }, call?.signal),
       }));
 
       return { ...loaded, pages };

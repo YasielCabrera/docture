@@ -17,6 +17,7 @@ Import these APIs from `docture`.
 | `hints` | no | Additional recognition or extraction guidance. |
 | `extractor` | no | Extractor used only for this kind. |
 | `extractionContract` | no | Contract used for extraction instead of `schema`. |
+| `examples` | no | Worked examples typed by the extraction contract. When this kind is selected, they replace that contract's own. |
 | `image` | no | Reference image path or bytes for supporting classifiers. |
 
 ```ts
@@ -38,7 +39,7 @@ classificationOf<S extends FlexibleSchema>(
 extractionContractOf(classification: Classification): ContractLike
 ```
 
-`classificationOf()` copies a contract's name, description, schema, and hints, then
+`classificationOf()` copies a contract's name, description, schema, hints, and examples, then
 applies overrides. `extractionContractOf()` returns `extractionContract` when present and
 otherwise returns `schema`.
 

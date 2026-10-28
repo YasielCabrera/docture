@@ -41,7 +41,7 @@ Each `DocumentChunk` contains:
 | --- | --- |
 | `id` | `chunk-` and 16 hex characters, hashed from the element IDs, table row ranges, and options. The same document and options give the same IDs. |
 | `text` | Markdown of the chunk's elements, separated by blank lines. |
-| `elementIds` | IDs of the elements the text comes from, in document order. |
+| `elementIds` | IDs of the elements the text comes from, in document order. Element IDs derive from content and position; see [Element IDs](/docs/reference/api/core-conversion#element-ids). |
 | `provenance` | `ProvenanceSegment` values for the chunk's elements, in order. |
 
 ## Packing rules

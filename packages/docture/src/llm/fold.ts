@@ -1,4 +1,4 @@
-import type { ConflictingValue, ExtractionConflict } from "../core/index.js";
+import { formatFieldPath, type ConflictingValue, type ExtractionConflict } from "../core/index.js";
 
 export interface MergePart {
   readonly data: unknown;
@@ -103,16 +103,17 @@ function sameValue(first: unknown, second: unknown): boolean {
   return first === second;
 }
 
-function observe(value: unknown, path: string, pages: readonly number[], seen: Map<string, Seen[]>): void {
-  if (path !== "" && isPresent(value) && isJsonValue(value)) {
-    const values = seen.get(path) ?? [];
+function observe(value: unknown, path: readonly string[], pages: readonly number[], seen: Map<string, Seen[]>): void {
+  if (path.length > 0 && isPresent(value) && isJsonValue(value)) {
+    const key = formatFieldPath(path);
+    const values = seen.get(key) ?? [];
     const match = values.find((entry) => sameValue(entry.value, value));
     if (match === undefined) values.push({ value, pages: [...pages] });
     else match.pages.push(...pages.filter((page) => !match.pages.includes(page)));
-    seen.set(path, values);
+    seen.set(key, values);
   }
   if (isPlainObject(value)) {
-    for (const [key, child] of Object.entries(value)) observe(child, path === "" ? key : `${path}.${key}`, pages, seen);
+    for (const [key, child] of Object.entries(value)) observe(child, [...path, key], pages, seen);
   }
 }
 
@@ -139,7 +140,7 @@ export function foldParts(parts: readonly MergePart[], rank?: OriginRank): Fold 
     if (part.data === undefined || part.data === null) continue;
     const tracked: Tracked = { value: part.data, origin: track(part.data, index) };
     merged = merged === undefined ? tracked : mergeTwo(merged, tracked, rank);
-    observe(part.data, "", part.pages, seen);
+    observe(part.data, [], part.pages, seen);
   }
   const conflicts = [...seen.entries()]
     .filter(([, values]) => conflicting(values))

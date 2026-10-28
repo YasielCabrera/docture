@@ -1,7 +1,7 @@
 import type { FurnitureEvidence } from "../domain/conversion.js";
 import type { LayoutBox } from "../domain/geometry.js";
 import { bodyFontSize, fontSizes, HEADING_SIZE_RATIO, median, type Candidate } from "./candidates.js";
-import { looksLikeTableGroup, tableGroupIds } from "./table-grid.js";
+import { continuedTableLabel, looksLikeTableGroup, tableGroupIds } from "./table-grid.js";
 
 export interface FurniturePage {
   readonly pageNumber: number;
@@ -22,6 +22,9 @@ const BAND = 0.1;
 const MIN_PAGES = 3;
 const MIN_SHARE = 0.6;
 const POSITION_TOLERANCE = 0.02;
+const OUTER_BAND = 0.15;
+const OUTER_TOP_TOLERANCE = 0.01;
+const OUTER_LEFT_TOLERANCE = 0.02;
 
 interface Occurrence {
   readonly candidate: Candidate;
@@ -30,6 +33,40 @@ interface Occurrence {
   readonly text: string;
   readonly digits: readonly number[];
   readonly top: number;
+  readonly left: number;
+  readonly tableRow: boolean;
+}
+
+export interface FurnitureFindings {
+  readonly confirmed: ReadonlyMap<Candidate, Furniture>;
+  readonly suspected: ReadonlyMap<Candidate, readonly number[]>;
+}
+
+function outerBandOf(box: LayoutBox, pageHeight: number): FurnitureKind | undefined {
+  if (bandOf(box, pageHeight) !== undefined) return undefined;
+  if (box.y >= 0 && box.y + box.height <= pageHeight * OUTER_BAND) return "page-header";
+  if (box.y >= pageHeight * (1 - OUTER_BAND)) return "page-footer";
+  return undefined;
+}
+
+function isolated(candidate: Candidate, kind: FurnitureKind, candidates: readonly Candidate[]): boolean {
+  const { y, height } = candidate.box;
+  const lineHeight = candidate.lines[0]?.height || height;
+  return candidates.every((other) => {
+    if (other === candidate) return true;
+    const gap = kind === "page-header" ? other.box.y - (y + height) : y - (other.box.y + other.box.height);
+    const beyond = kind === "page-header" ? other.box.y + other.box.height <= y : other.box.y >= y + height;
+    return beyond || gap >= lineHeight;
+  });
+}
+
+function bold(candidate: Candidate): boolean {
+  const spans = candidate.lines.flatMap((line) => line.spans);
+  return spans.length > 0 && spans.every((span) => span.style?.bold === true);
+}
+
+function pageNumberLike(text: string): boolean {
+  return /\d/u.test(text) && !/[.!?]$/u.test(text) && (text.match(/\p{L}+/gu) ?? []).length <= 3;
 }
 
 /** Which furniture band a box lies wholly inside, if any. */
@@ -94,10 +131,29 @@ function repetitionKeys(occurrences: readonly Occurrence[]): Occurrence[][] {
   });
 }
 
-/** The running headers and footers among the pages' candidates. */
-export function detectFurniture(pages: readonly FurniturePage[]): ReadonlyMap<Candidate, Furniture> {
+function suspects(occurrences: readonly Occurrence[], confirmed: ReadonlyMap<Candidate, Furniture>): Map<Candidate, readonly number[]> {
+  const byText = new Map<string, Occurrence[]>();
+  for (const occurrence of occurrences) {
+    const key = `${occurrence.kind}\u0000${occurrence.text}`;
+    byText.set(key, [...(byText.get(key) ?? []), occurrence]);
+  }
+  const found = new Map<Candidate, readonly number[]>();
+  for (const group of byText.values()) {
+    if (group.every((occurrence) => occurrence.tableRow)) continue;
+    for (const occurrence of group) {
+      const pages = group
+        .filter((other) => other.pageNumber !== occurrence.pageNumber && Math.abs(other.top - occurrence.top) <= POSITION_TOLERANCE)
+        .map((other) => other.pageNumber);
+      if (pages.length > 0 && !confirmed.has(occurrence.candidate)) found.set(occurrence.candidate, [...new Set(pages)]);
+    }
+  }
+  return found;
+}
+
+export function detectFurniture(pages: readonly FurniturePage[]): FurnitureFindings {
   const found = new Map<Candidate, Furniture>();
   const occurrences: Occurrence[] = [];
+  const outer: Occurrence[] = [];
   for (const page of pages) {
     if (page.width <= 0 || page.height <= 0) continue;
     const bodySize = bodyFontSize(page.candidates);
@@ -105,20 +161,27 @@ export function detectFurniture(pages: readonly FurniturePage[]): ReadonlyMap<Ca
     for (const candidate of page.candidates) {
       if (!candidate.lines.some((line) => line.spans.length > 0)) continue;
       const band = bandOf(candidate.box, page.height);
-      if (band === undefined) continue;
-      if (candidate.role === "header" || candidate.role === "footer") {
+      const outerBand = band === undefined ? outerBandOf(candidate.box, page.height) : undefined;
+      if (band === undefined && outerBand === undefined) continue;
+      if (band !== undefined && (candidate.role === "header" || candidate.role === "footer")) {
         found.set(candidate, { kind: candidate.role === "header" ? "page-header" : "page-footer", evidence: "tagged" });
         continue;
       }
       const text = textOf(candidate);
-      if (text.length === 0 || tableRows.has(candidate.id) || headingSized(candidate, bodySize)) continue;
-      occurrences.push({
+      if (text.length === 0 || headingSized(candidate, bodySize) || continuedTableLabel(text) !== undefined) continue;
+      const kind = band ?? outerBand;
+      const outerEligible = outerBand === undefined ||
+        (pageNumberLike(text) && !bold(candidate) && !tableRows.has(candidate.id) && isolated(candidate, outerBand, page.candidates));
+      if (kind === undefined || !outerEligible) continue;
+      (band === undefined ? outer : occurrences).push({
+        tableRow: tableRows.has(candidate.id),
         candidate,
         pageNumber: page.pageNumber,
-        kind: band,
+        kind,
         text,
         digits: (text.match(/\d+/gu) ?? []).map(Number),
         top: candidate.box.y / page.height,
+        left: candidate.box.x / page.width,
       });
     }
   }
@@ -127,11 +190,18 @@ export function detectFurniture(pages: readonly FurniturePage[]): ReadonlyMap<Ca
   const groups = [all, all.filter((n) => n % 2 === 1), all.filter((n) => n % 2 === 0)]
     .filter((group) => group.length >= MIN_PAGES)
     .map((group) => new Set(group));
-  for (const key of repetitionKeys(occurrences)) {
+  const outerKeys = repetitionKeys(outer).filter((key) => new Set(key.map((occurrence) => occurrence.text)).size === key.length);
+  const keys = [
+    ...repetitionKeys(occurrences.filter((occurrence) => !occurrence.tableRow)).map((key) => ({ key, top: POSITION_TOLERANCE, left: Number.POSITIVE_INFINITY })),
+    ...outerKeys.map((key) => ({ key, top: OUTER_TOP_TOLERANCE, left: OUTER_LEFT_TOLERANCE })),
+  ];
+  for (const { key, top, left } of keys) {
     for (const group of groups) {
       const inGroup = key.filter((occurrence) => group.has(occurrence.pageNumber));
       const center = median(inGroup.map((occurrence) => occurrence.top));
-      const aligned = inGroup.filter((occurrence) => Math.abs(occurrence.top - center) <= POSITION_TOLERANCE);
+      const indent = median(inGroup.map((occurrence) => occurrence.left));
+      const aligned = inGroup.filter((occurrence) =>
+        Math.abs(occurrence.top - center) <= top && Math.abs(occurrence.left - indent) <= left);
       const hits = new Set(aligned.map((occurrence) => occurrence.pageNumber)).size;
       if (hits < MIN_PAGES || hits < group.size * MIN_SHARE) continue;
       for (const occurrence of aligned) {
@@ -139,5 +209,5 @@ export function detectFurniture(pages: readonly FurniturePage[]): ReadonlyMap<Ca
       }
     }
   }
-  return found;
+  return { confirmed: found, suspected: suspects(occurrences, found) };
 }

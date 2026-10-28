@@ -117,10 +117,29 @@ reported by the provider. `EMPTY_USAGE` is the zero-valued usage object.
 Optional cache counts and costs appear when at least one part reports them. The caller
 supplies elapsed `wallMs`. Missing totals are not derived by this reducer.
 
-`ValidationIssue` contains a dotted `path` and `message`. `ValidationOutcome` contains
-`valid` and `issues`.
+A field path names one field of `data`. Plain keys and array indexes join with dots, as
+in `lineItems.3.amount`, and `""` is the whole value. A key that is empty or contains a
+dot or a backtick is wrapped in backticks, with backslashes and backticks inside it
+escaped by a backslash. The key `"total.net"` is `` `total.net` ``, which never reads as
+`total` then `net`, and an empty key is ``` `` ```. Conflicts, citations and schema
+issues write the same text for the same field, so their `path` values can be matched.
+`formatFieldPath(segments)` writes a path from keys and indexes.
+`parseFieldPath(path)` returns the keys, with indexes as decimal strings, or `undefined`
+for text that no path formats to.
 
-`ExtractionConflict` contains a dotted `path` and `values`, one `ConflictingValue`
+```ts
+import { formatFieldPath, parseFieldPath } from "docture";
+
+formatFieldPath(["lineItems", 0, "amount"]); // "lineItems.0.amount"
+formatFieldPath(["total.net"]); // "`total.net`"
+parseFieldPath("`total.net`.currency"); // ["total.net", "currency"]
+```
+
+`ValidationIssue` contains a field `path` and `message`. A rule writes its own paths;
+use `formatFieldPath` to match the schema's issues. `ValidationOutcome` contains `valid`
+and `issues`.
+
+`ExtractionConflict` contains a field `path` and `values`, one `ConflictingValue`
 (`value` and `pages`) per distinct present value in document order. A value is a scalar,
 or an object or array that met a scalar at the same path. A strategy reports conflicts
 through `StrategyOutcome.conflicts`; the pipeline copies a non-empty list from the
@@ -131,8 +150,8 @@ list of the extract attempt it replaced.
 
 ```ts
 type FieldCitation =
-  | { path: string; status: "verified"; ids: readonly [LineSourceId, ...LineSourceId[]] }
-  | { path: string; status: "cited-unverified"; ids: readonly LineSourceId[] }
+  | { path: string; status: "verified"; ids: readonly [LineSourceId, ...LineSourceId[]]; minOcrConfidence?: number }
+  | { path: string; status: "cited-unverified"; ids: readonly LineSourceId[]; minOcrConfidence?: number }
   | { path: string; status: "uncited"; ids: readonly [] };
 type CitationStatus = FieldCitation["status"];
 ```
@@ -140,8 +159,8 @@ type CitationStatus = FieldCitation["status"];
 A citing strategy, such as `llm({ model, citations: true })`, makes the result carry one
 `FieldCitation` for each present leaf of `data`, in depth-first key and index order. A
 present leaf is a value that is not an object or an array and is not `null`, `undefined`
-or a blank string; `0` and `false` are present. `path` is dotted, as in
-`ValidationIssue`.
+or a blank string; `0` and `false` are present. `path` is a field path, the same text a
+conflict or schema issue on that field uses.
 
 - `verified`: the value was found in the cited lines, and `ids` are exactly the lines the
   match spans.
@@ -149,6 +168,23 @@ or a blank string; `0` and `false` are present. `path` is dotted, as in
   schema changed the value after the model answered. `ids` lists every cited line that
   exists and is empty when none did.
 - `uncited`: the model cited nothing for the value, as for a schema default.
+
+`minOcrConfidence` is the lowest OCR confidence, from 0 to 1, among the spans behind a cited
+value. Use it to choose which values to inspect. It is evidence about the OCR, not a
+probability that the value is right. Engines score text in units of different sizes:
+Tesseract scores each word, and PaddleOCR scores each recognized region, so a region
+score covers every word in it. Scores from two engines do not compare.
+
+- For `verified`, it covers only the spans of the matched occurrence. A low-confidence
+  word elsewhere on the same line does not lower it. When the value appears more than
+  once in the cited lines, it describes the occurrence that `ids` names, the first in
+  page and line order.
+- For `cited-unverified`, it covers every span of every line in `ids`, so it is broader
+  and usually lower.
+- It is absent when any relevant span has no confidence in 0 to 1, as on a text layer,
+  for an `uncited` value, when `ids` is empty, and when a line's text is not its spans
+  joined by single spaces. Core reads every score from the loaded document's spans; a
+  strategy can name spans but cannot supply a score.
 
 `citationSources` holds the `SourceLine` (`id`, `pageNumber`, `box`, `text`) behind every id
 in `citations`, taken from the loaded document, so a page range keeps its original page
@@ -172,8 +208,14 @@ issues keep rule order. An empty array means the rule passed.
 In `"report"` mode the extraction returns the data with `validation.valid` set to `false`
 and the issues listed. In `"fail"` mode the attempt records `CONTRACT_VIOLATION` with the
 issues, and the next strategy runs. When every strategy fails, the extraction rejects
-with `ContractViolationError`. A rule that throws rejects the extraction with that error
+with `ContractViolationError`, whose `failedCheck` is `"rule"` when the first violation
+came from a rule and `"schema"` when it came from the schema. A rule that throws rejects the extraction with that error
 and does not try another strategy.
+
+A rule that returns anything other than an array of `{ path: string, message: string }`
+issues, such as `undefined`, rejects the extraction with a `TypeError` that names the rule,
+and does not try another strategy. An `onRuleFailure` other than `"report"` or `"fail"`
+throws a `RangeError` from `createExtractor`, or rejects the call before any strategy runs.
 
 ```ts
 const result = await extractor.extract("invoice.pdf", Invoice, {

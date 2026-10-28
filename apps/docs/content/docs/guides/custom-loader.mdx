@@ -145,13 +145,33 @@ describeLoaderConformance({
 });
 ```
 
-`describeLoaderConformance()` is for PDF loaders. It passes generated PDF invoices to the
-loader and checks PDF acceptance, text, page numbering, optional geometry and images,
-aborts, and disposal. It is not suitable for the CSV loader above. Test a non-PDF loader
-with fixtures in the media types it accepts.
+`describeLoaderConformance()` passes generated PDF invoices to the loader by default and
+checks media type acceptance, text, page numbering, optional geometry and images, aborts,
+instance reuse, and disposal. Pass `fixtures: textFixtures` or `fixtures: pngFixtures` for
+a plain-text or PNG loader. For another media type, such as the CSV loader above, pass
+your own `ConformanceFixtures` profile with seeded documents in the type it accepts:
 
-`describeRasterizerConformance()` likewise tests rasterizers with PDF input. Use skip flags
-only for optional behavior a PDF loader does not claim.
+```ts
+import { describeLoaderConformance, type ConformanceFixtures } from "docture/testing/conformance";
+
+const csvFixtures: ConformanceFixtures = {
+  mimeType: "text/csv",
+  dimensions: false,
+  async document(seed) {
+    const text = `invoice,total\nINV-${seed},${seed * 10}`;
+    return { bytes: new TextEncoder().encode(text), mimeType: "text/csv", expectedText: [`INV-${seed}`] };
+  },
+};
+
+describeLoaderConformance({ name: "csv", create: () => csvLoader, fixtures: csvFixtures });
+```
+
+Checks the profile has no document for, such as scanned pages or invalid input, are
+reported as skipped.
+
+`describeRasterizerConformance()` renders the same PDF profile by default. Its `format`
+option selects an advertised output format to check. Use skip flags only for optional
+behavior a loader does not claim.
 
 ## Complete example
 

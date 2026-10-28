@@ -40,6 +40,25 @@ generation fails.
 typography, a list, table, link, code block, and embedded raster image.
 `RichDocumentExpected` contains each source string and structural expectation.
 
+## Conversion corpus
+
+Import from `docture/testing/fixtures`.
+
+```ts
+conversionCorpus: readonly ConversionCase[]
+```
+
+`conversionCorpus` holds loaded documents that reproduce known layout cases: page numbers
+outside the margin band, a form section under a table, a centred group header, a two-page
+running header, unrelated text-only tables across a page break, and a contents entry at a
+page break. Each `ConversionCase` has an `id`, a `description` of the layout and the
+expected behaviour, a `loaded` document, and the `checks` its conversion should pass.
+Check ids start with the case id.
+
+Convert `loaded` with `DocumentConverter` and grade the result with `checkConversion` from
+`docture/eval`. The cases are already loaded, so converting them needs no PDF loader. Some cases describe
+behaviour that the converter does not implement yet, and their checks fail until it does.
+
 ## Test doubles
 
 Import from `docture/testing/doubles`.
@@ -78,12 +97,45 @@ describeRasterizerConformance(options: RasterizerConformanceOptions): void
 ```
 
 `LoaderConformanceOptions` requires a suite `name` and a fresh loader `create` function.
-The suite is specific to PDF loaders. It asserts `application/pdf` acceptance and reads
-generated invoice PDFs. Its optional `skip` object can skip geometry, images, multi-page,
-or scanned checks when a PDF loader does not claim that behavior.
+Its optional `fixtures` selects the documents the suite loads, and defaults to
+`pdfFixtures`. Its optional `skip` object can skip geometry, images, multi-page, or scanned
+checks when a loader does not claim that behavior.
 
 `RasterizerConformanceOptions` requires a suite `name` and fresh rasterizer `create`
-function. The suite renders generated PDFs.
+function. Its optional `fixtures` defaults to `pdfFixtures`, and its optional `format`
+selects an advertised output format to check, `"png"` by default. The suite checks that
+the rendered bytes carry that format's signature.
+
+### Fixture profiles
+
+A `ConformanceFixtures` profile names a media type and supplies seeded documents. Each
+`ConformanceDocument` has `bytes`, `mimeType`, the `expectedText` a text-reading loader
+must find, and optionally its `pageCount` and expected `form`. When a document has no
+`expectedText`, as with `pngFixtures`, the content and geometry checks skip, and the reuse
+checks compare rendered page images instead of text.
+
+| Profile | Media type | Real page size | Multi-page | Scanned | Invalid input |
+|---|---|---|---|---|---|
+| `pdfFixtures` | `application/pdf` | yes | yes | yes | yes |
+| `textFixtures` | `text/plain` | no | yes, form-feed pages | no | no |
+| `pngFixtures` | `image/png` | yes | no | blank page | yes |
+
+```ts
+import { DocumentLoaderData } from "docture";
+import { describeLoaderConformance, textFixtures } from "docture/testing/conformance";
+
+describeLoaderConformance({
+  name: "DocumentLoaderData",
+  create: () => new DocumentLoaderData(),
+  fixtures: textFixtures,
+});
+```
+
+The suites report a check as skipped when the profile has no document for it or the
+loader's capabilities rule it out. Positive page dimensions are required only from a
+profile with a real page size, and a text profile never treats text as invalid input.
+Abort, instance reuse, and disposal checks run for every profile. A loader without text
+must return different first-page images for different documents.
 
 The functions register Vitest suites and return `void`. Test failures are reported by
 Vitest. Create functions may return a component or a promise.

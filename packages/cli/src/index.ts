@@ -14,8 +14,8 @@
 export { run } from "./run.js";
 export type { RunOptions } from "./run.js";
 
-export { defineConfig } from "./config.js";
-export type { DoctureConfig } from "./config.js";
+export { defineConfig } from "./define-config.js";
+export type { DoctureConfig } from "./define-config.js";
 
 export { captureIo, processIo, styleFor } from "./cli/io.js";
 export type { CapturedIo, CaptureOptions, Io, Style } from "./cli/io.js";

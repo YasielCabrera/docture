@@ -27,7 +27,7 @@ import {
   type ValidationIssue,
   type ValidationRule,
 } from "../domain/result.js";
-import type { Contract } from "../domain/contract.js";
+import type { Contract, ContractExample } from "../domain/contract.js";
 import type { Classification, Classifier } from "../contracts/classifier.js";
 import type { DocumentLoader } from "../contracts/loader.js";
 import type {
@@ -37,6 +37,7 @@ import type {
   StrategyOutcome,
 } from "../contracts/strategy.js";
 import { alignCitations } from "./citations.js";
+import { checkedExamples, guidedExamplesOf, serializeExamples, type GuidedExample } from "./examples.js";
 import { classifyDocument, type ClassifyOptions } from "./classify.js";
 import { withDeadline } from "./deadline.js";
 import {
@@ -109,26 +110,45 @@ export interface RunOptions<T = unknown> {
 
 const PROCESS_HINTS_KEY = "docture.internal.process-hints.v1";
 
-export function withProcessHints<T>(options: RunOptions<T>, hints: string | undefined): RunOptions<T> {
+interface ProcessGuidance {
+  readonly hints?: string;
+  readonly examples?: readonly GuidedExample[];
+}
+
+export function withProcessHints<T>(
+  options: RunOptions<T>,
+  hints: string | undefined,
+  selected?: { readonly owner: string; readonly examples: readonly ContractExample[] | undefined },
+): RunOptions<T> {
+  const examples = serializeExamples(selected?.examples, selected?.owner ?? "");
   return {
     ...snapshotRunOptions(options),
-    [Symbol.for(PROCESS_HINTS_KEY)]: hints === undefined ? {} : { hints },
+    [Symbol.for(PROCESS_HINTS_KEY)]: {
+      ...(hints === undefined ? {} : { hints }),
+      ...(examples === undefined ? {} : { examples }),
+    },
   };
 }
 
-function processHintsOf<T>(options: RunOptions<T>): { readonly hints?: string } | undefined {
+function processHintsOf<T>(options: RunOptions<T>): ProcessGuidance | undefined {
   const key = Symbol.for(PROCESS_HINTS_KEY);
   if (!(key in options)) return undefined;
   const selection: unknown = options[key];
   if (typeof selection !== "object" || selection === null) return undefined;
-  if (!("hints" in selection) || selection.hints === undefined) return {};
+  const examples = guidedExamplesOf(selection);
+  const withExamples = examples === undefined ? {} : { examples };
+  if (!("hints" in selection) || selection.hints === undefined) return withExamples;
   if (typeof selection.hints !== "string") return undefined;
-  return { hints: selection.hints };
+  return { hints: selection.hints, ...withExamples };
 }
 
 const CONTRACT_GUIDANCE_KEY = "docture.internal.contract-guidance.v1";
 
-type ContractGuidance = Pick<Contract, "name" | "hints">;
+interface ContractGuidance {
+  readonly name: string;
+  readonly hints?: string;
+  readonly examples?: readonly GuidedExample[];
+}
 
 export function snapshotRunOptions<T>(options: RunOptions<T>): RunOptions<T> {
   const {
@@ -155,12 +175,18 @@ export function snapshotRunOptions<T>(options: RunOptions<T>): RunOptions<T> {
   };
 }
 
-export function withContractGuidance<T>(options: RunOptions<T>, contract: ContractGuidance): RunOptions<T> {
+export function withContractGuidance<T>(
+  options: RunOptions<T>,
+  contract: Pick<Contract, "name" | "hints" | "examples">,
+): RunOptions<T> {
+  const examples = serializeExamples(contract.examples, `contract "${contract.name}"`);
   return {
     ...snapshotRunOptions(options),
-    [Symbol.for(CONTRACT_GUIDANCE_KEY)]: contract.hints === undefined
-      ? { name: contract.name }
-      : { name: contract.name, hints: contract.hints },
+    [Symbol.for(CONTRACT_GUIDANCE_KEY)]: {
+      name: contract.name,
+      ...(contract.hints === undefined ? {} : { hints: contract.hints }),
+      ...(examples === undefined ? {} : { examples }),
+    },
   };
 }
 
@@ -170,9 +196,16 @@ function contractGuidanceOf<T>(options: RunOptions<T>): ContractGuidance | undef
   const guidance: unknown = options[key];
   if (typeof guidance !== "object" || guidance === null) return undefined;
   if (!("name" in guidance) || typeof guidance.name !== "string") return undefined;
-  if (!("hints" in guidance) || guidance.hints === undefined) return { name: guidance.name };
+  const examples = guidedExamplesOf(guidance);
+  const withExamples = examples === undefined ? {} : { examples };
+  if (!("hints" in guidance) || guidance.hints === undefined) return { name: guidance.name, ...withExamples };
   if (typeof guidance.hints !== "string") return undefined;
-  return { name: guidance.name, hints: guidance.hints };
+  return { name: guidance.name, hints: guidance.hints, ...withExamples };
+}
+
+function extractionExamples<T>(options: RunOptions<T>): readonly GuidedExample[] | undefined {
+  const selected = processHintsOf(options);
+  return selected === undefined ? contractGuidanceOf(options)?.examples : selected.examples;
 }
 
 function extractionHints<T>(
@@ -211,11 +244,14 @@ export async function runPipeline<T>(
   const signal = options.signal ?? new AbortController().signal;
   const stageTimeoutMs = options.stageTimeoutMs ?? components.stageTimeoutMs;
   const rules = options.rules ?? components.rules ?? [];
-  const onRuleFailure = options.onRuleFailure ?? components.onRuleFailure ?? "report";
-  const maxRepairs = checkedMaxRepairs(options.maxRepairs ?? components.maxRepairs ?? 1);
+  const onRuleFailure = checkedRuleFailureMode(
+    options.onRuleFailure !== undefined ? options.onRuleFailure : components.onRuleFailure ?? "report",
+  );
+  const maxRepairs = checkedMaxRepairs(options.maxRepairs !== undefined ? options.maxRepairs : components.maxRepairs ?? 1);
 
   signal.throwIfAborted();
   const resolved = await resolveSchema(schema);
+  const examples = await checkedExamples(extractionExamples(options), resolved);
 
   // A pre-loaded source skips the whole load stage — no loader is consulted, no
   // bytes are read. That is what makes `Process` cheap: it parses the bundle once
@@ -338,6 +374,7 @@ export async function runPipeline<T>(
           reportFailureUsage: (known) => { reportedFailureUsage = known; },
           ...(classification === undefined ? {} : { classification }),
           ...(hints === undefined ? {} : { hints }),
+          ...(examples === undefined ? {} : { examples }),
           ...(documentLabel === undefined ? {} : { documentLabel }),
         };
         outcome = previous !== undefined && strategy.repair !== undefined
@@ -408,7 +445,7 @@ export async function runPipeline<T>(
             ...(outcome.citations === undefined ? {} : alignCitations(parsed.data, outcome.citations, document)),
           };
         }
-        const violation = new ContractViolationError(strategy.name, ruleIssues);
+        const violation = new ContractViolationError(strategy.name, ruleIssues, { failedCheck: "rule" });
         firstViolation ??= violation;
         attempts.push({
           ...failedAttempt(stage, strategy.name, Date.now() - started, violation),
@@ -427,7 +464,9 @@ export async function runPipeline<T>(
   // wins over the generic "they all threw".
   const failedUsage = { ...usage, wallMs: Date.now() - startedAt };
   if (firstViolation !== undefined) {
-    throw new ContractViolationError(firstViolation.strategy, firstViolation.issues, { attempts, usage: failedUsage });
+    throw new ContractViolationError(firstViolation.strategy, firstViolation.issues, {
+      failedCheck: firstViolation.failedCheck, attempts, usage: failedUsage,
+    });
   }
   throw new ExtractionFailedError(attempts, { usage: failedUsage });
 }
@@ -437,6 +476,15 @@ export function checkedMaxRepairs(maxRepairs: number): number {
     throw new RangeError("maxRepairs must be a non-negative integer");
   }
   return maxRepairs;
+}
+
+const RULE_FAILURE_MODES: readonly RuleFailureMode[] = ["report", "fail"];
+
+export function checkedRuleFailureMode(mode: RuleFailureMode): RuleFailureMode {
+  if (!RULE_FAILURE_MODES.includes(mode)) {
+    throw new RangeError(`onRuleFailure must be "report" or "fail"; received ${JSON.stringify(mode) ?? String(mode)}`);
+  }
+  return mode;
 }
 
 function dataRepair(outcome: StrategyOutcome, issues: readonly ValidationIssue[]): RepairInput {
@@ -458,8 +506,34 @@ function modelOutputRepair(error: ModelOutputError): RepairInput | undefined {
 }
 
 async function checkRules<T>(rules: readonly ValidationRule<T>[], data: T): Promise<readonly ValidationIssue[]> {
-  const results = await Promise.all(rules.map(async (rule) => rule(data)));
-  return results.flat();
+  const results: unknown[] = await Promise.all(rules.map(async (rule) => rule(data)));
+  return results.flatMap((result, index) => ruleIssues(result, index, rules[index]?.name ?? ""));
+}
+
+function ruleIssues(result: unknown, index: number, name: string): readonly ValidationIssue[] {
+  const invalid = Array.isArray(result) ? result.findIndex((issue) => !isIssue(issue)) : -1;
+  if (Array.isArray(result) && invalid < 0) return result as readonly ValidationIssue[];
+  const returned = Array.isArray(result)
+    ? `an invalid issue at index ${invalid}: ${shown(result[invalid])}`
+    : shown(result);
+  throw new TypeError(
+    `Validation rule ${index}${name === "" ? "" : ` (${name})`} returned ${returned}. ` +
+      "Return an array of { path: string, message: string } issues, or [] when the data passes.",
+  );
+}
+
+function isIssue(value: unknown): value is ValidationIssue {
+  return typeof value === "object" && value !== null &&
+    typeof (value as { path?: unknown }).path === "string" &&
+    typeof (value as { message?: unknown }).message === "string";
+}
+
+function shown(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
+  }
 }
 
 export { declarationOrder, silentLogger };

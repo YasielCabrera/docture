@@ -249,10 +249,11 @@ async function main(): Promise<void> {
         requires: ["RENDERABLE_PAGES"],
         async extract(ctx) {
           const [first, , third] = ctx.document.pages;
-          await first?.image?.();
-          await third?.image?.();
+          const call = { signal: ctx.signal };
+          await first?.image?.(undefined, call);
+          await third?.image?.(undefined, call);
           // The same page again. Memoized, so this must not add a render.
-          await first?.image?.();
+          await first?.image?.(undefined, call);
           return { data: { touched: 3 } };
         },
       }),

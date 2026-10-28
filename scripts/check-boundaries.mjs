@@ -52,6 +52,11 @@ const reach = {
   "llm/convenience": ["llm/helpers", "llm/shared", "llm/extractor", ...capabilities],
   "testing/conformance": ["testing/fixtures"],
 };
+// Reachable only through `import type`, `export type`, or `import("...")` types. Under verbatimModuleSyntax an
+// inline `{ type X }` specifier still emits a runtime `import {} from`, so it does not count.
+const typeReach = {
+  "testing/fixtures": ["eval"],
+};
 
 function area(path) {
   const parts = path.split("/");
@@ -83,21 +88,25 @@ for (const path of await files(source)) {
   if (owner === "llm/unassigned") failures.push(`${name} has no LLM module role; assign one in scripts/check-boundaries.mjs`);
   if (name.endsWith(".cts")) failures.push(`${name}: CommonJS source .cts is not supported; use ESM .ts or .mts`);
   const code = await readFile(path, "utf8");
-  const specifiers = new Set();
+  const specifiers = new Map();
+  const add = (value, typeOnly) => specifiers.set(value, (specifiers.get(value) ?? true) && typeOnly);
   const tree = ts.createSourceFile(path, code, ts.ScriptTarget.Latest, true);
-  for (const reference of tree.typeReferenceDirectives) specifiers.add(reference.fileName);
+  for (const reference of tree.typeReferenceDirectives) add(reference.fileName, false);
   for (const reference of tree.referencedFiles) {
     const value = reference.fileName;
-    specifiers.add(value.startsWith(".") || isAbsolute(value) ? value : `./${value}`);
+    add(value.startsWith(".") || isAbsolute(value) ? value : `./${value}`, false);
   }
   for (const diagnostic of tree.parseDiagnostics) {
     failures.push(`${name} cannot be parsed by the boundary checker: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")}`);
   }
-  function check(value) {
+  function check(value, typeOnly) {
     if (value.startsWith(".")) {
       const target = relative(source, resolve(dirname(path), value));
       const targetArea = area(target);
-      const allowed = owner === "index.ts" ? targetArea === "core" : targetArea === owner || targetArea === "core" || (reach[owner] ?? []).includes(targetArea);
+      const allowed = owner === "index.ts"
+        ? targetArea === "core"
+        : targetArea === owner || targetArea === "core" || (reach[owner] ?? []).includes(targetArea) ||
+          typeOnly && (typeReach[owner] ?? []).includes(targetArea);
       if (!allowed) failures.push(`${name} crosses into ${value}`);
       return;
     }
@@ -118,7 +127,10 @@ for (const path of await files(source)) {
   function visit(node) {
     if (ts.hasPossibleExternalModuleReference(node)) {
       const specifier = ts.getExternalModuleName(node);
-      if (specifier && ts.isStringLiteralLike(specifier)) specifiers.add(specifier.text);
+      const typeOnly = ts.isImportTypeNode(node) ||
+        ts.isImportDeclaration(node) && node.importClause?.isTypeOnly === true ||
+        ts.isExportDeclaration(node) && node.isTypeOnly;
+      if (specifier && ts.isStringLiteralLike(specifier)) add(specifier.text, typeOnly);
     }
     if (ts.isCallExpression(node) && (
       node.expression.kind === ts.SyntaxKind.ImportKeyword ||
@@ -126,13 +138,13 @@ for (const path of await files(source)) {
       ts.isPropertyAccessExpression(node.expression) && ts.isIdentifier(node.expression.expression) &&
         node.expression.expression.text === "require" && node.expression.name.text === "resolve"
     )) {
-      if (node.arguments[0] && ts.isStringLiteralLike(node.arguments[0])) specifiers.add(node.arguments[0].text);
+      if (node.arguments[0] && ts.isStringLiteralLike(node.arguments[0])) add(node.arguments[0].text, false);
       else failures.push(`${name} uses a computed module specifier that bundlers cannot isolate`);
     }
     ts.forEachChild(node, visit);
   }
   visit(tree);
-  for (const specifier of specifiers) check(specifier);
+  for (const [specifier, typeOnly] of specifiers) check(specifier, typeOnly);
 }
 
 assert.deepEqual(Object.keys(manifest.dependencies), ["@ai-sdk/provider-utils", "@types/json-schema", "entities", "htmlparser2", "parse5"]);
@@ -197,7 +209,12 @@ for (const name of ["mcp/index.ts", "mcp/server.ts"]) {
 const cliRanges = /ENGINE_RANGES = (\{[\s\S]*?\}) as const/.exec(await readFile(join(cliSource, "mcp/engines.ts"), "utf8"))?.[1];
 assert.deepEqual(Function(`return ${cliRanges}`)(), cliManifest.peerDependencies, "CLI ENGINE_RANGES must equal its declared peers");
 for (const peer of cliPeers) assert.equal(cliManifest.peerDependenciesMeta?.[peer]?.optional, true, `${peer} must be an optional CLI peer`);
-assert.deepEqual(Object.keys(cliManifest.exports), [".", "./mcp"]);
+assert.deepEqual(Object.keys(cliManifest.exports), [".", "./config", "./mcp"]);
+const configEntry = ts.createSourceFile("define-config.ts", await readFile(join(cliSource, "define-config.ts"), "utf8"), ts.ScriptTarget.Latest, true);
+for (const node of configEntry.statements) {
+  const typeOnly = ts.isImportDeclaration(node) ? node.importClause?.isTypeOnly === true : ts.isExportDeclaration(node) ? node.isTypeOnly : true;
+  if (!typeOnly) failures.push("@docture/cli/config must import and re-export types only, so reading a config loads no CLI or docture module");
+}
 
 assert.deepEqual(failures, [], "Public module boundaries must stay isolated");
 console.log(`Verified two publications and ${Object.keys(manifest.exports).length} isolated ESM entries.`);

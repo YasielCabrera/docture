@@ -13,7 +13,7 @@ Import these APIs from `docture`.
 `ClassificationNeed` is `"required" | "hint" | "none"`.
 
 `StrategyContext` contains `document`, runtime `features`, resolved `schema`, optional
-`classification`, optional `hints`, `signal`, `logger`, and optional `documentLabel`, the
+`classification`, optional `hints`, optional `examples`, `signal`, `logger`, and optional `documentLabel`, the
 source's file name when it has one. Core picks `hints` from the
 first source that applies:
 
@@ -29,12 +29,19 @@ first source that applies:
 Otherwise `hints` is absent. Hint selection does not change the classification or its
 usage.
 
+`examples` holds the extracted contract's [worked examples](/docs/reference/api/core-contracts#examples),
+each `{ text, output }` with `output` as JSON text, already checked against the schema.
+`Process` sends its selected kind's examples, or that kind's extraction contract's
+examples when the kind has none. Otherwise a `Contract` passed to an extraction method
+sends its own. A classification candidate's examples never apply to another contract.
+
 `StrategyContext.reportFailureUsage(usage)` records known usage before a strategy
 throws. Each call replaces the previous report for that attempt. Successful strategies
 return usage through `StrategyOutcome`. Ordinary provider errors keep their identity.
 
 `StrategyOutcome` contains unknown `data` and optional `usage`, `classification`,
-`conflicts`, and `citations`. Core validates the data after the method returns.
+`conflicts`, and `citations`. Core validates the data after the method returns and
+applies the schema's transforms once, so return the data before those transforms run.
 
 ```ts
 interface OutcomeCitation {
@@ -42,6 +49,7 @@ interface OutcomeCitation {
   status: "verified" | "cited-unverified";
   ids: readonly LineSourceId[];
   value: unknown;
+  spans?: readonly { line: LineSourceId; span: number }[];
 }
 ```
 
@@ -50,7 +58,10 @@ model cited. `path` is object keys and array indexes from the root of `data`, an
 is the leaf the status describes, before the caller's schema ran. Core turns them into
 [`result.citations`](/docs/reference/api/core-extraction#field-citations): it keeps a
 status only while `value` still equals the validated leaf, downgrades `verified` when an id
-is not a line of the loaded document, and marks every other present leaf `uncited`.
+is not a line of the loaded document, and marks every other present leaf `uncited`. For a
+`verified` value, `spans` names the spans the matched text covers, as indexes into the
+`spans` of each loaded line. Core reads `minOcrConfidence` from those spans; leave `spans`
+out when the match cannot be pinned to spans.
 
 ```ts
 defineStrategy(strategy: ExtractionStrategy): ExtractionStrategy

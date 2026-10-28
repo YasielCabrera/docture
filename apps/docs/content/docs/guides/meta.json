@@ -11,6 +11,7 @@
     "routing-and-fallback",
     "long-documents",
     "batches-and-lifecycle",
+    "performance",
     "custom-loader",
     "measuring-accuracy",
     "cli",

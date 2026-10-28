@@ -9,7 +9,7 @@ import {
   type TextSpan,
 } from "../../src/core/index.js";
 
-import { span, line, richDocument } from "./conversion-fixtures.js";
+import { bySourceId, span, line, richDocument } from "./conversion-fixtures.js";
 
 const source = () => ({ loaded: richDocument(), fileName: "report.pdf", mimeType: "application/pdf" }) as const;
 
@@ -168,8 +168,8 @@ describe("DocumentConverter orchestration", () => {
   it("applies valid model roles but ignores unknown ids and failures", async () => {
     const valid: LayoutAnalyzer = {
       name: "helper",
-      async analyze() {
-        return { annotations: [{ id: "paragraph", role: "heading", level: 2 }], usage: { totalTokens: 7 } };
+      async analyze({ document }) {
+        return { annotations: bySourceId(document, [{ id: "paragraph", role: "heading", level: 2 }]), usage: { totalTokens: 7 } };
       },
     };
     const validResult = await new DocumentConverter({ layoutAnalyzer: valid }).convert(source());

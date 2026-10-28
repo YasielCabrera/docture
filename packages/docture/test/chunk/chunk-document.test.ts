@@ -26,7 +26,7 @@ describe("chunkDocument", () => {
     const result = await convert(threeParagraphs());
     const chunks = chunkDocument(result, characters(6));
     expect(chunks.map((chunk) => chunk.text)).toEqual(["Alpha", "Beta", "Gamma"]);
-    expect(chunks.map((chunk) => chunk.elementIds)).toEqual([["p1-text-1"], ["p1-text-2"], ["p2-text-1"]]);
+    expect(chunks.map((chunk) => chunk.elementIds)).toEqual([["p1-13f6ed79a2ee"], ["p1-0ea25dfd95a9"], ["p2-36609e13aad5"]]);
     expect(chunks.map((chunk) => chunk.provenance)).toEqual([
       [{ pageNumber: 1, box: { x: 40, y: 100, width: 25, height: 12 }, sourceIds: ["p1-text-1"], lineIds: ["p1-line-1"] }],
       [{ pageNumber: 1, box: { x: 40, y: 120, width: 20, height: 12 }, sourceIds: ["p1-text-2"], lineIds: ["p1-line-2"] }],
@@ -92,7 +92,7 @@ describe("chunkDocument", () => {
       "| Item | Amount |\n| --- | --- |\n| Gamma | 30 |\n| Delta | 40 |",
       "| Item | Amount |\n| --- | --- |\n| Epsilon | 50 |",
     ]);
-    expect(chunks.map((chunk) => chunk.elementIds)).toEqual([["p1-text-1"], ["p1-text-1"], ["p1-text-1"]]);
+    expect(chunks.map((chunk) => chunk.elementIds)).toEqual([["p1-010d3a61615a"], ["p1-010d3a61615a"], ["p1-010d3a61615a"]]);
     expect(chunks.map((chunk) => chunk.provenance)).toEqual([
       [{
         pageNumber: 1,

@@ -2,14 +2,14 @@ import { availableParallelism } from "node:os";
 import { requestedPageNumbers } from "../../core/pipeline/pages.js";
 import { PageSelectionError } from "../../core/pipeline/errors.js";
 import { readsAsTiff } from "../../core/pipeline/source.js";
-import { MAX_TIFF_PAGE_PIXELS } from "../../core/domain/tiff.js";
+import { tiffLayout, tiffPageTooLarge } from "../../core/domain/tiff.js";
+import { pageImageRenderer } from "../../core/contracts/page-images.js";
 import {
   imageSize,
   inferForm,
   linesFromWords,
   sniffMimeType,
   textFromLines,
-  tiffPages,
   type DocumentLoader,
   type LoadContext,
   type LoadedDocument,
@@ -37,6 +37,13 @@ const TIFF_COMPRESSIONS = new Map([
 
 /** 300 DPI is the usual floor for OCR accuracy; below ~200 it degrades sharply. */
 const DEFAULT_DPI = 300;
+
+type PageImages = (
+  pageNumber: number,
+  options: RasterOptions | undefined,
+  signal: AbortSignal | undefined,
+  decoded: Uint8Array | undefined,
+) => Promise<Uint8Array>;
 
 interface OcrPage {
   readonly pageNumber: number;
@@ -176,9 +183,9 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
 
     // Rendering is memoized per page and per set of options, so asking twice costs
     // once — while a document nobody looks at costs nothing.
-    const renders = new Map<string, Promise<Uint8Array>>();
+    const images = this.pageImages(document, mimeType, dpi, ctx);
     const pages = recognized.map(({ raster, recognition }) =>
-      this.toPage(raster, recognition, document, mimeType, dpi, ctx, renders),
+      this.toPage(raster, recognition, images),
     );
 
     const confidence =
@@ -353,11 +360,7 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
   private toPage(
     raster: OcrPage,
     recognition: Recognition,
-    document: RawDocument,
-    mimeType: string,
-    dpi: number,
-    ctx: LoadContext,
-    renders: Map<string, Promise<Uint8Array>>,
+    images: PageImages,
   ): LoadedPage {
     const floor = this.options.minConfidence ?? 0;
     const words: PositionedWord[] = recognition.words
@@ -390,11 +393,8 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
       height: raster.heightPx * raster.scale,
       text: textFromLines(lines),
       lines,
-      image: (options?: RasterOptions) => {
-        const decoded = recognition.image;
-        if (decoded !== undefined) return Promise.resolve(decoded);
-        return this.pageImage(pageNumber, document, mimeType, dpi, options, ctx, renders);
-      },
+      image: (options?: RasterOptions, call?: { readonly signal?: AbortSignal }) =>
+        images(pageNumber, options, call?.signal, recognition.image),
     };
   }
 
@@ -408,58 +408,21 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
    * a 200-page scan in memory to serve a strategy that looks at two of them is the
    * wrong trade. It is re-rendered on demand and memoized instead.
    */
-  private pageImage(
-    pageNumber: number,
-    document: RawDocument,
-    mimeType: string,
-    dpi: number,
-    options: RasterOptions | undefined,
-    ctx: LoadContext,
-    renders: Map<string, Promise<Uint8Array>>,
-  ): Promise<Uint8Array> {
+  private pageImages(document: RawDocument, mimeType: string, dpi: number, ctx: LoadContext): PageImages {
     const rasterizer = this.options.rasterizer;
     // The input WAS an image. Re-encoding it to honour `format` or `dpi` would lose
     // quality to satisfy a request the bytes already answer.
-    if (rasterizer === undefined || (IMAGE_MIME_TYPES as readonly string[]).includes(mimeType)) {
-      return Promise.resolve(document.bytes);
-    }
-
-    const merged: RasterOptions = {
-      dpi,
-      format: "png",
-      ...options,
-      pages: [pageNumber],
+    const render =
+      rasterizer === undefined || (IMAGE_MIME_TYPES as readonly string[]).includes(mimeType)
+        ? undefined
+        : pageImageRenderer(rasterizer, document, ctx);
+    return async (pageNumber, options, signal, decoded) => {
+      if (decoded !== undefined || render === undefined) {
+        (signal ?? ctx.signal).throwIfAborted();
+        return decoded ?? document.bytes;
+      }
+      return render(pageNumber, { dpi, format: "png", ...options }, signal);
     };
-    // The page number MUST be in the key: the cache is shared across every page of
-    // the document, and keying on render options alone hands page 2 page 1's image.
-    const key = JSON.stringify([
-      pageNumber,
-      merged.dpi,
-      merged.format,
-      merged.quality,
-      merged.maxEdge,
-    ]);
-
-    let pending = renders.get(key);
-    if (pending === undefined) {
-      pending = rasterizer
-        .rasterize(document, merged, { signal: ctx.signal, logger: ctx.logger })
-        .then((rendered) => {
-          const first = rendered[0];
-          if (first === undefined) {
-            throw new Error(
-              `${rasterizer.name} rendered no image for page ${pageNumber}.`,
-            );
-          }
-          return first.bytes;
-        });
-      renders.set(key, pending);
-      const stored = pending;
-      void stored.catch(() => {
-        if (renders.get(key) === stored) renders.delete(key);
-      });
-    }
-    return pending;
   }
 
   private languages(): readonly string[] {
@@ -472,10 +435,11 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
 }
 
 function tiffOcrPages(bytes: Uint8Array, mimeType: string): readonly TiffPage[] {
-  const pages = tiffPages(bytes);
-  if (pages === undefined) {
+  const layout = tiffLayout(bytes);
+  if (layout === undefined) {
     throw new Error(`tesseract: these bytes are not a readable TIFF (${mimeType}).`);
   }
+  const { pages, pixelData } = layout;
   const unsupported = pages.find((page) => !TIFF_COMPRESSIONS.has(page.compression));
   if (unsupported !== undefined) {
     const supported = [...TIFF_COMPRESSIONS].map(([code, name]) => `${name} (${code})`).join(", ");
@@ -484,12 +448,9 @@ function tiffOcrPages(bytes: Uint8Array, mimeType: string): readonly TiffPage[] 
         `which this loader does not read. Supported: ${supported}.`,
     );
   }
-  const oversized = pages.find((page) => page.widthPx * page.heightPx > MAX_TIFF_PAGE_PIXELS);
-  if (oversized !== undefined) {
-    throw new Error(
-      `tesseract: TIFF page ${oversized.pageNumber} is ${oversized.widthPx}x${oversized.heightPx} pixels, ` +
-        `more than the ${MAX_TIFF_PAGE_PIXELS} this loader decodes.`,
-    );
+  for (const page of pages) {
+    const tooLarge = tiffPageTooLarge(page, pixelData[page.pageNumber - 1]!);
+    if (tooLarge !== undefined) throw new Error(`tesseract: ${tooLarge}`);
   }
   return pages;
 }

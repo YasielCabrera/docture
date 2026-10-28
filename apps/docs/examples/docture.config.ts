@@ -1,5 +1,5 @@
 import { openai } from "@ai-sdk/openai";
-import { defineConfig } from "@docture/cli";
+import { defineConfig } from "@docture/cli/config";
 import { llm } from "docture/llm/text";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { Invoice } from "./invoice.js";

@@ -40,8 +40,9 @@ function, and OCR word confidence is kept on spans.
 A TIFF loads one page per image file directory, in file order, and `maxPages` and
 requested pages apply before recognition. Classic TIFF in either byte order is supported
 with no compression, LZW, PackBits, CCITT Group 3, or CCITT Group 4, up to 8192 x 8192
-pixels per page. The load rejects before recognition when the file is malformed, uses
-another compression, such as Deflate, or has a larger page. TIFF bytes labelled PNG or
+pixels per page whose samples decode to at most 256 MiB, as in 8-bit RGBA at that size.
+A 16-bit RGBA page fits at up to 8192 x 4096. The load rejects before recognition when the
+file is malformed, uses another compression, such as Deflate, or has a larger page. TIFF bytes labelled PNG or
 JPEG are read as TIFF. BigTIFF is not supported. `page.image()` on a TIFF page returns the PNG that
 Tesseract decoded, so its pixels match the OCR geometry.
 

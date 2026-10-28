@@ -56,6 +56,20 @@ same OCR loader accept PDF input.
 Conversion does not switch loaders or OCR modes after a loader succeeds. This keeps the
 loader choice, cost, and recovered text visible.
 
+## Selected pages
+
+Pass `pages` to convert part of a document. PDF loaders read only those pages, and the
+result keeps their original numbers:
+
+```ts
+const result = await converter.convert("report.pdf", { format: "json", pages: [2, 3] });
+result.pages.map((page) => page.pageNumber); // [2, 3]
+```
+
+Running headers and table continuations are detected among the selected pages only. An
+element that lies wholly on a selected page keeps its ID unless that detection changes
+its kind or rows.
+
 ## Output formats
 
 ```ts
@@ -117,8 +131,13 @@ A tagged PDF's `header` and `footer` hints count when the line sits in the top o
 10% of the page. Without tags, core infers furniture from text that repeats in those bands
 on at least three pages, including odd-page and even-page running heads. Page numbers
 match when they follow the page. These thresholds are heuristics. A one-page or two-page
-document gets furniture only from tags. A header lower than 10% of the page stays in the
-body. The [reference](/docs/reference/api/core-conversion#semantic-layout) lists the
+document gets furniture only from tags. A page number such as `Page 2 of 6` can sit up to
+15% from the top or bottom when it follows the pages, keeps the same height and indent, and
+has a line of blank space between it and the body. Bold text there, such as a numbered
+`Question 1` heading, stays in the body. Other text lower than 10% of the page
+stays in the body. A band line that repeats at the same place on another page without meeting these
+rules, such as a running header on a two-page document, also stays in the body. It is never
+a table row, and a table does not continue across it. The [reference](/docs/reference/api/core-conversion#semantic-layout) lists the
 rules.
 
 Optional model assistance can refine roles and ordering:
@@ -147,7 +166,12 @@ and failed attempt.
 Core groups aligned rows into `table` elements. Rows with the same number of cells at
 matching positions form a plain table. When rows differ in cell count, the rows with the
 most cells set the column bands. A shorter row joins the table when each of its cells
-falls in a band, so a totals row stays with its table. A label over two columns becomes
+falls in a band, so a totals row stays with its table. A row more than 1.5 times the row
+spacing below the row above starts a new form section instead, unless it holds a number
+without letters in the table's last column, as a totals row does. That holds for a shorter row, such as
+`Booking ID` and `Payment Mode` labels under a `Check In`/`Check Out`/`Rooms` table, and
+for a row in a different font weight. The section and the rows above it become tables
+only if each is a table on its own. A label over two columns becomes
 a merged cell:
 
 ```ts
@@ -170,7 +194,12 @@ slot it covers holds `""`. Each format renders spans differently:
 - JSON keeps `rows`, `headerRows`, and `spans`.
 
 Detection is a heuristic. A label must cover more than half of each column it merges,
-and those columns must be empty in its row. Rows above the band rows join only as header
+and those columns must be empty in its row. A bold label in a bold header row can instead
+sit centred over two or more columns, such as `Quarters` above `Q1` and `Q2`, even when it
+overlaps neither. A centred line without bold type stays outside the table with a
+`LAYOUT_DEGRADED` warning, because it could also be a caption. A caption such as
+`Table 1` or `Table A`, heading-size text, or a line more than 1.5 row spacings above the table never
+merges. Rows above the band rows join only as header
 rows that a merged label proves. A row span needs a cell box that covers at least half of
 each row line, which OCR or synthetic geometry can provide and PDF text layers rarely do.
 An empty cell never makes a row span. Text layers that emit one span per word keep the
@@ -209,7 +238,15 @@ table's cell count, the same font size and weight, cells of at most 40 character
 inside the table's columns. In a column whose body cells on the earlier page are all
 numbers without letters, a continued row must have no letters there. An unrelated table, a
 key-value block, or two-column prose in the table's columns therefore starts a new element
-when the table has such a column. After a continued row, a totals row with fewer cells
+when the table has such a column. A table without such a column holds only text, and matching
+columns are no evidence that the next page continues it. Its rows join only after a copy of
+its header row, or under a line such as `Table 4 (continued)` when `Table 4: Staff`, or
+another `Table 4` caption, sits right above the table. Such a line counts even when it
+repeats at the top of every page, and it is never a running header. A line for another
+table, such as `Table 5 (continued)`, keeps the rows apart. Otherwise the rows stay on their page
+with a `LAYOUT_DEGRADED` warning. A bold or heading-size line set apart at the top of the next
+page starts a new section, unless it is a copy of the header row, so a header copy below a
+section title starts a new table. After a continued row, a totals row with fewer cells
 joins when its cells fall in the table's columns. A later row with the full cell count
 meets every check above, so a bold header further down starts a new table. Every row after the first must start
 within three times the table's row spacing of the row above, so a footer or signature line
@@ -217,16 +254,17 @@ lower on the page stays out. A copy of the header row at the top of the next pag
 dropped from `rows` and kept in `sourceText`. A row in a different font weight, or rows in
 other columns, start a new element. A paragraph continues when it does not end with `.`,
 `!`, `?`, `:`, or `;`, and the next page's first element starts with a lowercase letter.
-Text in scripts without letter case therefore never joins. Page furniture, and a top or
-bottom line that blank space sets apart from the body, are skipped. Text-only pages never
-join.
+Text in scripts without letter case therefore never joins. A contents or index entry on
+either side of the break never joins. Such an entry ends in an Arabic or Roman page number
+after a dot leader, such as `Contents .......... 7`, or after a gap of at least two line
+heights. A final number after an ordinary word space is body text. Page furniture, and a top or
+bottom line that blank space sets apart from the body, are skipped. A line that repeats at the
+same place on another page but is not furniture is not skipped: the table and the next page's
+rows stay apart, and the result carries a `LAYOUT_DEGRADED` warning that names both lines.
+Text-only pages never join.
 
 Some layouts still join wrongly:
 
-- A table without a number column gets no content check. A second table in the same
-  columns whose header has the body's font weight joins the first.
-- Furniture detection needs three or more pages. On a two-page document, a running header
-  whose cells fall in the table's columns and pass the number check joins the table.
 - A line at the bottom of a page that ends without punctuation, such as a list entry, joins
   a paragraph that starts with a lowercase letter at the top of the next page. A layout analyzer can reorder a joined element's page, but the
 element stays last in its page's text, and annotations that would retype or group it are

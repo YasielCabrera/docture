@@ -1,7 +1,8 @@
 import type { OutcomeCitation } from "../contracts/strategy.js";
-import { sourceLines } from "../conversion/source-lines.js";
+import { lineSourceId, sourceLines } from "../conversion/source-lines.js";
 import type { LineSourceId, SourceLine } from "../domain/conversion.js";
-import type { LoadedDocument } from "../domain/geometry.js";
+import type { LoadedDocument, TextLine, TextSpan } from "../domain/geometry.js";
+import { formatFieldPath } from "../domain/field-path.js";
 import type { FieldCitation } from "../domain/result.js";
 
 export type FieldPath = readonly (string | number)[];
@@ -52,31 +53,58 @@ function byPageThenLine(first: LineSourceId, second: LineSourceId): number {
   return pageA - pageB || lineA - lineB;
 }
 
-function citationFor(leaf: PresentLeaf, entry: OutcomeCitation | undefined, known: ReadonlyMap<string, SourceLine>): FieldCitation {
-  const path = leaf.path.join(".");
-  if (entry === undefined) return { path, status: "uncited", ids: [] };
-  const ids = entry.ids.filter((id) => known.has(id));
-  const [first, ...rest] = ids;
-  if (entry.status === "verified" && first !== undefined && ids.length === entry.ids.length && sameLeaf(entry.value, leaf.value)) {
-    return { path, status: "verified", ids: [first, ...rest] };
-  }
-  return { path, status: "cited-unverified", ids };
+function usable(span: TextSpan | undefined): number | undefined {
+  const confidence = span?.confidence;
+  return typeof confidence === "number" && confidence >= 0 && confidence <= 1 ? confidence : undefined;
 }
 
-/**
- * One citation per present leaf of the validated `data`, and the loader lines they
- * name. A leaf without an entry, such as a schema default, is `uncited`; an entry
- * for a key the schema stripped is dropped; an ID the document does not have is
- * dropped and costs a `verified` entry its status.
- */
+function lowest(confidences: readonly (number | undefined)[]): number | undefined {
+  if (confidences.length === 0 || confidences.some((confidence) => confidence === undefined)) return undefined;
+  return Math.min(...(confidences as number[]));
+}
+
+/** A line's spans speak for its text only when the text is exactly the spans joined by single spaces. */
+function attributedSpans(line: TextLine | undefined): readonly TextSpan[] | undefined {
+  if (line === undefined || line.spans.length === 0) return undefined;
+  return line.spans.map((span) => span.text).join(" ") === line.text ? line.spans : undefined;
+}
+
+function matchedConfidence(entry: OutcomeCitation, ids: readonly LineSourceId[], lines: ReadonlyMap<string, TextLine>): number | undefined {
+  const spans = entry.spans ?? [];
+  if (!ids.every((id) => spans.some((ref) => ref.line === id)) || !spans.every((ref) => ids.includes(ref.line))) return undefined;
+  return lowest(spans.map((ref) => usable(attributedSpans(lines.get(ref.line))?.[ref.span])));
+}
+
+function citedConfidence(ids: readonly LineSourceId[], lines: ReadonlyMap<string, TextLine>): number | undefined {
+  const spans = ids.map((id) => attributedSpans(lines.get(id)));
+  return spans.some((line) => line === undefined) ? undefined : lowest(spans.flatMap((line) => line ?? []).map(usable));
+}
+
+function withConfidence<C extends FieldCitation>(citation: C, confidence: number | undefined): C {
+  return confidence === undefined ? citation : { ...citation, minOcrConfidence: confidence };
+}
+
+function citationFor(leaf: PresentLeaf, entry: OutcomeCitation | undefined, lines: ReadonlyMap<string, TextLine>): FieldCitation {
+  const path = formatFieldPath(leaf.path);
+  if (entry === undefined) return { path, status: "uncited", ids: [] };
+  const ids = entry.ids.filter((id) => lines.has(id));
+  const [first, ...rest] = ids;
+  if (entry.status === "verified" && first !== undefined && ids.length === entry.ids.length && sameLeaf(entry.value, leaf.value)) {
+    return withConfidence({ path, status: "verified", ids: [first, ...rest] }, matchedConfidence(entry, ids, lines));
+  }
+  return withConfidence({ path, status: "cited-unverified", ids }, citedConfidence(ids, lines));
+}
+
 export function alignCitations(
   data: unknown,
   cited: readonly OutcomeCitation[],
   document: LoadedDocument,
 ): { readonly citations: FieldCitation[]; readonly citationSources: SourceLine[] } {
   const known = new Map(document.pages.flatMap((page) => sourceLines(page)).map((line) => [line.id, line]));
+  const lines = new Map(document.pages.flatMap((page) =>
+    (page.lines ?? []).map((line, index) => [lineSourceId(page.pageNumber, index), line] as const)));
   const entries = new Map(cited.map((entry) => [pathKey(entry.path), entry]));
-  const citations = presentLeaves(data).map((leaf) => citationFor(leaf, entries.get(pathKey(leaf.path)), known));
+  const citations = presentLeaves(data).map((leaf) => citationFor(leaf, entries.get(pathKey(leaf.path)), lines));
   const ids = [...new Set(citations.flatMap((citation) => citation.ids))].sort(byPageThenLine);
   return { citations, citationSources: ids.flatMap((id) => known.get(id) ?? []) };
 }

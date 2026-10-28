@@ -79,3 +79,76 @@ usage, so a cost gate requires a configured pricing table.
 import { aggregate, gate } from "docture/eval";
 const verdict = gate(aggregate(records), { minF1: 0.95, maxCostUsd: 1 });
 ```
+
+## Check a conversion
+
+```ts
+checkConversion(
+  output: string | ConvertedPages,
+  checks: readonly ConversionCheck[],
+): ConversionReport
+```
+
+`checkConversion()` grades converted output against a list of checks. Pass the
+`ConversionResult` from `DocumentConverter.convert()`, a parsed `DoctureDocument`, or a
+`LayoutDocument`; all three fit `ConvertedPages`. A Markdown or text string also works for
+text and order checks.
+
+`ConversionCheck` is one of four kinds. Each has a stable `id`, unique within the call,
+and an optional `ignoreCase`.
+
+| Kind | Type | Passes when |
+| --- | --- | --- |
+| `present` | `PresentCheck` | `text` occurs. `count` requires an exact number of occurrences. |
+| `absent` | `AbsentCheck` | `text` does not occur. |
+| `order` | `OrderCheck` | The first occurrence of `before` starts before the first occurrence of `after`. |
+| `table` | `TableCheck` | A table cell whose whole text is `cell` has the expected neighbours and spans. |
+
+Text matching follows these rules:
+
+- Both sides are compared after Unicode NFKC normalization, with every whitespace run
+  folded to one space. Letter case matters unless `ignoreCase` is `true`.
+- A match never crosses a unit. In a converted document, a unit is one element's text, one
+  list item, one table cell, or a figure caption. In a string, a unit is a block between
+  blank lines. An `absent` check therefore catches two blocks that conversion wrongly
+  joined.
+- Occurrences do not overlap and are counted across all units.
+- Markdown is matched as written, so escapes such as `\<` and table pipes are part of the
+  text.
+
+Page and provenance fields need a converted document:
+
+- `page` limits `present` and `absent` to the page whose elements hold the match. A table
+  or paragraph that continues onto later pages belongs to the page where it starts.
+- `sourcePages` on `present` lists every page the matching unit came from, in ascending
+  order. A table cell came from its row's page in `rowProvenance`.
+- `element` limits `present` and `absent` to one element kind, such as `page-header`.
+
+`TableCheck` reads `left`, `right`, `up`, and `down` through merged cells to the cell that
+covers each slot. `null` means the table edge. `header` keeps only tables whose first row
+has exactly those cells, which tells similar tables apart. `colSpan` and `rowSpan` check
+the cell's own span. `page` is the page that holds the table and `sourcePage` the page its
+row came from. The check passes when any matching cell satisfies every field.
+
+`ConversionReport` has `pass`, `passed`, `failed`, and one `ConversionCheckResult` per check
+in check order. A result has `id`, `kind` (a `ConversionCheckKind`), and `pass`. A failed
+result also has a literal `reason`, such as
+`cell "Bob" under header "Name", "Status": down is "Other", expected the table edge`. A
+page, provenance, element, or table check on a string fails with a reason that it needs a
+converted document.
+
+`checkConversion()` throws `RangeError` when ids repeat or are empty, a text is blank,
+`count` is not a nonnegative integer, or a page or span is not a positive integer.
+
+```ts
+import { DocumentConverter } from "docture";
+import { checkConversion } from "docture/eval";
+import { conversionCorpus } from "docture/testing/fixtures";
+
+const converter = new DocumentConverter();
+for (const sample of conversionCorpus) {
+  const result = await converter.convert({ loaded: sample.loaded }, { format: "json" });
+  const report = checkConversion(result, sample.checks);
+  console.log(sample.id, report.failed);
+}
+```

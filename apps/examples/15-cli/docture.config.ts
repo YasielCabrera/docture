@@ -15,7 +15,7 @@
  * default, never an override.
  */
 
-import { defineConfig } from "@docture/cli";
+import { defineConfig } from "@docture/cli/config";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { DocumentLoaderMuPdf } from "docture/loaders/mupdf";
 import { Invoice } from "../shared/contracts.js";

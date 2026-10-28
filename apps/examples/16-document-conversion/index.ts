@@ -155,6 +155,17 @@ export async function convertRichFixture() {
   );
 }
 
+export async function convertSelectedPage() {
+  const fixture = await makeRichDocumentPdf();
+  await using converter = new DocumentConverter()
+    .loadDocumentLoader(new DocumentLoaderPdfJs());
+  const result = await converter.convert(
+    { bytes: fixture.bytes, mimeType: "application/pdf", fileName: "rich-document.pdf" },
+    { format: "markdown", assets: "omit", pages: [2] },
+  );
+  return { pages: result.pages.map((page) => page.pageNumber), markdown: result.content };
+}
+
 async function main(): Promise<void> {
   heading("Document conversion");
   step("1. generate a real layout-rich PDF in memory");
@@ -202,6 +213,12 @@ async function main(): Promise<void> {
   for (const chunk of await chunkContinuedTable()) {
     field(`pages ${JSON.stringify(chunk.pages)}`, chunk.text.split("\n").slice(2).join(" "));
   }
+
+  step("7. convert only the pages you need");
+  const selected = await convertSelectedPage();
+  note("PDF.js reads page 2 alone; the result keeps its original page number.");
+  field("pages", JSON.stringify(selected.pages));
+  console.log("\n" + selected.markdown + "\n");
 }
 
 if (isMain(import.meta.url)) await run(main);

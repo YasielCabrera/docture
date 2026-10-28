@@ -46,8 +46,10 @@ import {
   type TableContinuation,
   type TableTraits,
 } from "./continuation.js";
+import { withElementIds } from "./element-ids.js";
 import { detectFurniture, type Furniture } from "./furniture.js";
-import { looksLikeTableGroup, tableGroupAt, tableGroupIds, type TableGroup } from "./table-grid.js";
+import { provenanceSegments } from "./provenance.js";
+import { looksLikeTableGroup, tableGroupAt, tableGroupIds, tableLabel, unresolvedGroupLabel, type TableGroup } from "./table-grid.js";
 import { appendTableRows } from "./tables.js";
 
 export interface DeterministicAnalysis {
@@ -103,11 +105,8 @@ function readingOrder(candidates: readonly Candidate[], pageWidth: number): Cand
     .sort((a, b) => a.box.y - b.box.y);
   let top = columnTop;
 
-  const appendBand = (bottom: number): void => {
-    const band = middle.filter(
-      (candidate) =>
-        remaining.has(candidate) && candidate.box.y >= top && candidate.box.y < bottom,
-    );
+  const appendBand = (include: (box: LayoutBox) => boolean): void => {
+    const band = middle.filter((candidate) => remaining.has(candidate) && candidate.box.y >= top && include(candidate.box));
     for (const candidate of band.sort((a, b) => a.box.x - b.box.x || a.box.y - b.box.y)) {
       ordered.push(candidate);
       remaining.delete(candidate);
@@ -115,12 +114,16 @@ function readingOrder(candidates: readonly Candidate[], pageWidth: number): Cand
   };
 
   for (const block of spanning) {
-    appendBand(block.box.y);
+    const bottom = block.box.y + block.box.height;
+    appendBand((box) => box.y < block.box.y || (box.y < bottom && box.x + box.width <= block.box.x));
     ordered.push(block);
     remaining.delete(block);
-    top = block.box.y + block.box.height;
+    appendBand((box) => box.y < bottom && box.x >= block.box.x + block.box.width);
+    top = bottom;
   }
-  appendBand(Number.POSITIVE_INFINITY);
+  appendBand(() => true);
+  top = Number.NEGATIVE_INFINITY;
+  appendBand(() => true);
   return [...ordered, ...after];
 }
 
@@ -378,6 +381,7 @@ function analyzeTextCandidates(
   bodySize: number,
   acceptTable: (group: TableGroup) => boolean,
   traits: Map<DocumentElement, TableTraits>,
+  warnings: ConversionWarning[],
 ): DocumentElement[] {
   const elements: DocumentElement[] = [];
 
@@ -428,6 +432,17 @@ function analyzeTextCandidates(
       };
       const found = tableTraits(table);
       if (found !== undefined) traits.set(element, found);
+      const label = candidates[index - 1];
+      const columns = label?.lines.length !== 1 || label.lines[0] === undefined || table.bands === undefined
+        ? undefined
+        : unresolvedGroupLabel(label.lines[0], grouped.flatMap((row) => row.lines), table.bands);
+      if (label !== undefined && columns !== undefined) {
+        warnings.push({
+          code: "LAYOUT_DEGRADED",
+          message: `Kept "${label.lines[0]?.text.trim()}" (${label.lineIds[0] ?? label.id}) out of the table below it: it is centred over ${columns} of the table's columns, but no bold header marks it as a group label.`,
+          pageNumber: label.pageNumber,
+        });
+      }
       elements.push(element);
       index += grouped.length;
       continue;
@@ -478,6 +493,17 @@ interface Tail {
   readonly page: PageFrame;
   readonly box: LayoutBox;
   readonly table?: TableTraits;
+  readonly suspectBelow?: Candidate;
+  readonly label?: string;
+}
+
+function sourceLine(document: LoadedDocument, segment: Omit<ElementProvenance, "continuations"> | undefined, end: 0 | -1): TextLine | undefined {
+  const id = segment?.lineIds?.at(end);
+  const match = id === undefined ? null : /^p(\d+)-line-(\d+)$/u.exec(id);
+  if (match !== null) return document.pages.find((page) => page.pageNumber === Number(match[1]))?.lines?.[Number(match[2]) - 1];
+  const block = document.pages.find((page) => page.pageNumber === segment?.pageNumber)?.blocks
+    ?.find((candidate) => candidate.id === segment?.sourceIds.at(end));
+  return block?.kind === "text" ? block.lines.at(end) : undefined;
 }
 
 function isBodyText(element: DocumentElement): boolean {
@@ -496,7 +522,7 @@ function continuationRows(table: TableElement, continuation: TableContinuation):
 export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis {
   const warnings: ConversionWarning[] = [];
   const sources = document.pages.map((page) => ({ page, ...candidatesFor(page) }));
-  const furniture = detectFurniture(sources.map(({ page, candidates, source }) => ({
+  const { confirmed: furniture, suspected } = detectFurniture(sources.map(({ page, candidates, source }) => ({
     pageNumber: page.pageNumber,
     width: page.width,
     height: page.height,
@@ -512,18 +538,28 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
     });
     const furnitureIds = new Set(pageFurniture.map((element) => element.id));
     const acceptTable = (group: TableGroup): boolean =>
-      (group.rule === "equal-width" || positioned(frame)) && looksLikeTableGroup(group.candidates);
+      (group.rule === "equal-width" || positioned(frame)) && looksLikeTableGroup(group.candidates) &&
+      !group.candidates.some((candidate) => suspected.has(candidate));
 
     const tailElement = tail === undefined ? undefined : tail.elements[tail.elementIndex];
     let continuedTable: { readonly table: TableElement; readonly box: LayoutBox; readonly consumed: ReadonlySet<Candidate> } | undefined;
     if (tail?.table !== undefined && tailElement?.kind === "table") {
       const continuation = takeTableContinuation(
-        { ...tail.table, table: tailElement, page: tail.page, box: tail.box },
+        {
+          ...tail.table,
+          table: tailElement,
+          page: tail.page,
+          box: tail.box,
+          ...(tail.suspectBelow === undefined ? {} : { suspectBelow: tail.suspectBelow }),
+          ...(tail.label === undefined ? {} : { label: tail.label }),
+        },
         frame,
         sourceCandidates.candidates.filter((candidate) => !furniture.has(candidate)),
+        suspected,
       );
-      const table = continuation === undefined ? undefined : continuationRows(tailElement, continuation);
-      if (continuation !== undefined && table !== undefined) {
+      if (continuation?.kind === "separate") warnings.push(continuation.warning);
+      const table = continuation?.kind === "join" ? continuationRows(tailElement, continuation) : undefined;
+      if (continuation?.kind === "join" && table !== undefined) {
         continuedTable = { table, box: unionBox(continuation.consumed.map((candidate) => candidate.box)), consumed: new Set(continuation.consumed) };
       }
     }
@@ -563,7 +599,7 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
     const traits = new Map<DocumentElement, TableTraits>();
     const elements: DocumentElement[] = [
       ...pageFurniture.filter((element) => element.kind === "page-header").sort(byPosition),
-      ...analyzeTextCandidates(body, bodySize, acceptTable, traits),
+      ...analyzeTextCandidates(body, bodySize, acceptTable, traits, warnings),
       ...figureElements(page),
       ...pageFurniture.filter((element) => element.kind === "page-footer").sort(byPosition),
     ];
@@ -577,7 +613,11 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
     } else if (tail !== undefined && tailElement?.kind === "paragraph") {
       const texts = bodyText();
       const first = texts[leadingBandLines(boxes(texts), page.height)];
-      if (first !== undefined && continuesParagraph(tailElement, tail, first, frame)) {
+      const lines = {
+        end: sourceLine(document, provenanceSegments(tailElement.provenance).at(-1), -1),
+        start: sourceLine(document, first?.provenance, 0),
+      };
+      if (first !== undefined && continuesParagraph(tailElement, tail, first, frame, lines)) {
         tail.elements[tail.elementIndex] = appendParagraph(tailElement, first);
         elements.splice(elements.indexOf(first), 1);
         joinedBox = first.provenance.box;
@@ -590,7 +630,19 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
     if (!positioned(frame)) tail = undefined;
     else if (last !== undefined) {
       const table = traits.get(last);
-      tail = { elements, elementIndex: lastIndex, page: frame, box: last.provenance.box, ...(table === undefined ? {} : { table }) };
+      const bottom = last.provenance.box.y + last.provenance.box.height;
+      const suspectBelow = sourceCandidates.candidates.find((candidate) => suspected.has(candidate) && candidate.box.y >= bottom);
+      const caption = texts[texts.indexOf(last) - 1];
+      const label = table === undefined || caption === undefined || !("text" in caption) ? undefined : tableLabel(caption.text);
+      tail = {
+        elements,
+        elementIndex: lastIndex,
+        page: frame,
+        box: last.provenance.box,
+        ...(table === undefined ? {} : { table }),
+        ...(suspectBelow === undefined ? {} : { suspectBelow }),
+        ...(label === undefined ? {} : { label }),
+      };
     } else if (tail !== undefined && joinedBox !== undefined) {
       tail = { ...tail, page: frame, box: joinedBox };
     } else tail = undefined;
@@ -611,7 +663,7 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
 
   return {
     document: {
-      pages,
+      pages: withElementIds(pages),
       ...(document.metadata === undefined ? {} : { metadata: document.metadata }),
     },
     warnings,

@@ -29,6 +29,8 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "Extractor",
         "ExtractorOptions",
         "FieldCitation",
+        "formatFieldPath",
+        "parseFieldPath",
         "LoadLlmOptions",
         "ModelBackend",
         "PipelineComponents",
@@ -93,6 +95,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       "content/docs/reference/api/core-contracts.mdx": [
         "Contract",
         "ContractDefinition",
+        "ContractExample",
         "ContractLike",
         "FlexibleSchema",
         "InferContract",
@@ -563,7 +566,17 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "formatScoreboard",
         "hallucinations",
         "recordRun",
-        "scoreExtraction"
+        "scoreExtraction",
+        "AbsentCheck",
+        "ConversionCheck",
+        "ConversionCheckKind",
+        "ConversionCheckResult",
+        "ConversionReport",
+        "ConvertedPages",
+        "OrderCheck",
+        "PresentCheck",
+        "TableCheck",
+        "checkConversion"
       ]
     }
   },
@@ -586,10 +599,15 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     entrypoint: "../../packages/docture/src/testing/conformance/index.ts",
     pages: {
       "content/docs/reference/api/testing.mdx": [
+        "ConformanceDocument",
+        "ConformanceFixtures",
         "LoaderConformanceOptions",
         "RasterizerConformanceOptions",
         "describeLoaderConformance",
-        "describeRasterizerConformance"
+        "describeRasterizerConformance",
+        "pdfFixtures",
+        "pngFixtures",
+        "textFixtures"
       ]
     }
   },
@@ -608,7 +626,9 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "formatMoney",
         "makeInvoicePdf",
         "makeRichDocumentPdf",
-        "richDocumentExpected"
+        "richDocumentExpected",
+        "ConversionCase",
+        "conversionCorpus"
       ]
     }
   },
@@ -635,6 +655,19 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "run",
         "styleFor",
         "version"
+      ]
+    }
+  },
+  {
+    packageName: "@docture/cli",
+    importPath: "@docture/cli/config",
+    entrypoint: "../../packages/cli/src/define-config.ts",
+    pages: {
+      "content/docs/reference/api/cli.mdx": [
+        "CliConverter",
+        "CliExtractor",
+        "DoctureConfig",
+        "defineConfig"
       ]
     }
   },

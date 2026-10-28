@@ -49,12 +49,20 @@ const TYPE_LONG = 4;
 /** Bytes per value of each TIFF 6 field type, indexed by type code. Other codes are skipped, as the spec asks. */
 const TYPE_SIZES = [0, 1, 1, 2, 4, 8, 1, 1, 2, 4, 8, 4, 8, 4];
 
-/**
- * Largest TIFF page an OCR loader decodes: 8192 x 8192 pixels. Measured on Node 24,
- * decoding one to PNG peaks at 0.7 GB resident for 8-bit gray and 1.1 GB for 16-bit
- * RGBA, and PaddleOCR reading it peaks at 2.6 GB.
- */
 export const MAX_TIFF_PAGE_PIXELS = 8192 * 8192;
+
+export const MAX_TIFF_PAGE_BYTES = 8192 * 8192 * 4;
+
+export function tiffPageTooLarge(page: TiffPage, data: TiffPixelData): string | undefined {
+  const size = `TIFF page ${page.pageNumber} is ${page.widthPx}x${page.heightPx} pixels`;
+  if (page.widthPx * page.heightPx > MAX_TIFF_PAGE_PIXELS) {
+    return `${size}, more than the ${MAX_TIFF_PAGE_PIXELS} this loader decodes.`;
+  }
+  if (data.decodedBytes > MAX_TIFF_PAGE_BYTES) {
+    return `${size} whose samples decode to ${data.decodedBytes} bytes, more than the ${MAX_TIFF_PAGE_BYTES} this loader decodes.`;
+  }
+  return undefined;
+}
 
 /**
  * The pages of a classic (32-bit offset) TIFF, read from its IFD chain without
@@ -92,6 +100,14 @@ export interface TiffPixelData {
   readonly maxChunkBytes: number;
   /** Bytes in the strips or tiles that cover the page. */
   readonly maxPageBytes: number;
+  readonly decodedBytes: number;
+}
+
+export function tiffLayout(
+  bytes: Uint8Array,
+): { readonly pages: readonly TiffPage[]; readonly pixelData: readonly TiffPixelData[] } | undefined {
+  const tiff = readTiff(bytes);
+  return tiff === undefined ? undefined : { pages: tiff.pages, pixelData: tiff.pixelData };
 }
 
 /**
@@ -183,6 +199,7 @@ function readTiff(
       chunks: starts.slice(0, tiled ? layout.chunksCoveringPage : starts.length).map((start, i) => ({ offset: start, byteCount: lengths[i]! })),
       maxChunkBytes: layout.chunkBytes,
       maxPageBytes: layout.chunkBytes * layout.chunksCoveringPage,
+      decodedBytes: layout.rowBytes * heightPx,
     });
     offset = u32(end);
   }
@@ -200,7 +217,7 @@ function decodedLayout(
   widthPx: number,
   heightPx: number,
   tileCount: number | undefined,
-): { chunkBytes: number; chunksCoveringPage: number } | undefined {
+): { chunkBytes: number; chunksCoveringPage: number; rowBytes: number } | undefined {
   const field = (tag: number, fallback: number) => (tags.has(tag) ? (tags.get(tag)?.[0] ?? 0) : fallback);
   const sampleBits = tags.has(TAG_BITS_PER_SAMPLE) ? (tags.get(TAG_BITS_PER_SAMPLE) ?? []) : [1];
   const bitsPerPixel = sampleBits.reduce((max, bits) => Math.max(max, bits), 0) * field(TAG_SAMPLES_PER_PIXEL, 1);
@@ -210,7 +227,11 @@ function decodedLayout(
   if (tileCount === undefined) {
     const rowsPerStrip = Math.min(field(TAG_ROWS_PER_STRIP, 0xffffffff), heightPx);
     if (rowsPerStrip === 0) return undefined;
-    return { chunkBytes: rowBytes(widthPx) * rowsPerStrip, chunksCoveringPage: Math.ceil(heightPx / rowsPerStrip) };
+    return {
+      chunkBytes: rowBytes(widthPx) * rowsPerStrip,
+      chunksCoveringPage: Math.ceil(heightPx / rowsPerStrip),
+      rowBytes: rowBytes(widthPx),
+    };
   }
 
   const tileWidth = field(TAG_TILE_WIDTH, 0);
@@ -225,5 +246,5 @@ function decodedLayout(
     tileWidth * tileLength <= Math.max(pageArea, TILE_AREA_FLOOR) &&
     across * tileWidth * down * tileLength <= Math.max(4 * pageArea, TILE_AREA_FLOOR);
   if (!proportional) return undefined;
-  return { chunkBytes: rowBytes(tileWidth) * tileLength, chunksCoveringPage: across * down };
+  return { chunkBytes: rowBytes(tileWidth) * tileLength, chunksCoveringPage: across * down, rowBytes: rowBytes(widthPx) };
 }

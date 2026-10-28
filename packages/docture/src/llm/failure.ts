@@ -1,5 +1,5 @@
 import { NoObjectGeneratedError } from "ai";
-import { ModelOutputError, isAbortError, sumUsage, type Usage, type ValidationIssue } from "../core/index.js";
+import { ModelOutputError, formatFieldPath, isAbortError, sumUsage, type Usage, type ValidationIssue } from "../core/index.js";
 import { repairOutputOf, withRepairOutput } from "../core/pipeline/errors.js";
 import { toUsage, type PricingTable } from "./pricing.js";
 
@@ -37,7 +37,7 @@ function issuePath(path: unknown): string | undefined {
     if (typeof key !== "string" && typeof key !== "number" && typeof key !== "symbol") return undefined;
     parts.push(String(key));
   }
-  return parts.join(".");
+  return formatFieldPath(parts);
 }
 
 function validationIssues(error: unknown): readonly ValidationIssue[] | undefined {

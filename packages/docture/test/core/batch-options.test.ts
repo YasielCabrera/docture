@@ -47,6 +47,7 @@ class GetterConvertOptions {
   #values: Required<ConvertOptions>;
   constructor(values: Required<ConvertOptions>) { this.#values = values; }
   get format() { return this.#values.format; }
+  get pages() { return this.#values.pages; }
   get assets() { return this.#values.assets; }
   get signal() { return this.#values.signal; }
   get logger() { return this.#values.logger; }
@@ -94,7 +95,7 @@ function runValues(overrides: RunOptions = {}): Required<RunOptions> {
 
 function convertValues(overrides: ConvertOptions = {}): Required<ConvertOptions> {
   return {
-    format: "html", assets: "embedded", signal: new AbortController().signal,
+    format: "html", pages: [1], assets: "embedded", signal: new AbortController().signal,
     logger: silentLogger, stageTimeoutMs: 10_000, ...overrides,
   };
 }

@@ -1,5 +1,5 @@
 import { generateText, Output, type LanguageModel, type ModelMessage } from "ai";
-import { asSchema, type FlexibleSchema, type ProviderOptions } from "@ai-sdk/provider-utils";
+import { asSchema, jsonSchema, type FlexibleSchema, type ProviderOptions } from "@ai-sdk/provider-utils";
 import type { Usage } from "../core/index.js";
 import { storedUsage, type LlmCache } from "./cache.js";
 import { modelOutputError } from "./failure.js";
@@ -33,6 +33,23 @@ export interface ObjectRequest {
 export interface ObjectResponse {
   readonly data: unknown;
   readonly usage: Partial<Usage>;
+}
+
+/**
+ * Part of every extraction cache variant. Bump it when what an extraction request
+ * caches changes, so entries written by an older version miss instead of being
+ * read with the new meaning.
+ */
+export const EXTRACTION_CACHE_VERSION = "untransformed";
+
+export function untransformed(schema: FlexibleSchema<unknown>): FlexibleSchema<unknown> {
+  const checked = asSchema(schema);
+  return jsonSchema(checked.jsonSchema, {
+    async validate(value) {
+      const result = await checked.validate?.(structuredClone(value));
+      return result === undefined || result.success ? { success: true, value } : result;
+    },
+  });
 }
 
 /** Throws `ModelOutputError` with its usage when the response does not fit the schema. */

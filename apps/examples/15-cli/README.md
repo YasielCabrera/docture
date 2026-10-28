@@ -23,7 +23,7 @@ renderer is an optional dependency, `@napi-rs/canvas@1.0.10`. If you omitted opt
 dependencies, add that version before using `review` or rendering flags such as
 `--vision`. The tour writes its `review` page to a temporary directory and prints the path.
 
-The config imports `defineConfig` from `@docture/cli`, pipeline APIs from `docture`,
+The config imports `defineConfig` from `@docture/cli/config`, pipeline APIs from `docture`,
 and `DocumentLoaderPdfJs` from `docture/loaders/pdfjs`. To build a similar config in
 your own project, declare its imports explicitly:
 

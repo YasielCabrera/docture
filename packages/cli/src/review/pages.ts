@@ -27,16 +27,17 @@ export interface PageRendererOptions {
   readonly config?: LoadedConfig;
   readonly dpi: number;
   readonly timeoutMs?: number;
-  /** Dispose the configured loaders too. False when a conversion or extraction wiring already owns them. */
-  readonly ownsConfiguredLoaders: boolean;
 }
 
-/** Fails here, before any document work, when a PDF loader needs @napi-rs/canvas and it is missing. */
+/**
+ * Fails here, before any document work, when a PDF loader needs @napi-rs/canvas and it is missing.
+ * Disposes only what it creates; the configured loaders belong to the caller.
+ */
 export async function pageRenderer(options: PageRendererOptions): Promise<PageRenderer> {
   const base = baseLoaders(options.config);
   const rendering = await renderingLoaders(base, options.dpi);
   const owned: readonly { dispose?(): Promise<void> }[] = [
-    ...(options.config?.config.loaders === undefined || options.ownsConfiguredLoaders ? base : []),
+    ...(options.config?.config.loaders === undefined ? base : []),
     ...(rendering.rasterizer === undefined ? [] : [rendering.rasterizer]),
   ];
   return {
@@ -45,7 +46,7 @@ export async function pageRenderer(options: PageRendererOptions): Promise<PageRe
       const images: PageImage[] = [];
       for (const page of document.pages) {
         if (page.image === undefined) throw unrenderable(loader, page.pageNumber);
-        const bytes = await page.image({ format: "png" });
+        const bytes = await page.image({ format: "png" }, { signal });
         const mimeType = mimeTypeOf(bytes);
         if (mimeType === undefined) {
           throw new CliError(`Page ${page.pageNumber} rendered by ${loader.name} is neither PNG nor JPEG, so a browser cannot show it.`);

@@ -11,7 +11,10 @@ Install and import from `@docture/cli`. The executable name is `docture`.
 defineConfig(config: DoctureConfig): DoctureConfig
 ```
 
-`defineConfig()` is an identity helper for `docture.config.ts` type inference.
+`defineConfig()` is an identity helper for `docture.config.ts` type inference. Import it
+from `@docture/cli/config`. That entry has no runtime imports, so a tool that reads a
+config loads neither the CLI nor `docture`. The root `@docture/cli` entry still exports
+`defineConfig` and `DoctureConfig`.
 
 `DoctureConfig` may provide a complete `extractor` or `converter`, or its component parts: `loaders`,
 `strategies`, `classifiers`, `classifications`, `policy`, and `stageTimeoutMs`. When a
@@ -21,8 +24,14 @@ also provide a `layoutAnalyzer`.
 `extractor` and `converter` accept the value or a function that returns it, directly or
 through a promise. Their types name only the methods the CLI calls: `extract`,
 `extractBatch`, `classify`, and `dispose` for an extractor, and `convertBatch` and
-`dispose` for a converter. An `Extractor` or `DocumentConverter` built by another installed
-copy of `docture` therefore satisfies them.
+`dispose` for a converter, and `@docture/cli/config` exports them as `CliExtractor` and
+`CliConverter`. An `Extractor` or `DocumentConverter` built by another installed copy of
+`docture` therefore satisfies them.
+
+The CLI disposes what it composes. `docture review` renders pages with the configured
+`loaders` and disposes them when it finishes or fails, including when the input or schema
+cannot be read and when a complete `extractor` or `converter` is present. A loader in
+`loaders` that the config also passes to its own converter or extractor is disposed once.
 
 When explicit strategies are absent, config may provide `model`, `vision`, `pricing`, and
 `instructions`. It may also provide a default `schema`, model `cacheDir`, and extraction
@@ -56,6 +65,8 @@ styleFor(color: boolean): Style
 ```
 
 `processIo()` binds the interface to the current Node process and honors `NO_COLOR`.
+Its `readStdin(signal)` rejects with the signal's reason as soon as the signal aborts,
+even while stdin is open and idle, and destroys stdin so the process can exit.
 `CaptureOptions` accepts any `Io` field except `readStdin`, plus `stdin`, the bytes its
 `readStdin()` returns.
 `captureIo()` defaults to the current directory, an empty environment, no color, and empty

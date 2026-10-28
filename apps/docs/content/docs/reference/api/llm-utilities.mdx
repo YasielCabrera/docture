@@ -18,14 +18,21 @@ Import from `docture/llm/prompt`.
 
 ```ts
 buildPrompt(text: string, options?: BuildPromptOptions): PromptParts
-wrapUntrusted(tag: "document" | "excerpt", text: string): string
+wrapUntrusted(
+  tag: "document" | "excerpt" | "example" | "input" | "output",
+  text: string,
+  escape?: readonly ("document" | "excerpt" | "example" | "input" | "output")[],
+): string
 ```
 
-`BuildPromptOptions` has `system`, `instructions`, optional `classification`, and `hints`.
-`system` replaces the default; instructions and hints are appended. `PromptParts` contains
+`BuildPromptOptions` has `system`, `instructions`, optional `classification`, `hints`, and
+`examples`. `system` replaces the default; instructions, hints and examples are appended.
+Each example, `{ text, output }` with `output` as JSON text, is rendered as `<example>`
+holding `<input>` and `<output>`. `PromptParts` contains
 the final `system` and user `prompt`. The document text is wrapped in document delimiters.
-`wrapUntrusted()` neutralizes matching open and close tag forms inside the text, ignoring
-case and surrounding whitespace, then wraps it in one tag pair. Other text is unchanged.
+`wrapUntrusted()` neutralizes matching open and close tag forms inside the text, and those
+of every tag in `escape`, ignoring case and surrounding whitespace, then wraps it in one
+tag pair. Other text is unchanged.
 
 ## Chunking
 
@@ -118,11 +125,13 @@ mergePartialsWithDiagnostics(parts: readonly MergePart[]): MergeDiagnostics
 `MergePart` is `{ data, pages }`, with the 1-based pages the part came from.
 `MergeDiagnostics` is `{ data, conflicts }`. `data` is exactly what `mergePartials()`
 returns for the same data; `mergePartials()` is this fold without the pages.
-`conflicts` lists each `ExtractionConflict` in order of first appearance: a dotted
+`conflicts` lists each `ExtractionConflict` in order of first appearance: a field
 `path` and every distinct present value with the pages that gave it. Strings compare
 after trimming and numbers by value. A `0` or `false` replaced by a later value still
 counts as one of the disagreeing values. A path where a scalar met an object or an
-array also conflicts, and its values include that object or array. Objects at one path
+array also conflicts, and its values include that object or array. A literal key
+`"a.b"` and the nested field `a.b` are separate paths, `` `a.b` `` and `a.b`, so they
+never conflict with each other. Objects at one path
 merge and arrays concatenate, so they never conflict with each other there. Values
 inside arrays are never compared, because concatenated rows are separate records.
 Absent values never conflict.

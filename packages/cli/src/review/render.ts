@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  formatFieldPath,
   provenanceSegments,
   type CitationStatus,
   type DocumentElement,
@@ -54,7 +55,7 @@ aside{position:sticky;top:20px;width:340px;max-height:calc(100vh - 40px);overflo
 .fields{list-style:none;margin:0;padding:0}
 .field{display:grid;grid-template-columns:1fr auto;gap:2px 8px;width:100%;text-align:left;font:inherit;background:none;border:0;border-left:4px solid var(--status);padding:6px 8px;margin:2px 0;cursor:pointer}
 .field:hover,.field[aria-pressed=true]{background:#eff6ff}.field:focus-visible{outline:2px solid #2563eb}
-.field .value{grid-column:1/3;overflow-wrap:anywhere}.field .status{color:var(--status);font-size:12px}
+.field .value{grid-column:1/3;overflow-wrap:anywhere}.field .ocr{grid-column:1/3;color:#52525b;font-size:12px}.field .status{color:var(--status);font-size:12px}
 .status-verified{--status:var(--verified)}.status-cited-unverified{--status:var(--unverified)}
 .status-uncited{--status:var(--uncited)}.status-not-requested{--status:var(--none)}
 .notice{background:#fef3c7;padding:8px;margin:0 0 8px}
@@ -215,6 +216,7 @@ interface ReviewField {
   readonly value: string;
   readonly status: FieldStatus;
   readonly ids: readonly string[];
+  readonly minOcrConfidence?: number;
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -232,7 +234,7 @@ function leaves(value: unknown, path: readonly string[]): { path: string; value:
   if (Array.isArray(value)) return value.flatMap((item, index) => leaves(item, [...path, String(index)]));
   if (isPlainRecord(value)) return Object.entries(value).flatMap(([key, item]) => leaves(item, [...path, key]));
   if (value === null || value === undefined || (typeof value === "string" && value.trim() === "")) return [];
-  return [{ path: path.join("."), value: displayValue(value) }];
+  return [{ path: formatFieldPath(path), value: displayValue(value) }];
 }
 
 function reviewFields(extraction: ReviewedExtraction): readonly ReviewField[] {
@@ -242,7 +244,12 @@ function reviewFields(extraction: ReviewedExtraction): readonly ReviewField[] {
     const citation = byPath.get(leaf.path);
     return citation === undefined
       ? { ...leaf, status: "uncited", ids: [] }
-      : { ...leaf, status: citation.status, ids: citation.ids };
+      : {
+        ...leaf,
+        status: citation.status,
+        ids: citation.ids,
+        ...(citation.status === "uncited" || citation.minOcrConfidence === undefined ? {} : { minOcrConfidence: citation.minOcrConfidence }),
+      };
   });
 }
 
@@ -277,7 +284,9 @@ export function extractionReviewHtml(review: ExtractionReview): string {
     return (
       `<li><button type="button" class="field status-${field.status}" aria-pressed="false" data-path="${escapeHtml(field.path)}"` +
       ` data-status="${field.status}"${targets}><span class="path">${escapeHtml(field.path || "(value)")}</span>` +
-      `<span class="status">${status}</span><span class="value">${escapeHtml(field.value)}</span></button></li>`
+      `<span class="status">${status}</span><span class="value">${escapeHtml(field.value)}</span>` +
+      (field.minOcrConfidence === undefined ? "" : `<span class="ocr">lowest OCR confidence ${field.minOcrConfidence}</span>`) +
+      "</button></li>"
     );
   });
   const counts = (["verified", "cited-unverified", "uncited"] as const)

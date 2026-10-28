@@ -246,6 +246,7 @@ export const bundleConsumers = {
   split: 'import * as api from "docture/llm/split"; export { api }; export const splitter = api.textSplitter({ model: "verification/mock", name: "verification-splitter" });\n',
   extractor: 'import { documentLoaderData } from "docture"; import * as api from "docture/llm/extractor"; export { api }; export const extractor = api.createLlmExtractor({ model: "verification/mock", vision: true, classifyWithModel: true, loaders: [documentLoaderData()] });\n',
   helpers: ["cache", "pricing", "prompt", "merge", "relax"].map(name => `import * as ${name} from "docture/llm/${name}";`).join(" ") + " export { cache, pricing, prompt, merge, relax };\n",
+  chunk: 'import * as api from "docture/chunk"; export { api };\n',
   broad: 'import { LLM } from "docture/llm"; export const backend = new LLM("verification/mock");\n',
 };
 
@@ -267,6 +268,17 @@ const bundleAssertions = {
   split: 'assert.equal(b.splitter.name, "verification-splitter"); assert.deepEqual(b.splitter.requires, ["TEXT_LAYER"]); assert.equal(typeof b.api.ImageSplitter, "function");',
   extractor: 'assert.deepEqual(Object.fromEntries(Object.entries(b.extractor.components).map(([kind, items]) => [kind, items.map(item => item.name)])), { loaders: ["DocumentLoaderData"], strategies: ["llm", "vision"], classifiers: ["llm-classifier"], classifications: [] });',
   helpers: helperAssertions,
+  chunk: String.raw`
+const element = (id, kind, text, pageNumber, y, extra = {}) => ({ id, kind, text, runs: [{ text }], provenance: { pageNumber, box: { x: 40, y, width: 200, height: 12 }, sourceIds: [id] }, ...extra });
+const chunks = b.api.chunkDocument({ pages: [
+  { elements: [element("p1-heading-1", "heading", "Invoice INV-42", 1, 60, { level: 1 }), element("p1-text-1", "paragraph", "Billed to Acme Corp.", 1, 100), element("p1-text-2", "paragraph", "Total due: 17 EUR.", 1, 120)] },
+  { elements: [element("p2-text-1", "paragraph", "Payment within 30 days.", 2, 60)] },
+] }, { budget: { unit: "characters", max: 40 }, headingPath: true });
+assert.deepEqual(chunks.map(chunk => [chunk.text, chunk.elementIds, chunk.provenance.map(segment => segment.pageNumber)]), [
+  ["# Invoice INV-42\n\nBilled to Acme Corp.", ["p1-heading-1", "p1-text-1"], [1, 1]],
+  ["# Invoice INV-42\n\nTotal due: 17 EUR.", ["p1-text-2"], [1]],
+  ["# Invoice INV-42\n\nPayment within 30 days.", ["p2-text-1"], [2]],
+]);`,
   broad: 'assert.equal(b.backend.extraction().name, "llm"); assert.equal(b.backend.vision().name, "vision");',
 };
 
@@ -744,3 +756,38 @@ void range;
 `;
 
 export const cliRootBundleConsumer = 'import { run, captureIo } from "@docture/cli"; export const code = await run(["--version"], { io: captureIo() });\n';
+
+export const moduleTrace = String.raw`import { appendFileSync } from "node:fs";
+import * as module from "node:module";
+const log = new URL("./module-trace.log", import.meta.url);
+const record = url => { if (url.startsWith("file:")) appendFileSync(log, url + "\n"); };
+if (typeof module.registerHooks === "function") {
+  module.registerHooks({ load(url, context, nextLoad) { record(url); return nextLoad(url, context); } });
+} else {
+  module.register("./module-trace-hooks.mjs", import.meta.url, { data: { log: log.href } });
+}
+`;
+
+export const moduleTraceHooks = String.raw`import { appendFileSync } from "node:fs";
+let log;
+export function initialize(data) { log = new URL(data.log); }
+export async function load(url, context, nextLoad) {
+  if (url.startsWith("file:")) appendFileSync(log, url + "\n");
+  return nextLoad(url, context);
+}
+`;
+
+export const cliConfigRuntime = String.raw`import assert from "node:assert/strict";
+import { defineConfig } from "@docture/cli/config";
+const config = { concurrency: 2, instructions: "Prefer the printed total." };
+assert.equal(defineConfig(config), config);
+`;
+
+export const cliConfigTypes = String.raw`import { defineConfig, type CliConverter, type CliExtractor, type DoctureConfig } from "@docture/cli/config";
+import { defineConfig as rootDefineConfig, type DoctureConfig as RootConfig } from "@docture/cli";
+declare const extractor: CliExtractor;
+declare const converter: CliConverter;
+const config: DoctureConfig = defineConfig({ extractor, converter: async () => converter, concurrency: 2 });
+const root: RootConfig = rootDefineConfig(config);
+export default root;
+`;

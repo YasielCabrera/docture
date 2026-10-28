@@ -27,12 +27,12 @@ import {
   type LoadedDocument,
   type OutcomeCitation,
   type RepairInput,
-  type SourceLine,
   type StrategyContext,
   type StrategyOutcome,
   type Usage,
 } from "../core/index.js";
 import { analyzeDocument } from "../core/conversion/analyze.js";
+import type { EvidenceLine } from "./evidence.js";
 import { flattenHeaderRows } from "../core/conversion/tables.js";
 import { cacheKey, type LlmCache } from "./cache.js";
 import {
@@ -53,7 +53,7 @@ import type { PricingTable } from "./pricing.js";
 import { relaxJsonSchema } from "./relax.js";
 import { withCompletedUsage } from "./failure.js";
 import { repairFingerprint, repairMessages } from "./repair.js";
-import { requestObject, type ObjectRequest, type ObjectResponse } from "./request.js";
+import { EXTRACTION_CACHE_VERSION, requestObject, untransformed, type ObjectRequest, type ObjectResponse } from "./request.js";
 import { callTelemetry, type LlmTelemetryOptions, type TelemetryScope } from "./telemetry.js";
 import { modelIdOf, providerOf } from "./model-id.js";
 
@@ -96,7 +96,7 @@ export interface LlmStrategyOptions {
 }
 
 interface CitedChunk extends Chunk {
-  readonly lines: readonly SourceLine[];
+  readonly lines: readonly EvidenceLine[];
 }
 
 interface Part {
@@ -157,6 +157,7 @@ export class LlmStrategy implements ExtractionStrategy {
       ...(this.options.instructions === undefined ? {} : { instructions: this.options.instructions }),
       ...(ctx.classification === undefined ? {} : { classification: ctx.classification }),
       ...(hint === undefined ? {} : { hints: hint }),
+      ...(ctx.examples === undefined ? {} : { examples: ctx.examples }),
     });
   }
 
@@ -181,7 +182,7 @@ export class LlmStrategy implements ExtractionStrategy {
         system: request.system,
         prompt: key.prompt,
         jsonSchema: key.jsonSchema,
-        variant: key.variant,
+        variant: `${EXTRACTION_CACHE_VERSION}:${key.variant}`,
       }),
       temperature: this.options.temperature,
       maxRetries: this.options.maxRetries,
@@ -206,7 +207,7 @@ export class LlmStrategy implements ExtractionStrategy {
      */
     const single = chunks.length === 1;
     const dataJson = single ? ctx.schema.jsonSchema : relaxJsonSchema(ctx.schema.jsonSchema) as Record<string, unknown>;
-    const requestSchema = single ? ctx.schema.flexible : jsonSchema(dataJson as Record<string, never>);
+    const requestSchema = single ? untransformed(ctx.schema.flexible) : jsonSchema(dataJson as Record<string, never>);
     const cacheVariant = single ? "strict" : "relaxed";
     const cited = chunks.some((chunk) => chunk.lines.length > 0) ? this.cited(ctx, dataJson, single) : undefined;
 
@@ -262,7 +263,7 @@ export class LlmStrategy implements ExtractionStrategy {
     readonly schema: FlexibleSchema<CitedAnswer>;
   } {
     const json = citedJsonSchema(dataJson);
-    return { json, schema: citedSchema(json, single ? asSchema(ctx.schema.flexible).validate : undefined, single) };
+    return { json, schema: citedSchema(json, single ? asSchema(untransformed(ctx.schema.flexible)).validate : undefined, single) };
   }
 
   /** Replays a single request with the answer and its issues; a merged answer goes alone. */
@@ -275,7 +276,7 @@ export class LlmStrategy implements ExtractionStrategy {
     const { system, prompt } = cited === undefined ? parts : citedPrompt(parts);
     const messages = repairMessages(only === undefined ? undefined : [{ type: "text", text: prompt }], previous, cited !== undefined);
     const response = await this.request(ctx, {
-      schema: cited?.schema ?? ctx.schema.flexible, system, input: { messages }, signal: ctx.signal, startedAt: Date.now(),
+      schema: cited?.schema ?? untransformed(ctx.schema.flexible), system, input: { messages }, signal: ctx.signal, startedAt: Date.now(),
       ...(cited === undefined ? {} : { rawOf: rawAnswer }),
     }, {
       prompt: repairFingerprint(messages),

@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { resolveSource, type LayoutPage, type RawDocument } from "docture";
+import { resolveSource, type DocumentLoader, type LayoutPage, type RawDocument } from "docture";
 import { boolFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { CliError, UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io, type Style } from "../cli/io.js";
@@ -106,6 +106,51 @@ export async function reviewCommand(parsed: Parsed, io: Io, signal: AbortSignal)
     ...(common.configPath === undefined ? {} : { explicit: common.configPath }),
     ...(common.noConfig ? { disabled: true } : {}),
   });
+  const loaders = disposeOnceEach(config?.config.loaders ?? []);
+  try {
+    return await reviewConfigured(parsed, io, signal, { request, dpi, out, common, style, config });
+  } finally {
+    await loaders.dispose();
+  }
+}
+
+interface Configured {
+  readonly request: ReviewRequest;
+  readonly dpi: number;
+  readonly out: string;
+  readonly common: CommonOptions;
+  readonly style: Style;
+  readonly config: LoadedConfig | undefined;
+}
+
+/**
+ * The configured loaders can also sit inside the config's own converter or extractor, which disposes them
+ * itself. Each loader's `dispose` runs at most once for this review, whichever owner calls it first.
+ */
+function disposeOnceEach(loaders: readonly DocumentLoader[]): { dispose(): Promise<void> } {
+  const restore: (() => void)[] = [];
+  const once: (() => Promise<void>)[] = [];
+  for (const loader of new Set(loaders)) {
+    const original = loader.dispose;
+    if (typeof original !== "function" || !Object.isExtensible(loader)) continue;
+    const own = Object.getOwnPropertyDescriptor(loader, "dispose");
+    if (own?.configurable === false) continue;
+    let disposed: Promise<void> | undefined;
+    const dispose = (): Promise<void> => (disposed ??= original.call(loader));
+    Object.defineProperty(loader, "dispose", { value: dispose, configurable: true, writable: true });
+    restore.push(() => (own === undefined ? Reflect.deleteProperty(loader, "dispose") : Object.defineProperty(loader, "dispose", own)));
+    once.push(dispose);
+  }
+  return {
+    async dispose() {
+      await Promise.allSettled(once.map((dispose) => dispose()));
+      for (const undo of restore) undo();
+    },
+  };
+}
+
+async function reviewConfigured(parsed: Parsed, io: Io, signal: AbortSignal, configured: Configured): Promise<ExitCode> {
+  const { request, dpi, out, common, style, config } = configured;
   const flags = wiringFlags(parsed);
   const schema = stringFlag(parsed, "schema");
   const prepared: Prepared = {
@@ -123,7 +168,6 @@ export async function reviewCommand(parsed: Parsed, io: Io, signal: AbortSignal)
     ...(config === undefined ? {} : { config }),
     dpi,
     ...(flags.timeoutMs === undefined ? {} : { timeoutMs: flags.timeoutMs }),
-    ownsConfiguredLoaders: saved !== undefined,
   });
   try {
     const title = request.source.label;

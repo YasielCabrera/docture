@@ -144,11 +144,45 @@ test("runtime boundary checks reject every supported foreign import form", async
         await rm(path, { force: true });
       }
     });
+    const fixturesProbe = join(directory, "packages/docture/src/testing/fixtures/boundary-probe.ts");
+    const fromEval = '"../../eval/conversion.js"';
+    for (const [name, code] of [
+      ["a type import", `import type { ConversionCheck } from ${fromEval};\nexport type Check = ConversionCheck;`],
+      ["a type re-export", `export type { ConversionCheck } from ${fromEval};`],
+    ]) {
+      await t.test(`permits ${name} from eval in testing/fixtures`, async () => {
+        try {
+          await writeFile(fixturesProbe, code);
+          const result = check();
+          assert.equal(result.status, 0, result.stdout + result.stderr);
+        } finally {
+          await rm(fixturesProbe, { force: true });
+        }
+      });
+    }
+    for (const [name, code] of [
+      ["a runtime import", `import { checkConversion } from ${fromEval};\nexport const leaked = checkConversion;`],
+      ["a runtime re-export", `export { checkConversion } from ${fromEval};`],
+      ["an inline type specifier, which still emits a runtime import", `import { type ConversionCheck } from ${fromEval};\nexport type Check = ConversionCheck;`],
+      ["a type import beside a runtime import", `import type { ConversionCheck } from ${fromEval};\nexport const load = () => import(${fromEval});`],
+    ]) {
+      await t.test(`rejects ${name} from eval in testing/fixtures`, async () => {
+        try {
+          await writeFile(fixturesProbe, code);
+          const result = check();
+          assert.notEqual(result.status, 0, `${name} must be rejected`);
+          assert.ok(result.stderr.includes("testing/fixtures/boundary-probe.ts crosses into ../../eval/conversion.js"), result.stdout + result.stderr);
+        } finally {
+          await rm(fixturesProbe, { force: true });
+        }
+      });
+    }
     const cli = join(directory, "packages/cli/src");
     const cliCases = [
       ["a static MCP SDK import in the CLI", "run.ts", 'import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";\nexport const leaked = McpServer;', "cli/run.ts statically imports the optional peer @modelcontextprotocol/sdk/server/mcp.js"],
       ["a lazy MCP SDK import outside src/mcp", "run.ts", 'export const leaked = () => import("@modelcontextprotocol/sdk/server/mcp.js");', "cli/run.ts loads @modelcontextprotocol/sdk/server/mcp.js outside src/mcp"],
       ["the root CLI entry reaching the MCP server", "index.ts", 'export { createMcpServer } from "./mcp/index.js";', "@docture/cli statically reaches cli/mcp/index.ts"],
+      ["a runtime import in the config entry", "define-config.ts", 'import { UsageError } from "./cli/errors.js";\nexport const leaked = UsageError;', "@docture/cli/config must import and re-export types only"],
     ];
     for (const [name, file, code, message] of cliCases) {
       await t.test(`rejects ${name}`, async () => {

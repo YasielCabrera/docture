@@ -192,6 +192,8 @@ describe("the public API is an exact list", () => {
     // results
     "EMPTY_USAGE",
     "sumUsage",
+    "formatFieldPath",
+    "parseFieldPath",
     // loaders
     "defineLoader",
     "loaderAccepts",

@@ -22,7 +22,10 @@ await extractor.extract(new URL("https://example.com/invoice.pdf"), Invoice);
 ```
 
 A string without a URL protocol is a filesystem path. `file:`, `http:`, and `https:` URLs
-are supported. HTTP errors raise `UnsupportedSourceError`.
+are supported. HTTP errors raise `UnsupportedSourceError`. So does a path or `file:` URL
+that cannot be read, such as a missing file, a directory, or a file without read
+permission. Its message names the path and the fix, and `cause` keeps the file-system
+error with its `code`, such as `ENOENT` or `EACCES`.
 
 ## Bytes
 

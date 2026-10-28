@@ -1,4 +1,4 @@
-import type { LineSourceId, SourceLine } from "../core/index.js";
+import type { LineSourceId, SourceLine, TextSpan } from "../core/index.js";
 
 const WORD = /(?![\u00B2\u00B3\u00B9\u2070-\u209F])[\p{L}\p{N}]/u;
 const DIGIT = /(?![\u00B2\u00B3\u00B9\u2070-\u209F])\p{N}/u;
@@ -64,7 +64,7 @@ function lineOrder(id: LineSourceId): readonly [number, number] {
   return [Number(page), Number(line)];
 }
 
-export function inLineOrder(lines: readonly SourceLine[]): SourceLine[] {
+export function inLineOrder<Line extends SourceLine>(lines: readonly Line[]): Line[] {
   return [...lines].sort((first, second) => {
     const [pageA, lineA] = lineOrder(first.id);
     const [pageB, lineB] = lineOrder(second.id);
@@ -72,8 +72,8 @@ export function inLineOrder(lines: readonly SourceLine[]): SourceLine[] {
   });
 }
 
-function runsOf(lines: readonly SourceLine[]): SourceLine[][] {
-  const runs: SourceLine[][] = [];
+function runsOf<Line extends SourceLine>(lines: readonly Line[]): Line[][] {
+  const runs: Line[][] = [];
   let previous: readonly [number, number] | undefined;
   for (const line of lines) {
     const order = lineOrder(line.id);
@@ -85,7 +85,27 @@ function runsOf(lines: readonly SourceLine[]): SourceLine[][] {
   return runs;
 }
 
-function matchString(value: string, lines: readonly SourceLine[]): LineSourceId[] | undefined {
+export interface EvidenceLine extends SourceLine {
+  readonly spans: readonly TextSpan[];
+}
+
+interface Form {
+  readonly normalize: (text: string) => string;
+  readonly collapse: boolean;
+}
+
+const TEXT: Form = { normalize: normalizeText, collapse: true };
+const NUMBER: Form = { normalize: (text) => normalizeForm(text, true), collapse: false };
+const DATE: Form = { normalize: (text) => normalizeForm(text), collapse: false };
+
+interface Occurrence {
+  readonly line: EvidenceLine;
+  readonly form: Form;
+  readonly start: number;
+  readonly end: number;
+}
+
+function matchString(value: string, lines: readonly EvidenceLine[]): Occurrence[] | undefined {
   const needle = normalizeText(value);
   if (needle === "") return undefined;
   const first = needle[0];
@@ -104,9 +124,13 @@ function matchString(value: string, lines: readonly SourceLine[]): LineSourceId[
       const bounded = (!isWord(first) || clearBefore(haystack, at, isDigit(first))) &&
         (!isWord(last) || clearAfter(haystack, end, isDigit(last)));
       if (bounded) {
-        return run
-          .filter((_, index) => (starts[index] ?? 0) < end && (starts[index] ?? 0) + (texts[index]?.length ?? 0) > at)
-          .map((line) => line.id);
+        return run.flatMap((line, index) => {
+          const offset = starts[index] ?? 0;
+          const length = texts[index]?.length ?? 0;
+          return offset < end && offset + length > at
+            ? [{ line, form: TEXT, start: Math.max(at, offset) - offset, end: Math.min(end, offset + length) - offset }]
+            : [];
+        });
       }
     }
   }
@@ -161,9 +185,15 @@ function signAt(text: string, index: number): boolean {
   return before === undefined || /\s/u.test(before) || before === "(" || CURRENCY.test(before);
 }
 
-function numbersIn(raw: string): Set<string> {
+interface Token {
+  readonly reading: string;
+  readonly start: number;
+  readonly end: number;
+}
+
+function numbersIn(raw: string): Token[] {
   const text = normalizeForm(raw, true);
-  const found = new Set<string>();
+  const found: Token[] = [];
   for (const match of text.matchAll(/\d[\d.,'  ]*/gu)) {
     const digits = match[0].replace(/[.,'  ]+$/u, "");
     let start = match.index;
@@ -196,16 +226,25 @@ function numbersIn(raw: string): Set<string> {
       }
     }
     if (!clearBefore(text, start, isDigit(text[start])) || !clearAfter(text, end, isDigit(text[end - 1]))) continue;
-    for (const reading of readings(digits, negative)) found.add(reading);
+    for (const reading of readings(digits, negative)) found.push({ reading, start, end });
   }
   return found;
 }
 
-function matchNumber(value: number, lines: readonly SourceLine[]): LineSourceId[] | undefined {
+function firstToken(lines: readonly EvidenceLine[], form: Form, tokens: (text: string) => Token[], wanted: string): Occurrence[] | undefined {
+  for (const line of lines) {
+    const token = tokens(line.text)
+      .filter((candidate) => candidate.reading === wanted)
+      .reduce<Token | undefined>((leftmost, candidate) => leftmost === undefined || candidate.start < leftmost.start ? candidate : leftmost, undefined);
+    if (token !== undefined) return [{ line, form, start: token.start, end: token.end }];
+  }
+  return undefined;
+}
+
+function matchNumber(value: number, lines: readonly EvidenceLine[]): Occurrence[] | undefined {
   const wanted = String(value);
   if (!Number.isFinite(value) || /e/iu.test(wanted)) return undefined;
-  const line = lines.find((candidate) => numbersIn(candidate.text).has(wanted));
-  return line === undefined ? undefined : [line.id];
+  return firstToken(lines, NUMBER, numbersIn, wanted);
 }
 
 const MONTHS = [
@@ -247,36 +286,68 @@ const DATE_TOKENS: readonly [RegExp, (groups: readonly string[]) => readonly (re
     ([day, month, year]) => [[Number(year), monthNumber(month ?? "") ?? 0, Number(day)]]],
 ];
 
-function datesIn(raw: string): Set<string> {
+function datesIn(raw: string): Token[] {
   const text = normalizeForm(raw);
-  const found = new Set<string>();
+  const found: Token[] = [];
   for (const [pattern, read] of DATE_TOKENS) {
     for (const match of text.matchAll(pattern)) {
       for (const [year, month, day] of read(match.slice(1))) {
         const iso = isoDay(year, month, day);
-        if (iso !== undefined) found.add(iso);
+        if (iso !== undefined) found.push({ reading: iso, start: match.index, end: match.index + match[0].length });
       }
     }
   }
   return found;
 }
 
-function matchDate(value: string, lines: readonly SourceLine[]): LineSourceId[] | undefined {
+function matchDate(value: string, lines: readonly EvidenceLine[]): Occurrence[] | undefined {
   if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) return undefined;
   const [year, month, day] = value.split("-").map(Number);
   if (isoDay(year ?? 0, month ?? 0, day ?? 0) !== value) return undefined;
-  const line = lines.find((candidate) => datesIn(candidate.text).has(value));
-  return line === undefined ? undefined : [line.id];
+  return firstToken(lines, DATE, datesIn, value);
 }
 
-/**
- * The lines, in page and line order, that show `value`, or `undefined`. A string
- * may span lines that follow each other on one page; a number or a date is read
- * from one line. A boolean never shows.
- */
-export function evidenceFor(value: unknown, lines: readonly SourceLine[]): LineSourceId[] | undefined {
+function owners(line: EvidenceLine, form: Form): (number | undefined)[] | undefined {
+  let text = "";
+  const owner: (number | undefined)[] = [];
+  for (const [index, span] of line.spans.entries()) {
+    const piece = form.normalize(span.text);
+    if (form.collapse && piece === "") continue;
+    if (form.collapse ? text !== "" : index > 0) {
+      text += " ";
+      owner.push(undefined);
+    }
+    text += piece;
+    for (let at = 0; at < piece.length; at += 1) owner.push(index);
+  }
+  return line.spans.length > 0 && text === form.normalize(line.text) ? owner : undefined;
+}
+
+function spansOf(occurrences: readonly Occurrence[]): { line: LineSourceId; span: number }[] | undefined {
+  const refs: { line: LineSourceId; span: number }[] = [];
+  for (const { line, form, start, end } of occurrences) {
+    const owner = owners(line, form);
+    if (owner === undefined) return undefined;
+    const spans = new Set(owner.slice(start, end).filter((span) => span !== undefined));
+    if (spans.size === 0) return undefined;
+    for (const span of [...spans].sort((a, b) => a - b)) refs.push({ line: line.id, span });
+  }
+  return refs;
+}
+
+export interface Evidence {
+  readonly ids: LineSourceId[];
+  readonly spans: { line: LineSourceId; span: number }[] | undefined;
+}
+
+export function evidenceFor(value: unknown, lines: readonly EvidenceLine[]): Evidence | undefined {
   const ordered = inLineOrder(lines);
-  if (typeof value === "number") return matchNumber(value, ordered);
-  if (typeof value === "string") return matchString(value, ordered) ?? matchDate(value, ordered);
-  return undefined;
+  const occurrences = typeof value === "number"
+    ? matchNumber(value, ordered)
+    : typeof value === "string"
+      ? matchString(value, ordered) ?? matchDate(value, ordered)
+      : undefined;
+  return occurrences === undefined
+    ? undefined
+    : { ids: occurrences.map((occurrence) => occurrence.line.id), spans: spansOf(occurrences) };
 }

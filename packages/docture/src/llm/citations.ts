@@ -4,10 +4,9 @@ import {
   type LoadedDocument,
   type LoadedPage,
   type OutcomeCitation,
-  type SourceLine,
 } from "../core/index.js";
 import { isPresent, pathKey, type FieldPath } from "../core/pipeline/citations.js";
-import { evidenceFor, inLineOrder, normalizeText } from "./evidence.js";
+import { evidenceFor, inLineOrder, normalizeText, type EvidenceLine } from "./evidence.js";
 import { Origin, type OriginTree } from "./fold.js";
 import type { PromptParts } from "./prompt.js";
 
@@ -18,8 +17,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function renderPage(page: LoadedPage): { readonly text: string; readonly lines: readonly SourceLine[] } {
-  const lines = sourceLines(page).filter((line) => line.text.trim() !== "");
+function renderPage(page: LoadedPage): { readonly text: string; readonly lines: readonly EvidenceLine[] } {
+  const lines = sourceLines(page)
+    .map((line, index) => ({ ...line, spans: page.lines?.[index]?.spans ?? [] }))
+    .filter((line) => line.text.trim() !== "");
   if (lines.length === 0) return { text: page.text, lines };
   return { text: lines.map((line) => `[${line.id}] ${line.text.replace(/[\r\n]/gu, " ")}`).join("\n"), lines };
 }
@@ -30,7 +31,7 @@ function renderPage(page: LoadedPage): { readonly text: string; readonly lines: 
  */
 export function withLineIds(document: LoadedDocument): {
   readonly document: LoadedDocument;
-  readonly lines: ReadonlyMap<number, readonly SourceLine[]>;
+  readonly lines: ReadonlyMap<number, readonly EvidenceLine[]>;
 } {
   const rendered = document.pages.map((page) => ({ page, ...renderPage(page) }));
   if (rendered.every(({ lines }) => lines.length === 0)) return { document, lines: new Map() };
@@ -193,8 +194,8 @@ function valueAt(data: unknown, path: FieldPath): unknown {
  * `raw` is the model's `data` before any validator; `lines` are the lines the
  * request rendered, so an id it never showed is not evidence.
  */
-export function verifyCitations(raw: unknown, citations: unknown, lines: readonly SourceLine[]): OutcomeCitation[] {
-  const known = new Map<string, SourceLine>(lines.map((line) => [line.id, line]));
+export function verifyCitations(raw: unknown, citations: unknown, lines: readonly EvidenceLine[]): OutcomeCitation[] {
+  const known = new Map<string, EvidenceLine>(lines.map((line) => [line.id, line]));
   const cited = new Map<string, { path: FieldPath; ids: string[] }>();
   for (const entry of parseCitations(citations)) {
     const path = resolvePath(raw, entry.path);
@@ -210,7 +211,7 @@ export function verifyCitations(raw: unknown, citations: unknown, lines: readonl
     const evidence = shown.length === 0 ? undefined : evidenceFor(value, inLineOrder(shown));
     return evidence === undefined
       ? [{ path, status: "cited-unverified", ids: shown.map((line) => line.id), value }]
-      : [{ path, status: "verified", ids: evidence, value }];
+      : [{ path, status: "verified", ids: evidence.ids, value, ...(evidence.spans === undefined ? {} : { spans: evidence.spans }) }];
   });
 }
 

@@ -132,8 +132,15 @@ export interface LoadedPage {
    * The returned encoding can therefore differ from the requested format.
    * Consumers must identify the actual media type from the bytes. A strict
    * image-size limit requires an explicit resize step for such inputs.
+   *
+   * `call.signal` cancels this call. An already aborted signal rejects with its
+   * reason, even for bytes already rendered. Without one, the call follows the
+   * signal the document was loaded with, which inside an extraction stops
+   * following the caller once loading returns. Callers waiting for the same
+   * render share it, and the render is cancelled only when every waiting caller
+   * has aborted. An implementation may ignore `call`.
    */
-  readonly image?: (opts?: RasterOptions) => Promise<Uint8Array>;
+  readonly image?: (opts?: RasterOptions, call?: { readonly signal?: AbortSignal }) => Promise<Uint8Array>;
 }
 
 export interface LoadedDocument {

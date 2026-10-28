@@ -83,8 +83,13 @@ Each call sets `functionId` to `docture.<stage>.<component>`. The stages are `ex
 strategy, classifier, analyzer, or splitter name, for example `docture.extract.llm` or
 `docture.classify.llm-classifier`. The runtime context gains a `docture` entry with
 `stage`, `component`, the source file name as `document` when known, the `pages` the call
-covered, and the `chunk` index of a multi-request extraction. Layout calls carry no
-document name. A cached answer makes no model call and emits no telemetry.
+covered, and the `chunk` index of a multi-request extraction. `documentLabel: false`
+leaves `document` out. Layout calls name the converted source like every other stage.
+A classifier call lists only the pages with text in its excerpt: with the default
+`excerptChars` of 4000, a long first page is the only page listed. When the document's
+`text` is not its page texts joined by form feeds, as with a preloaded document whose
+text the caller wrote, the excerpt cannot be traced to pages and the classifier call
+has no `pages`. A cached answer makes no model call and emits no telemetry.
 
 ```ts
 import { llm } from "docture/llm/text";
@@ -164,12 +169,16 @@ An id the request did not show is not evidence. Array indexes are rebased when p
 merged, and a scalar keeps the citation of the part whose value won. Caller refinements and
 transforms still run on `data`, and a value the schema changed is `cited-unverified`.
 Cited requests use their own cache entries; a cached answer is validated and verified
-again on every hit.
+again on every hit. A verified match also records which OCR spans it covers, so the result
+can report [`minOcrConfidence`](/docs/reference/api/core-extraction#field-citations) for
+the matched words alone: the whole token for a number or date, including its currency
+sign, and each covered word for a string that spans lines.
 
 Citations cost tokens: the line ids enlarge the prompt, and the `citations` list grows with
 the number of values, so a long table can truncate an answer. Under `concatenate`, the
-character budget counts the line ids. A key that contains `.` makes a dotted path
-ambiguous.
+character budget counts the line ids. The model writes dotted paths, so it cannot cite
+a key that contains `.`; such a value is `uncited`, and its result `path` is quoted, as
+in `` `a.b` ``.
 
 `LlmStrategy` and `VisionStrategy` implement `repair()`. After a single-request answer
 fails, the repair replays that request (the document text, or the page images) followed by
@@ -252,13 +261,15 @@ imageSplitter(options: SplitterOptions): ImageSplitter
 ```
 
 `TextSplitter` requires `TEXT_LAYER`. `ImageSplitter` requires `RENDERABLE_PAGES`.
-The class name is the default splitter name.
+The default splitter name is `"TextSplitter"` or `"ImageSplitter"`. It stays the same
+in a minified bundle and in a subclass, so telemetry reads `docture.split.TextSplitter`
+unless you pass `name`.
 
 `SplitterOptions` contains required `model`, plus:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `name` | class name | Splitter name. |
+| `name` | `"TextSplitter"` or `"ImageSplitter"` | Splitter name. |
 | `excerptChars` | `1200` | Text from the start of each page. |
 | `instructions` | none | Additional split guidance. |
 | `cache`, `pricing` | none | Shared cache and cost configuration. |

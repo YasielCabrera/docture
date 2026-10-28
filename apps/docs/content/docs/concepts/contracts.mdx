@@ -18,6 +18,23 @@ const Invoice = contract({
 });
 ```
 
+## Worked examples
+
+`examples` shows the model a piece of document text and the data it should yield. Each
+`output` is typed by the schema, and the examples go with every text and vision prompt
+for the contract.
+
+```ts
+const Invoice = contract({
+  name: "invoice",
+  schema: z.object({ invoiceNumber: z.string(), total: z.number() }),
+  examples: [{ text: "Invoice INV-7. Total due: 1.234,50 EUR", output: { invoiceNumber: "INV-7", total: 1234.5 } }],
+});
+```
+
+Examples cost input tokens on every request. See the
+[contracts API](/docs/reference/api/core-contracts#examples) for serialization and checks.
+
 ## When the name is used
 
 The contract name can appear in prompts, classification lists, and reports. When an
@@ -53,7 +70,7 @@ bare schema unchanged. `contractName()` returns the name when one exists.
 const invoice = classificationOf(Invoice);
 ```
 
-`classificationOf()` copies the contract name, description, schema, and hints. Overrides
+`classificationOf()` copies the contract name, description, schema, hints, and examples. Overrides
 may add a per-kind extractor or a different extraction contract.
 
 See [schemas and types](/docs/concepts/schemas-and-types) for schema support and the

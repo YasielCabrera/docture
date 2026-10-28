@@ -31,7 +31,14 @@ convertBatch(
 ): AsyncGenerator<ConversionBatchItem>
 ```
 
-`ConvertOptions` has `format`, `assets`, `signal`, `logger`, and `stageTimeoutMs`.
+`ConvertOptions` has `format`, `pages`, `assets`, `signal`, `logger`, and `stageTimeoutMs`.
+`pages` lists original one-based page numbers to convert. The converter copies the list
+when the call starts and sends it to the loader as `LoadRequest.pages`, with the `layout`
+and `assets` hints. It then keeps only those pages, also for preloaded sources and loaders
+that ignore the hint, and computes features, layout, and assets from them. Results keep the
+original page numbers, and a table or paragraph joins only across consecutive original
+pages. An empty list, or a page that is not an integer or not in the document, throws
+`PageSelectionError` with code `PAGE_OUT_OF_RANGE`, as extraction does.
 `ConversionFormat` is `"text" | "markdown" | "html" | "json"`; Markdown is the default.
 `ConversionAssetMode` is `"referenced" | "embedded" | "omit"`; referenced is the
 default.
@@ -81,7 +88,11 @@ Inference is a heuristic, not a measured accuracy claim. A line is eligible when
 wholly in the top or bottom 10% of the page. It qualifies when the same text appears on
 at least three pages and on at least 60% of all pages, of odd pages, or of even pages,
 within 2% of the page height of its median position. A digit run matches across pages
-only when it follows the page number, as in `Page 2 of 9`. Heading-size text, table rows,
+only when it follows the page number, as in `Page 2 of 9`. Between 10% and 15% of the page,
+only page-number text qualifies: digits with at most three words around them, no final
+`.`, `!`, or `?`, no bold type, a different number on every page, a position within 1% of the page height
+and 2% of the page width of the median, and a gap of at least one line height to the body.
+Heading-size text, continuation lines such as `Table 4 (continued)`, table rows,
 text-only pages, and pages without dimensions are never inferred. A tagged `header` or
 `footer` hint inside the bands counts on a single page.
 
@@ -100,10 +111,19 @@ a plain table without spans, `headerRows: 1`. When counts differ, the first two 
 matching rows set column bands from their horizontal extent. A following row with no more
 cells joins when each cell overlaps a band and no two cells claim one band. Under both
 rules, an untagged row joins only when it starts within three times the median row
-spacing of the table's rows so far, measured from the row above. Every
+spacing of the table's rows so far, measured from the row above. Under the band rule and
+for continuation rows, a row more than 1.5 times that spacing below the row above starts a
+new section when it has fewer cells than the table or a different font weight from the row
+above. A row with a value holding a digit and no letters in the last column, when that column's body cells
+hold digits, is a totals row and still joins. Every
 neighbouring pair of cells in such a row is at least one line height apart. A cell gets
 `colSpan: k` when it covers more than half of each of `k` bands that hold no other cell of
-its row. The first row is a header. The next row is also a header while the row above it
+its row. A cell of a bold first row over rows that are not all bold also gets `colSpan: k`
+when it lies within `k` contiguous bands and its centre is within 10% of their combined
+width from theirs, at least two rows follow, the next within 1.5 times their spacing, and
+it is neither a caption such as `Table 1` or `Table A` nor heading-size. A lone line in that position
+leads the table only when the row below it is bold; an unstyled one stays outside with a
+`LAYOUT_DEGRADED` warning naming its line. The first row is a header. The next row is also a header while the row above it
 holds a column span and its cells sit under that span or under empty slots. Rows above
 the band rows join only as those header rows. `rowSpan` grows when the cell's box covers
 at least half the height of the next row's line and that row's slot is empty. It never
@@ -130,16 +150,70 @@ page and the next page's first element starts in that page's top quarter. A tabl
 continues with rows of the table's cell count, cells of at most 40 characters, a font size
 within 10% of the table body, the body's font weight, each cell overlapping its column, and
 no letters in a column whose body cells hold numbers without letters. A copy of the header
-rows is dropped from `rows` and kept in `sourceText`. After a continued row, a row with
+rows is dropped from `rows` and kept in `sourceText`. A table with no such number column joins
+only after that copy, or under a line naming the table's caption with `continued`, `cont.`, or
+`cont'd`, such as `Table 4 (continued)` below a table captioned `Table 4: Staff`. That line is
+consumed and kept in `sourceText`. Otherwise its rows stay on their page with a
+`LAYOUT_DEGRADED` warning. A bold or heading-size top band line set apart from the body, other
+than such a line or a copy of the header rows, ends the table. A line naming another table's
+caption with `continued`, such as `Table 5 (continued)`, ends the table without a warning. After a continued row, a row with
 fewer cells joins when the band rule places it. Each row after the first starts within
 three times the table's row spacing on the earlier page, measured from the row above. A
 paragraph continues when it does not end with `.`, `!`, `?`, `:`, or `;`, closing quotes and
 brackets included, and the next page's first element is a paragraph starting with a
-lowercase letter. Page furniture and top or bottom band lines set apart from the
-body by blank space are skipped. Pages without dimensions never join.
+lowercase letter. A contents or index entry on either side never joins: a line ending
+in an Arabic or Roman page number after a dot leader of three or more dots, spaced dots, or
+an ellipsis, or after a gap of at least two line heights. Page furniture and top or bottom
+band lines set apart from the body by blank space are skipped. A band line whose text repeats
+within 2% of the page height on another page, without qualifying as furniture, is suspected
+furniture. It stays body text outside any table, unless every copy is a table row, as a
+repeated header is. A table never continues across or through a suspected line: the rows stay
+on their page, and a `LAYOUT_DEGRADED` warning names the table's last line, the first row,
+and the suspected line. Pages without dimensions never join.
 `parseDoctureDocument()` rejects continuations on other element kinds, continuations
 that do not name the following pages in order, and `rowProvenance` whose length differs
 from `rows` or whose pages go back or fall outside the table's pages.
+
+## Element IDs
+
+A page break's ID is `p<page>-page-break`. Every other element's ID is `p<page>-` and 12 hex
+characters from a SHA-256 digest of these inputs:
+
+- The scheme version.
+- The identity class. Headings, paragraphs, code, page headers, and page footers share the
+  `text` class, so a heuristic that retypes unchanged text keeps its ID. Lists, tables, and
+  figures each have their own class.
+- The page number and the left and top position of the element's first page, rounded to
+  whole points. Text-only pages use `0, 0`.
+- The normalized content. A list contributes its ordered flag and item text, a table every
+  cell, including rows on continuation pages, and a figure its alt text, caption, and
+  rounded size. Normalization applies NFC, collapses whitespace runs to one space, and
+  trims.
+
+Converting the same file with the same loader and options gives the same IDs. An element
+keeps its ID when an unrelated element is inserted without moving it, although its
+`sourceIds` and `lineIds` change, because loaders count blocks and lines in page order. A
+layout analyzer that retypes or reorders an element keeps its ID. A group keeps the ID of
+its first member.
+
+An ID is an anchor, not a checksum. The guarantee has these limits:
+
+- Reflow, a different loader, or a segmentation change can move, split, or merge elements,
+  which changes their IDs.
+- A page inserted earlier changes the page number of every later element and so its ID.
+- Furniture and continuation detection compare pages. Under page selection, an element
+  keeps its ID only when its own segmentation and continuation decisions do not change.
+- Whitespace edits inside code, image bytes, and moves of less than half a point do not
+  change an ID. A position close to a half point can round differently in another engine
+  version.
+- Exact duplicates with the same class, page, position, and content get `-2`, `-3`, and so
+  on, in document order. A duplicate has no individual stability promise, and neither has
+  the very unlikely case of two different elements whose digests share 12 hex characters.
+- Stable element IDs do not stabilize chunk membership or citation line IDs.
+
+`parseDoctureDocument()` keeps IDs as saved. Documents from earlier releases have ordinal
+IDs such as `p1-text-4`, which are not mapped to the new scheme. Convert the source again
+to get the new IDs.
 
 ## Source lines
 
@@ -166,7 +240,8 @@ defineLayoutAnalyzer(analyzer: LayoutAnalyzer): LayoutAnalyzer
 ```
 
 `LayoutAnalyzer.analyze(context)` receives a `LayoutDocument` without page headers and
-footers, a signal, and a logger. Core ignores annotations that name furniture, and
+footers, a signal, a logger, and `documentLabel`, the source file name when it has one.
+Core ignores annotations that name furniture, and
 furniture keeps its place. A table or paragraph with `continuations` stays last in its
 page's text after reordering, and annotations that retype or group it are ignored. `LayoutElementRole` excludes the furniture kinds. It
 returns `LayoutAnalysis` with `LayoutAnnotation` values, warnings, and optional usage.

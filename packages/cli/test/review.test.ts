@@ -125,7 +125,7 @@ describe("docture review", () => {
     const html = await readFile(join(cwd, "review.html"), "utf8");
 
     const first = pageSection(html, 1);
-    expect(boxStyles(first, "p1-line-1")).toEqual(["left:10%;top:10%;width:20%;height:5%"]);
+    expect(boxStyles(first, "p1-1dedae31b951")).toEqual(["left:10%;top:10%;width:20%;height:5%"]);
     expect(first).toContain('data-kind="paragraph"');
     expect(first).toContain(`<img src="data:image/png;base64,${PNG}"`);
     expect(first).toContain('style="aspect-ratio:600/800"');
@@ -141,11 +141,11 @@ describe("docture review", () => {
     expect((await cli(["review", "report.pdf", "-o", "review.html"], { cwd })).code).toBe(0);
     const html = await readFile(join(cwd, "review.html"), "utf8");
 
-    expect(boxStyles(pageSection(html, 1), "p1-line-2")).toEqual(["left:6.6667%;top:80%;width:31.6667%;height:6.5%"]);
-    expect(boxStyles(pageSection(html, 2), "p1-line-2")).toEqual(["left:6.6667%;top:12.5%;width:28.3333%;height:6.5%"]);
-    expect(boxStyles(pageSection(html, 3), "p1-line-2")).toEqual([]);
+    expect(boxStyles(pageSection(html, 1), "p1-010d3a61615a")).toEqual(["left:6.6667%;top:80%;width:31.6667%;height:6.5%"]);
+    expect(boxStyles(pageSection(html, 2), "p1-010d3a61615a")).toEqual(["left:6.6667%;top:12.5%;width:28.3333%;height:6.5%"]);
+    expect(boxStyles(pageSection(html, 3), "p1-010d3a61615a")).toEqual([]);
     expect(pageSection(html, 2)).toContain('data-segment="2/2"');
-    expect(boxStyles(pageSection(html, 3), "p3-line-2")).toEqual(["left:46.6667%;top:96.25%;width:5%;height:1.5%"]);
+    expect(boxStyles(pageSection(html, 3), "p3-8aad23ccd705")).toEqual(["left:46.6667%;top:96.25%;width:5%;height:1.5%"]);
     expect(pageSection(html, 3)).toContain('data-kind="page-footer"');
   });
 
@@ -173,8 +173,8 @@ describe("docture review", () => {
 
     expect(run.code).toBe(0);
     const html = await readFile(join(cwd, "review.html"), "utf8");
-    expect(boxStyles(pageSection(html, 1), "p1-line-1")).toEqual(["left:10%;top:10%;width:20%;height:5%"]);
-    expect(boxStyles(pageSection(html, 2), "p1-line-2")).toEqual(["left:6.6667%;top:12.5%;width:28.3333%;height:6.5%"]);
+    expect(boxStyles(pageSection(html, 1), "p1-1dedae31b951")).toEqual(["left:10%;top:10%;width:20%;height:5%"]);
+    expect(boxStyles(pageSection(html, 2), "p1-010d3a61615a")).toEqual(["left:6.6667%;top:12.5%;width:28.3333%;height:6.5%"]);
   });
 
   it("accepts a version 1 conversion snapshot", async () => {
@@ -328,6 +328,6 @@ describe("docture review", () => {
     const image = /<img src="data:image\/png;base64,([^"]+)"/.exec(section)?.[1] ?? "";
     expect([...Buffer.from(image, "base64").subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
     expect(section).toContain(invoice.expected.invoiceNumber);
-    expect(section).toMatch(/<div class="box kind-[a-z-]+" data-element="p1-[a-z]+-\d+"/);
+    expect(section).toMatch(/<div class="box kind-[a-z-]+" data-element="p1-[0-9a-f]{12}"/);
   });
 });

@@ -32,6 +32,7 @@ import {
   twoRowFragment,
   unfinishedParagraph,
 } from "./continuation-fixtures.js";
+import { bySourceId } from "./conversion-fixtures.js";
 
 async function convert(loaded: LoadedDocument, format: "markdown" | "html" | "text" | "json" = "json", converter = new DocumentConverter()) {
   return converter.convert({ loaded }, { format });
@@ -130,6 +131,18 @@ describe("tables that continue across a page break", () => {
     expect(table?.rows[35]).toEqual(["Epsilon", "50"]);
     expect(table === undefined ? [] : provenanceSegments(table.provenance).map((segment) => segment.pageNumber)).toEqual([1, 2, 3]);
     expect(kinds(result)).toEqual([["table", "page-break"], ["page-break"], []]);
+  });
+
+  it("drops a bold repeated header printed in the top band", async () => {
+    const result = await convert(fixtureDocument(
+      [boldRow(640, ["Item", 40], ["Amount", 200]), row(660, ["Alpha", 40], ["10", 200]), row(680, ["Beta", 40], ["20", 200])],
+      [boldRow(40, ["Item", 40], ["Amount", 200]), row(100, ["Gamma", 40], ["30", 200]), row(120, ["Delta", 40], ["40", 200])],
+    ));
+    expect(tables(result).map((table) => table.rows)).toEqual([
+      [["Item", "Amount"], ["Alpha", "10"], ["Beta", "20"], ["Gamma", "30"], ["Delta", "40"]],
+    ]);
+    expect(result.pages[1]?.elements).toEqual([]);
+    expect(result.warnings).toEqual([]);
   });
 
   it("takes continuation rows that start inside the top band of the page", async () => {
@@ -239,7 +252,7 @@ describe("paragraphs cut by a page break", () => {
       [text(100, "Annual summary"), unfinishedParagraph, pageNumberFooter(1)],
       [text(30, "Annual summary"), text(100, "growth to continue next year."), text(120, "Costs were flat."), pageNumberFooter(2)],
     ));
-    const joined = paragraphs(result.pages[0]?.elements ?? []).find((paragraph) => paragraph.id === "p1-text-2");
+    const joined = paragraphs(result.pages[0]?.elements ?? []).find((paragraph) => paragraph.provenance.sourceIds[0] === "p1-text-2");
     expect(joined?.text).toBe("Revenue grew in every region, and the board expects that\ngrowth to continue next year.");
     expect(joined?.runs).toEqual([
       { text: "Revenue grew in every region, and the board expects that" },
@@ -307,7 +320,9 @@ describe("paragraphs cut by a page break", () => {
 
 describe("layout analyzers and joined elements", () => {
   function analyzer(annotations: readonly LayoutAnnotation[]) {
-    return new DocumentConverter({ layoutAnalyzer: { name: "fixture", analyze: async () => ({ annotations }) } });
+    return new DocumentConverter({
+      layoutAnalyzer: { name: "fixture", analyze: async ({ document }) => ({ annotations: bySourceId(document, annotations) }) },
+    });
   }
 
   it("keeps a joined table last in its page body and ignores retyping or grouping it", async () => {
@@ -318,10 +333,10 @@ describe("layout analyzers and joined elements", () => {
       { id: "p1-page-break", order: 2 },
     ]));
     expect(result.warnings).toEqual([]);
-    expect(result.pages[0]?.elements.map((element) => [element.id, element.kind])).toEqual([
-      ["p1-text-1", "paragraph"],
-      ["p1-text-2", "table"],
-      ["p1-page-break", "page-break"],
+    expect(result.pages[0]?.elements.map((element) => [element.provenance.sourceIds, element.kind])).toEqual([
+      [["p1-text-1"], "paragraph"],
+      [["p1-text-2", "p1-text-3", "p1-text-4"], "table"],
+      [[], "page-break"],
     ]);
     expect(tables(result)[0]?.rows).toHaveLength(6);
   });

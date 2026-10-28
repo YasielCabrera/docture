@@ -39,12 +39,8 @@ import type { LanguageModel } from "ai";
 import { validateFactoryResult } from "./config-validation.js";
 import { CliError, UsageError } from "./cli/errors.js";
 import type { Io } from "./cli/io.js";
-import {
-  relativeToConfig,
-  type CliConverter,
-  type CliExtractor,
-  type LoadedConfig,
-} from "./config.js";
+import { relativeToConfig, type LoadedConfig } from "./config.js";
+import type { CliConverter, CliExtractor } from "./define-config.js";
 import { loadExport } from "./load-module.js";
 import { resolveModel } from "./model.js";
 

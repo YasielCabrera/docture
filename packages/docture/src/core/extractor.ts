@@ -27,7 +27,7 @@ import { declarationOrder, type RoutingPolicy } from "./pipeline/eligibility.js"
 import { DuplicateComponentError, MissingComponentError } from "./pipeline/errors.js";
 import { readDocument } from "./pipeline/read.js";
 import { documentFeatures, preloadedFeatures } from "./pipeline/features.js";
-import { checkedMaxRepairs, runPipeline, snapshotRunOptions, withContractGuidance, type RunOptions } from "./pipeline/run.js";
+import { checkedMaxRepairs, checkedRuleFailureMode, runPipeline, snapshotRunOptions, withContractGuidance, type RunOptions } from "./pipeline/run.js";
 import { resolveSource } from "./pipeline/source.js";
 import { silentLogger } from "./domain/logger.js";
 
@@ -107,7 +107,7 @@ export class Extractor implements DocumentExtractor {
     this.#stageTimeoutMs = options.stageTimeoutMs;
     this.#classify = options.classify;
     this.#rules = options.rules === undefined ? undefined : [...options.rules];
-    this.#onRuleFailure = options.onRuleFailure;
+    this.#onRuleFailure = options.onRuleFailure === undefined ? undefined : checkedRuleFailureMode(options.onRuleFailure);
     this.#maxRepairs = options.maxRepairs === undefined ? undefined : checkedMaxRepairs(options.maxRepairs);
 
     // Two components under one name would silently shadow. Fail at wiring time.

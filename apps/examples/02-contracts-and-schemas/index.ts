@@ -39,7 +39,7 @@ const BareInvoice = z.object({
 });
 
 /**
- * A contract is that schema plus the three things only a HUMAN OR A MODEL reads:
+ * A contract is that schema plus the things only a HUMAN OR A MODEL reads:
  *
  *   - `name`        the discriminant. Shows up in classification and in the CLI.
  *   - `description` what this kind of document is. Goes into the prompt.
@@ -54,6 +54,7 @@ const NamedInvoice = contract({
   description: "A commercial invoice, reduced to the two fields anyone actually pays.",
   hints: "Amounts may use a comma as a thousands separator.",
   schema: BareInvoice,
+  examples: [{ text: "Invoice INV-7. Total due: 1,234.50 EUR", output: { invoiceNumber: "INV-7", total: 1234.5 } }],
 });
 
 /**
@@ -86,6 +87,7 @@ async function main(): Promise<void> {
     // `schemaOf` unwraps either one to the underlying schema, which is what a strategy
     // or a model client wants. Both of these are the same object.
     field("schemaOf unwraps to the same", schemaOf(NamedInvoice) === BareInvoice);
+    field("example output", JSON.stringify(NamedInvoice.examples?.[0]?.output));
 
     // ── 2. `null` is not absent ───────────────────────────────────────────────────
 
@@ -227,6 +229,7 @@ async function main(): Promise<void> {
       field("error class", outcome.error.constructor.name);
       // A literal `code`, so a `switch` over it is exhaustive. Example 06 does that.
       field("error.code", outcome.error.code);
+      field("error.failedCheck", outcome.error.failedCheck);
       for (const issue of outcome.error.issues) {
         field(`issue at "${issue.path}"`, issue.message);
       }
@@ -250,10 +253,13 @@ async function main(): Promise<void> {
     field("report mode, validation", JSON.stringify(reported.validation));
 
     const failed = await extractor.safeExtract(path, Invoice, { rules: [approval], onRuleFailure: "fail" });
-    field(
-      "fail mode, error code",
-      !failed.ok && failed.error instanceof ContractViolationError ? failed.error.code : "(unexpected)",
-    );
+    if (!failed.ok && failed.error instanceof ContractViolationError) {
+      field("fail mode, error code", failed.error.code);
+      field("fail mode, failed check", failed.error.failedCheck);
+      field("fail mode, message", failed.error.message);
+    } else {
+      field("fail mode", "(unexpected)");
+    }
 
     console.log("\n  Next: 03-loaders-and-sources — where the bytes come from.");
   } finally {

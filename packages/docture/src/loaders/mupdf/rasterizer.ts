@@ -9,6 +9,9 @@
  * text. That is the seam: `MuPdfRasterizer` can render for a `DocumentLoaderTesseract`, and
  * `DocumentLoaderMuPdf` can be rendered by `NapiCanvasRasterizer`. Neither choice forces the
  * other.
+ *
+ * Cancellation is cooperative. Drawing one page is a single blocking WASM call, so an
+ * abort takes effect before the next page, not inside the current one.
  */
 
 import { setImmediate } from "node:timers/promises";

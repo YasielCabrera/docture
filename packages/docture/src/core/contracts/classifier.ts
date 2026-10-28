@@ -8,7 +8,7 @@
  */
 
 import type { FlexibleSchema, InferSchema } from "@ai-sdk/provider-utils";
-import type { Contract, ContractLike, InferContract } from "../domain/contract.js";
+import type { Contract, ContractExample, ContractLike, InferContract } from "../domain/contract.js";
 import type { DocumentFact, DocumentFeatures } from "../domain/document.js";
 import type { LoadedDocument } from "../domain/geometry.js";
 import type { Logger } from "../domain/logger.js";
@@ -44,6 +44,11 @@ export interface Classification<
    * them keeps the classification prompt cheap without narrowing the payload.
    */
   readonly extractionContract?: E;
+  /**
+   * Worked examples for the extraction prompt, typed by the extraction contract.
+   * When this kind is selected, they replace the extraction contract's own.
+   */
+  readonly examples?: readonly ContractExample<NoInfer<InferContract<E>>>[];
   /** A reference image of this kind, for a vision classifier. Path or bytes. */
   readonly image?: string | Uint8Array;
 }
@@ -78,6 +83,8 @@ export function classificationOf<S extends FlexibleSchema>(
     description: source.description ?? source.name,
     schema: source.schema,
     ...(source.hints === undefined ? {} : { hints: source.hints }),
+    // InferContract<S> is InferSchema<S> for a schema, but stays deferred for a generic S.
+    ...(source.examples === undefined ? {} : { examples: source.examples as Classification<string, S, S>["examples"] & object }),
     ...overrides,
   };
 }

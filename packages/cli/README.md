@@ -132,7 +132,8 @@ file, version 1 or 2, instead of converting. A saved file has no page images, so
 With `--schema` or `--model` it extracts with citations and lists every present field
 beside the pages with its status: `verified`, `cited-unverified`, or `uncited`. Selecting a
 field, or moving to it with the arrow keys, highlights the exact lines it cites. An uncited
-field highlights nothing. `--extraction` reads a saved `extract --full` result: one record,
+field highlights nothing. A field read from OCR also shows its lowest OCR confidence.
+`--extraction` reads a saved `extract --full` result: one record,
 or an envelope. An envelope with several results needs `--item <n>`. A result saved
 without `--citations` lists its fields as not requested. Malformed saved JSON exits 2
 before any page is rendered.
@@ -262,6 +263,7 @@ npm install --save-dev @docture/cli @modelcontextprotocol/sdk@1.32.2
 { "mcpServers": { "docture": { "command": "npx", "args": ["docture", "mcp"] } } }
 ```
 
+Both tools take a `source` and optional one-based `pages`; `convert` also takes `format`.
 Each tool call returns the version 1 envelope as structured content and JSON text, and
 sets `isError` when an item failed, including a config that fails to load or build.
 Malformed arguments and `-` as a source are JSON-RPC invalid-parameter errors. Stdout
@@ -301,7 +303,7 @@ npm install --save-dev @docture/cli docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/ope
 ```
 
 ```ts
-import { defineConfig } from "@docture/cli";
+import { defineConfig } from "@docture/cli/config";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { llm } from "docture/llm/text";
 import { openai } from "@ai-sdk/openai";

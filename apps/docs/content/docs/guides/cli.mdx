@@ -300,7 +300,8 @@ exits with code `2` and names the first invalid fields.
 With `--schema` or `--model`, `review` extracts with citations turned on. It lists every
 present field beside the pages, colored by status: `verified`, `cited-unverified`, or
 `uncited`. Select a field, or move to it with the arrow keys, to highlight the exact
-lines it cites. An uncited field highlights nothing.
+lines it cites. An uncited field highlights nothing. A field read from OCR also shows its
+lowest OCR confidence, the `minOcrConfidence` of its citation.
 
 ```sh
 docture review invoice.pdf --schema ./invoice.ts --model openai/gpt-5
@@ -381,13 +382,15 @@ Register it in the host's MCP server configuration:
 
 | Tool | Arguments | Result items |
 | --- | --- | --- |
-| `convert` | `source`, optional `format`: `markdown` (default), `html`, `text`, or `json` | `content`, `format`, `mimeType`, `pageCount`, `loader`, `method`, `warnings` |
+| `convert` | `source`, optional `format`: `markdown` (default), `html`, `text`, or `json`, optional `pages`: one-based page numbers | `content`, `format`, `mimeType`, `pageCount`, `loader`, `method`, `warnings` |
 | `inspect` | `source`, optional `pages`: one-based page numbers | the same fields as `inspect --format json` |
 
 `source` is a path relative to the directory the host starts the server in, an absolute
 path, or an http(s) or `file:` URL. Each call resolves `docture.config.*` and disposes its
 wiring afterwards; `--config` and `--no-config` work as for other commands. `convert`
-returns content and writes no files or assets.
+returns content and writes no files or assets. With `pages`, it reads and converts only
+those pages and keeps their original numbers; a page the document lacks fails the item
+with `PAGE_OUT_OF_RANGE`.
 
 Each result is the version 1 envelope, as structured content and as JSON text. A failed
 document sets the MCP `isError` flag and reports `error.code`, for example `LOAD_FAILED`.

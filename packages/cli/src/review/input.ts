@@ -169,6 +169,10 @@ function citationsOf(value: unknown, known: ReadonlySet<string>, issues: Issue[]
     ids.forEach((id, position) => {
       if (!known.has(id)) issues.push({ path: `${at}.ids.${position}`, message: `names ${id}, which citationSources does not hold` });
     });
+    const confidence = citation["minOcrConfidence"];
+    if (confidence !== undefined && !(typeof confidence === "number" && confidence >= 0 && confidence <= 1)) {
+      issues.push({ path: `${at}.minOcrConfidence`, message: "must be a number from 0 to 1" });
+    }
     return undefined;
   });
   return value as FieldCitation[];

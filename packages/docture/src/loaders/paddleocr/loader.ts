@@ -1,6 +1,7 @@
 import { requestedPageNumbers } from "../../core/pipeline/pages.js";
 import { PageSelectionError } from "../../core/pipeline/errors.js";
 import { readsAsTiff } from "../../core/pipeline/source.js";
+import { pageImageRenderer } from "../../core/contracts/page-images.js";
 import {
   imageSize,
   inferForm,
@@ -70,6 +71,13 @@ type OcrPage = {
   readonly heightPx: number;
   readonly scale: number;
 } & ({ readonly bytes: Uint8Array } | { readonly tiff: TiffPage });
+
+type PageImages = (
+  pageNumber: number,
+  options: RasterOptions | undefined,
+  signal: AbortSignal | undefined,
+  decoded: Uint8Array | undefined,
+) => Promise<Uint8Array>;
 
 interface RecognizedPage {
   readonly raster: OcrPage;
@@ -243,9 +251,9 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
 
     // Rendering is memoized per page and per set of options, so asking twice costs
     // once — while a document nobody looks at costs nothing.
-    const renders = new Map<string, Promise<Uint8Array>>();
+    const images = this.pageImages(document, mimeType, dpi, ctx);
     const pages = recognized.map(({ raster, image, recognition }) =>
-      this.toPage(raster, "tiff" in raster ? image : undefined, recognition, document, mimeType, dpi, ctx, renders),
+      this.toPage(raster, "tiff" in raster ? image : undefined, recognition, images),
     );
 
     const confidence =
@@ -409,11 +417,7 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
     raster: OcrPage,
     decoded: Uint8Array | undefined,
     recognition: Recognition,
-    document: RawDocument,
-    mimeType: string,
-    dpi: number,
-    ctx: LoadContext,
-    renders: Map<string, Promise<Uint8Array>>,
+    images: PageImages,
   ): LoadedPage {
     const words: PositionedWord[] = recognition.regions.map((region) => ({
       text: region.text,
@@ -454,10 +458,8 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
       lines,
       // A TIFF page serves the PNG it was decoded to: the original bytes are not an
       // image a vision model can take.
-      image: (options?: RasterOptions) =>
-        decoded === undefined
-          ? this.pageImage(pageNumber, document, mimeType, dpi, options, ctx, renders)
-          : Promise.resolve(decoded),
+      image: (options?: RasterOptions, call?: { readonly signal?: AbortSignal }) =>
+        images(pageNumber, options, call?.signal, decoded),
     };
   }
 
@@ -479,57 +481,20 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
    * a 200-page scan in memory to serve a strategy that looks at two of them is the
    * wrong trade. It is re-rendered on demand and memoized instead.
    */
-  private pageImage(
-    pageNumber: number,
-    document: RawDocument,
-    mimeType: string,
-    dpi: number,
-    options: RasterOptions | undefined,
-    ctx: LoadContext,
-    renders: Map<string, Promise<Uint8Array>>,
-  ): Promise<Uint8Array> {
+  private pageImages(document: RawDocument, mimeType: string, dpi: number, ctx: LoadContext): PageImages {
     const rasterizer = this.options.rasterizer;
     // The input WAS an image. Re-encoding it to honour `format` or `dpi` would lose
     // quality to satisfy a request the bytes already answer.
-    if (rasterizer === undefined || (IMAGE_MIME_TYPES as readonly string[]).includes(mimeType)) {
-      return Promise.resolve(document.bytes);
-    }
-
-    const merged: RasterOptions = {
-      dpi,
-      format: "png",
-      ...options,
-      pages: [pageNumber],
+    const render =
+      rasterizer === undefined || (IMAGE_MIME_TYPES as readonly string[]).includes(mimeType)
+        ? undefined
+        : pageImageRenderer(rasterizer, document, ctx);
+    return async (pageNumber, options, signal, decoded) => {
+      if (decoded !== undefined || render === undefined) {
+        (signal ?? ctx.signal).throwIfAborted();
+        return decoded ?? document.bytes;
+      }
+      return render(pageNumber, { dpi, format: "png", ...options }, signal);
     };
-    // The page number MUST be in the key: the cache is shared across every page of
-    // the document, and keying on render options alone hands page 2 page 1's image.
-    const key = JSON.stringify([
-      pageNumber,
-      merged.dpi,
-      merged.format,
-      merged.quality,
-      merged.maxEdge,
-    ]);
-
-    let pending = renders.get(key);
-    if (pending === undefined) {
-      pending = rasterizer
-        .rasterize(document, merged, { signal: ctx.signal, logger: ctx.logger })
-        .then((rendered) => {
-          const first = rendered[0];
-          if (first === undefined) {
-            throw new Error(
-              `${rasterizer.name} rendered no image for page ${pageNumber}.`,
-            );
-          }
-          return first.bytes;
-        });
-      renders.set(key, pending);
-      const stored = pending;
-      void stored.catch(() => {
-        if (renders.get(key) === stored) renders.delete(key);
-      });
-    }
-    return pending;
   }
 }

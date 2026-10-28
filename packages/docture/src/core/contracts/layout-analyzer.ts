@@ -30,6 +30,8 @@ export interface LayoutAnalyzerContext {
   readonly document: LayoutDocument;
   readonly signal: AbortSignal;
   readonly logger: Logger;
+  /** The source's file name, when it has one. For logs and telemetry only. */
+  readonly documentLabel?: string;
 }
 
 export interface LayoutAnalysis {

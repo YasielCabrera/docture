@@ -1,4 +1,4 @@
-import type { DoctureConfig } from "./config.js";
+import type { DoctureConfig } from "./define-config.js";
 import { nearest } from "./cli/args.js";
 import { UsageError } from "./cli/errors.js";
 

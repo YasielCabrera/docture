@@ -22,8 +22,9 @@ isLoadedSource(source: DocumentSource): source is LoadedSource
 
 `resolveSource()` reads file paths and `file:` URLs, fetches HTTP and HTTPS URLs, and
 normalizes byte inputs. It throws `UnsupportedSourceError` for unsupported protocols,
-failed HTTP responses, empty input, or a `LoadedSource` passed directly to this low-level
-function. File-system and network errors propagate from the underlying operation.
+failed HTTP responses, empty input, a file that cannot be read, or a `LoadedSource` passed
+directly to this low-level function. A file read failure keeps the file-system error as
+`cause`. Network errors propagate from `fetch()`.
 `sniffMimeType()` recognizes supported byte signatures without reading the full document.
 
 ## Document data loader

@@ -70,7 +70,10 @@ export interface Attempt {
 }
 
 export interface ValidationIssue {
-  /** Dotted path to the offending field, e.g. `lineItems.3.amount`. */
+  /**
+   * The offending field, such as `lineItems.3.amount`, written by
+   * {@link formatFieldPath}; `""` is the whole value. Rules write their own paths.
+   */
   readonly path: string;
   readonly message: string;
 }
@@ -103,7 +106,7 @@ export interface ConflictingValue {
  * The data keeps the merge winner; this records every value.
  */
 export interface ExtractionConflict {
-  /** Dotted path, as in {@link ValidationIssue}. */
+  /** The field, written by {@link formatFieldPath}: a key with a dot is quoted, as in `` `a.b` ``. */
   readonly path: string;
   /** Each distinct value in document order. */
   readonly values: readonly ConflictingValue[];
@@ -121,12 +124,36 @@ export interface ExtractionConflict {
  *   exists, and empty when none did.
  * - `uncited`: the model cited nothing for the value.
  *
- * `path` is dotted, as in {@link ValidationIssue}; a key that contains `.` reads
- * ambiguously.
+ * `path` is written by {@link formatFieldPath}, so it equals the path of a conflict
+ * or schema issue on the same field.
+ *
+ * `minOcrConfidence` is the lowest OCR confidence, 0–1, among the spans behind the
+ * value. It is OCR evidence, not a probability that the value is right, and engines
+ * score at different sizes (Tesseract per word, PaddleOCR per recognized region), so
+ * values from two engines do not compare.
+ *
+ * - `verified`: the spans the matched occurrence covers. A low-confidence word
+ *   elsewhere on the line does not count. When the value appears more than once,
+ *   this is the occurrence `ids` names.
+ * - `cited-unverified`: every span of every line in `ids`, so it is broader.
+ *
+ * It is absent unless every relevant span reports a confidence in 0–1: for a text
+ * layer, an uncited value, an `ids` list that is empty, or a line whose text is not
+ * its spans joined by single spaces.
  */
 export type FieldCitation =
-  | { readonly path: string; readonly status: "verified"; readonly ids: readonly [LineSourceId, ...LineSourceId[]] }
-  | { readonly path: string; readonly status: "cited-unverified"; readonly ids: readonly LineSourceId[] }
+  | {
+    readonly path: string;
+    readonly status: "verified";
+    readonly ids: readonly [LineSourceId, ...LineSourceId[]];
+    readonly minOcrConfidence?: number;
+  }
+  | {
+    readonly path: string;
+    readonly status: "cited-unverified";
+    readonly ids: readonly LineSourceId[];
+    readonly minOcrConfidence?: number;
+  }
   | { readonly path: string; readonly status: "uncited"; readonly ids: readonly [] };
 
 export type CitationStatus = FieldCitation["status"];

@@ -77,7 +77,7 @@ export type { ProcessExtractOptions, SplitReport } from "./process.js";
  * bare schema — the name is only worth writing when something reads it.
  */
 export { contract, contractName, isContract, schemaOf } from "./domain/contract.js";
-export type { Contract, ContractDefinition, ContractLike, InferContract } from "./domain/contract.js";
+export type { Contract, ContractDefinition, ContractExample, ContractLike, InferContract } from "./domain/contract.js";
 
 /** The closed vocabularies, as values you can reach for by name. */
 export { ClassificationStrategy, CompletionStrategy, SplittingStrategy } from "./domain/enums.js";
@@ -115,6 +115,7 @@ export type {
   ValidationRule,
 } from "./domain/result.js";
 export { EMPTY_USAGE, sumUsage } from "./domain/result.js";
+export { formatFieldPath, parseFieldPath } from "./domain/field-path.js";
 
 // ── Writing a loader ────────────────────────────────────────────────────────────
 export { defineLoader, loaderAccepts } from "./contracts/loader.js";

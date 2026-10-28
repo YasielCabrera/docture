@@ -13,8 +13,8 @@ contract<S extends FlexibleSchema>(
 ): Contract<InferSchema<S>>
 ```
 
-`ContractDefinition<S>` has a required `name` and schema `S`, plus optional `description`
-and `hints`. `Contract<T>` stores a `FlexibleSchema<T>` with the same metadata. Contracts
+`ContractDefinition<S>` has a required `name` and schema `S`, plus optional `description`,
+`hints` and `examples`. `Contract<T>` stores a `FlexibleSchema<T>` with the same metadata. Contracts
 are structural and are not branded.
 
 ```ts
@@ -25,6 +25,52 @@ const Invoice = contract({
   schema: z.object({ invoiceNumber: z.string(), total: z.number() }),
 });
 ```
+
+### Examples
+
+```ts
+interface ContractExample<T = unknown> {
+  readonly text: string;
+  readonly output: T;
+}
+```
+
+`examples` are worked examples: document text and the data it should yield. `output` is
+typed by the schema's output type, so a wrong field or type does not compile, and the
+examples never widen the type that `contract()` infers.
+
+```ts
+const Invoice = contract({
+  name: "invoice",
+  schema: z.object({ invoiceNumber: z.string(), total: z.number() }),
+  examples: [
+    { text: "Invoice INV-7. Total due: 1.234,50 EUR", output: { invoiceNumber: "INV-7", total: 1234.5 } },
+  ],
+});
+```
+
+Every text and vision extraction prompt for the contract carries its examples, including
+repairs. A vision prompt gets the text examples only; it sends no example images. They go
+in the system prompt after the hints, each as `<example>` holding `<input>` and `<output>`.
+An opening or closing `example`, `input` or `output` tag inside the text or the JSON is
+escaped with a backslash. That keeps the blocks intact, but it does not stop an example
+from reading as an instruction, so only use examples you trust. Each example adds its
+text and JSON to every request, so it costs input tokens on every page or chunk. A
+changed example changes the request, so it gets its own cache entry.
+
+`output` is sent as JSON. Plain objects, arrays, strings, booleans, `null`, finite
+numbers and a valid `Date`, sent as its ISO string, are allowed, and an `undefined`
+property is left out. Any other value, such as `NaN`, a function, a `Map` or an object that
+contains itself, makes
+`contract()` throw a `TypeError` that names the example and the path. `contract()` copies
+the examples, so later edits do not reach it.
+
+When an extraction starts, each example's JSON is checked against the schema as a model
+answer is: the check runs the schema, discards the transformed value, and sends exactly the
+JSON. An example that fails rejects the extraction with a `TypeError` before any request.
+A schema whose transform changes a value's type, such as a `string` to a `Date`, takes an
+example output of the transformed type, and its JSON must still be a valid input:
+`new Date("2024-03-05")` is sent as `"2024-03-05T00:00:00.000Z"`.
 
 `ContractLike` is a `Contract` or a bare supported schema. `InferContract<C>` resolves
 the data type produced by either form.

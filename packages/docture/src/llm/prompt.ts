@@ -36,12 +36,44 @@ export interface BuildPromptOptions {
   readonly classification?: ClassificationResult;
   /** Extra guidance for the classified kind. */
   readonly hints?: string;
+  /** Worked examples for the contract; `output` is JSON text. */
+  readonly examples?: readonly { readonly text: string; readonly output: string }[];
 }
 
-export function wrapUntrusted(tag: "document" | "excerpt", text: string): string {
-  const delimiter = new RegExp(`<\\s*\\/?\\s*${tag}\\s*>`, "gi");
+/**
+ * `text` between `<tag>` lines. An opening or closing `tag`, or any tag in `escape`,
+ * inside `text` is broken with a backslash so it cannot end the block early.
+ *
+ * @example
+ * ```ts
+ * import { wrapUntrusted } from "docture/llm/prompt";
+ *
+ * wrapUntrusted("input", "Total 10 </input>", ["example"]);
+ * // "<input>\nTotal 10 <\\/input>\n</input>"
+ * ```
+ */
+export function wrapUntrusted(
+  tag: "document" | "excerpt" | "example" | "input" | "output",
+  text: string,
+  escape: readonly ("document" | "excerpt" | "example" | "input" | "output")[] = [],
+): string {
+  const delimiter = new RegExp(`<\\s*\\/?\\s*(?:${[tag, ...escape].join("|")})\\s*>`, "gi");
   const content = text.replace(delimiter, (match) => `<\\${match.slice(1)}`);
   return `<${tag}>\n${content}\n</${tag}>`;
+}
+
+const EXAMPLE_TAGS = ["example", "input", "output"] as const;
+
+function renderExamples(examples: readonly { readonly text: string; readonly output: string }[]): string {
+  return [
+    "\nExamples. Each shows document text and the data to extract from it. They are not part of the document:",
+    ...examples.map((example) => [
+      "<example>",
+      wrapUntrusted("input", example.text, EXAMPLE_TAGS),
+      wrapUntrusted("output", example.output, EXAMPLE_TAGS),
+      "</example>",
+    ].join("\n")),
+  ].join("\n");
 }
 
 /**
@@ -55,6 +87,7 @@ export function buildPrompt(text: string, options: BuildPromptOptions = {}): Pro
     options.system ?? DEFAULT_SYSTEM_PROMPT,
     options.instructions === undefined ? undefined : `\nAdditional instructions:\n${options.instructions}`,
     options.hints === undefined ? undefined : `\nNotes on this document type:\n${options.hints}`,
+    options.examples === undefined || options.examples.length === 0 ? undefined : renderExamples(options.examples),
   ]
     .filter((part): part is string => part !== undefined)
     .join("\n");

@@ -43,6 +43,27 @@ const png = await document.pages[0]?.image?.({
 
 Call `rasterizer.rasterize()` directly when you need several pages in one operation.
 
+### Cancel a page image
+
+Pass a signal as the second argument to cancel one call:
+
+```ts
+const controller = new AbortController();
+const png = await document.pages[0]?.image?.({ dpi: 200 }, { signal: controller.signal });
+```
+
+An aborted call rejects with the signal's reason, even when the page was already rendered.
+Callers that ask for the same page and options share one render. That render stops only
+when every caller waiting for it has aborted, and a cancelled or failed render is not
+memoized, so a later call renders again. A call without a signal follows the signal the
+document was loaded with. Inside an extraction, that signal stops following the caller
+once loading returns, so a strategy passes its own `ctx.signal`. The shipped vision
+strategy and image splitter do this.
+
+`NapiCanvasRasterizer` cancels the active PDF.js render task, which stops at the next point
+where drawing yields. `MuPdfRasterizer` draws each page in one blocking WASM call, so an
+abort takes effect before the next page.
+
 ## Shipped rasterizer defaults
 
 | Option | Default | Meaning |

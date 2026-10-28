@@ -106,6 +106,20 @@ The full typechecked scoring example is kept with the documentation:
 
 <SourceExample file="measure-accuracy.ts" title="measure-accuracy.ts" />
 
+## Check conversion quality
+
+Extraction scores measure the data a strategy returns. Conversion checks measure the
+document text and structure that extraction and retrieval read. `checkConversion()` in
+`docture/eval` grades a conversion against presence, absence, order, and table checks.
+
+<SourceExample file="check-conversion.ts" title="check-conversion.ts" />
+
+Run the checks on the JSON result rather than on Markdown when page or table structure
+matters. Markdown flattens header rows and has no page ownership for continued tables.
+`conversionCorpus` in `docture/testing/fixtures` provides loaded documents for known
+layout cases, each with its own checks. See the
+[evaluation API](/docs/reference/api/eval#check-a-conversion) for the matching rules.
+
 ## Test routing without a document library
 
 Use test doubles for routing, fallback, and validation tests. They need no PDFKit or Vitest

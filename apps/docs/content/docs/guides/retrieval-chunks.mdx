@@ -52,4 +52,9 @@ file with the same loader and options gives the same IDs, so you can update an i
 place. A saved JSON document read with `parseDoctureDocument()` chunks to the same IDs as
 the conversion result it came from.
 
+Element IDs come from each element's content and position, as described in
+[Element IDs](/docs/reference/api/core-conversion#element-ids). Inserting an unrelated
+element keeps the ID of every chunk whose elements and table row ranges stay the same. An
+insertion can still move elements between chunks when it changes what fits in a budget.
+
 The [chunk reference](/docs/reference/api/chunk) lists every option and rule.

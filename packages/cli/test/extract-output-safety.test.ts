@@ -252,7 +252,7 @@ describe("extract output safety", () => {
     expect(result.code).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("EACCES");
-    const error = { file: "blocked.json", ok: false, error: { code: "INTERNAL", message: expect.stringContaining("EACCES") } };
+    const error = { file: "blocked.json", ok: false, error: { code: "UNSUPPORTED_SOURCE", message: expect.stringContaining("EACCES") } };
     if (mode === "directory") {
       await expect(readFile(join(cwd, "out/blocked.json"), "utf8").then(JSON.parse)).resolves.toMatchObject(error);
       await expect(readFile(join(cwd, "out/invoice.json"), "utf8").then(JSON.parse)).resolves.toEqual({
@@ -331,7 +331,7 @@ describe("extract output safety", () => {
     expect(result.stdout).toBe("");
     await expect(readFile(target, "utf8").then(JSON.parse)).resolves.toMatchObject({
       version: 1, command: "extract", ok: false,
-      results: [{ file: input.split("/").at(-1), ok: false, error: { code: "INTERNAL", message: expect.stringContaining(code) } }],
+      results: [{ file: input.split("/").at(-1), ok: false, error: { code: "UNSUPPORTED_SOURCE", message: expect.stringContaining(code) } }],
     });
     expect(await readFile(source)).toEqual(SOURCE);
   });
@@ -392,7 +392,7 @@ describe("extract output safety", () => {
       file: "invoice.json", ok: true, data: { total: 42 },
     });
     expect(JSON.parse(await readFile(join(cwd, "out/unreadable.json"), "utf8"))).toMatchObject({
-      file: "unreadable.json", ok: false, error: { code: "INTERNAL", message: expect.stringContaining("ELOOP") },
+      file: "unreadable.json", ok: false, error: { code: "UNSUPPORTED_SOURCE", message: expect.stringContaining("ELOOP") },
     });
     expect(await readFile(source)).toEqual(SOURCE);
   });
@@ -460,7 +460,7 @@ describe("extract missing output targets", () => {
     expect(result.code).toBe(1);
     expect(result.stdout).toBe("");
     await expect(readFile(join(cwd, "leaf.json"), "utf8").then(JSON.parse)).resolves.toMatchObject({
-      file: "leaf.json", ok: false, error: { code: "INTERNAL", message: expect.stringContaining("ENOENT") },
+      file: "leaf.json", ok: false, error: { code: "UNSUPPORTED_SOURCE", message: expect.stringContaining("ENOENT") },
     });
     await expect(readFile(join(cwd, "remote/leaf.json"))).rejects.toMatchObject({ code: "ENOENT" });
     expect(await readFile(source)).toEqual(SOURCE);
@@ -502,7 +502,7 @@ describe("extract missing output targets", () => {
     expect(result.stdout).toBe("");
     await expect(readFile(out, "utf8").then(JSON.parse)).resolves.toMatchObject({
       version: 1, command: "extract", ok: false,
-      results: [{ ok: false, error: { code: "INTERNAL", message: expect.stringContaining("ENOENT") } }],
+      results: [{ ok: false, error: { code: "UNSUPPORTED_SOURCE", message: expect.stringContaining("ENOENT") } }],
     });
     await expect(readFile(input)).rejects.toMatchObject({ code: "ENOENT" });
     expect(await readlink(alias)).toBe(linkText);
@@ -568,7 +568,7 @@ describe("extract missing output targets", () => {
       expect(result.stdout).toBe("");
       await expect(readFile(target, "utf8").then(JSON.parse)).resolves.toMatchObject({
         version: 1, command: "extract", ok: false,
-        results: [{ file: "link-0.json", ok: false, error: { code: "INTERNAL", message: expect.stringContaining("ELOOP") } }],
+        results: [{ file: "link-0.json", ok: false, error: { code: "UNSUPPORTED_SOURCE", message: expect.stringContaining("ELOOP") } }],
       });
       expect(await readlink(input)).toBe("link-1.json");
       expect(await readFile(marker, "utf8")).toBe("wiring\n");
@@ -588,7 +588,7 @@ describe("extract missing output targets", () => {
     expect(result.code).toBe(1);
     expect(result.stdout).toBe("");
     await expect(readFile(join(cwd, "out/leaf.json"), "utf8").then(JSON.parse)).resolves.toMatchObject({
-      file: "leaf.json", ok: false, error: { code: "INTERNAL", message: expect.stringContaining("ENOENT") },
+      file: "leaf.json", ok: false, error: { code: "UNSUPPORTED_SOURCE", message: expect.stringContaining("ENOENT") },
     });
     await expect(readFile(join(cwd, "out/invoice.json"), "utf8").then(JSON.parse)).resolves.toEqual({
       file: "invoice.json", ok: true, data: { total: 42 },
@@ -604,7 +604,7 @@ describe("extract missing output targets", () => {
     const input = `${cwd}/missing/../leaf.json`;
     const result = await extract({ cwd, inputs: [input], out: "leaf.json", format });
     expect(result.code).toBe(1);
-    const item = { file: "leaf.json", ok: false, error: { code: "INTERNAL", message: expect.stringContaining("ENOENT") } };
+    const item = { file: "leaf.json", ok: false, error: { code: "UNSUPPORTED_SOURCE", message: expect.stringContaining("ENOENT") } };
     await expect(readFile(join(cwd, "leaf.json"), "utf8").then(JSON.parse)).resolves.toMatchObject(format === "json"
       ? { version: 1, command: "extract", ok: false, results: [item] } : item);
     await expect(stat(join(cwd, "missing"))).rejects.toMatchObject({ code: "ENOENT" });

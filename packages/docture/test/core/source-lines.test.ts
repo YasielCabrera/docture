@@ -33,16 +33,16 @@ describe("source lines", () => {
       .map(isLineSourceId)).toEqual([false, false, false, false, false, false, false, false]);
   });
 
-  it("gives line-mode conversion candidates the enumerator's ids", async () => {
+  it("records the enumerator's line ids as the source of line-mode elements", async () => {
     const lines = [line(40, [span("First line", 20, 40)]), line(60, [span("Second line", 20, 60)])];
     const loaded = {
       loader: "ocr", form: "scanned" as const, text: "First line\nSecond line",
       pages: [{ pageNumber: 3, width: 600, height: 800, text: "First line\nSecond line", lines }],
     };
     const result = await new DocumentConverter().convert({ loaded }, { format: "json" });
-    expect(result.pages[0]?.elements.map((element) => [element.id, element.provenance.lineIds])).toEqual([
-      ["p3-line-1", ["p3-line-1"]],
-      ["p3-line-2", ["p3-line-2"]],
+    expect(result.pages[0]?.elements.map((element) => [element.provenance.sourceIds, element.provenance.lineIds])).toEqual([
+      [["p3-line-1"], ["p3-line-1"]],
+      [["p3-line-2"], ["p3-line-2"]],
     ]);
     expect(sourceLines(loaded.pages[0]!).map((source) => source.id)).toEqual(["p3-line-1", "p3-line-2"]);
   });

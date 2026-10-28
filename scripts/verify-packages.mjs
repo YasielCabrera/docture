@@ -13,6 +13,7 @@ import {
   engineConformanceTest, pdfjsAdoptionRuntime, pdfkitAdoptionRuntime, classifierRuntime, classifierTypes,
   cliPeerContexts, cliMissingEngineConfig, cliVisionConfig, cliApplicationLoaderVisionConfig, typedCliConfigs,
   mcpAbsentRuntime, mcpClientRuntime, mcpTypes, cliRootBundleConsumer,
+  moduleTrace, moduleTraceHooks, cliConfigRuntime, cliConfigTypes,
 } from "./verify-packages-consumers.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -105,11 +106,17 @@ async function check(name, action, { setup = false } = {}) {
   }
 }
 
+// Install warnings are evidence, so children must not inherit a parent's quiet output,
+// such as the npm_config_reporter=silent that `pnpm -s` exports.
+const childEnv = { ...process.env, CI: "1", NODE_PATH: "", NODE_OPTIONS: "", NO_COLOR: "1", FORCE_COLOR: "0" };
+delete childEnv.npm_config_reporter;
+delete childEnv.npm_config_loglevel;
+
 async function run(label, command, args, cwd = root, rejection) {
   const log = join(output, "logs", `${String(++commandNumber).padStart(3, "0")}-${label}.log`);
   const result = await new Promise((fulfill, reject) => {
     const child = spawn(command, args, {
-      cwd, env: { ...process.env, CI: "1", NODE_PATH: "", NODE_OPTIONS: "", NO_COLOR: "1", FORCE_COLOR: "0" },
+      cwd, env: childEnv,
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
@@ -136,7 +143,7 @@ async function runFailing(label, command, args, cwd) {
   const log = join(output, "logs", `${String(++commandNumber).padStart(3, "0")}-${label}.log`);
   const result = spawnSync(command, args, {
     cwd, encoding: "utf8", timeout: 300_000,
-    env: { ...process.env, CI: "1", NODE_PATH: "", NODE_OPTIONS: "", NO_COLOR: "1", FORCE_COLOR: "0" },
+    env: childEnv,
   });
   await save(log, `${JSON.stringify({ command, args, cwd, code: result.status, signal: result.signal })}\n${result.stdout}\n${result.stderr}`);
   assert.notEqual(result.status, 0, `${label} must fail. See ${log}`);
@@ -273,6 +280,7 @@ async function checkPackedPackage(directory, manifest, ts, sourceDirectory) {
 
 const helperModules = ["cache", "pricing", "prompt", "merge", "relax"];
 const internalHelpers = ["citations", "evidence", "fold"];
+const helperCoreModules = ["core/domain/field-path"];
 const capabilityModules = { text: ["text", "strategy"], vision: ["vision"], classifier: ["classifier"], layout: ["layout"], split: ["split"] };
 const capabilityBase = [...helperModules, ...internalHelpers, "entries/cache", "failure", "model-id", "repair", "request", "telemetry"];
 const llmAllowed = {
@@ -289,6 +297,7 @@ const requiredContributions = {
   split: ["llm/split", "ai", "zod"],
   extractor: ["llm/extractor", "llm/strategy", "llm/classifier", "llm/vision", "ai"],
   helpers: helperModules.map(name => `llm/${name}`),
+  chunk: ["chunk/index", "core/conversion/provenance"],
   broad: ["llm/strategy", "llm/vision", "llm/classifier", "llm/layout", "llm/split", "ai"],
 };
 
@@ -301,8 +310,10 @@ function contributionProblems(profile, modules) {
     const path = id.replaceAll("\\", "/");
     const library = libraryModule(path);
     if (profile === "helpers") {
-      return library === undefined ? path.includes("/node_modules/") : ![...helperModules, ...internalHelpers, "entries/cache"].some(name => library === `llm/${name}`);
+      return library === undefined ? path.includes("/node_modules/") : !helperCoreModules.includes(library)
+        && ![...helperModules, ...internalHelpers, "entries/cache"].some(name => library === `llm/${name}`);
     }
+    if (profile === "chunk") return library === undefined ? path.includes("/node_modules/") : !/^(chunk|core)\//.test(library);
     const unrelatedEngine = engineNames.filter(name => name !== "ai" || profile === "core")
       .some(name => path.includes(`/node_modules/${name}/`) || path.includes(`/node_modules/${name.replace("/", "+")}@`));
     if (unrelatedEngine) return true;
@@ -481,11 +492,14 @@ async function main() {
   async function install(consumer, manager, label, dependencies, { strictPeers = false } = {}) {
     const args = manager === "npm"
       ? ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--include=optional", "--save-exact", ...dependencies]
-      : ["add", "--ignore-scripts", "--save-exact", ...dependencies];
+      : ["add", "--ignore-scripts", "--save-exact", "--reporter=append-only", ...dependencies];
     const report = await run(`${manager}-${label}-install`, manager, args, consumer);
-    if (strictPeers) assert.doesNotMatch(report, /Issues with peer dependencies|unmet peer/, `${label} installs without peer conflicts`);
+    if (manager === "pnpm") assert.match(report, /^Done in /m, `${label} printed its install report, so peer warnings in it are evidence`);
+    if (strictPeers) assertNoPeerConflicts(report, label);
     return report;
   }
+  const assertNoPeerConflicts = (report, label) =>
+    assert.doesNotMatch(report, /Issues with peer dependencies|unmet peer/, `${label} installs without peer conflicts`);
   async function newConsumer(name) {
     const consumer = join(output, name);
     await mkdir(consumer);
@@ -569,7 +583,7 @@ async function main() {
     const failure = await runFailing("peer-free-helper-mutation", "node", ["entries.mjs"], consumer);
     assert.match(failure.stderr, /'docture\/llm\/merge': 'needs ai'/);
   });
-  const bundleProfiles = ["text", "vision", "classifier", "layout", "split", "extractor", "helpers", "broad"];
+  const bundleProfiles = ["text", "vision", "classifier", "layout", "split", "extractor", "helpers", "chunk", "broad"];
   for (const bundler of ["esbuild", "rollup"]) {
     for (const profile of bundleProfiles) await check(`${bundler} ${profile} output proves its implementation contributions`, async () => {
       const evidence = await buildBundle({ consumer: consumers.npm, profile, bundler, tools });
@@ -598,6 +612,11 @@ async function main() {
         name: "a vision entry that reaches the text splitter", profile: "vision", entry: "./llm/vision", sameExports: true,
         edit: (code, specifier) => `${code}\nimport { TextSplitter as VerificationSplitter } from ${JSON.stringify(specifier("./llm/split"))};\nVisionStrategy.prototype.verificationSplitter = VerificationSplitter;\n`,
         rejected: ["llm/split"],
+      },
+      {
+        name: "a chunk entry that reaches a model capability", profile: "chunk", entry: "./chunk",
+        edit: (code, specifier) => `${code}\nexport { llm as verificationModel } from ${JSON.stringify(specifier("./llm/text"))};\n`,
+        rejected: ["llm/strategy", "ai"],
       },
     ];
     for (const [index, mutation] of mutations.entries()) await check(`${bundler} rejects ${mutation.name}`, async () => {
@@ -631,7 +650,7 @@ async function main() {
     const report = await json(join(consumer, "conformance-results.json"));
     assert.equal(report.numFailedTests, 0);
     const assertions = report.testResults.flatMap(result => result.assertionResults);
-    for (const title of ["reads a text-layer PDF and finds its content", "reports a text PDF as digital", "handles a page with no text without throwing"]) {
+    for (const title of ["reads a document and finds its content", "reports a text document as digital", "handles a page with no text without throwing"]) {
       assert.equal(assertions.find(result => result.title === title)?.status, "passed", title);
     }
   });
@@ -728,6 +747,46 @@ async function main() {
     const staticInputs = [...reached].flatMap(key => Object.keys(outputs[key].inputs));
     assert.deepEqual(staticInputs.filter(id => sdk(id) || /@docture\/cli\/dist\/mcp\/(?:server|index)\.js$/.test(id)), [], "the root entry loads no MCP code statically");
     assert.ok(Object.values(outputs).some(value => Object.keys(value.inputs).some(sdk)), "the lazy mcp command still reaches the SDK");
+  });
+  async function loadedModules(label, consumer, args) {
+    await save(join(consumer, "module-trace.mjs"), moduleTrace);
+    await save(join(consumer, "module-trace-hooks.mjs"), moduleTraceHooks);
+    const log = join(consumer, "module-trace.log");
+    await save(log, "");
+    const stdout = await run(label, "node", ["--import", "./module-trace.mjs", ...args], consumer);
+    const home = await realpath(consumer);
+    const modules = (await readFile(log, "utf8")).split("\n").filter(Boolean).map(url => {
+      const path = fileURLToPath(url);
+      const at = path.lastIndexOf(`${sep}node_modules${sep}`);
+      return at < 0 ? relative(home, path) : path.slice(at + "/node_modules/".length);
+    });
+    await save(join(consumer, `${label}-modules.json`), modules);
+    return { stdout, modules };
+  }
+  const isCore = path => path.startsWith("docture/");
+  const isMcpSdk = path => path.startsWith("@modelcontextprotocol/");
+  await check("npm packed CLI config entry loads no other module and types a consumer config", async () => {
+    const consumer = join(output, "npm-cli");
+    await exercise(consumer, "cli-config", cliConfigRuntime, cliConfigTypes, 'defineConfig({ instructions: "x" }).instructions ?? ""');
+    const { modules } = await loadedModules("npm-cli-config-modules", consumer, ["cli-config.mjs"]);
+    assert.deepEqual(modules, ["cli-config.mjs", "@docture/cli/dist/define-config.js"], "importing @docture/cli/config loads only its own file");
+  });
+  await check("npm packed CLI help loads neither docture core nor the MCP SDK, with or without the SDK installed", async () => {
+    const probe = await loadedModules("npm-cli-inspect-modules", join(output, "npm-cli"),
+      [join("node_modules", "@docture", "cli", "dist", "bin.js"), "inspect", invoice, "--no-config", "--format", "json"]);
+    assert.ok(probe.modules.some(isCore), "the trace sees docture core when a command loads it");
+    for (const [consumer, sdkInstalled] of [[join(output, "npm-cli"), false], [join(output, "npm-cli-mcp"), true]]) {
+      assert.deepEqual((await versionOf(consumer, "@modelcontextprotocol/sdk")).length > 0, sdkInstalled);
+      const bin = join("node_modules", "@docture", "cli", "dist", "bin.js");
+      for (const args of [["help"], ["help", "--json"], ["--help"], ["mcp", "--help"]]) {
+        const label = `npm-cli-${sdkInstalled ? "sdk" : "no-sdk"}-${args.join("-").replace(/[^a-z]+/g, "-")}`;
+        const { stdout, modules } = await loadedModules(label, consumer, [bin, ...args]);
+        if (args.includes("--json")) assert.ok(JSON.parse(stdout).results.some(item => item.file === "inspect"), `${label} prints the command catalog`);
+        else assert.match(stdout, args[0] === "mcp" ? /mcp/ : /inspect/, `${label} prints help`);
+        assert.ok(modules.includes("@docture/cli/dist/run.js"), `${label} traced the CLI itself`);
+        assert.deepEqual(modules.filter(path => isCore(path) || isMcpSdk(path)), [], `${label} loads no docture core or MCP SDK module`);
+      }
+    }
   });
   await check("npm PaddleOCR without ONNX Runtime names the runtime it needs", async () => {
     const consumer = await newConsumer("npm-paddle-without-onnx");
@@ -904,10 +963,14 @@ async function main() {
   await check("pnpm installs an application's own OCR engine release with an unmet-peer warning", async () => {
     const consumer = await newConsumer("pnpm-ocr-conflict");
     const version = applicationOcrEngines["tesseract.js"];
+    const warning = `unmet peer tesseract.js@${packed.docture.manifest.peerDependencies["tesseract.js"]}: found ${version}`;
     const report = await install(consumer, "pnpm", "ocr-conflict", [packed.docture.target, versionSpec("zod"), `tesseract.js@${version}`]);
-    assert.ok(report.includes(`unmet peer tesseract.js@${packed.docture.manifest.peerDependencies["tesseract.js"]}: found ${version}`), report);
+    assert.ok(report.includes(warning), report);
+    assert.throws(() => assertNoPeerConflicts(report, "ocr-conflict"), /installs without peer conflicts/, "the strict peer check rejects a real conflict");
     await save(join(consumer, "core.mjs"), coreRuntime);
     await run("pnpm-ocr-conflict-core", "node", ["core.mjs"], consumer);
+    await install(await newConsumer("pnpm-ocr-conflict-control"), "pnpm", "ocr-conflict-control",
+      [packed.docture.target, versionSpec("zod"), versionSpec("tesseract.js")], { strictPeers: true });
   });
   for (const [manager, version] of zodMatrix) await check(`${manager} Zod ${version} installs by default and runs model classification`, async () => {
     const consumer = await newConsumer(`${manager}-zod-${version}`);

@@ -31,3 +31,6 @@ exports Markdown without asking a model to rewrite source text.
 
 Change `format` to `text`, `html`, or `json`, and `assets` to `embedded` or `omit`, to exercise the
 other built-in modes.
+
+The last step passes `pages: [2]`. PDF.js reads only that page, and the Markdown keeps its
+original page number.

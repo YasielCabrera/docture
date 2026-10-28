@@ -18,6 +18,7 @@ import {
   type ClassificationSignal,
   type Classifier,
   type ClassifyContext,
+  type LoadedDocument,
 } from "../core/index.js";
 import { modelIdOf, providerOf } from "./model-id.js";
 import { wrapUntrusted } from "./prompt.js";
@@ -47,6 +48,18 @@ const verdictSchema = z.object({
   confidence: z.number().min(0).max(1).describe("How certain you are, 0 to 1."),
   reason: z.string().describe("One short sentence of evidence from the document."),
 });
+
+function coveredPages(document: LoadedDocument, length: number): { pages?: number[] } {
+  if (document.text !== document.pages.map((page) => page.text).join("\f")) return {};
+  const pages: number[] = [];
+  let start = 0;
+  for (const page of document.pages) {
+    if (start >= length) break;
+    if (page.text !== "") pages.push(page.pageNumber);
+    start += page.text.length + 1;
+  }
+  return { pages };
+}
 
 export class LlmClassifier implements Classifier {
   readonly name: string;
@@ -114,7 +127,7 @@ export class LlmClassifier implements Classifier {
             stage: "classify",
             component: this.name,
             document: ctx.documentLabel,
-            pages: ctx.document.pages.map((page) => page.pageNumber),
+            ...coveredPages(ctx.document, excerpt.length),
           }),
         });
         usage = toUsage(response.usage, Date.now() - started, modelId, this.options.pricing);

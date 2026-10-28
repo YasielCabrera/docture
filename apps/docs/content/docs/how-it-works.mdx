@@ -32,8 +32,9 @@ await extractor.extract({ bytes, mimeType: "application/pdf" }, Invoice);
 await extractor.extract({ loaded: document }, Invoice);
 ```
 
-For files and byte arrays, docture checks magic bytes before file extensions. An HTTP
-failure, empty input, or unsupported URL protocol raises `UnsupportedSourceError`.
+For files and byte arrays, docture checks magic bytes before file extensions. A file that
+cannot be read, an HTTP failure, empty input, or an unsupported URL protocol raises
+`UnsupportedSourceError`.
 
 ## Load the document
 

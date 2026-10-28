@@ -46,7 +46,7 @@ import { Extractor } from "./extractor.js";
 import { MissingComponentError, SplitFailedError, UnclassifiedGroupError } from "./pipeline/errors.js";
 import { preloadedFeatures } from "./pipeline/features.js";
 import { readDocument } from "./pipeline/read.js";
-import { withProcessHints, type RunOptions } from "./pipeline/run.js";
+import { checkedRuleFailureMode, withProcessHints, type RunOptions } from "./pipeline/run.js";
 import { resolveSource } from "./pipeline/source.js";
 
 export interface ProcessExtractOptions extends RunOptions {
@@ -157,6 +157,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
     if (source === undefined) {
       throw new MissingComponentError("Process has no file. Call loadFile(...) before extract().");
     }
+    if (options.onRuleFailure !== undefined) checkedRuleFailureMode(options.onRuleFailure);
 
     const signal = options.signal ?? new AbortController().signal;
     const logger = options.logger ?? this.#logger;
@@ -204,12 +205,13 @@ export class Process<C extends readonly Classification[] = readonly Classificati
 
         const contract = extractionContractOf(job.classification);
         const hints = job.classification.hints ?? (isContract(contract) ? contract.hints : undefined);
+        const examples = job.classification.examples ?? (isContract(contract) ? contract.examples : undefined);
         const result = await extractor.extractResult(preloaded, contract, withProcessHints({
           ...options,
           pages: job.group.pages,
           signal,
           logger,
-        }, hints));
+        }, hints, { owner: `classification "${job.classification.name}"`, examples }));
 
         results[index] = {
           name: job.classification.name,

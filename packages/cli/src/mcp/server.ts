@@ -41,6 +41,13 @@ const SOURCE = {
   description: "A path relative to the server's working directory, an absolute path, or an http(s) or file: URL",
 } as const;
 
+const PAGES = {
+  type: "array",
+  items: { type: "integer", minimum: 1 },
+  minItems: 1,
+  description: "One-based page numbers to load. Default: every page",
+} as const;
+
 const TOOLS: Tool[] = [
   {
     name: "convert",
@@ -52,6 +59,7 @@ const TOOLS: Tool[] = [
       properties: {
         source: SOURCE,
         format: { type: "string", enum: [...FORMATS], default: "markdown" },
+        pages: { ...PAGES, description: "One-based page numbers to convert, keeping their original numbers. Default: every page" },
       },
       required: ["source"],
       additionalProperties: false,
@@ -66,12 +74,7 @@ const TOOLS: Tool[] = [
       type: "object",
       properties: {
         source: SOURCE,
-        pages: {
-          type: "array",
-          items: { type: "integer", minimum: 1 },
-          minItems: 1,
-          description: "One-based page numbers to load. Default: every page",
-        },
+        pages: PAGES,
       },
       required: ["source"],
       additionalProperties: false,
@@ -115,13 +118,18 @@ function pagesOf(args: Readonly<Record<string, unknown>>): readonly number[] | u
 }
 
 type ToolCall =
-  | { readonly tool: "convert"; readonly source: string; readonly format: ConversionFormat }
+  | {
+    readonly tool: "convert";
+    readonly source: string;
+    readonly format: ConversionFormat;
+    readonly pages: readonly number[] | undefined;
+  }
   | { readonly tool: "inspect"; readonly source: string; readonly pages: readonly number[] | undefined };
 
 function toolCall(name: string, raw: unknown): ToolCall {
   if (name === "convert") {
-    const args = argumentsOf(raw, ["source", "format"]);
-    return { tool: name, source: sourceOf(args), format: formatOf(args) };
+    const args = argumentsOf(raw, ["source", "format", "pages"]);
+    return { tool: name, source: sourceOf(args), format: formatOf(args), pages: pagesOf(args) };
   }
   if (name === "inspect") {
     const args = argumentsOf(raw, ["source", "pages"]);
@@ -147,6 +155,7 @@ async function convertTool(
   config: LoadedConfig | undefined,
   inputs: readonly Input[],
   format: ConversionFormat,
+  pages: readonly number[] | undefined,
   signal: AbortSignal,
 ): Promise<Envelope<unknown>> {
   const wiring = await buildConversionWiring({ io: options.io, ...(config === undefined ? {} : { config }), flags: {} });
@@ -155,6 +164,7 @@ async function convertTool(
   try {
     const batch = convertInputs(wiring.converter, inputs, options.io, {
       format,
+      ...(pages === undefined ? {} : { pages }),
       assets: "omit",
       signal,
       concurrency: wiring.concurrency,
@@ -238,7 +248,7 @@ export async function createMcpServer(options: McpServerOptions): Promise<McpSer
       return toolResult(
         call.tool === "inspect"
           ? await inspectTool(options, config, inputs, call.pages, signal)
-          : await convertTool(options, config, inputs, call.format, signal),
+          : await convertTool(options, config, inputs, call.format, call.pages, signal),
       );
     } catch (error) {
       signal.throwIfAborted();

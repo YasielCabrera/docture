@@ -67,7 +67,7 @@ const HINTS: Readonly<Record<DoctureErrorCode, string>> = {
   CONTRACT_VIOLATION:
     "The data produced does not satisfy your schema. The offending fields are listed above — " +
     "loosen the schema, or add --instructions to steer the model.",
-  UNSUPPORTED_SOURCE: "Pass a file path, a file:// URL, or an http(s) URL.",
+  UNSUPPORTED_SOURCE: "Pass an existing, readable file path, a file:// URL, or an http(s) URL.",
   TIMEOUT: "A stage hit its deadline. Raise it with --timeout <ms>, or drop the flag for none.",
   DUPLICATE_COMPONENT:
     "Two components in docture.config.ts share a name. Give one of them a distinct `name`.",
@@ -83,6 +83,10 @@ const HINTS: Readonly<Record<DoctureErrorCode, string>> = {
   MISSING_COMPONENT:
     "Supply the missing component in docture.config.ts before running this command.",
 };
+
+const RULE_VIOLATION_HINT =
+  "The data satisfies your schema but failed a validation rule in fail mode. The rule's issues are listed above — " +
+  'check the document and the rule, or set onRuleFailure: "report" to keep the data with its issues.';
 
 export interface Explained {
   readonly message: string;
@@ -100,7 +104,8 @@ export function explain(error: unknown): Explained {
     };
   }
   if (hasDoctureIdentity(error)) {
-    return { message: error.message, code: error.code, hint: HINTS[error.code] };
+    const ruleFailure = error.code === "CONTRACT_VIOLATION" && "failedCheck" in error && error.failedCheck === "rule";
+    return { message: error.message, code: error.code, hint: ruleFailure ? RULE_VIOLATION_HINT : HINTS[error.code] };
   }
   if (error instanceof Error) {
     return { code: "INTERNAL", message: error.message };
