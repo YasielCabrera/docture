@@ -1,0 +1,12 @@
+:root {
+  --docture-brand: oklch(0.55 0.17 41);
+  --docture-brand-solid: oklch(0.55 0.17 41);
+  --docture-brand-on-solid: oklch(0.99 0 0);
+  --docture-ink: #171717;
+  --docture-paper: #FCFCFC;
+  --docture-font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --docture-font-mono: "Geist Mono", ui-monospace, monospace;
+}
+[data-theme="dark"], .dark {
+  --docture-brand: oklch(0.76 0.15 55);
+}

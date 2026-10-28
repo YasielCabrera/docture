@@ -1,29 +1,15 @@
 @import "tailwindcss";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
-
-/* ---------------------------------------------------------------------------
- * Tokens
- *
- * Fumadocs' neutral preset is pure greyscale, so the site had no accent at all.
- * One is added here and used for one job: marking what docture extracted. The
- * boxes on the hero document, the field rules, the arrows into the docs. That is
- * the whole vocabulary, and nothing else on the page is coloured.
- *
- * `brand` flips between modes so text and hairlines keep contrast against the
- * background. `brand-solid` does NOT flip: it is a filled surface, and the pair
- * with `brand-on-solid` is the one combination checked for WCAG AA in both modes.
- *
- * Radius scale, applied everywhere: 12px for surfaces, 8px for controls.
- * ------------------------------------------------------------------------- */
+@import "./brand.css";
 
 @theme {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
 
-  --color-brand: oklch(0.55 0.17 41);
-  --color-brand-solid: oklch(0.55 0.17 41);
-  --color-brand-on-solid: oklch(0.99 0 0);
+  --color-brand: var(--docture-brand);
+  --color-brand-solid: var(--docture-brand-solid);
+  --color-brand-on-solid: var(--docture-brand-on-solid);
 
   --radius-surface: 0.75rem;
   --radius-control: 0.5rem;
@@ -31,8 +17,212 @@
   --ease-out-quint: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+:root {
+  --site-container-width: 80rem;
+  --site-container-gutter: 1rem;
+  --site-header-height: 3.5rem;
+
+  --color-fd-background: var(--docture-paper);
+  --color-fd-foreground: var(--docture-ink);
+  --color-fd-muted: #f2efea;
+  --color-fd-muted-foreground: #666666;
+  --color-fd-popover: var(--docture-paper);
+  --color-fd-popover-foreground: var(--docture-ink);
+  --color-fd-card: #f7f5f2;
+  --color-fd-card-foreground: var(--docture-ink);
+  --color-fd-border: #dedad5;
+  --color-fd-primary: var(--docture-brand);
+  --color-fd-primary-foreground: var(--docture-paper);
+  --color-fd-secondary: #f2efea;
+  --color-fd-secondary-foreground: var(--docture-ink);
+  --color-fd-accent: #f2efea;
+  --color-fd-accent-foreground: var(--docture-ink);
+  --color-fd-ring: var(--docture-brand);
+}
+
 .dark {
-  --color-brand: oklch(0.76 0.15 55);
+  --color-fd-background: var(--docture-ink);
+  --color-fd-foreground: var(--docture-paper);
+  --color-fd-muted: #242424;
+  --color-fd-muted-foreground: #b9b9b9;
+  --color-fd-popover: #1d1d1d;
+  --color-fd-popover-foreground: var(--docture-paper);
+  --color-fd-card: #1d1d1d;
+  --color-fd-card-foreground: var(--docture-paper);
+  --color-fd-border: #383838;
+  --color-fd-primary: var(--docture-brand);
+  --color-fd-primary-foreground: var(--docture-ink);
+  --color-fd-secondary: #242424;
+  --color-fd-secondary-foreground: var(--docture-paper);
+  --color-fd-accent: #2b2b2b;
+  --color-fd-accent-foreground: var(--docture-paper);
+  --color-fd-ring: var(--docture-brand);
+}
+
+
+html {
+  scrollbar-gutter: stable;
+}
+
+.site-container {
+  width: 100%;
+  max-width: var(--site-container-width);
+  margin-inline: auto;
+  padding-inline: var(--site-container-gutter);
+}
+
+#nd-home-layout,
+#nd-notebook-layout {
+  --fd-layout-width: var(--site-container-width);
+}
+
+.docs-layout {
+  --fd-header-height: var(--site-header-height);
+}
+
+.site-header {
+  contain: inline-size;
+  position: sticky;
+  top: var(--fd-docs-row-1, 0px);
+  z-index: 40;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  flex-shrink: 0;
+  height: var(--site-header-height);
+  border-bottom: 1px solid var(--color-fd-border);
+  background: var(--color-fd-background);
+}
+
+.site-header-body {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 100%;
+}
+
+.site-header-brand {
+  display: inline-flex;
+  flex-shrink: 0;
+  border-radius: var(--radius-control);
+}
+
+.site-header :is(a, button):focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 3px;
+}
+
+.site-header-links {
+  display: none;
+  align-items: center;
+  gap: 1.5rem;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  color: var(--color-fd-muted-foreground);
+}
+
+.site-header-links a:hover {
+  color: var(--color-fd-foreground);
+}
+
+.site-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-inline-start: auto;
+}
+
+.site-header-action {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-control);
+  color: var(--color-fd-muted-foreground);
+  transition: background-color 150ms, color 150ms;
+}
+
+.site-header-action:hover {
+  background: var(--color-fd-accent);
+  color: var(--color-fd-foreground);
+}
+
+.site-header .site-search-full,
+.site-header .site-header-github {
+  display: none;
+}
+
+.site-header .site-search-compact {
+  display: inline-flex;
+}
+
+.site-header-mobile-navigation {
+  display: flex;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --site-container-gutter: 1.5rem;
+  }
+
+  .site-header-body {
+    gap: 2rem;
+  }
+
+  .site-header-actions {
+    gap: 0.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .site-header-links,
+  .site-header .site-header-github {
+    display: inline-flex;
+  }
+
+  .site-header-mobile-navigation {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .site-header .site-search-full {
+    display: inline-flex;
+    width: 15rem;
+    border-radius: 999px;
+    padding-inline-start: 0.625rem;
+  }
+
+  .site-header .site-search-compact {
+    display: none;
+  }
+}
+
+.brand-logo {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 140px;
+  vertical-align: middle;
+}
+
+.brand-logo img {
+  width: 100%;
+  height: auto;
+}
+
+.brand-logo .brand-logo-light,
+.dark .brand-logo .brand-logo-dark {
+  display: block;
+}
+
+.brand-logo .brand-logo-dark,
+.dark .brand-logo .brand-logo-light {
+  display: none;
+}
+
+.brand-logo-footer {
+  width: 196px;
 }
 
 /* Custom home-page snippets sit outside Fumadocs' CodeBlock wrapper. */
@@ -224,10 +414,6 @@ html:has(.mermaid-dialog[open]) {
   }
 }
 
-.docs-layout {
-  --color-fd-primary: var(--color-brand);
-}
-
 .docs-layout #nd-page {
   min-width: 0;
   padding-bottom: 4rem;
@@ -266,58 +452,6 @@ html:has(.mermaid-dialog[open]) {
 
 .docs-layout #nd-sidebar {
   background: transparent;
-}
-
-.docs-layout #nd-subnav {
-  background: var(--color-fd-background);
-}
-
-.docs-layout #nd-subnav::before {
-  position: absolute;
-  inset-block: 0;
-  left: 50%;
-  z-index: -1;
-  width: 100vw;
-  transform: translateX(-50%);
-  border-bottom: 1px solid var(--color-fd-border);
-  background: var(--color-fd-background);
-  content: "";
-}
-
-.docs-layout #nd-subnav [data-header-body] {
-  width: 100%;
-  max-width: 97rem;
-  margin-inline: auto;
-  border-bottom: 0;
-}
-
-.docs-navbar-links {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  margin-left: 2rem;
-  font-size: 0.875rem;
-  color: var(--color-fd-muted-foreground);
-}
-
-.docs-navbar-links a:hover {
-  color: var(--color-fd-foreground);
-}
-
-@media (min-width: 768px) {
-  .docs-layout #nd-subnav [data-header-body] > div:last-child {
-    flex: none;
-  }
-
-  .docs-layout #nd-subnav [data-header-body] > button {
-    max-width: 18rem;
-  }
-}
-
-@media (max-width: 639px) {
-  .docs-navbar-links {
-    margin-left: 1.25rem;
-  }
 }
 
 .docs-layout #nd-sidebar [data-active="true"] {

@@ -1,0 +1,40 @@
+{
+  "name": "Docture",
+  "version": "1.0.0",
+  "colors": {
+    "brand": {
+      "oklch": "oklch(0.55 0.17 41)",
+      "hex": "#BF4300"
+    },
+    "brandDark": {
+      "oklch": "oklch(0.76 0.15 55)",
+      "hex": "#F99549"
+    },
+    "brandOnSolid": {
+      "oklch": "oklch(0.99 0 0)",
+      "hex": "#FCFCFC"
+    },
+    "ink": {
+      "hex": "#171717"
+    },
+    "paper": {
+      "hex": "#FCFCFC"
+    }
+  },
+  "geometry": {
+    "iconCanvas": 128,
+    "horizontalCanvas": [
+      560,
+      128
+    ],
+    "clearSpace": 16,
+    "minimumHorizontalWidth": 140,
+    "minimumStandardIconSize": 24,
+    "minimumMicroIconSize": 16
+  },
+  "typography": {
+    "logo": "Custom outlined semibold wordmark",
+    "interface": "Geist",
+    "code": "Geist Mono"
+  }
+}

@@ -8,6 +8,54 @@ pnpm --filter @docture/docs build
 pnpm --filter @docture/docs typecheck
 ```
 
+## Brand assets
+
+The approved brand kit in `../../brand/` owns the logo geometry, colors, icons,
+and social image. `components/brand-logo.tsx` displays the original outlined SVGs
+in shared navigation and the footer. The site's existing `.dark` class selects
+the matching artwork without client-side theme state.
+
+Synchronize the deployed subset after updating the brand kit:
+
+```sh
+pnpm --filter @docture/docs brand:sync
+pnpm --filter @docture/docs check:brand
+```
+
+Run these commands from the repository root. `check:docs` also checks that the
+deployed assets match their canonical sources. The sync script copies only the
+assets used by the site, including `app/brand.css`, `lib/brand.json`, the public
+logo and app icons, and Next's favicon, Apple icon, and Open Graph image files.
+It derives `app/manifest.webmanifest` from the kit template with public icon paths
+and `display: browser` for this documentation site.
+
+Next generates the favicon, manifest, and social-image metadata from those files.
+Twitter uses the same Open Graph image. Page titles and descriptions continue to
+come from each page. The existing Geist and Geist Mono font loaders retain the
+full weight range used by the interface; the logo itself requires no font.
+
+Set `SITE_URL` to the site's absolute deployed origin when building outside
+Vercel, for example through the hosting platform's environment settings. The root
+layout validates it with `new URL` and uses it as `metadataBase`. Vercel can use
+Next's native deployment-origin fallback. Without either setting, Next falls
+back to localhost for absolute social-image URLs. No production domain is assumed
+by this repository. The package-level `turbo.json` passes the origin settings to
+Next and includes them in the build cache key. Changes to the canonical kit and
+deployed public assets also invalidate their relevant checks.
+
+## Navigation and page width
+
+Home and documentation use `components/site-header.tsx` through Fumadocs header
+slots. `components/docs-header.tsx` supplies the notebook's mobile sidebar trigger.
+The primary links come from `primaryNavigation` in `lib/shared.ts`.
+
+Use `site-container` for outer page sections. Its 80rem maximum width and responsive
+gutters live in `app/global.css`; the notebook grid uses the same width token.
+Keep article, sidebar, and table-of-contents widths inside that shared outer frame.
+The header uses inline-size containment so its controls do not change the notebook
+grid's minimum column sizes.
+Scrollbar space stays reserved so short and long pages retain the same alignment.
+
 ## Layout
 
 ```

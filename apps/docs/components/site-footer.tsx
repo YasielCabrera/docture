@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
 import { appName, appTagline, gitConfig } from "@/lib/shared";
 
 const repositoryUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
@@ -30,17 +31,23 @@ const linkClassName =
 export function SiteFooter() {
   return (
     <footer className="border-t border-fd-border bg-fd-background">
-      <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:py-14">
+      <div className="site-container py-12 lg:py-14">
         <div className="grid gap-12 md:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.8fr)] md:gap-16">
           <div>
             <Link
               href="/"
-              className="inline-flex rounded-control font-mono text-xl font-semibold tracking-[-0.03em] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+              className="inline-flex rounded-control focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
             >
-              {appName}
+              <BrandLogo className="brand-logo-footer" />
             </Link>
             <p className="mt-4 max-w-[38ch] text-base leading-relaxed text-fd-foreground/70">
               {appTagline}
+            </p>
+            <p className="mt-4 text-sm text-fd-muted-foreground">
+              Built by{" "}
+              <a href="https://www.powerhouse.io/" className={linkClassName}>
+                Powerhouse
+              </a>
             </p>
           </div>
 

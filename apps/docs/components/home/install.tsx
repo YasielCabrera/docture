@@ -32,7 +32,7 @@ const worksWith = [
 export function Install() {
   return (
     <section className="border-b border-fd-border">
-      <div className="reveal mx-auto flex max-w-7xl flex-col gap-8 px-4 py-10 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:gap-12">
+      <div className="site-container reveal flex flex-col gap-8 py-10 lg:flex-row lg:items-center lg:justify-between lg:gap-12">
         <div className="flex min-w-0 flex-col gap-3">
           <CopyCommand command={installCommand} />
           <p className="max-w-[52ch] text-sm leading-relaxed text-fd-muted-foreground">

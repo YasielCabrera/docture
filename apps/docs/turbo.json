@@ -1,0 +1,33 @@
+{
+  "extends": [
+    "//"
+  ],
+  "tasks": {
+    "build": {
+      "env": [
+        "$TURBO_EXTENDS$",
+        "SITE_URL",
+        "VERCEL",
+        "VERCEL_URL",
+        "VERCEL_PROJECT_PRODUCTION_URL",
+        "VERCEL_ENV"
+      ],
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "public/**"
+      ]
+    },
+    "typecheck": {
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/brand/**",
+        "public/brand/**"
+      ]
+    },
+    "dev": {
+      "env": [
+        "SITE_URL"
+      ]
+    }
+  }
+}

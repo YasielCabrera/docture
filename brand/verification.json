@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "svgFilesRendered": 50,
+  "pngFilesOpened": 125,
+  "checks": [
+    "Outlined SVGs render without external dependencies",
+    "All color and layout variants exist",
+    "Transparent logo PNGs are unclipped",
+    "Raster dimensions match filenames and placement templates",
+    "ICO frames and manifest icon paths are valid",
+    "Maskable artwork stays inside the safe circle",
+    "Palette matches the documentation tokens when source is present",
+    "PDF page size and actual rendering match the brand sheet",
+    "Supporting font licenses are included",
+    "Inventory checksums match the delivered files"
+  ],
+  "graphicContrastRatios": {
+    "orange-on-paper": 5.09,
+    "amber-on-ink": 8.04,
+    "paper-on-orange": 5.09,
+    "ink-on-paper": 17.47
+  },
+  "notes": [
+    "Logo lettering is a geometric reconstruction of the approved raster concept.",
+    "The deployed website assets are checked separately with the documentation app asset check."
+  ]
+}

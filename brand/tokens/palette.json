@@ -1,0 +1,23 @@
+{
+  "metadata": {
+    "name": "Docture"
+  },
+  "colors": [
+    {
+      "name": "Burnt orange",
+      "hex": "#BF4300"
+    },
+    {
+      "name": "Amber",
+      "hex": "#F99549"
+    },
+    {
+      "name": "Ink",
+      "hex": "#171717"
+    },
+    {
+      "name": "Paper",
+      "hex": "#FCFCFC"
+    }
+  ]
+}

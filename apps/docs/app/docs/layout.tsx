@@ -2,6 +2,8 @@ import { DocsLayout } from "fumadocs-ui/layouts/notebook";
 import Link from "next/link";
 import { baseOptions } from "@/lib/layout.shared";
 import { source } from "@/lib/source";
+import { DocsHeader } from "@/components/docs-header";
+import { primaryNavigation } from "@/lib/shared";
 
 export default function Layout({ children }: LayoutProps<"/docs">) {
   const options = baseOptions();
@@ -13,17 +15,22 @@ export default function Layout({ children }: LayoutProps<"/docs">) {
       nav={{
         ...options.nav,
         mode: "top",
-        children: (
-          <nav key="main-navigation" aria-label="Main navigation" className="docs-navbar-links">
-            <Link href="/docs">Documentation</Link>
-            <Link href="/docs/reference/api" className="hidden sm:inline-flex">
-              API reference
-            </Link>
+      }}
+      slots={{ header: DocsHeader }}
+      containerProps={{ className: "docs-layout" }}
+      sidebar={{
+        defaultOpenLevel: 0,
+        collapsible: false,
+        banner: (
+          <nav aria-label="Main navigation" className="flex flex-col gap-1 md:hidden">
+            {primaryNavigation.map((link) => (
+              <Link key={link.href} href={link.href} className="rounded-control px-2 py-2 text-sm hover:bg-fd-accent">
+                {link.label}
+              </Link>
+            ))}
           </nav>
         ),
       }}
-      containerProps={{ className: "docs-layout" }}
-      sidebar={{ defaultOpenLevel: 0, collapsible: false }}
     >
       {children}
     </DocsLayout>

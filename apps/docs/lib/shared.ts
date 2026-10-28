@@ -8,3 +8,10 @@ export const gitConfig = {
   repo: "docture",
   branch: "main",
 };
+
+export const repositoryUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
+
+export const primaryNavigation = [
+  { label: "Documentation", href: "/docs" },
+  { label: "API reference", href: "/docs/reference/api" },
+];

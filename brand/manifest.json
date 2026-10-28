@@ -1,0 +1,996 @@
+{
+  "brand": "Docture",
+  "version": "1.0.0",
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 54,
+      "sha256": "4f7185843b0d83d84f5f7d66f94944e443c64dd46b5fae7d4b4467fab8a8cd3c"
+    },
+    {
+      "path": "README.md",
+      "bytes": 7146,
+      "sha256": "d053d6f685c2c7eb0ad5133342a53cacf370bdd6c651ecaabeadf3fe8aa48c25"
+    },
+    {
+      "path": "brand-preview.html",
+      "bytes": 447703,
+      "sha256": "ba9b18a1cdf9f8308262eec7a43791f59b5d1bd9a54015f429acf0a37ebe73a2"
+    },
+    {
+      "path": "brand-sheet.html",
+      "bytes": 447792,
+      "sha256": "188eb7fb4f5b4c066405cc4c9172b6f92c458a8f871f1a46b9f27b5a515ac039"
+    },
+    {
+      "path": "brand-sheet.pdf",
+      "bytes": 83917,
+      "sha256": "2be937d0e4f41b7c44132b8857a3d40abdb0b455959b90e0d1e5c3fde2ae668a"
+    },
+    {
+      "path": "brand-sheet.png",
+      "bytes": 136776,
+      "sha256": "3f56dbeefd0387ab816de9cb0f5a8822376432d7653e92cf36abc6ce4700a560"
+    },
+    {
+      "path": "brand-sheet.svg",
+      "bytes": 236848,
+      "sha256": "6b6cd526da3d4df6b79ad0957fc44d863e7acb6f3eb7c4734c292dc33d83c8a7"
+    },
+    {
+      "path": "favicons/android-chrome-192x192.png",
+      "bytes": 3895,
+      "sha256": "655363a5d47a2ddb76380991fa3f34a4aa0b24e02c80a23d856552127c4d0b27"
+    },
+    {
+      "path": "favicons/android-chrome-512x512.png",
+      "bytes": 11320,
+      "sha256": "8ad4b2ba1296e3e2407239b57c44668640d0c314bfdc1faf136bead1607937e7"
+    },
+    {
+      "path": "favicons/apple-touch-icon.png",
+      "bytes": 3574,
+      "sha256": "837ae6f0d437e6f3cce85617cee49c60c11e3f070a7635c5eb98614cef54cb12"
+    },
+    {
+      "path": "favicons/favicon-16x16.png",
+      "bytes": 418,
+      "sha256": "05609dedfe17a7359e242e6a8fdebc27e58b92e8d173cfadabccd3f5e3d9e238"
+    },
+    {
+      "path": "favicons/favicon-32x32.png",
+      "bytes": 758,
+      "sha256": "c859b1eaab1ace5f5c0b9925edbf356c2a75a16958c2cede84f61c4efb39cb88"
+    },
+    {
+      "path": "favicons/favicon-48x48.png",
+      "bytes": 1146,
+      "sha256": "f46b54c9117fb2789cae8401d82187c127fe7e36843a3995b8ede7b1706f827e"
+    },
+    {
+      "path": "favicons/favicon-96x96.png",
+      "bytes": 2165,
+      "sha256": "62a0f691a4abf8e7f585f5d1ec6f9d391e9ac268cd23d6dcc900e059e2f78b59"
+    },
+    {
+      "path": "favicons/favicon.ico",
+      "bytes": 5421,
+      "sha256": "1afb13850dc79430a3b524f7ace089acf6109e7dca23ad85ff495e314b9018e7"
+    },
+    {
+      "path": "favicons/favicon.svg",
+      "bytes": 1093,
+      "sha256": "e55a2fae2209d4c174614c76de1b3d0630afd7342bafbb313c13604d877dcff0"
+    },
+    {
+      "path": "favicons/head.html",
+      "bytes": 542,
+      "sha256": "b18fb3617fdac97f6a93ccbc729aafc2d6af1111f78992dfd01a5c64edbcf7d3"
+    },
+    {
+      "path": "favicons/mask-icon.svg",
+      "bytes": 1026,
+      "sha256": "81e5103d56d202e3bdb127482747e4299e08bc995c4ef0bc4e514060f5a214b9"
+    },
+    {
+      "path": "favicons/maskable-icon-512x512.png",
+      "bytes": 9044,
+      "sha256": "d2b55884fecad1a821925f578125379ef27021a036d05564b91b3db14c86ce0d"
+    },
+    {
+      "path": "favicons/site.webmanifest",
+      "bytes": 628,
+      "sha256": "5999091d84213aab68c811387dd16f919d54bc8e14da380078c2c05f9b7190b2"
+    },
+    {
+      "path": "fonts/OFL-geist.txt",
+      "bytes": 4387,
+      "sha256": "1781d2806a07d91c4edf4740b88449fab7d0eadad53f7c351b94cd4d4eb8c00f"
+    },
+    {
+      "path": "fonts/OFL-geistmono.txt",
+      "bytes": 4387,
+      "sha256": "1781d2806a07d91c4edf4740b88449fab7d0eadad53f7c351b94cd4d4eb8c00f"
+    },
+    {
+      "path": "fonts/geist-400.ttf",
+      "bytes": 72916,
+      "sha256": "ccce59465ae5c61930ada5453834f60500fbd95084d85db63e0e65fad0125455"
+    },
+    {
+      "path": "fonts/geist-600.ttf",
+      "bytes": 73048,
+      "sha256": "7171f481b121803d007f5c6c76cd9988c0d41cce4202db9a18dff9945505d36d"
+    },
+    {
+      "path": "fonts/geist-mono-400.ttf",
+      "bytes": 71160,
+      "sha256": "7022da390e9b401ea35b722f8ed2376948e70add10954bc798839b4bfe17ef3f"
+    },
+    {
+      "path": "logos/endorsed/docture-endorsed-black.svg",
+      "bytes": 7011,
+      "sha256": "75c7b7ed998ab189ea89fa07b5d7cf10fa5143f855485d75bdf253a21ad89a9a"
+    },
+    {
+      "path": "logos/endorsed/docture-endorsed-brand.svg",
+      "bytes": 7011,
+      "sha256": "2c242da07a59700823ba7760609555d23afd7f5211557ef5dce0663c527ba687"
+    },
+    {
+      "path": "logos/endorsed/docture-endorsed-current-color.svg",
+      "bytes": 7034,
+      "sha256": "f91051b3a4a359e9ad966093bed538427d02391e68abf691d5fa123ac6f1e925"
+    },
+    {
+      "path": "logos/endorsed/docture-endorsed-on-dark.svg",
+      "bytes": 7013,
+      "sha256": "b7be146611982db9f0abf127caf97cf338cab93d509aa75f3e0210aa74b393b7"
+    },
+    {
+      "path": "logos/endorsed/docture-endorsed-primary.svg",
+      "bytes": 7013,
+      "sha256": "2812a849dcd106070499a56c7d2c47f1b611a6e3ee1ec8f1cfffd1b437f72156"
+    },
+    {
+      "path": "logos/endorsed/docture-endorsed-white.svg",
+      "bytes": 7011,
+      "sha256": "9cc52d1e7032a0e6ca5bcc01b9bfb70ec8f710dacf65fb010b69dc183ecbed7f"
+    },
+    {
+      "path": "logos/horizontal/docture-horizontal-black.svg",
+      "bytes": 2951,
+      "sha256": "61c61d7d8fa305bd8bbb8ec36b7e0c1af1ff7ebc738c82636fef1d0420a86dc9"
+    },
+    {
+      "path": "logos/horizontal/docture-horizontal-brand.svg",
+      "bytes": 2951,
+      "sha256": "bb519518ad08e3f05e980cc7f08573a17a6a323e9149bc5ea40ad9b9a16a33f9"
+    },
+    {
+      "path": "logos/horizontal/docture-horizontal-current-color.svg",
+      "bytes": 2969,
+      "sha256": "0d4951ba7da1194f6372e821ce2e5db8b00b4ef7574874b87c292e91e10e4986"
+    },
+    {
+      "path": "logos/horizontal/docture-horizontal-on-dark.svg",
+      "bytes": 2953,
+      "sha256": "6e484a197e1c71ed5fb7e375b4c13611b0b0ed4131d816101c5f5376c7291834"
+    },
+    {
+      "path": "logos/horizontal/docture-horizontal-primary.svg",
+      "bytes": 2953,
+      "sha256": "ec371273a4393bd4bcb6205a028b46c47ad6b2d1ff247bdb4030260f4d48012a"
+    },
+    {
+      "path": "logos/horizontal/docture-horizontal-white.svg",
+      "bytes": 2951,
+      "sha256": "90aedd4cd2f32105e6788199659c119e771fb9616b9ba484f7a99d10f4f0358d"
+    },
+    {
+      "path": "logos/icon/docture-icon-black.svg",
+      "bytes": 1105,
+      "sha256": "2171fd752be7ac30b024b71c7afcb915763d1dff87b35efa2c724b5a64d510a9"
+    },
+    {
+      "path": "logos/icon/docture-icon-brand.svg",
+      "bytes": 1105,
+      "sha256": "dc270aada1a297ab72190ccd63db9ac3aead8d75593404a9c353e1a67d9b8eaa"
+    },
+    {
+      "path": "logos/icon/docture-icon-current-color.svg",
+      "bytes": 1118,
+      "sha256": "542107ca220b899c29953d1e1555d96f6c1b19313b06e34d46d16c0bff89fe0c"
+    },
+    {
+      "path": "logos/icon/docture-icon-on-dark.svg",
+      "bytes": 1107,
+      "sha256": "f94bcfac414b16fe664f8ea065fc52bb6729fed316e43bcb9b76ec007b00386b"
+    },
+    {
+      "path": "logos/icon/docture-icon-primary.svg",
+      "bytes": 1107,
+      "sha256": "3075274a5000c055aba8b1daa312f96b9893bb55006560bc1f9a8991c1636c0f"
+    },
+    {
+      "path": "logos/icon/docture-icon-white.svg",
+      "bytes": 1105,
+      "sha256": "332329f54d43c7f6c7cd318a7c9a28a0dc7b75902d0e4560e7598da70feb7dea"
+    },
+    {
+      "path": "logos/icon-micro/docture-icon-micro-black.svg",
+      "bytes": 1115,
+      "sha256": "c08ffde5fb44de81e3f9b07f5dcb370f324bb300914e939ac52cbb8bf7423a76"
+    },
+    {
+      "path": "logos/icon-micro/docture-icon-micro-brand.svg",
+      "bytes": 1115,
+      "sha256": "1f0dd1c1b96ec8ed06658169a4a333ad2176e1260abcbadfcd77df9a532125de"
+    },
+    {
+      "path": "logos/icon-micro/docture-icon-micro-current-color.svg",
+      "bytes": 1128,
+      "sha256": "377e6442132714bc2aae2efcfca6664d69490a55a56a91b502ac2706a7e8ef74"
+    },
+    {
+      "path": "logos/icon-micro/docture-icon-micro-on-dark.svg",
+      "bytes": 1117,
+      "sha256": "be3cdc5ceff537b410dfad48ffae0565dd11b40549d1419d9013e64583b9142f"
+    },
+    {
+      "path": "logos/icon-micro/docture-icon-micro-primary.svg",
+      "bytes": 1117,
+      "sha256": "a315902b1ae6be4f754231afe4c1f6eb636a99c62777b395dda6195d52bc50fd"
+    },
+    {
+      "path": "logos/icon-micro/docture-icon-micro-white.svg",
+      "bytes": 1115,
+      "sha256": "784e94478b162a12a4dddcfd5b650843fd2aac54515d5b2d1c2499a50199a86b"
+    },
+    {
+      "path": "logos/stacked/docture-stacked-black.svg",
+      "bytes": 2886,
+      "sha256": "df8af8e176c2c3545688c35d47dd313e833585740f8eea6e3a0824cda3ba923c"
+    },
+    {
+      "path": "logos/stacked/docture-stacked-brand.svg",
+      "bytes": 2886,
+      "sha256": "559d99d39ef95e6084962e818d757e1ea95317a6fe59ed563b8a85396a5d6aa2"
+    },
+    {
+      "path": "logos/stacked/docture-stacked-current-color.svg",
+      "bytes": 2904,
+      "sha256": "6bc9c4032817c9fab2232db43d44b2addc261d9f1c0d45498f75a91af8870271"
+    },
+    {
+      "path": "logos/stacked/docture-stacked-on-dark.svg",
+      "bytes": 2888,
+      "sha256": "26633fe38336bbbbf48d936270b5ae0b3003100000e10df5f18841b4f0009577"
+    },
+    {
+      "path": "logos/stacked/docture-stacked-primary.svg",
+      "bytes": 2888,
+      "sha256": "03f44713b5438388c2f53be804a1364259a0cf5796c7df6db4ddc3c9d59c24f8"
+    },
+    {
+      "path": "logos/stacked/docture-stacked-white.svg",
+      "bytes": 2886,
+      "sha256": "d5b487cb8cc2016fac40bd6b74b7c5c60dbf74de5639e0755ed4b333293bcc2e"
+    },
+    {
+      "path": "logos/wordmark/docture-wordmark-black.svg",
+      "bytes": 2041,
+      "sha256": "60fc603cfc40f0cda2965c703a7dd2a05fd5987d0a58b7532294fb448beda594"
+    },
+    {
+      "path": "logos/wordmark/docture-wordmark-brand.svg",
+      "bytes": 2041,
+      "sha256": "9427f885992e2eef9942a912bff7f7a68cc61f2e1927ae70e5b5071863d79fac"
+    },
+    {
+      "path": "logos/wordmark/docture-wordmark-current-color.svg",
+      "bytes": 2054,
+      "sha256": "300e9ab16b9c3cb3df32d7da81c407342dd69fba4540b71f4f1f3b1e5a6baf96"
+    },
+    {
+      "path": "logos/wordmark/docture-wordmark-on-dark.svg",
+      "bytes": 2043,
+      "sha256": "aeae701dfd8f81defa1f885c2543755182ac89d6108bcc73e9361dc116c58a88"
+    },
+    {
+      "path": "logos/wordmark/docture-wordmark-primary.svg",
+      "bytes": 2043,
+      "sha256": "0d30db73716ced902057c8bf6acde23c3ecc2b5f1db16f02e8bb28e8fcf0344e"
+    },
+    {
+      "path": "logos/wordmark/docture-wordmark-white.svg",
+      "bytes": 2041,
+      "sha256": "ddd935787d10730c6733e199a6765fac66466e1cf82c4029bb700002968477d7"
+    },
+    {
+      "path": "masters/icon-artwork.svg",
+      "bytes": 822,
+      "sha256": "4a091ff13c5d55a9528b2c592a4a072247c7e0ff1c28f3ed0e398fca49051043"
+    },
+    {
+      "path": "masters/wordmark-artwork.svg",
+      "bytes": 1778,
+      "sha256": "8a56963328541a8a00f25d40d2f2aabeb90629ccaa7750b94039f044882e50a0"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-black-1120.png",
+      "bytes": 17189,
+      "sha256": "2d4c8c467a03372276dfdefac9c50c5d031d61f21fefdf24f856eaea743ecbac"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-black-2240.png",
+      "bytes": 36845,
+      "sha256": "9c47f7662e77d991a250c290cbf3f30a119fee3460438e685cca768ea515ac22"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-black-560.png",
+      "bytes": 8057,
+      "sha256": "dc0465a9bacaea502ad3959f609fc9870c35e46b9a9a1b1724e65552f6f2f00f"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-brand-1120.png",
+      "bytes": 20630,
+      "sha256": "c3098bd972881993d5b5f23756e1ffb370fa66ee493189b87998eb9deb75bb7b"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-brand-2240.png",
+      "bytes": 43494,
+      "sha256": "70d050d7647ac32fbd5a7c5381916b8b3a3ebfe84c151b3d248a9922977d94c7"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-brand-560.png",
+      "bytes": 9728,
+      "sha256": "546f4a8935d900b299cda2b3f0ead1644334179d19bd1a3034362ddf13f715d1"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-on-dark-1120.png",
+      "bytes": 21866,
+      "sha256": "14fd335a2e49d7f437f82fd1f3085d10f400e450c4b2cd1d0ca923a6980cfdb6"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-on-dark-2240.png",
+      "bytes": 46651,
+      "sha256": "db9895f4440f27a9759b63ccebc821dcdc35e55c2daa8b808971ffdf11f76376"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-on-dark-560.png",
+      "bytes": 10279,
+      "sha256": "43181e2951ffa3c750458a40731ef345ea84d9684ed85e6f1cee65f1fc9c2cb3"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-primary-1120.png",
+      "bytes": 21557,
+      "sha256": "e740f7c5ac05b578a4347fd45d52fa62f8811e009e03501c033e38959f8eae98"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-primary-2240.png",
+      "bytes": 46083,
+      "sha256": "25cf0d3d487a03c8e0c1576d499bca8bb46bc8e920f0e4e490c1b1d1210f01d7"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-primary-560.png",
+      "bytes": 10264,
+      "sha256": "feaecdb2e6e52db88f112937d23ab04e312c2c89f62c2c7cb4796fbc43bba376"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-white-1120.png",
+      "bytes": 18258,
+      "sha256": "03aa635dde8e5fbfd7226587f8677a2d406d004ddbebf26e9e183ad68138d07b"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-white-2240.png",
+      "bytes": 38855,
+      "sha256": "d7d6139d2e3c6c3b9879dde71e39e0c0acf60361763eb39e61f3d86d23e7270a"
+    },
+    {
+      "path": "png/endorsed/docture-endorsed-white-560.png",
+      "bytes": 8550,
+      "sha256": "4e80be761b049dff0ef68e4a8d0b65dc54fd86ecab83d1715413ec8a559cd6ec"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-black-1120.png",
+      "bytes": 13948,
+      "sha256": "f21e576eff314c50875646cdb9dae5000fb2c8d57bb44a01f877ab40aa80abe5"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-black-2240.png",
+      "bytes": 29833,
+      "sha256": "7a3d9bed90ecd47d577569eb90c85eaee31f85bf2d47055087318ea089842567"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-black-560.png",
+      "bytes": 6716,
+      "sha256": "56d6988b04af0a8109edc107435b6174c92f10da1e486969f8cf72b0d3d7803b"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-brand-1120.png",
+      "bytes": 16666,
+      "sha256": "428383687daf50aebee6a31aefa214df8fa2b0b5e8d42d97addec5aef8b26f9d"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-brand-2240.png",
+      "bytes": 34961,
+      "sha256": "f293a66ccd0b7db6696556b37b9a7f4c8a0c6e91daaa1d9d207712f4fe079a27"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-brand-560.png",
+      "bytes": 7997,
+      "sha256": "037b28b72c11fb4d2f0914374be9af9933eb6145dd099fee48a9901fececdd1e"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-on-dark-1120.png",
+      "bytes": 17974,
+      "sha256": "ded8cc27d5ef9a71fcca661714f62842423d43a90443381ee8cc4c9d9ee8e4eb"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-on-dark-2240.png",
+      "bytes": 38103,
+      "sha256": "b859b624da0f12942d3c34455db111b01200a316911dc81c9be22ca632ced519"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-on-dark-560.png",
+      "bytes": 8650,
+      "sha256": "4dd1ff3e0f5384740b6148288e82fb8d76332e77fdf11220e08549c243eb5c74"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-primary-1120.png",
+      "bytes": 17455,
+      "sha256": "98bc79b0c2c39f3f5c1d0d694ddc620761b8e451f6ba47e9300be5df22855069"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-primary-2240.png",
+      "bytes": 37067,
+      "sha256": "3aaa2efe3164d22510e8b78acc06a8476fbab52ca56ac2594726a6044207dde2"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-primary-560.png",
+      "bytes": 8519,
+      "sha256": "148440855c60ffed7660e668a134dbf490ac2a8752f65e8d15397c4ca4f4a21a"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-white-1120.png",
+      "bytes": 14817,
+      "sha256": "534444cfe058a4a4a4c4be0fc95e035e8dd3c4f79e120d577c26e5aa56c66176"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-white-2240.png",
+      "bytes": 31405,
+      "sha256": "35641b1b2cd2ebedb3daa6fc0f0d640e8d889448372377dd41ab1291c08c641a"
+    },
+    {
+      "path": "png/horizontal/docture-horizontal-white-560.png",
+      "bytes": 7127,
+      "sha256": "690b1e73ccafb3a3f8704fe10397d0828e25d293f3a690cbaeee5bba8bfd0bc9"
+    },
+    {
+      "path": "png/icon/docture-icon-black-1024.png",
+      "bytes": 23600,
+      "sha256": "e70f337fc6e72bdc260b4c4d49533b75c87cc0174a2097227145bc54abe6250d"
+    },
+    {
+      "path": "png/icon/docture-icon-black-128.png",
+      "bytes": 2406,
+      "sha256": "3aa1ae1c04b171a036cdc9695430f04a147aeb3f11fd3281425914c11ff101f4"
+    },
+    {
+      "path": "png/icon/docture-icon-black-256.png",
+      "bytes": 4937,
+      "sha256": "def1dd2c3d76c61e10cfd258c4ca262aaab177f5c1176a332b2953e2b457d459"
+    },
+    {
+      "path": "png/icon/docture-icon-black-512.png",
+      "bytes": 10799,
+      "sha256": "e85646218f1d127acbf67e40c52ec714b6bb56813b7318f39d5a590ff2cee1d5"
+    },
+    {
+      "path": "png/icon/docture-icon-brand-1024.png",
+      "bytes": 26426,
+      "sha256": "f333621a2bccbe87a2ea86eea7fc4514eae4c30cceaa8956cd9e7afecfea3d9d"
+    },
+    {
+      "path": "png/icon/docture-icon-brand-128.png",
+      "bytes": 2727,
+      "sha256": "3949e8573115f03151f537dca5858c4d836bb9f77ffc4c5acb7d3ccd27be3f63"
+    },
+    {
+      "path": "png/icon/docture-icon-brand-256.png",
+      "bytes": 5650,
+      "sha256": "f9d9990a593c51c6107397ca016010961242f40305b97fdfcc20d366ec6d0907"
+    },
+    {
+      "path": "png/icon/docture-icon-brand-512.png",
+      "bytes": 11954,
+      "sha256": "750fcc85ddd7e3a139d0b302ad683af27a2624517801f3bebbb2f4fae0c6902e"
+    },
+    {
+      "path": "png/icon/docture-icon-on-dark-1024.png",
+      "bytes": 29163,
+      "sha256": "dbd437f9e34e4e76e37f9df492c48920de7f1f5bf0c342220ef705d9de9ebdd4"
+    },
+    {
+      "path": "png/icon/docture-icon-on-dark-128.png",
+      "bytes": 3030,
+      "sha256": "17c43c4e240fbdb671d45a295a957dd341d5fc234e56d7c6bf37029c84bdb0fc"
+    },
+    {
+      "path": "png/icon/docture-icon-on-dark-256.png",
+      "bytes": 6262,
+      "sha256": "cd7ea9aedc320b7c81cbdf0c7905fa41dbf4090d1ce5d44e277560a96146c36d"
+    },
+    {
+      "path": "png/icon/docture-icon-on-dark-512.png",
+      "bytes": 13115,
+      "sha256": "90945f1200858ea872db58a5cfc9afe3d8488e259ab087c785b0a8f52f51bfb2"
+    },
+    {
+      "path": "png/icon/docture-icon-primary-1024.png",
+      "bytes": 26426,
+      "sha256": "f333621a2bccbe87a2ea86eea7fc4514eae4c30cceaa8956cd9e7afecfea3d9d"
+    },
+    {
+      "path": "png/icon/docture-icon-primary-128.png",
+      "bytes": 2727,
+      "sha256": "3949e8573115f03151f537dca5858c4d836bb9f77ffc4c5acb7d3ccd27be3f63"
+    },
+    {
+      "path": "png/icon/docture-icon-primary-256.png",
+      "bytes": 5650,
+      "sha256": "f9d9990a593c51c6107397ca016010961242f40305b97fdfcc20d366ec6d0907"
+    },
+    {
+      "path": "png/icon/docture-icon-primary-512.png",
+      "bytes": 11954,
+      "sha256": "750fcc85ddd7e3a139d0b302ad683af27a2624517801f3bebbb2f4fae0c6902e"
+    },
+    {
+      "path": "png/icon/docture-icon-white-1024.png",
+      "bytes": 24577,
+      "sha256": "0632e8566030fd68319fd7772427431fd982bab84aab13c03cf2759c5168ef50"
+    },
+    {
+      "path": "png/icon/docture-icon-white-128.png",
+      "bytes": 2497,
+      "sha256": "55bcfe0f9affe164701bd8902adfcf56be3ff40ef4897c96a15940baf742be6f"
+    },
+    {
+      "path": "png/icon/docture-icon-white-256.png",
+      "bytes": 5156,
+      "sha256": "ba5662c61eecf054758023f3137b1c97883e5969f3c5e58806e0f8b6dd4c2c97"
+    },
+    {
+      "path": "png/icon/docture-icon-white-512.png",
+      "bytes": 11062,
+      "sha256": "9ed7e5e06d59ffe55cddd993549822f3fa8aea924cc3ba907a2960e076f7790f"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-black-16.png",
+      "bytes": 306,
+      "sha256": "29a9d5083b22d4218e09bda3821f65dada412d98a2046f6f8918770e5b003dfe"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-black-24.png",
+      "bytes": 476,
+      "sha256": "a1e5b05350653780da35260ca24a9536f3dcafdd26503b121db6ed26b937c921"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-black-32.png",
+      "bytes": 586,
+      "sha256": "2a340628fd58159d0d46f8f87ef16f5a8a2bfef8e8ac5830e600fe70ab2adbd7"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-black-48.png",
+      "bytes": 906,
+      "sha256": "695978842b22747d374a513feb385858b751c952bfb890964600f611432f4b02"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-black-64.png",
+      "bytes": 1181,
+      "sha256": "4171d8dd64420d2d1adb75076dffb205f8a3d3a21ef1fde468c3fefe169010d7"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-brand-16.png",
+      "bytes": 368,
+      "sha256": "a139d1d4940df04659806e2861427ed4824cda70d2897e2f01cdc39bfdc57328"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-brand-24.png",
+      "bytes": 553,
+      "sha256": "86fecb2389a12efdc0a48254ba60adc1b455bb57025d2065828d709861359a42"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-brand-32.png",
+      "bytes": 717,
+      "sha256": "7550cc25ce3a2902c6c3bda00aadeff56b322be86ab52d3292731833dad2dc89"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-brand-48.png",
+      "bytes": 1082,
+      "sha256": "1ad8756721c94f323e846108e394705ca22e525903456f193f7f75b94c34bf82"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-brand-64.png",
+      "bytes": 1410,
+      "sha256": "401fd6c7083dae5488b23aa6c94d7a76c105d27105d5aef9b06d21c9d5542bc0"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-on-dark-16.png",
+      "bytes": 410,
+      "sha256": "34cd9da91f5321b12b695adae56d9aab1b0ea158e7d03626ae15a7e60b2c5418"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-on-dark-24.png",
+      "bytes": 632,
+      "sha256": "6d934b165a2480df261cb6f11bf5f334916842cd9e9d5718a338db1b27ae7f9a"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-on-dark-32.png",
+      "bytes": 803,
+      "sha256": "815df1df51968b17c6ad88577df54ee79d51b27293105e9a937e3faccfcf1474"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-on-dark-48.png",
+      "bytes": 1183,
+      "sha256": "69babe8368cb31a26dc2b95b24b78dc885aa06d919c797a69bfb04b0beb36ac3"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-on-dark-64.png",
+      "bytes": 1538,
+      "sha256": "1c171f4fc9c24ecbd4c593c8501f17d29555de572d1a4c98c991a9157e3fa363"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-primary-16.png",
+      "bytes": 368,
+      "sha256": "a139d1d4940df04659806e2861427ed4824cda70d2897e2f01cdc39bfdc57328"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-primary-24.png",
+      "bytes": 553,
+      "sha256": "86fecb2389a12efdc0a48254ba60adc1b455bb57025d2065828d709861359a42"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-primary-32.png",
+      "bytes": 717,
+      "sha256": "7550cc25ce3a2902c6c3bda00aadeff56b322be86ab52d3292731833dad2dc89"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-primary-48.png",
+      "bytes": 1082,
+      "sha256": "1ad8756721c94f323e846108e394705ca22e525903456f193f7f75b94c34bf82"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-primary-64.png",
+      "bytes": 1410,
+      "sha256": "401fd6c7083dae5488b23aa6c94d7a76c105d27105d5aef9b06d21c9d5542bc0"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-white-16.png",
+      "bytes": 318,
+      "sha256": "10049d198f018c5bca3dc8c041788eafcc77b531cbb68108a8abc6701e8de9f5"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-white-24.png",
+      "bytes": 491,
+      "sha256": "1ff031a28cfe8c5c1d9305a5ceec926a81ac3829561fda52aa53002d9b794b55"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-white-32.png",
+      "bytes": 619,
+      "sha256": "499e8f3727d9b85ce056d44d8ae8ff276055dac08b73ee8d3fd06f73e76be753"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-white-48.png",
+      "bytes": 957,
+      "sha256": "b203c20c722f7ff6e59f235c924b84f9b60ca743c4b9d520302b4032a5afbef0"
+    },
+    {
+      "path": "png/icon-micro/docture-icon-micro-white-64.png",
+      "bytes": 1251,
+      "sha256": "d6500c4427ae93689be3de9c2580461a50a7b9a1beab5957efc550f7cad2eba2"
+    },
+    {
+      "path": "png/stacked/docture-stacked-black-1120.png",
+      "bytes": 20858,
+      "sha256": "8790faa8514b1d15fee3a998ae214df82801bae8cfad702e8ffe17145710267e"
+    },
+    {
+      "path": "png/stacked/docture-stacked-black-2240.png",
+      "bytes": 46718,
+      "sha256": "6b259c4baba35dd8e98f4ce91032f4a68e05597dbe2cbb22c363083b79e574d7"
+    },
+    {
+      "path": "png/stacked/docture-stacked-black-560.png",
+      "bytes": 9786,
+      "sha256": "437a6b74c02ba751cb83acafea802ce1d911ef6c7e5568470d8a694a0518145a"
+    },
+    {
+      "path": "png/stacked/docture-stacked-brand-1120.png",
+      "bytes": 23834,
+      "sha256": "159c50e976b592fe9c2f36c3b04f43c46313be2f4aae7c0cf2247555c56874e8"
+    },
+    {
+      "path": "png/stacked/docture-stacked-brand-2240.png",
+      "bytes": 53286,
+      "sha256": "b1d65768d878401f26c2a36cda45069c282bb1187a362a897b18956ababb10de"
+    },
+    {
+      "path": "png/stacked/docture-stacked-brand-560.png",
+      "bytes": 11482,
+      "sha256": "b9c51790cd2057d1b8226502c73a776016511b92ac11e66569ea62fca186cb38"
+    },
+    {
+      "path": "png/stacked/docture-stacked-on-dark-1120.png",
+      "bytes": 24799,
+      "sha256": "38907ac6e92dd03024f91365ce15477cb83e0fe0580dddd29c869ca8bae365c3"
+    },
+    {
+      "path": "png/stacked/docture-stacked-on-dark-2240.png",
+      "bytes": 55619,
+      "sha256": "ec716a4795a06e9b59d6fecedaaec1565728a3c7f508ca57861df633e3e03f63"
+    },
+    {
+      "path": "png/stacked/docture-stacked-on-dark-560.png",
+      "bytes": 11874,
+      "sha256": "cd567e0802ebc201fe7708d778e591cfd175e10fea844a00c1b4eaf4dce1ae62"
+    },
+    {
+      "path": "png/stacked/docture-stacked-primary-1120.png",
+      "bytes": 24305,
+      "sha256": "4145457601393bfdf34dfc95323d3411d1d283ed642b04606317250025490b57"
+    },
+    {
+      "path": "png/stacked/docture-stacked-primary-2240.png",
+      "bytes": 54515,
+      "sha256": "95716e532df4f2c635154cd54cc8ad3c32c503f6dbda1fb5ff26b0527591f335"
+    },
+    {
+      "path": "png/stacked/docture-stacked-primary-560.png",
+      "bytes": 11571,
+      "sha256": "4e12854cb28ce3a5a01b18a654f9920194bfada4fdd7723e4a7126ed713e8030"
+    },
+    {
+      "path": "png/stacked/docture-stacked-white-1120.png",
+      "bytes": 21629,
+      "sha256": "02ccb0725b25bdf0637c121f34a93a398dc5255cdf1f692fc1a6beaf4f406d25"
+    },
+    {
+      "path": "png/stacked/docture-stacked-white-2240.png",
+      "bytes": 49230,
+      "sha256": "8d8ef76eb76bff96f9bb1fca93c1cdbadfcd5bc095c79eab17d134b7e1eb1ac0"
+    },
+    {
+      "path": "png/stacked/docture-stacked-white-560.png",
+      "bytes": 10281,
+      "sha256": "9e622f4639d560c24a93696701e43300b47309bde0fc3fc2590dc5094b80ac33"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-black-1120.png",
+      "bytes": 12255,
+      "sha256": "36fe54c727b45f80f205bf09ec66d43684bcca2fef220fc76751a9fcf0425c37"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-black-2240.png",
+      "bytes": 26956,
+      "sha256": "2bdaf216eafd85cc30a7f1d6d5c86803704e13f53227ebf16f083e45dfd0406a"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-black-560.png",
+      "bytes": 6002,
+      "sha256": "097d87af1dcd227092bfe55b7f9829a0fbe8ccb207c05e3ab30f259f4c076dd2"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-brand-1120.png",
+      "bytes": 14136,
+      "sha256": "f97cf81291b94b0b658a6cffa0e87b3863b496f4b89ae27d3676e25302949ef2"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-brand-2240.png",
+      "bytes": 30858,
+      "sha256": "1bd262a7f10c8f749a46e5e007a470616dd6eea7e961b19f8989a68a4b8e002f"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-brand-560.png",
+      "bytes": 7170,
+      "sha256": "21478c1bcb3e1bdf29443bb7e13773ccb5fa2f3fd87747fb9af42945a100ca14"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-on-dark-1120.png",
+      "bytes": 14000,
+      "sha256": "f04e3f5073dc58e397d6538922c12d411b65d7ed6434e04370d04c1054e565ae"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-on-dark-2240.png",
+      "bytes": 30934,
+      "sha256": "cabc029255dee688285700b77b0ca64cb279dd943029551a02a12796ce43bc53"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-on-dark-560.png",
+      "bytes": 6936,
+      "sha256": "70f6ec292c6e04c5809a84e97cdb45578c5320cab500ecd16c52fddbf76021b1"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-primary-1120.png",
+      "bytes": 14416,
+      "sha256": "0b6f2e20d79dd8b79bc163f0d2d8e44d702f1c7348837c1b5b3d8f08fd7bb4e2"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-primary-2240.png",
+      "bytes": 31826,
+      "sha256": "58b8d4457153ba59a8bf581b405cb5634ab0899ba7f996dbb916c7620c9b28ac"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-primary-560.png",
+      "bytes": 7269,
+      "sha256": "80ae188c85ef06711cdb7ba59c24342feb93f930702af0b69556da413b8c6ab3"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-white-1120.png",
+      "bytes": 12766,
+      "sha256": "1b965b570d6fe241b6041baf11da41b57dae305d3ce47e2f8babd3a3a84f77c3"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-white-2240.png",
+      "bytes": 28011,
+      "sha256": "505e38aaf478addbf5f858459c53dce0e164eec9e74c114b6e78261c11f005e5"
+    },
+    {
+      "path": "png/wordmark/docture-wordmark-white-560.png",
+      "bytes": 6358,
+      "sha256": "7541562bd2f49afc1f2bfe208836ccd0c6a85ab602224dec13674418e227f586"
+    },
+    {
+      "path": "social/avatar-brand.png",
+      "bytes": 23004,
+      "sha256": "fa8e0e4db7995233514c4e897a170c684afad3f3e83661ac79b6c101686b5048"
+    },
+    {
+      "path": "social/avatar-brand.svg",
+      "bytes": 1075,
+      "sha256": "bebebd5e7cce4aad23293c2d50e4fdb521a3d1dd28cf0d10f3d612824bb739d0"
+    },
+    {
+      "path": "social/avatar-dark.png",
+      "bytes": 23202,
+      "sha256": "164cb6d2b44e7fb981ede2eab92079c03f29efd9a12230fe0dcb4d646925809a"
+    },
+    {
+      "path": "social/avatar-dark.svg",
+      "bytes": 1075,
+      "sha256": "85fd9ea95b1e512680c38994783ecbbf09258a72fcb9bb790c538d2e4bf27f2c"
+    },
+    {
+      "path": "social/avatar-light.png",
+      "bytes": 23046,
+      "sha256": "89adaec6edd24d2ba4e14911d0171274df10233dfb96fabf9a3f38d06745a3d3"
+    },
+    {
+      "path": "social/avatar-light.svg",
+      "bytes": 1075,
+      "sha256": "479e8eee0bb5853626e60bdac837d67b8692d56970ab5f92f144c2d8258654e8"
+    },
+    {
+      "path": "social/github-social-dark.png",
+      "bytes": 22968,
+      "sha256": "4c3b201a9f869b0e4928e32b19945833aafffb511eeee07876798814d694905d"
+    },
+    {
+      "path": "social/github-social-dark.svg",
+      "bytes": 17061,
+      "sha256": "469a6859ffc19f5cf76264f018128bd9583c83071a005a0444540299e43b1648"
+    },
+    {
+      "path": "social/github-social-light.png",
+      "bytes": 23079,
+      "sha256": "e2476747990540d8237debbafb476d1f0058f69f9bf949cece74f6186b819cd8"
+    },
+    {
+      "path": "social/github-social-light.svg",
+      "bytes": 17061,
+      "sha256": "4aa6ee1e83ab4387de62c71c009e6a6f89bda76fb7184fadb29645b6c4277161"
+    },
+    {
+      "path": "social/open-graph-dark.png",
+      "bytes": 21625,
+      "sha256": "9ec27e99f045d763ef64c48147c20666dee44c00aaf17f9d9d0a536ec4df5a92"
+    },
+    {
+      "path": "social/open-graph-dark.svg",
+      "bytes": 17018,
+      "sha256": "ff585da3e8fd045cca0ba14b97c90e1f8d3917e2c17e24a443f8ea6f51b8f751"
+    },
+    {
+      "path": "social/open-graph-light.png",
+      "bytes": 21778,
+      "sha256": "c65636e2d2fd45b7ae09bb57cc372c9751c710475a10d6f3451c952890a6bf60"
+    },
+    {
+      "path": "social/open-graph-light.svg",
+      "bytes": 17018,
+      "sha256": "1427b72356215c5dcbb92b2edfc6211976056f179061e972a4fe37c5ad5f1f5b"
+    },
+    {
+      "path": "social/presentation-cover-dark.png",
+      "bytes": 30644,
+      "sha256": "d99c9810811b0bf175468002bfa63510c611bdeff2349b001d594cbe066890db"
+    },
+    {
+      "path": "social/presentation-cover-dark.svg",
+      "bytes": 16979,
+      "sha256": "4148f09c74c5f0db27cf9efff0b3c49866d968c6d8e5e39826830947b22e5313"
+    },
+    {
+      "path": "social/presentation-cover-light.png",
+      "bytes": 30770,
+      "sha256": "052edcfc026a9e2367c8a4197a84d9164d586a45431d0574c8205f5321c3404b"
+    },
+    {
+      "path": "social/presentation-cover-light.svg",
+      "bytes": 16979,
+      "sha256": "7b62e1bc03b608488a1ede0888aa268406c06f815095175a8df2eb335ec41dda"
+    },
+    {
+      "path": "source/README.md",
+      "bytes": 2481,
+      "sha256": "22ed07bc31692889260c85b34668413b144bf913a519f4d55ab2c0b40515e0a0"
+    },
+    {
+      "path": "source/reconstruction.json",
+      "bytes": 321,
+      "sha256": "399ab003bb3a2b19081046750ac82ff31a67d0622753aa7f2cc7cb6519caa501"
+    },
+    {
+      "path": "source/selected-g5.png",
+      "bytes": 77342,
+      "sha256": "91db221f638b4025a8f5679fa1138ff0ed84e99443a7fa81f98718545ac556f0"
+    },
+    {
+      "path": "source/selected-semibold.png",
+      "bytes": 50040,
+      "sha256": "d988c11e0312a47d81e5aba33b60d6a5b06bd9cdb7d491e66b9530f42762ac75"
+    },
+    {
+      "path": "tokens/brand.css",
+      "bytes": 398,
+      "sha256": "ca3ea4122bcc3337da0017a2fde354442ae17bc21a9880933c46fec8e2b5b85f"
+    },
+    {
+      "path": "tokens/brand.json",
+      "bytes": 752,
+      "sha256": "06b0ffbaca171428ca316e5e883641c24266e16f87977850a58e9e0385c7c867"
+    },
+    {
+      "path": "tokens/docture.gpl",
+      "bytes": 110,
+      "sha256": "96c2f7b6a4c75f1ec74fb09f87bb6064be1dc92bca1e17bbfde2a40d2892fe84"
+    },
+    {
+      "path": "tokens/palette.json",
+      "bytes": 305,
+      "sha256": "4cb7633c93b8dcafc811757a292d1e23ce81c3ddbdde7f08acc044f7577b5551"
+    },
+    {
+      "path": "tooling/build_masters.py",
+      "bytes": 2561,
+      "sha256": "d84c3d2fd546f5b20a64a4aa29a464bcf9a418865e456f8d42c15718905059ad"
+    },
+    {
+      "path": "tooling/generate.py",
+      "bytes": 16107,
+      "sha256": "34ad3f39f7ec0157a1bf84dc9635033a1166e79269b7ff7a0f12aef620e29981"
+    },
+    {
+      "path": "tooling/requirements.txt",
+      "bytes": 107,
+      "sha256": "1b0470c91dc12d9beeb8a536eba47fbf75badc4fe712cb64c0117ee4da11d359"
+    },
+    {
+      "path": "tooling/verify.py",
+      "bytes": 7157,
+      "sha256": "19609838d4b965ad44be338ee5e88c7120fea2353d8097ffc3109b1e84857d7f"
+    }
+  ]
+}

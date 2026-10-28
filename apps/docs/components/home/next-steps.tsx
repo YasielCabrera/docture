@@ -31,7 +31,7 @@ const steps = [
 export function NextSteps() {
   return (
     <section aria-labelledby="guides-heading">
-      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-24">
+      <div className="site-container py-16 lg:py-24">
         <h2
           id="guides-heading"
           className="text-3xl leading-[1.12] font-semibold tracking-[-0.025em] sm:text-4xl"

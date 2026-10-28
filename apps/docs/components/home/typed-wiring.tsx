@@ -20,7 +20,7 @@ export async function TypedWiring() {
 
   return (
     <section className="border-b border-fd-border">
-      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:py-28">
+      <div className="site-container py-20 lg:py-28">
         <div className="reveal max-w-2xl">
           <h2 className="text-3xl leading-[1.12] font-semibold tracking-[-0.02em] text-balance sm:text-4xl">
             Capability-specific types reject incompatible loaders.

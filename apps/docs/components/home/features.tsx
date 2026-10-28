@@ -32,7 +32,7 @@ const features = [
 export function Features() {
   return (
     <section aria-labelledby="features-heading" className="border-b border-fd-border">
-      <div className="mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[minmax(15rem,0.7fr)_minmax(0,1.3fr)] lg:gap-20 lg:py-24">
+      <div className="site-container grid gap-12 py-16 lg:grid-cols-[minmax(15rem,0.7fr)_minmax(0,1.3fr)] lg:gap-20 lg:py-24">
         <div>
           <h2
             id="features-heading"

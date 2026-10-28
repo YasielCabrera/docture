@@ -7,7 +7,7 @@ const installCommand = "npm install docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/ope
 export function QuickStart() {
   return (
     <section aria-labelledby="quick-start-heading" className="border-b border-fd-border">
-      <div className="mx-auto grid min-w-0 max-w-7xl items-center gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(16rem,0.75fr)_minmax(0,1.25fr)] lg:gap-16 lg:py-14">
+      <div className="site-container grid min-w-0 items-center gap-8 py-12 lg:grid-cols-[minmax(16rem,0.75fr)_minmax(0,1.25fr)] lg:gap-16 lg:py-14">
         <div className="min-w-0">
           <h2
             id="quick-start-heading"

@@ -29,16 +29,7 @@ export async function Hero() {
 
   return (
     <section className="relative overflow-hidden border-b border-fd-border">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.055] dark:opacity-[0.1]"
-        style={{
-          background:
-            "radial-gradient(70rem 40rem at 78% 18%, var(--color-brand), transparent 60%)",
-        }}
-      />
-
-      <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-12 sm:px-6 lg:min-h-[calc(100dvh-3.5rem)] lg:grid-cols-12 lg:gap-14 lg:py-16">
+      <div className="site-container grid items-center gap-12 py-12 lg:min-h-[calc(100dvh-3.5rem)] lg:grid-cols-12 lg:gap-14 lg:py-16">
         <div className="flex flex-col justify-center lg:col-span-6">
           <p className="font-mono text-sm text-brand">
             {appName} for TypeScript

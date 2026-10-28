@@ -1,0 +1,7 @@
+{
+  "selection": "G5 icon and B semibold wordmark",
+  "wordmarkReferenceCrop": [9, 10, 429, 102],
+  "icon": "Mirrored continuous G5 braces around the Powerhouse channel geometry",
+  "wordmark": "Geometric reconstruction with consistent stems, bowls, and flat terminals",
+  "construction": "../tooling/build_masters.py"
+}

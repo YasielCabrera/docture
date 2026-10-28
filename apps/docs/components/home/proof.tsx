@@ -35,7 +35,7 @@ const receipts = [
 export function Proof() {
   return (
     <section className="border-b border-fd-border">
-      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:py-28">
+      <div className="site-container py-20 lg:py-28">
         <h2 className="reveal max-w-[22ch] text-3xl leading-[1.12] font-semibold tracking-[-0.02em] text-balance sm:text-4xl">
           Every claim here has a file behind it.
         </h2>
