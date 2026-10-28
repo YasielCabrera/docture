@@ -2,7 +2,7 @@
 
 A browsable tour of the library, one folder per concept, on **real documents**.
 
-Sixteen examples. Eleven need no API key, and four more run part of the way without one.
+21 examples. 16 need no API key, and four more run part of the way without one.
 
 Use Node.js 22 or later. From the repository root, install the workspace before running
 an example:
@@ -51,7 +51,7 @@ pnpm --filter @docture/examples run fetch      # ~2 MB, once
 pnpm --filter @docture/examples quick-start
 ```
 
-The offline script runs twelve examples without an API key. Other scripts print explicit
+The offline script runs 17 examples without an API key. Other scripts print explicit
 skips for model calls and opt-in OCR when their setup is missing.
 Open a folder, read its `index.ts` top to bottom, run it, and the output tells you what
 happened and why.
@@ -76,12 +76,17 @@ happened and why.
 | 14 | [testing-your-pipeline](14-testing-your-pipeline) | doubles, fixtures, conformance, mocking a model | — |
 | 15 | [cli](15-cli) | `inspect`, `extract`, `classify`, `eval`, a config file | —² |
 | 16 | [document-conversion](16-document-conversion) | `DocumentConverter`, TXT/Markdown/HTML/JSON, assets, provenance | — |
+| 18 | [docling](18-docling) | native JSON, element/cell evidence and mock service jobs | — |
+| 19 | [checked-tools-eval](19-checked-tools-eval) | Checked construction, AI SDK tool with source policy, descriptive calibration | — |
+| 20 | [input-loaders](20-input-loaders) | DOCX, EML, Azure mock and selected-page OCR | — |
+| 21 | [paperless](21-paperless) | versioned sources and fill-empty plan/apply with a mock server | — |
+| 22 | [http-service](22-http-service) | warm HTTP operations and shutdown on an ephemeral port | — |
 
 ¹ Part of the example runs without a key; the rest says what it would have done and skips.
 ² `extract` and `classify` work keyless through the config file in that folder.
 
 ```sh
-pnpm --filter @docture/examples offline   # twelve examples without model calls
+pnpm --filter @docture/examples offline   # 17 examples without model calls
 pnpm --filter @docture/examples all       # everything; skips loudly where a key is missing
 pnpm --filter @docture/examples test      # deterministic tests, including provider mocks
 pnpm --filter @docture/examples typecheck

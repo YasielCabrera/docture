@@ -19,6 +19,16 @@
     "chunk",
     "eval",
     "testing",
-    "cli"
+    "cli",
+    "node",
+    "llm-tool",
+    "loader-mammoth",
+    "inputs-email",
+    "loader-azure-di",
+    "import-docling",
+    "loader-docling",
+    "sources-paperless",
+    "sinks-paperless",
+    "service"
   ]
 }

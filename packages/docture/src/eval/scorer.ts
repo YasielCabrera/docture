@@ -254,20 +254,8 @@ export function scoreExtraction(
   for (const path of paths) {
     const expectedValue = expectedLeaves.get(path);
     const actualValue = actualLeaves.get(path);
-    const expectedHas = isPresent(expectedValue);
-    const actualHas = isPresent(actualValue);
-
-    let status: FieldStatus;
-    if (expectedHas && actualHas) {
-      status = leavesMatch(path, expectedValue, actualValue, settings) ? "match" : "mismatch";
-    } else if (expectedHas) {
-      status = "omission";
-    } else if (actualHas) {
-      // A value where ground truth has none: the model invented it.
-      status = "hallucination";
-    } else {
-      continue; // Both absent — nothing to score.
-    }
+    const status = scoreField(path, expectedValue, actualValue, settings);
+    if (status === undefined) continue;
 
     counts[status] += 1;
     fields.push({ path, status, expected: expectedValue, actual: actualValue });
@@ -287,6 +275,18 @@ export function scoreExtraction(
     counts,
     fields: fields.sort((a, b) => a.path.localeCompare(b.path)),
   };
+}
+
+export function scoreField(path: string, expected: unknown, actual: unknown, options: ScoreOptions = {}): FieldStatus | undefined {
+  const expectedHas = isPresent(expected);
+  const actualHas = isPresent(actual);
+  if (expectedHas && actualHas) return leavesMatch(path, expected, actual, {
+    numericTolerance: options.numericTolerance ?? DEFAULTS.numericTolerance,
+    stringSimilarity: options.stringSimilarity ?? DEFAULTS.stringSimilarity,
+  }) ? "match" : "mismatch";
+  if (expectedHas) return "omission";
+  if (actualHas) return "hallucination";
+  return undefined;
 }
 
 /** Only the fields that went wrong — what you actually read when a run regresses. */

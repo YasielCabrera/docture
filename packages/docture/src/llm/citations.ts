@@ -21,8 +21,10 @@ function renderPage(page: LoadedPage): { readonly text: string; readonly lines: 
   const lines = sourceLines(page)
     .map((line, index) => ({ ...line, spans: page.lines?.[index]?.spans ?? [] }))
     .filter((line) => line.text.trim() !== "");
-  if (lines.length === 0) return { text: page.text, lines };
-  return { text: lines.map((line) => `[${line.id}] ${line.text.replace(/[\r\n]/gu, " ")}`).join("\n"), lines };
+  const native = (page.evidence ?? []).map((source) => ({ id: source.id, pageNumber: source.pageNumber, text: source.text, order: source.order, spans: [] }));
+  const evidence: EvidenceLine[] = [...lines, ...native];
+  if (evidence.length === 0) return { text: page.text, lines: evidence };
+  return { text: evidence.map((line) => `[${line.id}] ${line.text.replace(/[\r\n]/gu, " ")}`).join("\n"), lines: evidence };
 }
 
 /**
@@ -55,7 +57,10 @@ const CITE = [
 ].join("\n");
 
 export function citedPrompt(parts: PromptParts): PromptParts {
-  return { system: parts.system, prompt: parts.prompt.replace(EXTRACT, () => `${EXTRACT}\n${CITE}`) };
+  const instructions = /\[p[1-9]\d*-(?:element|cell)-[a-f0-9]{12}\]/u.test(parts.prompt)
+    ? CITE.replace("Each document line", "Each evidence record").replace("the lines that show", "the evidence records that show").replace("when no line shows it", "when no evidence record shows it") + "\nElement and cell IDs identify native blocks or table cells, never printed lines."
+    : CITE;
+  return { system: parts.system, prompt: parts.prompt.replace(EXTRACT, () => `${EXTRACT}\n${instructions}`) };
 }
 
 const SCHEMA_MAPS = new Set(["properties", "patternProperties", "dependentSchemas", "$defs", "definitions"]);

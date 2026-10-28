@@ -5,6 +5,7 @@
 
 import type { LineSourceId, SourceLine } from "./conversion.js";
 import type { DocumentFeatures } from "./document.js";
+import type { EvidenceSourceId, SourceEvidence } from "./evidence.js";
 
 /** Token and money accounting, summed across every strategy that ran. */
 export interface Usage {
@@ -117,8 +118,8 @@ export interface ExtractionConflict {
  * an object or an array and is not `null`, `undefined` or a blank string; `0` and
  * `false` are present.
  *
- * - `verified`: the value was found in the cited lines, and `ids` are exactly the
- *   lines the match spans.
+ * - `verified`: the value was found in the cited evidence, and `ids` name the
+ *   records the match spans. Native element/cell evidence is never a printed line.
  * - `cited-unverified`: the model cited lines, but no normalizer found the value in
  *   them, or the caller's schema changed the value. `ids` are every cited line that
  *   exists, and empty when none did.
@@ -145,13 +146,13 @@ export type FieldCitation =
   | {
     readonly path: string;
     readonly status: "verified";
-    readonly ids: readonly [LineSourceId, ...LineSourceId[]];
+    readonly ids: readonly [EvidenceSourceId, ...EvidenceSourceId[]];
     readonly minOcrConfidence?: number;
   }
   | {
     readonly path: string;
     readonly status: "cited-unverified";
-    readonly ids: readonly LineSourceId[];
+    readonly ids: readonly EvidenceSourceId[];
     readonly minOcrConfidence?: number;
   }
   | { readonly path: string; readonly status: "uncited"; readonly ids: readonly [] };
@@ -179,6 +180,12 @@ export interface ClassificationSignal {
 }
 
 export interface ExtractionResult<T> {
+  /** Identity and opaque loader provenance retained from the loaded source. */
+  readonly sourceDigest?: string;
+  readonly physicalSourceDigest?: string;
+  readonly sourceMetadata?: Readonly<Record<string, unknown>>;
+  /** Cited native elements/cells with their actual granularity and optional bound location. */
+  readonly evidenceSources?: readonly SourceEvidence[];
   /** The extracted data, typed from the schema. */
   readonly data: T;
   /** Which strategy produced `data`. */
@@ -202,8 +209,9 @@ export interface ExtractionResult<T> {
    */
   readonly citations?: readonly FieldCitation[];
   /**
-   * The loader lines that `citations` name, by page and then line, without
-   * duplicates. Present exactly when `citations` is.
+ * The real loader lines that `citations` name, by page and then line, without
+   * duplicates. Present exactly when `citations` is. Native records are separate
+   * in evidenceSources and do not acquire invented line IDs.
    */
   readonly citationSources?: readonly SourceLine[];
 }

@@ -7,10 +7,10 @@ export interface ApiEntrypointInventory {
 
 export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
   {
-    packageName: "docture",
-    importPath: "docture",
-    entrypoint: "../../packages/docture/src/index.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture",
+    "entrypoint": "../../packages/docture/src/index.ts",
+    "pages": {
       "content/docs/reference/api/core-extraction.mdx": [
         "Attempt",
         "AttemptStatus",
@@ -22,15 +22,11 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "ConflictingValue",
         "DocumentExtractor",
         "EMPTY_USAGE",
-        "sumUsage",
-        "mapWithConcurrency",
         "ExtractionConflict",
         "ExtractionResult",
         "Extractor",
         "ExtractorOptions",
         "FieldCitation",
-        "formatFieldPath",
-        "parseFieldPath",
         "LoadLlmOptions",
         "ModelBackend",
         "PipelineComponents",
@@ -42,9 +38,15 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "ValidationIssue",
         "ValidationOutcome",
         "ValidationRule",
-        "createExtractor"
+        "createCheckedExtractor",
+        "createExtractor",
+        "formatFieldPath",
+        "mapWithConcurrency",
+        "parseFieldPath",
+        "sumUsage"
       ],
       "content/docs/reference/api/core-conversion.mdx": [
+        "CellSourceId",
         "CodeElement",
         "ConversionAsset",
         "ConversionAssetMode",
@@ -54,15 +56,18 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "ConversionResult",
         "ConversionWarning",
         "ConversionWarningCode",
+        "ConvertOptions",
         "ConvertedPage",
         "DoctureDocument",
         "DoctureDocumentAsset",
         "DoctureDocumentParse",
-        "ConvertOptions",
         "DocumentConverter",
         "DocumentConverterOptions",
         "DocumentElement",
         "ElementProvenance",
+        "ElementSourceId",
+        "EvidenceLocation",
+        "EvidenceSourceId",
         "FigureElement",
         "FurnitureEvidence",
         "HeadingElement",
@@ -82,13 +87,17 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "ParagraphElement",
         "ProvenanceSegment",
         "SafeConversion",
+        "SourceEvidence",
+        "SourceEvidenceParse",
         "SourceLine",
         "TableCellSpan",
         "TableElement",
         "createDocumentConverter",
         "defineLayoutAnalyzer",
+        "isEvidenceSourceId",
         "isLineSourceId",
         "parseDoctureDocument",
+        "parseSourceEvidence",
         "provenanceSegments",
         "sourceLines"
       ],
@@ -120,16 +129,16 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "DocumentMetadata",
         "DocumentSource",
         "GeometryLoader",
-        "ImageLoader",
         "ImageLayoutBlock",
+        "ImageLoader",
         "ImageSize",
         "KnownDocumentFact",
-        "LinesFromWordsOptions",
-        "LoadContext",
-        "LoadRequest",
         "LayoutBlock",
         "LayoutBox",
         "LayoutRoleHint",
+        "LinesFromWordsOptions",
+        "LoadContext",
+        "LoadRequest",
         "LoadedAsset",
         "LoadedDocument",
         "LoadedPage",
@@ -144,8 +153,9 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "RasterizeContext",
         "Rasterizer",
         "RawDocument",
-        "TextLine",
+        "SourceResolver",
         "TextLayoutBlock",
+        "TextLine",
         "TextLoader",
         "TextSpan",
         "TextStyle",
@@ -174,16 +184,23 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "ClassificationNeed",
         "ClassificationStrategy",
         "CompletionStrategy",
+        "DisposalScope",
         "ExtractionStrategy",
+        "OcrFallbackOptions",
+        "OcrFallbackWarning",
         "OutcomeCitation",
+        "PageOcrQuality",
         "ReadDocument",
         "RoutingPolicy",
+        "ScopedDisposable",
         "StrategyContext",
         "StrategyOutcome",
+        "createDisposalScope",
         "declarationOrder",
         "defineStrategy",
         "readDocument",
-        "runPipeline"
+        "runPipeline",
+        "withOcrFallback"
       ],
       "content/docs/reference/api/core-classification.mdx": [
         "Classification",
@@ -228,29 +245,29 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "ExtractionFailedError",
         "Ineligibility",
         "LoadFailedError",
+        "MissingComponentError",
         "MissingEngineError",
+        "ModelOutputError",
         "NoConvertibleContentError",
         "NoEligibleLoaderError",
         "NoEligibleStrategyError",
         "PageSelectionError",
-        "ModelOutputError",
-        "MissingComponentError",
-        "isDoctureError",
         "SplitFailedError",
         "TimeoutError",
         "UnclassifiedGroupError",
         "UnsupportedSourceError",
         "errorCodeOf",
         "isAbortError",
+        "isDoctureError",
         "messageOf"
       ]
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/llm",
-    entrypoint: "../../packages/docture/src/llm/index.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/llm",
+    "entrypoint": "../../packages/docture/src/llm/index.ts",
+    "pages": {
       "content/docs/reference/api/llm.mdx": [
         "ImageSplitter",
         "LLM",
@@ -279,22 +296,21 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       ],
       "content/docs/reference/api/llm-utilities.mdx": [
         "BuildPromptOptions",
-        "MergeDiagnostics",
-        "MergePart",
         "CacheKeyParts",
         "CachedResponse",
-        "ContentPart",
         "Chunk",
         "ChunkContext",
+        "ContentPart",
         "DEFAULT_SYSTEM_PROMPT",
         "JsonSchemaLike",
         "LlmCache",
+        "MergeDiagnostics",
+        "MergePart",
         "ModelPricing",
         "PricingTable",
         "PromptParts",
         "RawUsage",
         "buildPrompt",
-        "wrapUntrusted",
         "cacheKey",
         "chunkByBudget",
         "chunkByPage",
@@ -306,15 +322,16 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "mergePartials",
         "mergePartialsWithDiagnostics",
         "relaxJsonSchema",
-        "toUsage"
+        "toUsage",
+        "wrapUntrusted"
       ]
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/llm/text",
-    entrypoint: "../../packages/docture/src/llm/text.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/llm/text",
+    "entrypoint": "../../packages/docture/src/llm/text.ts",
+    "pages": {
       "content/docs/reference/api/llm.mdx": [
         "LlmStrategy",
         "LlmStrategyOptions",
@@ -325,23 +342,23 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/llm/vision",
-    entrypoint: "../../packages/docture/src/llm/vision.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/llm/vision",
+    "entrypoint": "../../packages/docture/src/llm/vision.ts",
+    "pages": {
       "content/docs/reference/api/llm.mdx": [
+        "LlmTelemetryOptions",
         "VisionStrategy",
         "VisionStrategyOptions",
-        "LlmTelemetryOptions",
         "vision"
       ]
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/llm/classifier",
-    entrypoint: "../../packages/docture/src/llm/classifier.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/llm/classifier",
+    "entrypoint": "../../packages/docture/src/llm/classifier.ts",
+    "pages": {
       "content/docs/reference/api/llm.mdx": [
         "LlmClassifier",
         "LlmClassifierOptions",
@@ -351,10 +368,10 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/llm/layout",
-    entrypoint: "../../packages/docture/src/llm/layout.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/llm/layout",
+    "entrypoint": "../../packages/docture/src/llm/layout.ts",
+    "pages": {
       "content/docs/reference/api/llm.mdx": [
         "LlmLayoutAnalyzer",
         "LlmLayoutAnalyzerOptions",
@@ -364,86 +381,86 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/llm/split",
-    entrypoint: "../../packages/docture/src/llm/split.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/llm/split",
+    "entrypoint": "../../packages/docture/src/llm/split.ts",
+    "pages": {
       "content/docs/reference/api/llm.mdx": [
         "ImageSplitter",
+        "LlmTelemetryOptions",
+        "SplitterOptions",
         "TextSplitter",
         "imageSplitter",
-        "textSplitter",
-        "LlmTelemetryOptions",
-        "SplitterOptions"
+        "textSplitter"
       ]
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/llm/extractor",
-    entrypoint: "../../packages/docture/src/llm/extractor.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/llm/extractor",
+    "entrypoint": "../../packages/docture/src/llm/extractor.ts",
+    "pages": {
       "content/docs/reference/api/llm.mdx": [
-        "createLlmExtractor",
-        "LlmExtractorOptions"
+        "LlmExtractorOptions",
+        "createLlmExtractor"
       ]
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/llm/cache",
-    entrypoint: "../../packages/docture/src/llm/entries/cache.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/llm/cache",
+    "entrypoint": "../../packages/docture/src/llm/entries/cache.ts",
+    "pages": {
       "content/docs/reference/api/llm-utilities.mdx": [
-        "cacheKey",
-        "fileCache",
-        "fingerprint",
-        "memoryCache",
         "CacheKeyParts",
         "CachedResponse",
         "ContentPart",
-        "LlmCache"
+        "LlmCache",
+        "cacheKey",
+        "fileCache",
+        "fingerprint",
+        "memoryCache"
       ]
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/llm/pricing",
-    entrypoint: "../../packages/docture/src/llm/pricing.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/llm/pricing",
+    "entrypoint": "../../packages/docture/src/llm/pricing.ts",
+    "pages": {
       "content/docs/reference/api/llm-utilities.mdx": [
-        "lookupPricing",
-        "toUsage",
         "ModelPricing",
         "PricingTable",
-        "RawUsage"
+        "RawUsage",
+        "lookupPricing",
+        "toUsage"
       ]
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/llm/prompt",
-    entrypoint: "../../packages/docture/src/llm/prompt.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/llm/prompt",
+    "entrypoint": "../../packages/docture/src/llm/prompt.ts",
+    "pages": {
       "content/docs/reference/api/llm-utilities.mdx": [
-        "DEFAULT_SYSTEM_PROMPT",
-        "buildPrompt",
-        "wrapUntrusted",
-        "chunkByBudget",
-        "chunkByPage",
-        "estimateTokens",
         "BuildPromptOptions",
         "Chunk",
         "ChunkContext",
-        "PromptParts"
+        "DEFAULT_SYSTEM_PROMPT",
+        "PromptParts",
+        "buildPrompt",
+        "chunkByBudget",
+        "chunkByPage",
+        "estimateTokens",
+        "wrapUntrusted"
       ]
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/llm/merge",
-    entrypoint: "../../packages/docture/src/llm/merge.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/llm/merge",
+    "entrypoint": "../../packages/docture/src/llm/merge.ts",
+    "pages": {
       "content/docs/reference/api/llm-utilities.mdx": [
         "MergeDiagnostics",
         "MergePart",
@@ -453,32 +470,32 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/llm/relax",
-    entrypoint: "../../packages/docture/src/llm/relax.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/llm/relax",
+    "entrypoint": "../../packages/docture/src/llm/relax.ts",
+    "pages": {
       "content/docs/reference/api/llm-utilities.mdx": [
-        "relaxJsonSchema",
-        "JsonSchemaLike"
+        "JsonSchemaLike",
+        "relaxJsonSchema"
       ]
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/loaders/pdfjs",
-    entrypoint: "../../packages/docture/src/loaders/pdfjs/index.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/loaders/pdfjs",
+    "entrypoint": "../../packages/docture/src/loaders/pdfjs/index.ts",
+    "pages": {
       "content/docs/reference/api/loader-pdfjs.mdx": [
         "DocumentLoaderPdfJs",
-        "DocumentLoaderPdfJsOptions",
+        "DocumentLoaderPdfJsOptions"
       ]
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/loaders/mupdf",
-    entrypoint: "../../packages/docture/src/loaders/mupdf/index.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/loaders/mupdf",
+    "entrypoint": "../../packages/docture/src/loaders/mupdf/index.ts",
+    "pages": {
       "content/docs/reference/api/loader-mupdf.mdx": [
         "DocumentLoaderMuPdf",
         "DocumentLoaderMuPdfOptions",
@@ -489,39 +506,39 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/loaders/tesseract",
-    entrypoint: "../../packages/docture/src/loaders/tesseract/index.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/loaders/tesseract",
+    "entrypoint": "../../packages/docture/src/loaders/tesseract/index.ts",
+    "pages": {
       "content/docs/reference/api/loader-tesseract.mdx": [
         "DocumentLoaderTesseract",
-        "PageSegmentation",
         "DocumentLoaderTesseractOptions",
+        "PageSegmentation"
       ]
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/loaders/paddleocr",
-    entrypoint: "../../packages/docture/src/loaders/paddleocr/index.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/loaders/paddleocr",
+    "entrypoint": "../../packages/docture/src/loaders/paddleocr/index.ts",
+    "pages": {
       "content/docs/reference/api/loader-paddleocr.mdx": [
         "DocumentLoaderPaddleOcr",
+        "DocumentLoaderPaddleOcrOptions",
         "ImageEngine",
         "ModelSource",
         "PADDLE_MODELS",
         "PaddleModel",
         "PaddleModelFiles",
-        "DocumentLoaderPaddleOcrOptions",
         "RecognitionStrategy"
       ]
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/raster/canvas",
-    entrypoint: "../../packages/docture/src/raster/canvas/index.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/raster/canvas",
+    "entrypoint": "../../packages/docture/src/raster/canvas/index.ts",
+    "pages": {
       "content/docs/reference/api/raster-canvas.mdx": [
         "NapiCanvasRasterizer",
         "NapiCanvasRasterizerOptions",
@@ -530,10 +547,10 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/chunk",
-    entrypoint: "../../packages/docture/src/chunk/index.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/chunk",
+    "entrypoint": "../../packages/docture/src/chunk/index.ts",
+    "pages": {
       "content/docs/reference/api/chunk.mdx": [
         "ChunkBudget",
         "ChunkOptions",
@@ -545,46 +562,54 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/eval",
-    entrypoint: "../../packages/docture/src/eval/index.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/eval",
+    "entrypoint": "../../packages/docture/src/eval/index.ts",
+    "pages": {
       "content/docs/reference/api/eval.mdx": [
-        "Aggregate",
-        "FieldAggregate",
-        "GateOptions",
-        "GateResult",
-        "gate",
-        "FieldResult",
-        "FieldStatus",
-        "RunRecord",
-        "Score",
-        "ScoreOptions",
-        "aggregate",
-        "failures",
-        "formatFailures",
-        "formatScoreboard",
-        "hallucinations",
-        "recordRun",
-        "scoreExtraction",
         "AbsentCheck",
+        "Aggregate",
+        "CalibrationOptions",
+        "CalibrationPair",
+        "CalibrationReport",
+        "CalibrationSample",
         "ConversionCheck",
         "ConversionCheckKind",
         "ConversionCheckResult",
         "ConversionReport",
         "ConvertedPages",
+        "FieldAggregate",
+        "FieldResult",
+        "FieldStatus",
+        "FieldThresholdReport",
+        "GateOptions",
+        "GateResult",
         "OrderCheck",
         "PresentCheck",
+        "RunRecord",
+        "Score",
+        "ScoreOptions",
         "TableCheck",
-        "checkConversion"
+        "ThresholdCandidate",
+        "aggregate",
+        "calibrateFields",
+        "checkConversion",
+        "failures",
+        "formatCalibration",
+        "formatFailures",
+        "formatScoreboard",
+        "gate",
+        "hallucinations",
+        "recordRun",
+        "scoreExtraction"
       ]
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/testing/doubles",
-    entrypoint: "../../packages/docture/src/testing/doubles.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/testing/doubles",
+    "entrypoint": "../../packages/docture/src/testing/doubles.ts",
+    "pages": {
       "content/docs/reference/api/testing.mdx": [
         "failingStrategy",
         "fixedStrategy",
@@ -594,10 +619,10 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/testing/conformance",
-    entrypoint: "../../packages/docture/src/testing/conformance/index.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/testing/conformance",
+    "entrypoint": "../../packages/docture/src/testing/conformance/index.ts",
+    "pages": {
       "content/docs/reference/api/testing.mdx": [
         "ConformanceDocument",
         "ConformanceFixtures",
@@ -612,31 +637,31 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     }
   },
   {
-    packageName: "docture",
-    importPath: "docture/testing/fixtures",
-    entrypoint: "../../packages/docture/src/testing/fixtures/index.ts",
-    pages: {
+    "packageName": "docture",
+    "importPath": "docture/testing/fixtures",
+    "entrypoint": "../../packages/docture/src/testing/fixtures/index.ts",
+    "pages": {
       "content/docs/reference/api/testing.mdx": [
+        "ConversionCase",
         "InvoiceOptions",
         "RichDocumentExpected",
         "SyntheticDocument",
         "SyntheticInvoice",
         "SyntheticLineItem",
         "buildInvoiceData",
+        "conversionCorpus",
         "formatMoney",
         "makeInvoicePdf",
         "makeRichDocumentPdf",
-        "richDocumentExpected",
-        "ConversionCase",
-        "conversionCorpus"
+        "richDocumentExpected"
       ]
     }
   },
   {
-    packageName: "@docture/cli",
-    importPath: "@docture/cli",
-    entrypoint: "../../packages/cli/src/index.ts",
-    pages: {
+    "packageName": "@docture/cli",
+    "importPath": "@docture/cli",
+    "entrypoint": "../../packages/cli/src/index.ts",
+    "pages": {
       "content/docs/reference/api/cli.mdx": [
         "CaptureOptions",
         "CapturedIo",
@@ -659,27 +684,448 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     }
   },
   {
-    packageName: "@docture/cli",
-    importPath: "@docture/cli/config",
-    entrypoint: "../../packages/cli/src/define-config.ts",
-    pages: {
+    "packageName": "@docture/cli",
+    "importPath": "@docture/cli/config",
+    "entrypoint": "../../packages/cli/src/define-config.ts",
+    "pages": {
       "content/docs/reference/api/cli.mdx": [
         "CliConverter",
         "CliExtractor",
         "DoctureConfig",
+        "PaperlessCliConfig",
+        "PaperlessSchemaConfig",
         "defineConfig"
       ]
     }
   },
   {
-    packageName: "@docture/cli",
-    importPath: "@docture/cli/mcp",
-    entrypoint: "../../packages/cli/src/mcp/index.ts",
-    pages: {
+    "packageName": "@docture/cli",
+    "importPath": "@docture/cli/mcp",
+    "entrypoint": "../../packages/cli/src/mcp/index.ts",
+    "pages": {
       "content/docs/reference/api/cli.mdx": [
         "ENGINE_RANGES",
         "McpServerOptions",
         "createMcpServer"
+      ]
+    }
+  },
+  {
+    "packageName": "docture",
+    "importPath": "docture/node",
+    "entrypoint": "../../packages/docture/src/node/index.ts",
+    "pages": {
+      "content/docs/reference/api/core-extraction.mdx": [
+        "Attempt",
+        "AttemptStatus",
+        "BatchItem",
+        "BatchOptions",
+        "CitationStatus",
+        "ClassificationResult",
+        "ClassificationSignal",
+        "ConflictingValue",
+        "DocumentExtractor",
+        "EMPTY_USAGE",
+        "ExtractionConflict",
+        "ExtractionResult",
+        "Extractor",
+        "ExtractorOptions",
+        "FieldCitation",
+        "LoadLlmOptions",
+        "ModelBackend",
+        "PipelineComponents",
+        "RepairInput",
+        "RuleFailureMode",
+        "RunOptions",
+        "SafeExtraction",
+        "Usage",
+        "ValidationIssue",
+        "ValidationOutcome",
+        "ValidationRule",
+        "createCheckedExtractor",
+        "createExtractor",
+        "formatFieldPath",
+        "mapWithConcurrency",
+        "parseFieldPath",
+        "sumUsage"
+      ],
+      "content/docs/reference/api/core-conversion.mdx": [
+        "CellSourceId",
+        "CodeElement",
+        "ConversionAsset",
+        "ConversionAssetMode",
+        "ConversionBatchItem",
+        "ConversionBatchOptions",
+        "ConversionFormat",
+        "ConversionResult",
+        "ConversionWarning",
+        "ConversionWarningCode",
+        "ConvertOptions",
+        "ConvertedPage",
+        "DoctureDocument",
+        "DoctureDocumentAsset",
+        "DoctureDocumentParse",
+        "DocumentConverter",
+        "DocumentConverterOptions",
+        "DocumentElement",
+        "ElementProvenance",
+        "ElementSourceId",
+        "EvidenceLocation",
+        "EvidenceSourceId",
+        "FigureElement",
+        "FurnitureEvidence",
+        "HeadingElement",
+        "InlineText",
+        "LayoutAnalysis",
+        "LayoutAnalyzer",
+        "LayoutAnalyzerContext",
+        "LayoutAnnotation",
+        "LayoutDocument",
+        "LayoutElementRole",
+        "LayoutPage",
+        "LineSourceId",
+        "ListElement",
+        "PageBreakElement",
+        "PageFooterElement",
+        "PageHeaderElement",
+        "ParagraphElement",
+        "ProvenanceSegment",
+        "SafeConversion",
+        "SourceEvidence",
+        "SourceEvidenceParse",
+        "SourceLine",
+        "TableCellSpan",
+        "TableElement",
+        "createDocumentConverter",
+        "defineLayoutAnalyzer",
+        "isEvidenceSourceId",
+        "isLineSourceId",
+        "parseDoctureDocument",
+        "parseSourceEvidence",
+        "provenanceSegments",
+        "sourceLines"
+      ],
+      "content/docs/reference/api/core-contracts.mdx": [
+        "Contract",
+        "ContractDefinition",
+        "ContractExample",
+        "ContractLike",
+        "FlexibleSchema",
+        "InferContract",
+        "InferSchema",
+        "JsonSchemaObject",
+        "ResolvedSchema",
+        "ValidateResult",
+        "contract",
+        "contractName",
+        "isContract",
+        "resolveSchema",
+        "schemaOf"
+      ],
+      "content/docs/reference/api/core-documents.mdx": [
+        "DEFAULT_RASTER_OPTIONS",
+        "DataLoaderConfig",
+        "DocumentFact",
+        "DocumentFeatures",
+        "DocumentForm",
+        "DocumentLoader",
+        "DocumentLoaderData",
+        "DocumentMetadata",
+        "DocumentSource",
+        "GeometryLoader",
+        "ImageLayoutBlock",
+        "ImageLoader",
+        "ImageSize",
+        "KnownDocumentFact",
+        "LayoutBlock",
+        "LayoutBox",
+        "LayoutRoleHint",
+        "LinesFromWordsOptions",
+        "LoadContext",
+        "LoadRequest",
+        "LoadedAsset",
+        "LoadedDocument",
+        "LoadedPage",
+        "LoadedSource",
+        "LoaderCapabilities",
+        "Logger",
+        "MIN_TEXT_LAYER_CHARS",
+        "PositionedWord",
+        "RasterFormat",
+        "RasterOptions",
+        "RasterPage",
+        "RasterizeContext",
+        "Rasterizer",
+        "RawDocument",
+        "SourceResolver",
+        "TextLayoutBlock",
+        "TextLine",
+        "TextLoader",
+        "TextSpan",
+        "TextStyle",
+        "TiffPage",
+        "WithImages",
+        "WithRasterizerOptions",
+        "consoleLogger",
+        "defineLoader",
+        "defineRasterizer",
+        "documentLoaderData",
+        "hasFact",
+        "imageSize",
+        "inferForm",
+        "isLoadedSource",
+        "linesFromWords",
+        "loaderAccepts",
+        "preloadedFeatures",
+        "resolveSource",
+        "silentLogger",
+        "sniffMimeType",
+        "textFromLines",
+        "tiffPages",
+        "withRasterizer"
+      ],
+      "content/docs/reference/api/core-components.mdx": [
+        "ClassificationNeed",
+        "ClassificationStrategy",
+        "CompletionStrategy",
+        "DisposalScope",
+        "ExtractionStrategy",
+        "OcrFallbackOptions",
+        "OcrFallbackWarning",
+        "OutcomeCitation",
+        "PageOcrQuality",
+        "ReadDocument",
+        "RoutingPolicy",
+        "ScopedDisposable",
+        "StrategyContext",
+        "StrategyOutcome",
+        "createDisposalScope",
+        "declarationOrder",
+        "defineStrategy",
+        "readDocument",
+        "runPipeline",
+        "withOcrFallback"
+      ],
+      "content/docs/reference/api/core-classification.mdx": [
+        "Classification",
+        "ClassificationNames",
+        "ClassificationNode",
+        "ClassificationResponse",
+        "ClassificationTree",
+        "ClassifiedExtraction",
+        "Classifier",
+        "ClassifyContext",
+        "ClassifyOptions",
+        "ConsensusStrategy",
+        "DocGroup",
+        "DocGroups",
+        "Process",
+        "ProcessExtractOptions",
+        "RunSplitterOptions",
+        "SplitContext",
+        "SplitReport",
+        "SplitVerdict",
+        "Splitter",
+        "SplittingStrategy",
+        "UNCLASSIFIED",
+        "aggregateDocGroups",
+        "classificationNode",
+        "classificationOf",
+        "classificationTree",
+        "defineClassification",
+        "defineClassifier",
+        "defineSplitter",
+        "extractionContractOf",
+        "flattenTree",
+        "isClassificationTree",
+        "pageWindows",
+        "runSplitter"
+      ],
+      "content/docs/reference/errors.mdx": [
+        "ContractViolationError",
+        "DoctureError",
+        "DoctureErrorCode",
+        "DuplicateComponentError",
+        "ExtractionFailedError",
+        "Ineligibility",
+        "LoadFailedError",
+        "MissingComponentError",
+        "MissingEngineError",
+        "ModelOutputError",
+        "NoConvertibleContentError",
+        "NoEligibleLoaderError",
+        "NoEligibleStrategyError",
+        "PageSelectionError",
+        "SplitFailedError",
+        "TimeoutError",
+        "UnclassifiedGroupError",
+        "UnsupportedSourceError",
+        "errorCodeOf",
+        "isAbortError",
+        "isDoctureError",
+        "messageOf"
+      ],
+      "content/docs/reference/api/node.mdx": [
+        "resolveNodeSource"
+      ]
+    }
+  },
+  {
+    "packageName": "docture",
+    "importPath": "docture/loaders/mammoth",
+    "entrypoint": "../../packages/docture/src/loaders/mammoth/index.ts",
+    "pages": {
+      "content/docs/reference/api/loader-mammoth.mdx": [
+        "DocumentLoaderMammoth",
+        "MammothDocumentError"
+      ]
+    }
+  },
+  {
+    "packageName": "docture",
+    "importPath": "docture/llm/tool",
+    "entrypoint": "../../packages/docture/src/llm/tool.ts",
+    "pages": {
+      "content/docs/reference/api/llm-tool.mdx": [
+        "ExtractToolOptions",
+        "ExtractionToolInput",
+        "ExtractionToolResult",
+        "extractTool"
+      ]
+    }
+  },
+  {
+    "packageName": "docture",
+    "importPath": "docture/inputs/email",
+    "entrypoint": "../../packages/docture/src/inputs/email/index.ts",
+    "pages": {
+      "content/docs/reference/api/inputs-email.mdx": [
+        "EmailInputError",
+        "EmailPart",
+        "ExpandEmailOptions",
+        "ExpandedEmail",
+        "expandEmail"
+      ]
+    }
+  },
+  {
+    "packageName": "docture",
+    "importPath": "docture/loaders/azure-di",
+    "entrypoint": "../../packages/docture/src/loaders/azure-di/index.ts",
+    "pages": {
+      "content/docs/reference/api/loader-azure-di.mdx": [
+        "AzureReadAuthentication",
+        "AzureReadError",
+        "DocumentLoaderAzureRead",
+        "DocumentLoaderAzureReadOptions"
+      ]
+    }
+  },
+  {
+    "packageName": "docture",
+    "importPath": "docture/sources/paperless",
+    "entrypoint": "../../packages/docture/src/sources/paperless/index.ts",
+    "pages": {
+      "content/docs/reference/api/sources-paperless.mdx": [
+        "PaperlessApiVersion",
+        "PaperlessConnectionOptions",
+        "PaperlessContextEntry",
+        "PaperlessContextKind",
+        "PaperlessCustomFieldDefinition",
+        "PaperlessDocument",
+        "PaperlessError",
+        "PaperlessFailure",
+        "PaperlessFieldType",
+        "PaperlessFieldValue",
+        "PaperlessMetadata",
+        "PaperlessNamedObject",
+        "PaperlessNote",
+        "PaperlessProvenance",
+        "PaperlessQueryOptions",
+        "PaperlessReadOptions",
+        "PaperlessSource",
+        "PaperlessSourceResult",
+        "PaperlessValue",
+        "PaperlessVersion",
+        "paperlessSource"
+      ]
+    }
+  },
+  {
+    "packageName": "docture",
+    "importPath": "docture/import/docling",
+    "entrypoint": "../../packages/docture/src/import/docling/index.ts",
+    "pages": {
+      "content/docs/reference/api/import-docling.mdx": [
+        "DoclingDiagnostic",
+        "DoclingImportError",
+        "DoclingImportLimits",
+        "DoclingImportOptions",
+        "DoclingNativeSource",
+        "DoclingProvenance",
+        "ImportedDoclingDocument",
+        "importDoclingDocument"
+      ]
+    }
+  },
+  {
+    "packageName": "docture",
+    "importPath": "docture/loaders/docling",
+    "entrypoint": "../../packages/docture/src/loaders/docling/index.ts",
+    "pages": {
+      "content/docs/reference/api/loader-docling.mdx": [
+        "DoclingConversion",
+        "DoclingConversionOptions",
+        "DoclingJob",
+        "DoclingJobReference",
+        "DoclingServeClient",
+        "DoclingServeError",
+        "DoclingServeFailure",
+        "DoclingServeOptions",
+        "DoclingTaskStatus",
+        "DoclingTransportOptions",
+        "DocumentLoaderDoclingServe",
+        "DocumentLoaderDoclingServeOptions"
+      ]
+    }
+  },
+  {
+    "packageName": "docture",
+    "importPath": "docture/sinks/paperless",
+    "entrypoint": "../../packages/docture/src/sinks/paperless/index.ts",
+    "pages": {
+      "content/docs/reference/api/sinks-paperless.mdx": [
+        "PaperlessApplyResult",
+        "PaperlessCustomFieldDefinition",
+        "PaperlessError",
+        "PaperlessEvidencePolicy",
+        "PaperlessFieldMapping",
+        "PaperlessFieldType",
+        "PaperlessOperation",
+        "PaperlessOperationOutcome",
+        "PaperlessPlan",
+        "PaperlessPlanExtraction",
+        "PaperlessPlanInput",
+        "PaperlessPlanIssue",
+        "PaperlessPlannedSkip",
+        "PaperlessProvenance",
+        "PaperlessSink",
+        "PaperlessSinkOptions",
+        "PaperlessValue",
+        "paperlessSink"
+      ]
+    }
+  },
+  {
+    "packageName": "@docture/cli",
+    "importPath": "@docture/cli/service",
+    "entrypoint": "../../packages/cli/src/service/index.ts",
+    "pages": {
+      "content/docs/reference/api/service.mdx": [
+        "HttpService",
+        "HttpServiceAddress",
+        "HttpServiceOptions",
+        "createHttpService"
       ]
     }
   }

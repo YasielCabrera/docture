@@ -162,3 +162,9 @@ console.log(formatScoreboard(records));
 
 Watch `byMethod` when a deterministic parser should handle known layouts. A change from
 the parser to an LLM fallback may keep accuracy stable while increasing cost.
+
+## Inspect experimental field thresholds
+
+Use `docture eval ... --calibrate --target-precision 0.99 --min-support 20` to describe candidate OCR thresholds on labelled samples. JSON and text retain the same candidate selection and counts. Keep a separate held-out corpus and evaluate any proposed policy there before operational use. Small samples and in-sample selection do not establish production precision.
+
+The report retains scorer options, corpus labels, model selection and loader identifiers. Exact engine versions remain caller context when configured loaders do not report them. Missing OCR confidence stays unknown. Calibration does not support `--align-by`, because reordering can attach confidence to the wrong array row. No suggested threshold is applied automatically.

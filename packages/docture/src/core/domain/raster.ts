@@ -18,6 +18,8 @@ export interface RasterOptions {
   readonly maxEdge?: number;
   /** 1-based page numbers to render. Omit for all pages. */
   readonly pages?: readonly number[];
+  /** Highest original page number to render. A cap above the page count reads all pages. */
+  readonly maxPages?: number;
 }
 
 export const DEFAULT_RASTER_OPTIONS = {

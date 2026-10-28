@@ -1,4 +1,4 @@
-import { DocumentConverter } from "docture";
+import { DocumentConverter } from "docture/node";
 import { checkConversion } from "docture/eval";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { makeRichDocumentPdf } from "docture/testing/fixtures";

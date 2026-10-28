@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
-import { DocumentConverter } from "docture";
+import { DocumentConverter } from "docture/node";
 
 const converter = new DocumentConverter()
   .loadDocumentLoader(new DocumentLoaderPdfJs());

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { additionalRuntime, additionalTypes, serviceRuntime, serviceTypes, verifyConsumerGuides, verifyPortableBundles } from "./verify-packages-additions.mjs";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -7,6 +8,7 @@ import { createRequire } from "node:module";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
+import { cleanupConsumerInstalls } from "./verification-output.mjs";
 import {
   coreRuntime, coreTypes, llmRuntime, llmTypes, loaderRuntime, loaderTypes, conformanceTest,
   bundleConsumers, bundleRuntime, entryRuntime, missingEngineRuntime, paddleRuntimeWithoutOnnx, paddleTiffRuntime, missingCanvasRuntime,
@@ -21,6 +23,7 @@ const { values } = parseArgs({ options: {
   help: { type: "boolean", short: "h" },
   "skip-build": { type: "boolean" },
   "keep-going": { type: "boolean" },
+  "keep-installs": { type: "boolean" },
   "tools-dir": { type: "string" },
   "output-dir": { type: "string" },
 } });
@@ -38,6 +41,7 @@ TypeScript's CLI is resolved from the workspace.
 --tools-dir resolves bundlers from another project's node_modules.
 --skip-build uses existing dist files; normal runs rebuild both packages.
 --keep-going records a failed behavior check and continues; setup checks still stop.
+--keep-installs retains temporary consumer node_modules for debugging.
 --output-dir must be an empty directory outside the repository.
 Default evidence: /tmp/docture-consolidation/verification-<unique>/summary.json
 Consumer installs use real registry dependencies. No publishing or Git writes.`);
@@ -45,11 +49,11 @@ Consumer installs use real registry dependencies. No publishing or Git writes.`)
 }
 
 const expectedPublications = ["@docture/cli", "docture"];
-const expectedExports = [".", "./llm", "./eval", "./chunk", ...[
-  "text", "vision", "classifier", "layout", "split", "cache", "pricing", "prompt", "merge", "relax", "extractor",
+const expectedExports = [".", "./node", "./loaders/mammoth", "./inputs/email", "./sources/paperless", "./sinks/paperless", "./import/docling", "./loaders/docling", "./loaders/azure-di", "./llm", "./eval", "./chunk", ...[
+  "tool", "text", "vision", "classifier", "layout", "split", "cache", "pricing", "prompt", "merge", "relax", "extractor",
 ].map(name => `./llm/${name}`), ...["pdfjs", "mupdf", "tesseract", "paddleocr"].map(name => `./loaders/${name}`),
 "./raster/canvas", ...["doubles", "conformance", "fixtures"].map(name => `./testing/${name}`)];
-const optionalPeers = ["ai", "zod", "pdfjs-dist", "mupdf", "tesseract.js", "ppu-paddle-ocr", "onnxruntime-node", "@napi-rs/canvas", "utif2", "pdfkit", "vitest"];
+const optionalPeers = ["mammoth", "postal-mime", "ai", "zod", "pdfjs-dist", "mupdf", "tesseract.js", "ppu-paddle-ocr", "onnxruntime-node", "@napi-rs/canvas", "utif2", "pdfkit", "vitest"];
 const engineNames = [...optionalPeers.filter(name => name !== "zod"), "tesseract.js-core", "onnxruntime-common"];
 const toolNames = ["esbuild", "rollup", "@rollup/plugin-node-resolve", "@rollup/plugin-commonjs", "@rollup/plugin-terser"];
 const engineMatrix = {
@@ -67,7 +71,7 @@ const engineTiers = {
   ])),
 };
 const tierDirectory = tier => tier.replace(/[^a-z0-9.]+/gi, "-");
-const pinnedEngines = ["tesseract.js", "ppu-paddle-ocr", "onnxruntime-node", "utif2"];
+const pinnedEngines = ["mammoth", "postal-mime", "tesseract.js", "ppu-paddle-ocr", "onnxruntime-node", "utif2"];
 const applicationOcrEngines = { "tesseract.js": "6.0.1", "ppu-paddle-ocr": "6.6.1", "onnxruntime-node": "1.30.0" };
 const zodMatrix = [["npm", "3.25.76"], ["npm", "4.1.8"], ["npm", "4.6.7"], ["pnpm", "3.25.76"]];
 const applicationEngines = [["pdfjs-dist", "6.3.289", pdfjsAdoptionRuntime, ["zod"]], ["pdfkit", "0.17.2", pdfkitAdoptionRuntime, []]];
@@ -199,11 +203,13 @@ async function assertInstalled(consumer, label, requiredEngines, permittedEngine
 
 function runtimeTarget(manifest, subpath) {
   const target = manifest.exports[subpath];
-  return typeof target === "string" ? target : target.import ?? target.default;
+  return typeof target === "string" ? target : target.node?.import ?? target.import ?? target.default;
 }
 
 async function checkPackedPackage(directory, manifest, ts, sourceDirectory) {
   assert.equal(manifest.type, "module");
+  assert.ok(manifest.files.includes("AGENTS.md"), "publication includes its consumer guide");
+  assert.match(await readFile(join(directory, "AGENTS.md"), "utf8"), /Codex/);
   if (manifest.name === "docture") {
     assert.equal(manifest.sideEffects, false, "library subpaths support tree shaking");
     assert.deepEqual(Object.keys(manifest.exports).sort(), [...expectedExports].sort(), "the packed library exposes only explicit supported entrypoints");
@@ -558,6 +564,21 @@ async function main() {
       await assertInstalled(consumer, "all-entry-types", ["ai"]);
     });
   }
+  await check("packed additions preserve Node sources, native evidence and cross-copy error identity", async () => {
+    await exercise(consumers.npm, "additions", additionalRuntime, additionalTypes);
+  });
+  await check("packed browser bundles run without Node globals and browser types use no ambient Node types", () =>
+    verifyPortableBundles({ consumer: consumers.npm, tools, run, save, tsc }));
+  await check("exact DOCX and email peers run from the real packed package", async () => {
+    const consumer = await newConsumer("npm-docx-email");
+    await install(consumer, "npm", "docx-email", [packed.docture.target, versionSpec("mammoth"), versionSpec("postal-mime")], { strictPeers: true });
+    await assertInstalled(consumer, "docx-email", ["mammoth", "postal-mime"]);
+    await cp(join(root, "packages/docture/test/loaders/mammoth/fixtures/heading-paragraph-table.docx"), join(consumer, "fixture.docx"));
+    await save(join(consumer, "run.mjs"), `import assert from "node:assert/strict";import {readFile} from "node:fs/promises";import {silentLogger} from "docture";import {DocumentLoaderMammoth} from "docture/loaders/mammoth";import {expandEmail} from "docture/inputs/email";
+const document=await new DocumentLoaderMammoth().load({bytes:new Uint8Array(await readFile("fixture.docx")),mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"},{signal:new AbortController().signal,logger:silentLogger});assert.ok(document.text.startsWith("Quarterly report"));
+const email=await expandEmail({bytes:new TextEncoder().encode("From: a@example.test\\r\\nSubject: hello\\r\\nContent-Type: text/plain; charset=utf-8\\r\\n\\r\\nExact body"),mimeType:"message/rfc822"});assert.equal(email.parts[0].kind,"body");assert.equal(new TextDecoder().decode(email.parts[0].document.bytes),"Exact body\\n");console.log("real packed DOCX and MIME engines pass");`);
+    await run("docx-email-runtime", "node", ["run.mjs"], consumer);
+  });
   const entryOutcomes = Object.fromEntries(expectedExports.map(key => {
     const specifier = key === "." ? "docture" : `docture/${key.slice(2)}`;
     if (/^\.\/llm(?:\/(?:text|vision|classifier|layout|split|extractor))?$/.test(key)) return [specifier, "needs ai"];
@@ -771,6 +792,8 @@ async function main() {
     const { modules } = await loadedModules("npm-cli-config-modules", consumer, ["cli-config.mjs"]);
     assert.deepEqual(modules, ["cli-config.mjs", "@docture/cli/dist/define-config.js"], "importing @docture/cli/config loads only its own file");
   });
+  await check("packed HTTP service handles repeated requests and disposes shared engines once", () =>
+    exercise(join(output, "npm-cli"), "http-service", serviceRuntime, serviceTypes));
   await check("npm packed CLI help loads neither docture core nor the MCP SDK, with or without the SDK installed", async () => {
     const probe = await loadedModules("npm-cli-inspect-modules", join(output, "npm-cli"),
       [join("node_modules", "@docture", "cli", "dist", "bin.js"), "inspect", invoice, "--no-config", "--format", "json"]);
@@ -1064,6 +1087,7 @@ async function main() {
     assert.match(await readFile(join(conversion, "out", "invoice.txt"), "utf8"), /INVOICE/);
     assert.equal(await readFile(join(conversion, "converter-disposed.txt"), "utf8"), "disposed");
   });
+  await check("both installed consumer guides typecheck and execute", () => verifyConsumerGuides({ consumer: peerContexts, run, save, tools, tsc }));
 }
 
 try {
@@ -1078,6 +1102,17 @@ try {
   process.exitCode = 1;
 } finally {
   summary.finishedAt = new Date().toISOString();
+  if (!values["keep-installs"]) {
+    try {
+      await cleanupConsumerInstalls(output);
+      summary.consumerInstalls = "removed";
+    } catch (error) {
+      summary.status = "failed";
+      summary.cleanupError = error.stack ?? String(error);
+      console.error(summary.cleanupError);
+      process.exitCode = 1;
+    }
+  } else summary.consumerInstalls = "retained by --keep-installs";
   await checkpoint();
   console.log(`Evidence ${join(output, "summary.json")}`);
 }

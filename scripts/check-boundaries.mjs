@@ -20,6 +20,7 @@ async function files(directory) {
 }
 
 const llmRoles = {
+  "llm/tool": "llm/tool",
   "llm/cache": "llm/helpers",
   "llm/citations": "llm/helpers",
   "llm/entries/cache": "llm/helpers",
@@ -44,8 +45,11 @@ const llmRoles = {
   "llm/llm": "llm/convenience",
   "llm/index": "llm/convenience",
 };
-const capabilities = ["llm/text", "llm/vision", "llm/classifier", "llm/layout", "llm/split"];
+const capabilities = ["llm/tool","llm/text", "llm/vision", "llm/classifier", "llm/layout", "llm/split"];
 const reach = {
+  "sources/paperless": ["paperless"],
+  "sinks/paperless": ["paperless"],
+  "loaders/docling": ["import/docling"],
   "llm/shared": ["llm/helpers"],
   ...Object.fromEntries(capabilities.map(capability => [capability, ["llm/helpers", "llm/shared"]])),
   "llm/extractor": ["llm/helpers", "llm/shared", "llm/text", "llm/classifier", "llm/vision"],
@@ -61,10 +65,11 @@ const typeReach = {
 function area(path) {
   const parts = path.split("/");
   if (parts[0] === "llm") return llmRoles[path.replace(/\.(?:[cm]?[jt]s|tsx)$/, "")] ?? "llm/unassigned";
-  return ["loaders", "raster", "testing"].includes(parts[0]) ? parts.slice(0, 2).join("/") : parts[0];
+  return ["loaders", "raster", "testing", "inputs", "import", "sources", "sinks"].includes(parts[0]) ? parts.slice(0, 2).join("/") : parts[0];
 }
 
 const engines = {
+  "llm/tool": ["ai"],
   "llm/shared": ["ai"],
   "llm/text": ["ai"],
   "llm/vision": ["ai"],
@@ -73,6 +78,8 @@ const engines = {
   "llm/split": ["ai", "zod"],
   "llm/extractor": ["ai"],
   "llm/convenience": ["ai"],
+  "loaders/mammoth": ["mammoth"],
+  "inputs/email": ["postal-mime"],
   "loaders/pdfjs": ["pdfjs-dist"],
   "loaders/mupdf": ["mupdf"],
   "loaders/tesseract": ["tesseract.js"],
@@ -114,7 +121,10 @@ for (const path of await files(source)) {
       failures.push(`${name} imports node:module outside an engine asset resolver; use ESM imports in shared modules`);
       return;
     }
-    if (value.startsWith("node:")) return;
+    if (value.startsWith("node:")) {
+      if (["core", "chunk"].includes(owner)) failures.push(`${name} imports a Node built-in from a portable entry`);
+      return;
+    }
     const dependencies = [
       ...(owner === "core" || owner.startsWith("llm/") ? ["@ai-sdk/provider-utils"] : []),
       ...(name === "core/loaders/html.ts" ? ["parse5", "htmlparser2", "entities"] : []),
@@ -157,8 +167,10 @@ for (const engine of new Set(Object.values(engines).flat())) {
 for (const [key, entry] of Object.entries(manifest.exports)) {
   const stem = entry.source.replace(/^\.\/src\//, "").replace(/\.ts$/, "");
   assert.equal(entry.types, `./dist/${stem}.d.ts`, `${key} declaration path`);
-  assert.equal(entry.import, `./dist/${stem}.js`, `${key} ESM path`);
-  assert.equal(entry.default, entry.import, `${key} fallback path`);
+  const runtime = entry.node ?? entry;
+  assert.equal(runtime.import, `./dist/${stem}.js`, `${key} ESM path`);
+  assert.equal(runtime.default, runtime.import, `${key} fallback path`);
+  if (key === "./node") assert.equal(entry.default, undefined, "filesystem entry has no portable fallback");
   await readFile(join(root, "packages/docture", entry.source));
 }
 const testConfig = JSON.parse(await readFile(join(root, "packages/docture/tsconfig.test.json"), "utf8"));
@@ -209,7 +221,7 @@ for (const name of ["mcp/index.ts", "mcp/server.ts"]) {
 const cliRanges = /ENGINE_RANGES = (\{[\s\S]*?\}) as const/.exec(await readFile(join(cliSource, "mcp/engines.ts"), "utf8"))?.[1];
 assert.deepEqual(Function(`return ${cliRanges}`)(), cliManifest.peerDependencies, "CLI ENGINE_RANGES must equal its declared peers");
 for (const peer of cliPeers) assert.equal(cliManifest.peerDependenciesMeta?.[peer]?.optional, true, `${peer} must be an optional CLI peer`);
-assert.deepEqual(Object.keys(cliManifest.exports), [".", "./config", "./mcp"]);
+assert.deepEqual(Object.keys(cliManifest.exports), [".", "./config", "./mcp", "./service"]);
 const configEntry = ts.createSourceFile("define-config.ts", await readFile(join(cliSource, "define-config.ts"), "utf8"), ts.ScriptTarget.Latest, true);
 for (const node of configEntry.statements) {
   const typeOnly = ts.isImportDeclaration(node) ? node.importClause?.isTypeOnly === true : ts.isExportDeclaration(node) ? node.isTypeOnly : true;

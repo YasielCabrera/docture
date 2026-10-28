@@ -17,7 +17,8 @@
 
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { DocumentLoaderData, Extractor, NoEligibleLoaderError, UnsupportedSourceError, defineStrategy, inferForm, type DocumentLoader, loaderAccepts, resolveSource, silentLogger, sniffMimeType, type DocumentSource } from "docture";
+import { DocumentLoaderData, NoEligibleLoaderError, UnsupportedSourceError, defineStrategy, inferForm, type DocumentLoader, loaderAccepts, silentLogger, sniffMimeType, type DocumentSource } from "docture";
+import { Extractor, resolveSource } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { DocumentLoaderMuPdf } from "docture/loaders/mupdf";
 import { z } from "zod";

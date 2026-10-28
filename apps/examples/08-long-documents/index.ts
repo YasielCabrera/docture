@@ -23,7 +23,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { CompletionStrategy, Extractor, contract, readDocument, silentLogger, type DocumentLoader } from "docture";
+import { CompletionStrategy, contract, readDocument, silentLogger, type DocumentLoader } from "docture";
+import { Extractor } from "docture/node";
 import {
   chunkByBudget,
   chunkByPage,

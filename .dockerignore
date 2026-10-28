@@ -1,0 +1,17 @@
+.git
+**/node_modules
+**/dist
+**/.next
+**/.source
+**/.turbo
+**/*.tsbuildinfo
+packages/cli/test/.tmp
+apps/examples/documents
+coverage
+.env
+.env.*
+**/.env
+**/.env.*
+
+.npmrc
+**/.npmrc

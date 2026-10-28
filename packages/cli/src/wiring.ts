@@ -1,3 +1,4 @@
+import { createDocumentConverter, createExtractor } from "docture/node";
 /**
  * Turning flags and a config into an `Extractor`.
  *
@@ -14,8 +15,8 @@
  */
 
 import {
-  createDocumentConverter,
-  createExtractor,
+  createDisposalScope,
+  type DisposalScope,
   withRasterizer,
   type Classification,
   type CompletionStrategy,
@@ -66,6 +67,7 @@ export interface WiringFlags {
 }
 
 export interface WiringInput {
+  readonly disposalScope?: DisposalScope;
   readonly io: Io;
   readonly config?: LoadedConfig;
   readonly flags: WiringFlags;
@@ -134,6 +136,7 @@ export interface ConversionWiring extends ConversionWiringPlan {
 }
 
 export interface ConversionWiringInput {
+  readonly disposalScope?: DisposalScope;
   readonly io: Io;
   readonly config?: LoadedConfig;
   readonly flags: WiringFlags;
@@ -224,6 +227,7 @@ async function loadClassifications(
 }
 
 export async function buildWiring(input: WiringInput): Promise<Wiring> {
+  const scope = input.disposalScope ?? createDisposalScope();
   const { flags, config, io } = input;
   const notes: string[] = [];
   const warnings: string[] = [];
@@ -259,7 +263,7 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
       concurrency,
       notes,
       warnings,
-      dispose: () => extractor.dispose(),
+      dispose: () => scope.dispose(extractor),
     };
   }
 
@@ -391,7 +395,7 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
     concurrency,
     notes,
     warnings,
-    dispose: () => extractor.dispose(),
+    dispose: () => scope.dispose(extractor),
   };
 }
 
@@ -399,6 +403,7 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
 export async function buildConversionWiring(
   input: ConversionWiringInput,
 ): Promise<ConversionWiring> {
+  const scope = input.disposalScope ?? createDisposalScope();
   const { config, flags, io } = input;
   const notes: string[] = [];
   const warnings: string[] = [];
@@ -420,7 +425,7 @@ export async function buildConversionWiring(
       concurrency: config?.config.concurrency ?? 4,
       notes,
       warnings,
-      dispose: () => converter.dispose(),
+      dispose: () => scope.dispose(converter),
     };
   }
 
@@ -477,7 +482,7 @@ export async function buildConversionWiring(
     concurrency: config?.config.concurrency ?? 4,
     notes,
     warnings,
-    dispose: () => converter.dispose(),
+    dispose: () => scope.dispose(converter),
   };
 }
 

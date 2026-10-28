@@ -1,10 +1,15 @@
 import { resolve } from "node:path";
+import { createHash } from "node:crypto";
 import {
   isLineSourceId,
+  isEvidenceSourceId,
+  parseSourceEvidence,
   parseDoctureDocument,
   type FieldCitation,
   type LayoutPage,
   type LineSourceId,
+  type EvidenceSourceId,
+  type SourceEvidence,
   type SourceLine,
 } from "docture";
 import { numberFlag, stringFlag, type Parsed } from "../cli/args.js";
@@ -25,7 +30,15 @@ export type ReviewRequest =
 /** One extraction result as the review shows it. Citations and their lines arrive together or not at all. */
 export interface ReviewedExtraction {
   readonly data: unknown;
-  readonly cited?: { readonly citations: readonly FieldCitation[]; readonly sources: readonly SourceLine[] };
+  readonly sourceIdentity?: { readonly physicalSourceDigest?: string; readonly json: string };
+  readonly binarySource?: { readonly digest: string; readonly provenanceJson: string };
+  readonly textSource?: {
+    readonly text: string;
+    readonly digest: string;
+    readonly label: string;
+    readonly provenanceJson: string;
+  };
+  readonly cited?: { readonly citations: readonly FieldCitation[]; readonly sources: readonly SourceLine[]; readonly evidenceSources?: readonly SourceEvidence[] };
 }
 
 async function oneInput(value: string, cwd: string, flag: string): Promise<Input> {
@@ -106,9 +119,13 @@ function invalid(path: string, what: string, issues: readonly Issue[]): UsageErr
 
 /** Version 1 and 2 snapshots from `convert --to json`, as version 2 pages. */
 export function parseSavedConversion(text: string, path: string): readonly LayoutPage[] {
+  return parseSavedConversionRecord(text, path).pages;
+}
+
+export function parseSavedConversionRecord(text: string, path: string): { readonly pages: readonly LayoutPage[]; readonly physicalSourceDigest?: string } {
   const parsed = parseDoctureDocument(parseJson(text, path));
   if (!parsed.ok) throw invalid(path, "a docture conversion snapshot", parsed.issues);
-  return parsed.document.pages;
+  return { pages: parsed.document.pages, ...(parsed.document.physicalSourceDigest === undefined ? {} : { physicalSourceDigest: parsed.document.physicalSourceDigest }) };
 }
 
 type Json = Readonly<Record<string, unknown>>;
@@ -124,9 +141,9 @@ const isBox = (value: unknown): boolean =>
   (value["width"] as number) >= 0 &&
   (value["height"] as number) >= 0;
 
-function lineIds(value: unknown): readonly LineSourceId[] | undefined {
-  return Array.isArray(value) && value.every((id) => typeof id === "string" && isLineSourceId(id))
-    ? (value as LineSourceId[])
+function evidenceIds(value: unknown): readonly EvidenceSourceId[] | undefined {
+  return Array.isArray(value) && value.every((id) => typeof id === "string" && isEvidenceSourceId(id))
+    ? (value as EvidenceSourceId[])
     : undefined;
 }
 
@@ -156,8 +173,8 @@ function citationsOf(value: unknown, known: ReadonlySet<string>, issues: Issue[]
     const at = `citations.${index}`;
     if (!isObject(citation)) return issues.push({ path: at, message: "must be an object" });
     if (typeof citation["path"] !== "string") issues.push({ path: `${at}.path`, message: "must be a string" });
-    const ids = lineIds(citation["ids"]);
-    if (ids === undefined) return issues.push({ path: `${at}.ids`, message: "must be an array of line ids" });
+    const ids = evidenceIds(citation["ids"]);
+    if (ids === undefined) return issues.push({ path: `${at}.ids`, message: "must be an array of canonical evidence ids" });
     const status = citation["status"];
     if (status !== "verified" && status !== "cited-unverified" && status !== "uncited") {
       issues.push({ path: `${at}.status`, message: "must be verified, cited-unverified, or uncited" });
@@ -167,7 +184,7 @@ function citationsOf(value: unknown, known: ReadonlySet<string>, issues: Issue[]
       issues.push({ path: `${at}.ids`, message: "must be empty when uncited" });
     }
     ids.forEach((id, position) => {
-      if (!known.has(id)) issues.push({ path: `${at}.ids.${position}`, message: `names ${id}, which citationSources does not hold` });
+      if (!known.has(id)) issues.push({ path: `${at}.ids.${position}`, message: `names ${id}, which ${isLineSourceId(id) ? "citationSources does" : "evidenceSources do"} not hold` });
     });
     const confidence = citation["minOcrConfidence"];
     if (confidence !== undefined && !(typeof confidence === "number" && confidence >= 0 && confidence <= 1)) {
@@ -178,9 +195,20 @@ function citationsOf(value: unknown, known: ReadonlySet<string>, issues: Issue[]
   return value as FieldCitation[];
 }
 
+function textSourceOf(record: Json, path: string): ReviewedExtraction["textSource"] {
+  if (!("sourceText" in record)) return undefined;
+  const source = record["source"];
+  if (typeof record["sourceText"] !== "string" || !isObject(source) || source["variant"] !== "content" || typeof source["digest"] !== "string" || !/^[a-f0-9]{64}$/u.test(source["digest"])) {
+    throw invalid(path, "an extract result with valid stored content", [{ path: "source", message: "sourceText requires a content source descriptor with a SHA-256 digest" }]);
+  }
+  const digest = createHash("sha256").update(record["sourceText"], "utf8").digest("hex");
+  if (source["digest"] !== digest) throw invalid(path, "an extract result with valid stored content", [{ path: "source.digest", message: "does not match the exact UTF-8 sourceText" }]);
+  return { text: record["sourceText"], digest, label: typeof record["file"] === "string" ? record["file"] : "Stored content", provenanceJson: JSON.stringify(source, null, 2) };
+}
+
 function selectRecord(value: unknown, path: string, item: number | undefined): Json {
   if (isObject(value) && Array.isArray(value["results"])) {
-    if (value["command"] !== "extract") {
+    if (value["command"] !== "extract" && !(value["command"] === "paperless" && (value["action"] === "extract" || value["action"] === "plan"))) {
       throw new UsageError(`"${path}" is a ${String(value["command"])} envelope, not an extract result.`);
     }
     const results: readonly unknown[] = value["results"];
@@ -221,16 +249,52 @@ export function parseSavedExtraction(text: string, path: string, item?: number):
   if (record["ok"] !== true || !("data" in record)) {
     throw invalid(path, "an extract result", [{ path: "", message: "must hold ok: true and data" }]);
   }
+  const textSource = textSourceOf(record, path);
+  if (isObject(record["source"]) && record["source"]["kind"] === "paperless" && record["source"]["variant"] === "content" && textSource === undefined) {
+    throw invalid(path, "an extract result with valid stored content", [{ path: "sourceText", message: "a content source requires its exact saved text" }]);
+  }
+  const source = record["source"];
+  let binarySource: ReviewedExtraction["binarySource"];
+  if (isObject(source) && source["kind"] === "paperless" && source["variant"] !== "content") {
+    if ((source["variant"] !== "archive" && source["variant"] !== "original") || typeof source["digest"] !== "string" || !/^[a-f0-9]{64}$/u.test(source["digest"])) {
+      throw invalid(path, "an extract result", [{ path: "source", message: "Paperless binary sources require an archive/original variant and SHA-256 digest" }]);
+    }
+    binarySource = { digest: source["digest"], provenanceJson: JSON.stringify(source, null, 2) };
+  }
+  for (const key of ["sourceDigest", "physicalSourceDigest"] as const) {
+    if (record[key] !== undefined && (typeof record[key] !== "string" || !/^sha256:[a-f0-9]{64}$/u.test(record[key]))) throw invalid(path, "an extract result", [{ path: key, message: "must be a SHA-256 source identity" }]);
+  }
+  if (record["sourceMetadata"] !== undefined && !isObject(record["sourceMetadata"])) throw invalid(path, "an extract result", [{ path: "sourceMetadata", message: "must be an object" }]);
+  const sourceIdentity = record["sourceDigest"] === undefined && record["physicalSourceDigest"] === undefined && record["sourceMetadata"] === undefined ? undefined : {
+    ...(typeof record["physicalSourceDigest"] === "string" ? { physicalSourceDigest: record["physicalSourceDigest"] } : {}),
+    json: JSON.stringify({ sourceDigest: record["sourceDigest"], physicalSourceDigest: record["physicalSourceDigest"], metadata: record["sourceMetadata"] }, null, 2),
+  };
+  const storedText = { ...(sourceIdentity === undefined ? {} : { sourceIdentity }), ...(textSource === undefined ? {} : { textSource }), ...(binarySource === undefined ? {} : { binarySource }) };
   const hasCitations = "citations" in record;
   if (hasCitations !== "citationSources" in record) {
     throw invalid(path, "an extract result", [{ path: hasCitations ? "citationSources" : "citations", message: "must be present with the other" }]);
   }
-  if (!hasCitations) return { data: record["data"] };
+  if (!hasCitations) {
+    if (textSource !== undefined && Array.isArray(record["evidenceSources"]) && record["evidenceSources"].length > 0) throw invalid(path, "an extract result with valid stored content", [{ path: "evidenceSources", message: "plain stored content cannot claim positioned or native source evidence" }]);
+    return { data: record["data"], ...storedText };
+  }
 
   const issues: Issue[] = [];
   const sources = sourcesOf(record["citationSources"], issues);
-  const known = new Set(sources.map((line) => (isObject(line) ? line["id"] : undefined)).filter((id) => typeof id === "string"));
+  const native: SourceEvidence[] = [];
+  if (record["evidenceSources"] !== undefined) {
+    if (!Array.isArray(record["evidenceSources"])) issues.push({ path: "evidenceSources", message: "must be an array" });
+    else for (const [index, value] of record["evidenceSources"].entries()) {
+      const parsed = parseSourceEvidence(value);
+      if (parsed.ok) native.push(parsed.source);
+      else issues.push(...parsed.issues.map((issue) => ({ path: `evidenceSources.${index}.${issue.path}`, message: issue.message })));
+    }
+    if (new Set(native.map((source) => source.id)).size !== native.length) issues.push({ path: "evidenceSources", message: "source IDs must be unique" });
+  }
+  const known = new Set<string>(sources.map((line) => (isObject(line) ? line["id"] : undefined)).filter((id) => typeof id === "string"));
+  for (const source of native) known.add(source.id);
   const citations = citationsOf(record["citations"], known, issues);
+  if (textSource !== undefined && (sources.length > 0 || native.length > 0)) issues.push({ path: "sourceText", message: "plain stored content cannot claim positioned or native source evidence" });
   if (issues.length > 0) throw invalid(path, "an extract result with valid citations", issues);
-  return { data: record["data"], cited: { citations, sources } };
+  return { data: record["data"], ...storedText, cited: { citations, sources, ...(record["evidenceSources"] === undefined ? {} : { evidenceSources: native }) } };
 }

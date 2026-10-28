@@ -19,7 +19,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { ClassificationStrategy, Extractor, readDocument, silentLogger, classificationNode, classificationOf, classificationTree, defineClassification, defineClassifier, extractionContractOf, flattenTree, type ClassificationSignal, type Classifier } from "docture";
+import { ClassificationStrategy, readDocument, silentLogger, classificationNode, classificationOf, classificationTree, defineClassification, defineClassifier, extractionContractOf, flattenTree, type ClassificationSignal, type Classifier } from "docture";
+import { Extractor } from "docture/node";
 import { LlmClassifier } from "docture/llm";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { z } from "zod";

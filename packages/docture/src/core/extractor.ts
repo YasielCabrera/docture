@@ -19,6 +19,8 @@ import {
   type Classifier,
 } from "./contracts/classifier.js";
 import type { DocumentExtractor } from "./contracts/extractor.js";
+import { createDisposalScope, type DisposalScope } from "./contracts/disposal.js";
+import { batchConcurrency } from "./pipeline/batch.js";
 import type { DocumentLoader } from "./contracts/loader.js";
 import type { LoadLlmOptions, ModelBackend } from "./contracts/model.js";
 import type { ExtractionStrategy } from "./contracts/strategy.js";
@@ -28,10 +30,12 @@ import { DuplicateComponentError, MissingComponentError } from "./pipeline/error
 import { readDocument } from "./pipeline/read.js";
 import { documentFeatures, preloadedFeatures } from "./pipeline/features.js";
 import { checkedMaxRepairs, checkedRuleFailureMode, runPipeline, snapshotRunOptions, withContractGuidance, type RunOptions } from "./pipeline/run.js";
-import { resolveSource } from "./pipeline/source.js";
+import { resolveSource, type SourceResolver } from "./pipeline/source.js";
 import { silentLogger } from "./domain/logger.js";
 
 export interface ExtractorOptions {
+  /** Local file access is explicit through docture/node or a caller-supplied resolver. */
+  readonly sourceResolver?: SourceResolver;
   /** Tried in order; the first that accepts the media type and does not throw wins. */
   readonly loaders?: readonly DocumentLoader[];
   /** Tried in order. Order IS the default routing policy. */
@@ -85,6 +89,7 @@ export interface BatchItem<T> {
  */
 export class Extractor implements DocumentExtractor {
   #loaders: DocumentLoader[];
+  #sourceResolver: SourceResolver;
   #strategies: ExtractionStrategy[];
   #classifiers: Classifier[];
   #classifications: Classification[];
@@ -98,6 +103,7 @@ export class Extractor implements DocumentExtractor {
   #disposed: Promise<void> | undefined;
 
   constructor(options: ExtractorOptions = {}) {
+    this.#sourceResolver = options.sourceResolver ?? resolveSource;
     this.#loaders = [...(options.loaders ?? [])];
     this.#strategies = [...(options.strategies ?? [])];
     this.#classifiers = [...(options.classifiers ?? [])];
@@ -279,9 +285,8 @@ export class Extractor implements DocumentExtractor {
   }
 
   /**
-   * Extract many documents, yielding each as it finishes. Never rejects — a failed
-   * document arrives as an `ok: false` item, so one bad scan in a batch of 500 does
-   * not lose the other 499.
+   * Extract many documents, yielding each as it finishes. A failed document arrives
+   * as an `ok: false` item; invalid batch options reject before processing starts.
    * Early exit aborts and awaits in-flight jobs. A job that ignores cancellation
    * delays the return until it settles.
    */
@@ -290,7 +295,7 @@ export class Extractor implements DocumentExtractor {
     contract: C,
     options?: BatchOptions<InferContract<C>>,
   ): AsyncGenerator<BatchItem<InferContract<C>>, void, undefined> {
-    const limit = Math.max(1, options?.concurrency ?? 4);
+    const limit = batchConcurrency(options?.concurrency);
     const controller = new AbortController();
     const snapshot = snapshotRunOptions(options ?? {});
     const callerSignal = snapshot.signal;
@@ -388,21 +393,8 @@ export class Extractor implements DocumentExtractor {
     return this.dispose();
   }
 
-  dispose(): Promise<void> {
-    // Collect once, settle all, surface every failure: one engine's broken teardown
-    // must not hide another's.
-    this.#disposed ??= (async () => {
-      const disposables = [...this.#loaders, ...this.#strategies, ...this.#classifiers].filter(
-        (c): c is typeof c & { dispose(): Promise<void> } => typeof c.dispose === "function",
-      );
-      const results = await Promise.allSettled(disposables.map((c) => c.dispose()));
-      const failures = results
-        .filter((r): r is PromiseRejectedResult => r.status === "rejected")
-        .map((r) => r.reason);
-      if (failures.length > 0) {
-        throw new AggregateError(failures, `${failures.length} component(s) failed to dispose.`);
-      }
-    })();
+  dispose(scope: DisposalScope = createDisposalScope()): Promise<void> {
+    this.#disposed ??= scope.dispose(...this.#loaders, ...this.#strategies, ...this.#classifiers);
     return this.#disposed;
   }
 
@@ -416,6 +408,7 @@ export class Extractor implements DocumentExtractor {
     }
     return {
       loaders: this.#loaders,
+      sourceResolver: this.#sourceResolver,
       strategies: this.#strategies,
       classifiers: this.#classifiers,
       classifications: this.#classifications,
@@ -469,7 +462,7 @@ export class Extractor implements DocumentExtractor {
       features = preloadedFeatures(source);
       documentLabel = source.fileName;
     } else {
-      const raw = await resolveSource(source, signal);
+      const raw = await this.#sourceResolver(source, signal);
       const mimeType = raw.mimeType ?? "application/octet-stream";
       const loaded = await readDocument(
         this.#loaders, raw, logger, signal, options?.stageTimeoutMs ?? this.#stageTimeoutMs,

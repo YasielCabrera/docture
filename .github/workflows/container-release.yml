@@ -1,0 +1,64 @@
+name: Validate and publish container
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git tag or SHA containing the two package versions
+        required: true
+        type: string
+      version:
+        description: Versioned image tag
+        required: true
+        type: string
+      publish:
+        description: Push the validated image to GHCR
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  container:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter docture --filter @docture/cli -r build
+      - name: Match image tag to the CLI artifact version
+        env:
+          IMAGE_VERSION: ${{ inputs.version }}
+        run: node --input-type=module -e 'import {readFileSync} from "node:fs";const version=JSON.parse(readFileSync("packages/cli/package.json","utf8")).version;if(process.env.IMAGE_VERSION!==version)throw new Error("Image version must equal the CLI artifact version.");'
+      - run: docker build --platform linux/amd64 --tag docture:validated .
+      - run: node scripts/container-smoke.mjs docture:validated
+      - uses: docker/login-action@v3
+        if: inputs.publish == true
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push only the validated image
+        if: inputs.publish == true
+        env:
+          IMAGE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          [[ "$IMAGE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][a-zA-Z0-9.-]+)?$ ]]
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          docker tag docture:validated "$image:$IMAGE_VERSION"
+          docker tag docture:validated "$image:$IMAGE_VERSION-linux-amd64"
+          docker push "$image:$IMAGE_VERSION"
+          docker push "$image:$IMAGE_VERSION-linux-amd64"

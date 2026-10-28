@@ -49,7 +49,8 @@ and model utilities to their documented subpaths.
 Replace the previous combined root import with:
 
 ```ts
-import { Extractor, contract } from "docture";
+import { contract } from "docture";
+import { Extractor } from "docture/node";
 import { LLM } from "docture/llm";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 ```
@@ -57,7 +58,7 @@ import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 For text extraction without the convenience backend:
 
 ```ts
-import { Extractor } from "docture";
+import { Extractor } from "docture/node";
 import { llm } from "docture/llm/text";
 import { fileCache } from "docture/llm/cache";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
@@ -162,3 +163,7 @@ Use the stdout terminal capability for `stdoutColor` and the stderr capability f
 For custom OCR rasterizers, `maxPages` caps source page numbers, rather than the number
 of returned rasters. With `maxPages: 3`, a sparse response containing pages 2 and 5
 runs OCR only on page 2. Selected pages remain unique and in document order.
+
+## Move local files to the Node entry
+
+The root now loads in browsers and workers. Code that passes a path or file URL imports its constructors from `docture/node`, or passes `sourceResolver: resolveNodeSource` from that entry. Raw bytes, HTTP URLs and loaded sources keep their portable root imports. The Node entry reuses core modules and error identities. It performs no resolver registration at import time.

@@ -19,7 +19,7 @@
  *   6. `extractBatch` — many documents, bounded concurrency
  */
 
-import { Extractor } from "docture";
+import { Extractor } from "docture/node";
 import {
   aggregate,
   failures,

@@ -23,7 +23,8 @@
     "dist",
     "README.md",
     "ARCHITECTURE.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "AGENTS.md"
   ],
   "exports": {
     ".": {
@@ -163,6 +164,64 @@
       "types": "./dist/testing/fixtures/index.d.ts",
       "import": "./dist/testing/fixtures/index.js",
       "default": "./dist/testing/fixtures/index.js"
+    },
+    "./node": {
+      "source": "./src/node/index.ts",
+      "types": "./dist/node/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "default": "./dist/node/index.js"
+      }
+    },
+    "./loaders/mammoth": {
+      "source": "./src/loaders/mammoth/index.ts",
+      "types": "./dist/loaders/mammoth/index.d.ts",
+      "node": {
+        "import": "./dist/loaders/mammoth/index.js",
+        "default": "./dist/loaders/mammoth/index.js"
+      }
+    },
+    "./llm/tool": {
+      "source": "./src/llm/tool.ts",
+      "types": "./dist/llm/tool.d.ts",
+      "import": "./dist/llm/tool.js",
+      "default": "./dist/llm/tool.js"
+    },
+    "./inputs/email": {
+      "source": "./src/inputs/email/index.ts",
+      "types": "./dist/inputs/email/index.d.ts",
+      "import": "./dist/inputs/email/index.js",
+      "default": "./dist/inputs/email/index.js"
+    },
+    "./loaders/azure-di": {
+      "source": "./src/loaders/azure-di/index.ts",
+      "types": "./dist/loaders/azure-di/index.d.ts",
+      "import": "./dist/loaders/azure-di/index.js",
+      "default": "./dist/loaders/azure-di/index.js"
+    },
+    "./sources/paperless": {
+      "source": "./src/sources/paperless/index.ts",
+      "types": "./dist/sources/paperless/index.d.ts",
+      "import": "./dist/sources/paperless/index.js",
+      "default": "./dist/sources/paperless/index.js"
+    },
+    "./import/docling": {
+      "source": "./src/import/docling/index.ts",
+      "types": "./dist/import/docling/index.d.ts",
+      "import": "./dist/import/docling/index.js",
+      "default": "./dist/import/docling/index.js"
+    },
+    "./loaders/docling": {
+      "source": "./src/loaders/docling/index.ts",
+      "types": "./dist/loaders/docling/index.d.ts",
+      "import": "./dist/loaders/docling/index.js",
+      "default": "./dist/loaders/docling/index.js"
+    },
+    "./sinks/paperless": {
+      "source": "./src/sinks/paperless/index.ts",
+      "types": "./dist/sinks/paperless/index.d.ts",
+      "import": "./dist/sinks/paperless/index.js",
+      "default": "./dist/sinks/paperless/index.js"
     }
   },
   "scripts": {
@@ -179,27 +238,31 @@
     "parse5": "8.0.1"
   },
   "peerDependencies": {
-    "ai": "^7.0.0",
-    "pdfjs-dist": "^6.2.108",
-    "mupdf": "~1.28.0",
-    "tesseract.js": "7.0.0",
-    "ppu-paddle-ocr": "6.3.0",
-    "onnxruntime-node": "1.27.0",
     "@napi-rs/canvas": "^1.0.10",
-    "utif2": "4.1.0",
+    "ai": "^7.0.0",
+    "mupdf": "~1.28.0",
+    "onnxruntime-node": "1.27.0",
+    "pdfjs-dist": "^6.2.108",
     "pdfkit": ">=0.17.2 <0.21.0",
+    "ppu-paddle-ocr": "6.3.0",
+    "tesseract.js": "7.0.0",
+    "utif2": "4.1.0",
     "vitest": ">=3",
-    "zod": "^3.25.76 || ^4.1.8"
+    "zod": "^3.25.76 || ^4.1.8",
+    "mammoth": "1.13.0",
+    "postal-mime": "4.1.4"
   },
   "devDependencies": {
     "@napi-rs/canvas": "1.0.10",
     "@types/node": "^24.13.3",
     "@types/pdfkit": "^0.17.6",
     "ai": "7.0.51",
+    "mammoth": "1.13.0",
     "mupdf": "1.28.0",
     "onnxruntime-node": "1.27.0",
     "pdfjs-dist": "6.2.108",
     "pdfkit": "0.19.1",
+    "postal-mime": "4.1.4",
     "ppu-paddle-ocr": "6.3.0",
     "tesseract.js": "7.0.0",
     "typescript": "7.0.2",
@@ -248,6 +311,12 @@
       "optional": true
     },
     "zod": {
+      "optional": true
+    },
+    "mammoth": {
+      "optional": true
+    },
+    "postal-mime": {
       "optional": true
     }
   }

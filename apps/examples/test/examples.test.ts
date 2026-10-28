@@ -16,7 +16,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { Extractor, SplittingStrategy, readDocument, silentLogger } from "docture";
+import { SplittingStrategy, readDocument, silentLogger } from "docture";
+import { Extractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { scoreExtraction, formatFailures } from "docture/eval";
 import { readFile } from "node:fs/promises";

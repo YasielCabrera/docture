@@ -1,6 +1,8 @@
+import { resolveSource } from "docture/node";
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { resolveSource, type DocumentLoader, type LayoutPage, type RawDocument } from "docture";
+import { createDisposalScope, type DisposalScope, type LayoutPage, type RawDocument } from "docture";
 import { boolFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { CliError, UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io, type Style } from "../cli/io.js";
@@ -19,13 +21,13 @@ import {
   type WiringFlags,
 } from "../wiring.js";
 import {
-  parseSavedConversion,
+  parseSavedConversionRecord,
   parseSavedExtraction,
   reviewRequest,
   type ReviewRequest,
   type ReviewedExtraction,
 } from "../review/input.js";
-import { pageRenderer, type PageImage } from "../review/pages.js";
+import { pageRenderer, type PageImage, type PageRenderer } from "../review/pages.js";
 import { conversionReviewHtml, extractionReviewHtml } from "../review/render.js";
 
 const DEFAULT_DPI = 96;
@@ -86,6 +88,7 @@ function sizeWarnings(pages: readonly LayoutPage[], images: ReadonlyMap<number, 
 }
 
 interface Prepared {
+  readonly disposalScope: DisposalScope;
   readonly config?: LoadedConfig;
   readonly flags: WiringFlags;
   readonly schema?: string;
@@ -106,15 +109,22 @@ export async function reviewCommand(parsed: Parsed, io: Io, signal: AbortSignal)
     ...(common.configPath === undefined ? {} : { explicit: common.configPath }),
     ...(common.noConfig ? { disabled: true } : {}),
   });
-  const loaders = disposeOnceEach(config?.config.loaders ?? []);
+  const disposalScope = createDisposalScope();
+  const supplied = request.kind === "extract" || request.kind === "saved-extraction"
+    ? config?.config.extractor
+    : config?.config.converter;
   try {
-    return await reviewConfigured(parsed, io, signal, { request, dpi, out, common, style, config });
+    return await reviewConfigured(parsed, io, signal, { request, dpi, out, common, style, config, disposalScope });
   } finally {
-    await loaders.dispose();
+    await disposalScope.dispose(
+      ...(supplied === undefined || typeof supplied === "function" ? [] : [supplied]),
+      ...(config?.config.loaders ?? []),
+    );
   }
 }
 
 interface Configured {
+  readonly disposalScope: DisposalScope;
   readonly request: ReviewRequest;
   readonly dpi: number;
   readonly out: string;
@@ -123,37 +133,12 @@ interface Configured {
   readonly config: LoadedConfig | undefined;
 }
 
-/**
- * The configured loaders can also sit inside the config's own converter or extractor, which disposes them
- * itself. Each loader's `dispose` runs at most once for this review, whichever owner calls it first.
- */
-function disposeOnceEach(loaders: readonly DocumentLoader[]): { dispose(): Promise<void> } {
-  const restore: (() => void)[] = [];
-  const once: (() => Promise<void>)[] = [];
-  for (const loader of new Set(loaders)) {
-    const original = loader.dispose;
-    if (typeof original !== "function" || !Object.isExtensible(loader)) continue;
-    const own = Object.getOwnPropertyDescriptor(loader, "dispose");
-    if (own?.configurable === false) continue;
-    let disposed: Promise<void> | undefined;
-    const dispose = (): Promise<void> => (disposed ??= original.call(loader));
-    Object.defineProperty(loader, "dispose", { value: dispose, configurable: true, writable: true });
-    restore.push(() => (own === undefined ? Reflect.deleteProperty(loader, "dispose") : Object.defineProperty(loader, "dispose", own)));
-    once.push(dispose);
-  }
-  return {
-    async dispose() {
-      await Promise.allSettled(once.map((dispose) => dispose()));
-      for (const undo of restore) undo();
-    },
-  };
-}
-
 async function reviewConfigured(parsed: Parsed, io: Io, signal: AbortSignal, configured: Configured): Promise<ExitCode> {
-  const { request, dpi, out, common, style, config } = configured;
+  const { request, dpi, out, common, style, config, disposalScope } = configured;
   const flags = wiringFlags(parsed);
   const schema = stringFlag(parsed, "schema");
   const prepared: Prepared = {
+    disposalScope,
     ...(config === undefined ? {} : { config }),
     ...(schema === undefined ? {} : { schema }),
     flags,
@@ -164,11 +149,20 @@ async function reviewConfigured(parsed: Parsed, io: Io, signal: AbortSignal, con
   const saved = await parseSaved(request);
   if (boolFlag(parsed, "dry-run")) return planReview(io, request, prepared, dpi, out);
 
-  const renderer = await pageRenderer({
-    ...(config === undefined ? {} : { config }),
-    dpi,
-    ...(flags.timeoutMs === undefined ? {} : { timeoutMs: flags.timeoutMs }),
-  });
+  if (saved?.kind === "extraction" && saved.extraction.textSource !== undefined) {
+    signal.throwIfAborted();
+    const title = saved.extraction.textSource.label;
+    const html = extractionReviewHtml({ title, images: [], extraction: saved.extraction });
+    await mkdir(dirname(out), { recursive: true });
+    await writeFile(out, html, "utf8");
+    if (!common.quiet) io.diagnostic(`${style.green("✓")} ${style.bold(title)} ${style.dim("→")} ${out} · stored text\n`);
+    return 0;
+  }
+
+  const nativeConfigured = config?.config.loaders?.some((loader) => loader.capabilities.facts?.includes("NATIVE_EVIDENCE")) === true;
+  let renderer: PageRenderer | undefined = saved === undefined && !nativeConfigured ? await pageRenderer({
+    dpi, ...(config === undefined ? {} : { config }), ...(flags.timeoutMs === undefined ? {} : { timeoutMs: flags.timeoutMs }),
+  }) : undefined;
   try {
     const title = request.source.label;
     const raw = await rawOf(request.source, io, signal);
@@ -181,8 +175,14 @@ async function reviewConfigured(parsed: Parsed, io: Io, signal: AbortSignal, con
     // The reviewer's wiring shares the configured loaders with the renderer, so it stays open until the pages are rendered.
     try {
       const reviewed = await reviewer.review(raw, signal);
-      const images = await renderer.render(raw, signal);
-      const html = reviewHtml(reviewed, title, images, request, (warnings) => reportWiring(io, common, style, [], warnings));
+      const sourceDigest = `sha256:${createHash("sha256").update(raw.bytes).digest("hex")}`;
+      assertNativeBinding(reviewed, sourceDigest);
+      if (renderer === undefined && !(saved !== undefined && hasNativeEvidence(saved)) && !nativeConfigured) renderer = await pageRenderer({
+        dpi, ...(config === undefined ? {} : { config }), ...(flags.timeoutMs === undefined ? {} : { timeoutMs: flags.timeoutMs }),
+      });
+      const warn = (warnings: readonly string[]): void => reportWiring(io, common, style, [], warnings);
+      const images = await reviewImages(reviewed, raw, signal, { config, dpi, timeoutMs: flags.timeoutMs }, warn, renderer);
+      const html = reviewHtml(reviewed, title, images, request, warn, sourceDigest);
       await mkdir(dirname(out), { recursive: true });
       await writeFile(out, html, "utf8");
       if (!common.quiet) {
@@ -194,13 +194,56 @@ async function reviewConfigured(parsed: Parsed, io: Io, signal: AbortSignal, con
       await reviewer.dispose();
     }
   } finally {
-    await renderer.dispose();
+    await renderer?.dispose();
   }
 }
 
 type Reviewed =
-  | { readonly kind: "conversion"; readonly pages: readonly LayoutPage[] }
+  | { readonly kind: "conversion"; readonly pages: readonly LayoutPage[]; readonly physicalSourceDigest?: string }
   | { readonly kind: "extraction"; readonly extraction: ReviewedExtraction };
+
+function hasNativeEvidence(reviewed: Reviewed): boolean {
+  return reviewed.kind === "conversion"
+    ? reviewed.pages.some((page) => page.evidence !== undefined)
+    : reviewed.extraction.cited?.evidenceSources !== undefined;
+}
+
+function assertNativeBinding(reviewed: Reviewed, digest: string): void {
+  if (reviewed.kind === "extraction" && reviewed.extraction.binarySource !== undefined && `sha256:${reviewed.extraction.binarySource.digest}` !== digest) {
+    throw new UsageError("The review source bytes do not match the saved Paperless source digest.", "Use the exact archive or original file version recorded in the extraction.");
+  }
+  const sources = reviewed.kind === "conversion" ? reviewed.pages.flatMap((page) => page.evidence ?? []) : reviewed.extraction.cited?.evidenceSources ?? [];
+  const bindings = sources.flatMap((source) => source.location.kind === "physical" ? [source.location.sourceDigest] : []);
+  if (reviewed.kind === "conversion" && reviewed.physicalSourceDigest !== undefined) bindings.push(reviewed.physicalSourceDigest);
+  if (reviewed.kind === "extraction" && reviewed.extraction.sourceIdentity?.physicalSourceDigest !== undefined) bindings.push(reviewed.extraction.sourceIdentity.physicalSourceDigest);
+  if (bindings.some((expected) => expected !== digest)) throw new UsageError("The review source bytes do not match the native evidence's bound source digest.", "Use the exact original bytes attested when the Docling export was imported.");
+}
+
+async function reviewImages(
+  reviewed: Reviewed, raw: RawDocument, signal: AbortSignal,
+  options: { readonly config: LoadedConfig | undefined; readonly dpi: number; readonly timeoutMs: number | undefined },
+  warn: (warnings: readonly string[]) => void,
+  existing?: PageRenderer,
+): Promise<readonly PageImage[]> {
+  const native = hasNativeEvidence(reviewed);
+  const physical = reviewed.kind === "conversion" ? reviewed.physicalSourceDigest !== undefined :
+    (reviewed.extraction.cited?.sources.length ?? 0) > 0 || reviewed.extraction.cited?.evidenceSources?.some((source) => source.location.kind === "physical") === true;
+  if (native && !physical) {
+    warn(["Native element/cell evidence is available as text. Physical highlights require matching bound source bytes and page images."]);
+    return [];
+  }
+  try {
+    if (existing !== undefined) return await existing.render(raw, signal);
+    const renderer = await pageRenderer({ dpi: options.dpi, ...(options.config === undefined ? {} : { config: options.config }), ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }) });
+    try { return await renderer.render(raw, signal); }
+    finally { await renderer.dispose(); }
+  } catch (error) {
+    signal.throwIfAborted();
+    if (!native) throw error;
+    warn([`Native evidence review has no page images. Physical highlights are unavailable: ${error instanceof Error ? error.message : String(error)}`]);
+    return [];
+  }
+}
 
 interface Reviewer {
   review(raw: RawDocument, signal: AbortSignal): Promise<Reviewed>;
@@ -210,7 +253,7 @@ interface Reviewer {
 async function parseSaved(request: ReviewRequest): Promise<Reviewed | undefined> {
   switch (request.kind) {
     case "saved-conversion":
-      return { kind: "conversion", pages: parseSavedConversion(await readSaved(request.conversion), request.conversion) };
+      return { kind: "conversion", ...parseSavedConversionRecord(await readSaved(request.conversion), request.conversion) };
     case "saved-extraction":
       return {
         kind: "extraction",
@@ -228,31 +271,33 @@ function reviewHtml(
   images: readonly PageImage[],
   request: ReviewRequest,
   warn: (warnings: readonly string[]) => void,
+  sourceDigest?: string,
 ): string {
   switch (reviewed.kind) {
     case "conversion": {
       const missing = missingPages(reviewed.pages.map((page) => page.pageNumber), images);
-      if (missing.length > 0) throw mismatch("The conversion has", missing, request, images);
+      if (missing.length > 0 && !hasNativeEvidence(reviewed)) throw mismatch("The conversion has", missing, request, images);
       const byPage = new Map(images.map((image) => [image.pageNumber, image]));
       warn(sizeWarnings(reviewed.pages, byPage));
-      return conversionReviewHtml({ title, pages: reviewed.pages, images: byPage });
+      return conversionReviewHtml({ title, pages: reviewed.pages, images: byPage, ...(reviewed.physicalSourceDigest === undefined || sourceDigest === undefined ? {} : { sourceDigest }) });
     }
     case "extraction": {
       const missing = missingPages(reviewed.extraction.cited?.sources.map((line) => line.pageNumber) ?? [], images);
-      if (missing.length > 0) throw mismatch("The result cites", missing, request, images);
-      return extractionReviewHtml({ title, images, extraction: reviewed.extraction });
+      if (missing.length > 0 && !hasNativeEvidence(reviewed)) throw mismatch("The result cites", missing, request, images);
+      return extractionReviewHtml({ title, images, extraction: reviewed.extraction, ...(sourceDigest === undefined ? {} : { sourceDigest }) });
     }
   }
 }
 
 async function conversionReviewer(io: Io, prepared: Prepared): Promise<Reviewer> {
-  const wiring = await buildConversionWiring({ io, ...(prepared.config === undefined ? {} : { config: prepared.config }), flags: prepared.flags });
+  const wiring = await buildConversionWiring({ io, disposalScope: prepared.disposalScope, ...(prepared.config === undefined ? {} : { config: prepared.config }), flags: prepared.flags });
   reportWiring(io, prepared.common, prepared.style, wiring.notes, wiring.warnings);
   return {
     async review(raw, signal) {
       for await (const item of wiring.converter.convertBatch([raw], { format: "json", assets: "omit", signal })) {
         if (!item.outcome.ok) throw item.outcome.error;
-        return { kind: "conversion", pages: item.outcome.result.pages };
+        const snapshot = typeof item.outcome.result.content === "string" ? parseSavedConversionRecord(item.outcome.result.content, "generated conversion") : { pages: item.outcome.result.pages };
+        return { kind: "conversion", ...snapshot };
       }
       throw new CliError("The converter returned no result.");
     },
@@ -264,6 +309,7 @@ async function extractionReviewer(io: Io, prepared: Prepared): Promise<Reviewer>
   const schema = await resolveSchemaSource({ ...schemaOptions(prepared), cwd: io.cwd, command: "review" });
   const wiring = await buildWiring({
     io,
+    disposalScope: prepared.disposalScope,
     ...(prepared.config === undefined ? {} : { config: prepared.config }),
     flags: { ...prepared.flags, citations: true },
     needsModel: true,
@@ -277,7 +323,7 @@ async function extractionReviewer(io: Io, prepared: Prepared): Promise<Reviewer>
         extraction:
           result.citations === undefined || result.citationSources === undefined
             ? { data: result.data }
-            : { data: result.data, cited: { citations: result.citations, sources: result.citationSources } },
+            : { data: result.data, cited: { citations: result.citations, sources: result.citationSources, ...(result.evidenceSources === undefined ? {} : { evidenceSources: result.evidenceSources }) } },
       };
     },
     dispose: () => wiring.dispose(),

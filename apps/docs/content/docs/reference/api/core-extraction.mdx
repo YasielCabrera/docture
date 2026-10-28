@@ -297,3 +297,13 @@ with `AggregateError`.
 returns results in input order. The callback receives the item, index, and a child
 abort signal. A first failure aborts sibling work, stops new tasks, drains active tasks,
 and rejects with that failure. The limit must be a positive integer.
+
+## Check literal capability wiring
+
+`createCheckedExtractor({ loaders, strategies, ...options })` is an opt-in construction path. It rejects a known nonempty loader tuple when every loader explicitly lacks a known required text, geometry or image capability. Empty loader tuples are rejected. `withRasterizer` advertises image feasibility. Functional `llm`, `vision` and `defineStrategy` retain their requirement literals.
+
+The check covers advertised feasibility per fact. Actual document facts and the eligible strategy diagnostics remain authoritative at runtime. Widened arrays, unknown booleans, custom facts and widened requirements remain unchecked. Use ordinary constructors for preloaded documents or intentional heterogeneous fallback wiring. Existing constructor, factory and fluent APIs retain their dynamic behavior.
+
+`sourceResolver` in `ExtractorOptions` selects explicit source access. Its default is the portable resolver. Use `resolveNodeSource` from `docture/node` for local files.
+
+Full extraction results retain `sourceDigest`, `physicalSourceDigest` and opaque `sourceMetadata` when the loader provides them. Native Docling metadata includes its export identity, diagnostics and canonical-ID-to-native-pointer sidecar. Save these with the result; a physical digest binds highlights to exact original bytes, while an export digest identifies the normalized native input.

@@ -1,7 +1,9 @@
 import { failedAttempt } from "./pipeline/attempt.js";
+import { createDisposalScope, type DisposalScope } from "./contracts/disposal.js";
+import { batchConcurrency } from "./pipeline/batch.js";
 /** Document conversion composition root. */
 
-import { basename, extname } from "node:path";
+import { portableBasename, portableExtension } from "./domain/filename.js";
 import type { LayoutAnalyzer } from "./contracts/layout-analyzer.js";
 import type { DocumentLoader, LoadRequest } from "./contracts/loader.js";
 import type { ModelBackend } from "./contracts/model.js";
@@ -34,9 +36,11 @@ import { documentFeatures, preloadedFeatures } from "./pipeline/features.js";
 import { selectPages } from "./pipeline/pages.js";
 import { readDocument } from "./pipeline/read.js";
 import { exportJsonDocument } from "./conversion/json.js";
-import { resolveSource } from "./pipeline/source.js";
+import { resolveSource, type SourceResolver } from "./pipeline/source.js";
 
 export interface DocumentConverterOptions {
+  /** Local file access is explicit through docture/node or a caller-supplied resolver. */
+  readonly sourceResolver?: SourceResolver;
   /** Tried in order; the first eligible loader that succeeds wins. */
   readonly loaders?: readonly DocumentLoader[];
   /** Optional refinement applied after deterministic layout analysis. */
@@ -57,8 +61,8 @@ interface LoadedConversion {
 
 function safeStem(fileName: string | undefined): string {
   if (fileName === undefined) return "document";
-  const name = basename(fileName);
-  const stem = name.slice(0, Math.max(0, name.length - extname(name).length));
+  const name = portableBasename(fileName);
+  const stem = name.slice(0, Math.max(0, name.length - portableExtension(name).length));
   const safe = stem.replace(/[\u0000-\u001f\u007f]/gu, "-");
   return safe || "document";
 }
@@ -103,12 +107,14 @@ function snapshotConvertOptions(options: ConvertOptions): ConvertOptions {
  */
 export class DocumentConverter {
   #loaders: DocumentLoader[];
+  #sourceResolver: SourceResolver;
   #layoutAnalyzer: LayoutAnalyzer | undefined;
   #logger: Logger;
   #stageTimeoutMs: number | undefined;
   #disposed: Promise<void> | undefined;
 
   constructor(options: DocumentConverterOptions = {}) {
+    this.#sourceResolver = options.sourceResolver ?? resolveSource;
     this.#loaders = [...(options.loaders ?? [])];
     this.#layoutAnalyzer = options.layoutAnalyzer;
     this.#logger = options.logger ?? silentLogger;
@@ -300,7 +306,7 @@ export class DocumentConverter {
     sources: readonly DocumentSource[],
     options?: ConversionBatchOptions,
   ): AsyncGenerator<ConversionBatchItem, void, undefined> {
-    const limit = Math.max(1, options?.concurrency ?? 4);
+    const limit = batchConcurrency(options?.concurrency);
     const controller = new AbortController();
     const snapshot = snapshotConvertOptions(options ?? {});
     const callerSignal = snapshot.signal;
@@ -339,24 +345,11 @@ export class DocumentConverter {
     return this.dispose();
   }
 
-  dispose(): Promise<void> {
-    this.#disposed ??= (async () => {
-      const components = [
-        ...this.#loaders,
-        ...(this.#layoutAnalyzer === undefined ? [] : [this.#layoutAnalyzer]),
-      ];
-      const disposables = components.filter(
-        (component): component is typeof component & { dispose(): Promise<void> } =>
-          typeof component.dispose === "function",
-      );
-      const results = await Promise.allSettled(disposables.map((component) => component.dispose()));
-      const failures = results
-        .filter((result): result is PromiseRejectedResult => result.status === "rejected")
-        .map((result) => result.reason);
-      if (failures.length > 0) {
-        throw new AggregateError(failures, `${failures.length} component(s) failed to dispose.`);
-      }
-    })();
+  dispose(scope: DisposalScope = createDisposalScope()): Promise<void> {
+    this.#disposed ??= scope.dispose(
+      ...this.#loaders,
+      ...(this.#layoutAnalyzer === undefined ? [] : [this.#layoutAnalyzer]),
+    );
     return this.#disposed;
   }
 
@@ -384,7 +377,7 @@ export class DocumentConverter {
         "This DocumentConverter has no loader. Call loadDocumentLoader(...) before converting.",
       );
     }
-    const raw = await resolveSource(source, signal);
+    const raw = await this.#sourceResolver(source, signal);
     const read = await readDocument(this.#loaders, raw, logger, signal, stageTimeoutMs, request);
     const document = selected(read.document);
     return {

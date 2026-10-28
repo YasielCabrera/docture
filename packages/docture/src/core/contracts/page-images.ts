@@ -28,7 +28,7 @@ export function pageImageRenderer(
     if (signal.aborted) return Promise.reject(signal.reason);
 
     const merged: RasterOptions = { ...options, pages: [pageNumber] };
-    const key = JSON.stringify([pageNumber, merged.dpi, merged.format, merged.quality, merged.maxEdge]);
+    const key = JSON.stringify([pageNumber, merged.dpi, merged.format, merged.quality, merged.maxEdge, merged.maxPages]);
 
     let render = renders.get(key);
     if (render === undefined) {

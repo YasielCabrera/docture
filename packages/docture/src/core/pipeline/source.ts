@@ -6,11 +6,9 @@
  * read a file first to get there.
  */
 
-import { readFile } from "node:fs/promises";
-import { basename, extname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { portableBasename, portableExtension } from "../domain/filename.js";
 import { isLoadedSource, type DocumentSource, type RawDocument } from "../domain/document.js";
-import { UnsupportedSourceError, messageOf } from "./errors.js";
+import { UnsupportedSourceError, messageOf, errorCodeOf } from "./errors.js";
 
 const EXTENSION_TYPES: Readonly<Record<string, string>> = {
   ".pdf": "application/pdf",
@@ -31,6 +29,8 @@ const EXTENSION_TYPES: Readonly<Record<string, string>> = {
   ".json": "application/json",
   ".txt": "text/plain",
   ".md": "text/markdown",
+  ".eml": "message/rfc822",
+  ".epub": "application/epub+zip",
 };
 
 const KNOWN_TYPES = new Set([...Object.values(EXTENSION_TYPES), "image/gif", "application/zip", "application/octet-stream"]);
@@ -69,7 +69,7 @@ export function readsAsTiff(mimeType: string, bytes: Uint8Array, imageMimeTypes:
 
 function typeFromName(name: string | undefined): string | undefined {
   if (name === undefined) return undefined;
-  return EXTENSION_TYPES[extname(name).toLowerCase()];
+  return EXTENSION_TYPES[portableExtension(name).toLowerCase()];
 }
 
 function isRawDocument(source: DocumentSource): source is RawDocument {
@@ -80,25 +80,6 @@ function toUint8Array(value: Uint8Array | ArrayBuffer): Uint8Array {
   return value instanceof Uint8Array ? value : new Uint8Array(value);
 }
 
-const READ_FAILURES: Readonly<Record<string, readonly [problem: string, fix: string]>> = {
-  ENOENT: ["no such file", "Check the path; a relative path resolves from the current directory."],
-  ENOTDIR: ["a parent of this path is not a directory", "Check the path."],
-  EISDIR: ["it is a directory", "Pass a file inside it instead."],
-  EACCES: ["permission denied", "Grant read access to the file, or run as a user who has it."],
-  EPERM: ["permission denied", "Grant read access to the file, or run as a user who has it."],
-};
-
-async function readSourceFile(path: string): Promise<Uint8Array> {
-  try {
-    return new Uint8Array(await readFile(path));
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException | undefined)?.code;
-    const known = code === undefined ? undefined : READ_FAILURES[code];
-    const reason = known === undefined ? messageOf(error) : `${known[0]} (${code}). ${known[1]}`;
-    throw new UnsupportedSourceError(`Cannot read ${path}: ${reason}`, { cause: error });
-  }
-}
-
 /**
  * Resolve `source` to bytes and a media type.
  *
@@ -106,10 +87,16 @@ async function readSourceFile(path: string): Promise<Uint8Array> {
  * Custom declarations and ZIP types stay authoritative. Otherwise use the
  * signature, then extension, then `application/octet-stream`.
  */
-export async function resolveSource(
+export type SourceResolver = (source: DocumentSource, signal?: AbortSignal) => Promise<RawDocument>;
+
+export const resolveSource: SourceResolver = (source, signal) => resolveSourceWithFiles(source, signal);
+
+export async function resolveSourceWithFiles(
   source: DocumentSource,
   signal?: AbortSignal,
+  readFileSource?: (source: string | URL, signal?: AbortSignal) => Promise<RawDocument>,
 ): Promise<RawDocument> {
+  signal?.throwIfAborted();
   // Every typed failure in this library carries a code, and that promise should hold
   // for the most ordinary mistake of all: an unset variable, or a promise nobody
   // awaited. Without this the crash is a raw TypeError from a URL regex.
@@ -140,24 +127,33 @@ export async function resolveSource(
   } else {
     const asUrl = source instanceof URL ? source : parseUrl(source);
 
-    if (asUrl === undefined) {
-      // A plain filesystem path.
-      bytes = await readSourceFile(source as string);
-      fileName = basename(source as string);
-    } else if (asUrl.protocol === "file:") {
-      const path = fileURLToPath(asUrl);
-      bytes = await readSourceFile(path);
-      fileName = basename(path);
-    } else if (asUrl.protocol === "http:" || asUrl.protocol === "https:") {
-      const response = await fetch(asUrl, signal === undefined ? {} : { signal });
-      if (!response.ok) {
-        throw new UnsupportedSourceError(
-          `Fetching ${asUrl.href} failed with ${response.status} ${response.statusText}.`,
-        );
+    if (asUrl === undefined || asUrl.protocol === "file:") {
+      if (readFileSource === undefined) {
+        throw new UnsupportedSourceError("Local file sources require docture/node. Pass bytes or an HTTP URL to the portable entry.");
       }
-      bytes = new Uint8Array(await response.arrayBuffer());
-      fileName = basename(asUrl.pathname) || undefined;
-      declared = response.headers.get("content-type")?.split(";")[0]?.trim() || undefined;
+      if (typeof source !== "string" && !(source instanceof URL)) {
+        throw new UnsupportedSourceError("Unsupported local file source.");
+      }
+      const raw = await readFileSource(asUrl ?? source, signal);
+      bytes = raw.bytes;
+      fileName = raw.fileName;
+      declared = raw.mimeType;
+    } else if (asUrl.protocol === "http:" || asUrl.protocol === "https:") {
+      try {
+        const response = await fetch(asUrl, signal === undefined ? {} : { signal });
+        if (!response.ok) {
+          throw new UnsupportedSourceError(
+            `Fetching ${asUrl.href} failed with ${response.status} ${response.statusText}.`,
+          );
+        }
+        bytes = new Uint8Array(await response.arrayBuffer());
+        fileName = portableBasename(asUrl.pathname) || undefined;
+        declared = response.headers.get("content-type")?.split(";")[0]?.trim() || undefined;
+      } catch (error) {
+        signal?.throwIfAborted();
+        if (errorCodeOf(error) === "UNSUPPORTED_SOURCE") throw error;
+        throw new UnsupportedSourceError(`Cannot fetch ${asUrl.href}: ${messageOf(error)}`, { cause: error });
+      }
     } else {
       throw new UnsupportedSourceError(
         `Unsupported URL protocol "${asUrl.protocol}". Use a path, a file: URL, http(s), or bytes.`,

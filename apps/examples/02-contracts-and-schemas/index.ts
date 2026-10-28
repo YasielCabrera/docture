@@ -16,10 +16,8 @@
  *   7. RULES check what a schema cannot, such as lines adding up to the subtotal
  */
 
-import {
-  ContractViolationError, Extractor, contract, contractName, isContract, resolveSchema, schemaOf,
-  type InferContract, type ValidationRule,
-} from "docture";
+import { ContractViolationError, contract, contractName, isContract, resolveSchema, schemaOf, type InferContract, type ValidationRule } from "docture";
+import { Extractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { z } from "zod";
 import { Invoice } from "../shared/contracts.js";

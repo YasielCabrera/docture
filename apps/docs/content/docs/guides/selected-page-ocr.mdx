@@ -1,0 +1,14 @@
+---
+title: Recover selected pages with OCR
+description: Compose a primary loader and an explicit OCR fallback with caller-defined page quality.
+---
+
+Compose the text loader and OCR loader with `withOcrFallback`. Supply an `assess` callback and a `threshold` in the same units. The callback returns `{ kind: "text", quality }` or `{ kind: "intentional-blank" }`. Mark intentional blanks explicitly. Character count can be a starting signal, but calibrate the callback on your documents. `inferForm` labels the final document and does not select OCR work.
+
+Only selected pages below the threshold reach OCR. Each request names one original page, so a failure can preserve that page while other pages improve. Built-in OCR loaders honor page hints. A custom loader may ignore them and read the whole document; the composition cannot guarantee reduced work for such a loader.
+
+A replacement must reach the threshold and improve the original quality by more than `minimumImprovement`, which defaults to zero. OCR failure, a missing matching page, incompatible dimensions or insufficient improvement keeps the primary page and adds a warning. Caller abort still cancels the document.
+
+Replaced pages keep their original page numbers and known physical dimensions. OCR lines, blocks and source IDs come from the replacement. The primary lazy image function remains available when OCR supplies none. Document text and form are rebuilt from the selected pages. Shared capability facts are the intersection of both loaders. Per-page metadata identifies the supplier, quality scores and requested pages. It reports elapsed OCR time and unknown external cost separately from model token usage.
+
+Run `pnpm --dir apps/examples exec tsx 20-input-loaders/ocr.ts` for an offline mixed-document example. Configure either the Tesseract or PaddleOCR loader explicitly for real recognition. Install that loader's engines and dispose the composition after use.

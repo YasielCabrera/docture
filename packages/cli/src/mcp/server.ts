@@ -1,27 +1,18 @@
-/**
- * The MCP server behind `docture mcp` and `@docture/cli/mcp`.
- *
- * Each tool call resolves the config, builds model-free wiring, runs the same
- * operation the command runs, and disposes the wiring, so a long-lived server
- * holds no engine between calls. Results are the CLI's version 1 envelope, as
- * structured content and as JSON text. Nothing here writes to `io.write`; on stdio
- * that stream belongs to the transport.
- */
-
 import type { Readable } from "node:stream";
 import { Writable } from "node:stream";
-import type { ConversionFormat } from "docture";
+import { createDisposalScope, type ConversionFormat, type ContractLike, type FlexibleSchema, type ScopedDisposable } from "docture";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { explain } from "../cli/errors.js";
 import type { Io } from "../cli/io.js";
 import { resolveConfig, type LoadedConfig } from "../config.js";
-import { expandInputs, type Input } from "../inputs.js";
+import { expandInputs, sourcesOf, type Input } from "../inputs.js";
 import { convertedContent, convertInputs, inspectInputs, inspectProbe } from "../operations.js";
-import { envelope, errorRecord, type Command, type Envelope, type Item } from "../output.js";
+import { envelope, errorRecord, recordOf, type Command, type Envelope, type Item } from "../output.js";
 import { version } from "../version.js";
-import { buildConversionWiring, buildWiring } from "../wiring.js";
+import { buildConversionWiring, buildWiring, type Wiring, type ConversionWiring } from "../wiring.js";
 import { importEngine } from "./engines.js";
+import { paperlessTools, callPaperlessTool } from "./paperless.js";
 
 export interface McpServerOptions {
   /** `cwd` resolves relative sources and the config; `diagnostic` takes warnings. */
@@ -80,9 +71,43 @@ const TOOLS: Tool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "extract",
+    description: "Extract with the server's configured extractor and schema. Returns full citation, verification, validation, conflict and native evidence records. Model input cannot set a model or schema.",
+    inputSchema: {
+      type: "object", properties: { source: SOURCE, schemaName: { type: "string", description: "A name from config.schemas. Omit to use config.schema." } },
+      required: ["source"], additionalProperties: false,
+    },
+  },
 ];
 
 class InvalidArguments extends Error {}
+
+async function toolConfig(options: McpServerOptions): Promise<LoadedConfig | undefined> {
+  return resolveConfig({
+    cwd: options.io.cwd,
+    ...(options.configPath === undefined ? {} : { explicit: options.configPath }),
+    ...(options.noConfig === true ? { disabled: true } : {}),
+  });
+}
+
+function extractionSchema(config: LoadedConfig | undefined, schemaName: unknown): FlexibleSchema | ContractLike {
+  if (schemaName !== undefined && (typeof schemaName !== "string" || schemaName.trim() === "" || schemaName.length > 256)) throw new InvalidArguments("schemaName must name a configured schema.");
+  const schema = schemaName === undefined ? config?.config.schema
+    : config?.config.schemas !== undefined && Object.hasOwn(config.config.schemas, schemaName) ? config.config.schemas[schemaName] : undefined;
+  if (schema === undefined) throw new InvalidArguments("No such configured schema. Configure schema or schemas before extraction.");
+  return schema;
+}
+
+async function configuredExtraction(options: McpServerOptions, source: string, schema: FlexibleSchema | ContractLike, signal: AbortSignal, wiring: Wiring) {
+  const inputs = await expandInputs([source], options.io.cwd);
+  const results = [];
+  for await (const item of wiring.extractor.extractBatch(await sourcesOf(inputs, options.io, signal), schema, { signal, concurrency: wiring.concurrency })) {
+    const file = inputs[item.index]?.label ?? String(item.index);
+    results.push(item.outcome.ok ? recordOf(file, item.outcome.result, true) : errorRecord(file, explain(item.outcome.error)));
+  }
+  return envelope("extract", results);
+}
 
 function argumentsOf(raw: unknown, allowed: readonly string[]): Readonly<Record<string, unknown>> {
   const args = raw ?? {};
@@ -142,40 +167,35 @@ function failedEnvelope(command: Command, source: string, error: unknown): Envel
   return envelope(command, [errorRecord(source, explain(error))]);
 }
 
-function toolResult(result: Envelope<unknown>): CallToolResult {
+function toolResult(result: { readonly version: 1; readonly command: Command; readonly ok: boolean; readonly results: readonly unknown[] }): CallToolResult {
   return {
     content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    structuredContent: result as unknown as Record<string, unknown>,
+    structuredContent: { ...result },
     isError: !result.ok,
   };
 }
 
 async function convertTool(
   options: McpServerOptions,
-  config: LoadedConfig | undefined,
   inputs: readonly Input[],
   format: ConversionFormat,
   pages: readonly number[] | undefined,
   signal: AbortSignal,
+  wiring: ConversionWiring,
 ): Promise<Envelope<unknown>> {
-  const wiring = await buildConversionWiring({ io: options.io, ...(config === undefined ? {} : { config }), flags: {} });
   for (const warning of wiring.warnings) options.io.diagnostic(`! ${warning}\n`);
   const records = new Array<Item<unknown> | undefined>(inputs.length);
-  try {
-    const batch = convertInputs(wiring.converter, inputs, options.io, {
-      format,
-      ...(pages === undefined ? {} : { pages }),
-      assets: "omit",
-      signal,
-      concurrency: wiring.concurrency,
-    });
-    for await (const { index, input, outcome } of batch) {
-      records[index] = outcome.ok
-        ? { file: input.label, ok: true, ...convertedContent(outcome.result) }
-        : errorRecord(input.label, explain(outcome.error));
-    }
-  } finally {
-    await wiring.dispose();
+  const batch = convertInputs(wiring.converter, inputs, options.io, {
+    format,
+    ...(pages === undefined ? {} : { pages }),
+    assets: "omit",
+    signal,
+    concurrency: wiring.concurrency,
+  });
+  for await (const { index, input, outcome } of batch) {
+    records[index] = outcome.ok
+      ? { file: input.label, ok: true, ...convertedContent(outcome.result) }
+      : errorRecord(input.label, explain(outcome.error));
   }
   signal.throwIfAborted();
   return envelope("convert", records.filter((record) => record !== undefined));
@@ -183,33 +203,22 @@ async function convertTool(
 
 async function inspectTool(
   options: McpServerOptions,
-  config: LoadedConfig | undefined,
   inputs: readonly Input[],
   pages: readonly number[] | undefined,
   signal: AbortSignal,
+  wiring: Wiring,
 ): Promise<Envelope<unknown>> {
-  const wiring = await buildWiring({
-    io: options.io,
-    ...(config === undefined ? {} : { config }),
-    flags: {},
-    needsModel: false,
-    before: [inspectProbe({ text: false, lines: false, render: false })],
-    ignoreSuppliedExtractor: true,
-  });
   for (const warning of wiring.warnings) options.io.diagnostic(`! ${warning}\n`);
   const records: Item<unknown>[] = [];
-  try {
-    for await (const record of inspectInputs(wiring.extractor, inputs, options.io, pages === undefined ? {} : { pages }, signal)) {
-      records.push(record);
-    }
-  } finally {
-    await wiring.dispose();
+  for await (const record of inspectInputs(wiring.extractor, inputs, options.io, pages === undefined ? {} : { pages }, signal)) {
+    records.push(record);
   }
   return envelope("inspect", records);
 }
 
 /**
- * An MCP server with two model-free tools, `convert` and `inspect`. Connect it to
+ * An MCP server with conversion, inspection and configured extraction tools. Pipelines
+ * stay warm until close(), which cancels calls and disposes their resources. Connect it to
  * any transport. The server owns the tools handlers, so do not register further
  * tools on it.
  *
@@ -223,37 +232,93 @@ export async function createMcpServer(options: McpServerOptions): Promise<McpSer
     ]),
   );
   const server = new Server({ name: "docture", version: version() }, { capabilities: { tools: {} } });
+  const scope = createDisposalScope();
+  const stopped = new AbortController();
+  const pending = new Set<Promise<unknown>>();
+  let configPromise: Promise<LoadedConfig | undefined> | undefined;
+  const getConfig = (): Promise<LoadedConfig | undefined> => configPromise ??= toolConfig(options);
+  let extraction: Promise<Wiring> | undefined;
+  let inspection: Promise<Wiring> | undefined;
+  let conversion: Promise<ConversionWiring> | undefined;
+  const wiring = async (kind: "extract" | "inspect"): Promise<Wiring> => {
+    const config = await getConfig();
+    const shared = { io: options.io, ...(config === undefined ? {} : { config }), flags: {}, disposalScope: scope };
+    if (kind === "extract") return extraction ??= buildWiring({ ...shared, flags: { citations: true }, needsModel: true });
+    return inspection ??= buildWiring({ ...shared, needsModel: false, before: [inspectProbe({ text: false, lines: false, render: false })], ignoreSuppliedExtractor: true });
+  };
+  const conversionWiring = async (): Promise<ConversionWiring> => {
+    const config = await getConfig();
+    return conversion ??= buildConversionWiring({ io: options.io, ...(config === undefined ? {} : { config }), flags: {}, disposalScope: scope });
+  };
+  const close = server.close.bind(server);
+  let closing: Promise<void> | undefined;
+  server.close = () => closing ??= (async () => {
+    stopped.abort();
+    await close();
+    await Promise.allSettled(pending);
+    const built = await Promise.allSettled([extraction, inspection, conversion]);
+    const disposed = await Promise.allSettled(built.flatMap((result) => result.status === "fulfilled" && result.value !== undefined ? [result.value.dispose()] : []));
+    const config = (await configPromise?.catch(() => undefined))?.config;
+    const supplied: ScopedDisposable[] = [...(config?.loaders ?? []), ...(config?.strategies ?? []), ...(config?.classifiers ?? []), ...(config?.layoutAnalyzer === undefined ? [] : [config.layoutAnalyzer]), ...(typeof config?.extractor === "object" ? [config.extractor] : []), ...(typeof config?.converter === "object" ? [config.converter] : [])];
+    await scope.dispose(...supplied);
+    const failures = disposed.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
+    if (failures.length > 0) throw new AggregateError(failures, "MCP resources failed to dispose.");
+  })();
 
   // The high-level registerTool API only accepts Zod schemas; these handlers serve
   // the JSON Schemas above directly, so the CLI needs no Zod at run time.
-  server.server.setRequestHandler(protocol.ListToolsRequestSchema, () => ({ tools: TOOLS }));
-  server.server.setRequestHandler(protocol.CallToolRequestSchema, async (request, extra) => {
-    const signal = options.signal === undefined ? extra.signal : AbortSignal.any([extra.signal, options.signal]);
-    let call: ToolCall;
-    try {
-      call = toolCall(request.params.name, request.params.arguments);
-    } catch (error) {
-      if (error instanceof InvalidArguments) {
-        throw new protocol.McpError(protocol.ErrorCode.InvalidParams, error.message);
+  server.server.setRequestHandler(protocol.ListToolsRequestSchema, async () => ({ tools: [...TOOLS, ...paperlessTools(await getConfig())] }));
+  server.server.setRequestHandler(protocol.CallToolRequestSchema, (request, extra) => {
+    const work = (async () => {
+      const signal = AbortSignal.any([extra.signal, stopped.signal, ...(options.signal === undefined ? [] : [options.signal])]);
+      if (request.params.name.startsWith("paperless_")) {
+        try {
+          const config = await getConfig();
+          if (config === undefined) throw new InvalidArguments("Paperless tools require server configuration.");
+          const result = await callPaperlessTool(request.params.name, request.params.arguments, { io: options.io, config, signal, ...(["paperless_extract", "paperless_plan"].includes(request.params.name) ? { getWiring: () => wiring("extract") } : {}) });
+          return toolResult(result);
+        } catch (error) {
+          signal.throwIfAborted();
+          return toolResult(failedEnvelope("paperless", "paperless", error));
+        }
       }
-      throw error;
-    }
-    try {
-      const config = await resolveConfig({
-        cwd: options.io.cwd,
-        ...(options.configPath === undefined ? {} : { explicit: options.configPath }),
-        ...(options.noConfig === true ? { disabled: true } : {}),
-      });
-      const inputs = await expandInputs([call.source], options.io.cwd);
-      return toolResult(
-        call.tool === "inspect"
-          ? await inspectTool(options, config, inputs, call.pages, signal)
-          : await convertTool(options, config, inputs, call.format, call.pages, signal),
-      );
-    } catch (error) {
-      signal.throwIfAborted();
-      return toolResult(failedEnvelope(call.tool, call.source, error));
-    }
+      if (request.params.name === "extract") {
+        let source = "document";
+        try {
+          const args = argumentsOf(request.params.arguments, ["source", "schemaName"]);
+          source = sourceOf(args);
+          const schema = extractionSchema(await getConfig(), args["schemaName"]);
+          return toolResult(await configuredExtraction(options, source, schema, signal, await wiring("extract")));
+        } catch (error) {
+          if (error instanceof InvalidArguments) throw new protocol.McpError(protocol.ErrorCode.InvalidParams, error.message);
+          signal.throwIfAborted();
+          return toolResult(failedEnvelope("extract", source, error));
+        }
+      }
+      let call: ToolCall;
+      try {
+        call = toolCall(request.params.name, request.params.arguments);
+      } catch (error) {
+        if (error instanceof InvalidArguments) {
+          throw new protocol.McpError(protocol.ErrorCode.InvalidParams, error.message);
+        }
+        throw error;
+      }
+      try {
+        const inputs = await expandInputs([call.source], options.io.cwd);
+        return toolResult(
+          call.tool === "inspect"
+            ? await inspectTool(options, inputs, call.pages, signal, await wiring("inspect"))
+            : await convertTool(options, inputs, call.format, call.pages, signal, await conversionWiring()),
+        );
+      } catch (error) {
+        signal.throwIfAborted();
+        return toolResult(failedEnvelope(call.tool, call.source, error));
+      }
+    })();
+    pending.add(work);
+    void work.then(() => pending.delete(work), () => pending.delete(work));
+    return work;
   });
   return server;
 }
@@ -294,5 +359,6 @@ export async function serveStdio(options: StdioOptions): Promise<void> {
   } finally {
     options.stdin.off("end", stop);
     signal.removeEventListener("abort", stop);
+    await server.close();
   }
 }

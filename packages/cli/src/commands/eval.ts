@@ -3,6 +3,9 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { ContractViolationError, ExtractionFailedError, ModelOutputError, messageOf, sumUsage } from "docture";
 import {
   aggregate,
+  calibrateFields,
+  formatCalibration,
+  type CalibrationSample,
   failures,
   formatScoreboard,
   gate,
@@ -98,6 +101,10 @@ export async function evalCommand(parsed: Parsed, io: Io, signal: AbortSignal): 
   const truth = stringFlag(parsed, "truth");
   const report = stringFlag(parsed, "report");
   const alignBy = stringFlag(parsed, "align-by");
+  const calibrate = boolFlag(parsed, "calibrate");
+  const targetPrecision = numberFlag(parsed, "target-precision", { min: Number.MIN_VALUE, max: 1 }) ?? .99;
+  const minSupport = numberFlag(parsed, "min-support", { min: 1, integer: true }) ?? 5;
+  if (calibrate && alignBy !== undefined) throw new UsageError("--calibrate does not support --align-by; evidence retains original array positions.");
   const schemaFlag = stringFlag(parsed, "schema");
   const only = listFlag(parsed, "only");
   const minF1 = numberFlag(parsed, "min-f1", { min: 0, max: 1 });
@@ -146,7 +153,7 @@ export async function evalCommand(parsed: Parsed, io: Io, signal: AbortSignal): 
   const wiringInput: WiringInput = {
     io,
     ...(config === undefined ? {} : { config }),
-    flags: wiringFlags(parsed),
+    flags: { ...wiringFlags(parsed), ...(calibrate ? { citations: true } : {}) },
     needsModel: true,
   };
 
@@ -165,6 +172,7 @@ export async function evalCommand(parsed: Parsed, io: Io, signal: AbortSignal): 
   reportWiring(io, common, style, [...wiring.notes, schemaSource.describe], [...wiring.warnings, ...schemaSource.warnings]);
 
   const records: RunRecord[] = [];
+  const calibrationSamples: CalibrationSample[] = [];
   const results = new Array<Item<EvalData> | undefined>(inputs.length);
   const hintsShown = new Set<string>();
   let failed = 0;
@@ -195,6 +203,7 @@ export async function evalCommand(parsed: Parsed, io: Io, signal: AbortSignal): 
         const usage = exhausted?.usage ?? sumUsage(
           error instanceof ModelOutputError ? [error.usage] : attempts.map((attempt) => attempt.usage), 0,
         );
+        if (calibrate) calibrationSamples.push({ document: label, expected: expected.get(item.index), result: { data: undefined } });
         records.push(recordRun(label, {
           ...score,
           f1: 0,
@@ -211,6 +220,7 @@ export async function evalCommand(parsed: Parsed, io: Io, signal: AbortSignal): 
       const result = item.outcome.result;
       const score = scoreExtraction(expected.get(item.index), result.data, scoreOptions);
       records.push(recordRun(label, score, result));
+      if (calibrate) calibrationSamples.push({ document: label, expected: expected.get(item.index), result });
       const record: Item<EvalData> = {
         file: label, ok: true,
         score: { f1: score.f1, precision: score.precision, recall: score.recall, exactMatch: score.exactMatch },
@@ -242,7 +252,12 @@ export async function evalCommand(parsed: Parsed, io: Io, signal: AbortSignal): 
     await wiring.dispose();
   }
 
-  const scoreboard = formatScoreboard(records);
+  const calibration = calibrate ? calibrateFields(calibrationSamples, { targetPrecision, minSupport, scoreOptions, context: {
+    corpus: inputs.map((input) => input.label), schema: schemaSource.origin,
+    model: stringFlag(parsed, "model") ?? "caller-configured", engineVersions: "not reported by configured loaders",
+    methods: [...new Set(records.map((record) => record.method))], loaders: [...new Set(records.map((record) => record.loader))],
+  } }) : undefined;
+  const scoreboard = formatScoreboard(records) + (calibration === undefined ? "" : `\n\n${formatCalibration(calibration)}`);
   if (format === "text") io.write(`${scoreboard}\n`);
   if (report !== undefined) {
     await writeFile(resolve(io.cwd, report), `${scoreboard}\n`, "utf8");
@@ -267,7 +282,7 @@ export async function evalCommand(parsed: Parsed, io: Io, signal: AbortSignal): 
   });
   if (format === "json") {
     const output = envelope("eval", results.filter((record) => record !== undefined), {
-      ...summary, failed, ...(minF1 === undefined ? {} : { minF1 }),
+      ...summary, failed, ...(calibration === undefined ? {} : { calibration }), ...(minF1 === undefined ? {} : { minF1 }),
       ...(maxCostUsd === undefined ? {} : { maxCostUsd }),
       passed: failed === 0 && decision.pass, reasons: decision.reasons,
     });

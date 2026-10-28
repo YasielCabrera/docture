@@ -15,7 +15,8 @@ npm install docture pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10 ai@^7 @ai-sdk/open
 Compose a rasterizer with the PDF loader, then add `vision()`:
 
 ```ts
-import { createExtractor, withRasterizer } from "docture";
+import { withRasterizer } from "docture";
+import { createExtractor } from "docture/node";
 import { llm } from "docture/llm/text";
 import { vision } from "docture/llm/vision";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";

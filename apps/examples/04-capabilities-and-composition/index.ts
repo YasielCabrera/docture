@@ -19,7 +19,8 @@
  *   5. PAGE IMAGES ARE LAZY, and here is the render count that proves it
  */
 
-import { DEFAULT_RASTER_OPTIONS, DocumentLoaderData, Extractor, MIN_TEXT_LAYER_CHARS, NoEligibleStrategyError, defineRasterizer, defineStrategy, hasFact, withRasterizer, type GeometryLoader, type ImageLoader, type RasterOptions, type Rasterizer, type TextLoader } from "docture";
+import { DEFAULT_RASTER_OPTIONS, DocumentLoaderData, MIN_TEXT_LAYER_CHARS, NoEligibleStrategyError, defineRasterizer, defineStrategy, hasFact, withRasterizer, type GeometryLoader, type ImageLoader, type RasterOptions, type Rasterizer, type TextLoader } from "docture";
+import { Extractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { DocumentLoaderMuPdf, MuPdfRasterizer } from "docture/loaders/mupdf";
 import { NapiCanvasRasterizer } from "docture/raster/canvas";

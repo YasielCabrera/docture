@@ -281,3 +281,13 @@ const result = await converter.convert(source, { format: "json", assets: "embedd
 const parsed = parseDoctureDocument(JSON.parse(result.content));
 if (parsed.ok) console.log(parsed.document.schemaVersion); // 2
 ```
+
+`sourceResolver` in `DocumentConverterOptions` selects source access. The portable default rejects local paths and file URLs. The Node entry supplies file access explicitly.
+
+## Native element evidence
+
+`EvidenceSourceId` includes real line IDs plus neutral `ElementSourceId` and `CellSourceId` values. `isEvidenceSourceId` checks that syntax. `SourceEvidence` retains actual element or table-cell granularity and text without inventing `TextLine` records.
+
+`EvidenceLocation` distinguishes bound physical page boxes, logical pages and unlocated multi-page evidence. A physical location requires its source digest. Logical or ambiguous evidence has no physical box. `parseSourceEvidence` returns `SourceEvidenceParse` with validated evidence or diagnostics for untrusted saved input. Imported JSON and chunks preserve evidence IDs, granularity and location. Field results keep line-only citationSources and native evidenceSources separately.
+
+`ConvertedPage.evidence` retains native element and table-cell records in every output format. Passing a conversion result directly to `chunkDocument()` preserves the same evidence as chunking its saved JSON. Mixed native and OCR pages retain each untouched native page's authoritative layout and source identity. Layout grouping preserves source IDs while updating their normalized parent references.

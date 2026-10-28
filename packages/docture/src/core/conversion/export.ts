@@ -1,3 +1,4 @@
+import { base64 } from "./base64.js";
 import type {
   ConversionAsset,
   ConversionAssetMode,
@@ -208,7 +209,7 @@ function markdownTable(rows: readonly (readonly string[])[]): string {
 
 function assetUrl(asset: ConversionAsset, mode: ConversionAssetMode): string {
   if (mode === "embedded") {
-    return `data:${asset.mimeType};base64,${Buffer.from(asset.bytes).toString("base64")}`;
+    return `data:${asset.mimeType};base64,${base64(asset.bytes)}`;
   }
   return encodeURI(asset.reference);
 }
@@ -346,6 +347,7 @@ export function exportDocument(
       height: page.height,
       content: nonEmpty(page.elements.map(plainElement)).join("\n\n"),
       elements: page.elements,
+      ...(page.evidence === undefined ? {} : { evidence: page.evidence }),
     }));
     return {
       content: pages.map((page) => page.content).join("\f"),
@@ -367,6 +369,7 @@ export function exportDocument(
           : `\n\n${nonEmpty(page.elements.map((element) => markdownElement(element, ctx))).join("\n\n")}`
       }`,
       elements: page.elements,
+      ...(page.evidence === undefined ? {} : { evidence: page.evidence }),
     }));
     return {
       content: pages.map((page) => page.content).join("\n\n"),
@@ -385,6 +388,7 @@ export function exportDocument(
       page.elements.map((element) => htmlElement(element, ctx)),
     ).join("\n")}\n</section>`,
     elements: page.elements,
+    ...(page.evidence === undefined ? {} : { evidence: page.evidence }),
   }));
   const title = htmlText(document.metadata?.title ?? "Converted document");
   return {

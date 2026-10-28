@@ -19,6 +19,7 @@ const roleCases = [
   ["the extractor factory reaching a capability it does not compose", "llm/extractor.ts", 'export { TextSplitter as Leaked } from "./split.js";', "llm/extractor.ts crosses into ./split.js"],
 ];
 const cases = [
+  ["Node built-ins in portable core", 'import { createHash } from "node:crypto"; export const leaked = createHash;', "imports a Node built-in from a portable entry"],
   ["HTML parser imports outside their syntax boundary", 'import { parse } from "parse5"; export const leaked = parse;', "undeclared boundary parse5"],
   ["XML parser imports outside their syntax boundary", 'import { Parser } from "htmlparser2"; export const leaked = Parser;', "undeclared boundary htmlparser2"],
   ["entity decoder imports outside their syntax boundary", 'import { decodeHTMLStrict } from "entities"; export const leaked = decodeHTMLStrict;', "undeclared boundary entities"],

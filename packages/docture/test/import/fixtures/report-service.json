@@ -1,0 +1,297 @@
+{
+  "status": "success",
+  "document": {
+    "json_content": {
+      "schema_name": "DoclingDocument",
+      "version": "1.10.0",
+      "name": "pinned-lab-report",
+      "origin": {
+        "mimetype": "application/pdf",
+        "binary_hash": 123,
+        "filename": "lab-report.pdf"
+      },
+      "furniture": {
+        "self_ref": "#/furniture",
+        "children": [],
+        "content_layer": "furniture",
+        "name": "_root_",
+        "label": "unspecified"
+      },
+      "body": {
+        "self_ref": "#/body",
+        "children": [
+          {
+            "$ref": "#/texts/0"
+          },
+          {
+            "$ref": "#/texts/1"
+          },
+          {
+            "$ref": "#/tables/0"
+          },
+          {
+            "$ref": "#/texts/2"
+          }
+        ],
+        "content_layer": "body",
+        "name": "_root_",
+        "label": "unspecified"
+      },
+      "groups": [],
+      "texts": [
+        {
+          "self_ref": "#/texts/0",
+          "parent": {
+            "$ref": "#/body"
+          },
+          "children": [],
+          "content_layer": "body",
+          "label": "section_header",
+          "prov": [
+            {
+              "page_no": 2,
+              "bbox": {
+                "l": 10.0,
+                "t": 20.0,
+                "r": 300.0,
+                "b": 40.0,
+                "coord_origin": "TOPLEFT"
+              },
+              "charspan": [
+                0,
+                17
+              ]
+            }
+          ],
+          "orig": "Laboratory report",
+          "text": "Laboratory report",
+          "level": 1
+        },
+        {
+          "self_ref": "#/texts/1",
+          "parent": {
+            "$ref": "#/body"
+          },
+          "children": [],
+          "content_layer": "body",
+          "label": "text",
+          "prov": [
+            {
+              "page_no": 2,
+              "bbox": {
+                "l": 10.0,
+                "t": 20.0,
+                "r": 300.0,
+                "b": 40.0,
+                "coord_origin": "TOPLEFT"
+              },
+              "charspan": [
+                0,
+                30
+              ]
+            },
+            {
+              "page_no": 5,
+              "bbox": {
+                "l": 10.0,
+                "t": 20.0,
+                "r": 300.0,
+                "b": 40.0,
+                "coord_origin": "TOPLEFT"
+              },
+              "charspan": [
+                30,
+                75
+              ]
+            }
+          ],
+          "orig": "The measured pressure is 100. 😀Further analysis continues on the next page.",
+          "text": "The measured pressure is 100. 😀Further analysis continues on the next page."
+        },
+        {
+          "self_ref": "#/texts/2",
+          "parent": {
+            "$ref": "#/body"
+          },
+          "children": [],
+          "content_layer": "furniture",
+          "label": "page_header",
+          "prov": [
+            {
+              "page_no": 2,
+              "bbox": {
+                "l": 10.0,
+                "t": 20.0,
+                "r": 300.0,
+                "b": 40.0,
+                "coord_origin": "TOPLEFT"
+              },
+              "charspan": [
+                0,
+                19
+              ]
+            }
+          ],
+          "orig": "Internal laboratory",
+          "text": "Internal laboratory"
+        }
+      ],
+      "pictures": [],
+      "tables": [
+        {
+          "self_ref": "#/tables/0",
+          "parent": {
+            "$ref": "#/body"
+          },
+          "children": [],
+          "content_layer": "body",
+          "label": "table",
+          "prov": [
+            {
+              "page_no": 2,
+              "bbox": {
+                "l": 10.0,
+                "t": 20.0,
+                "r": 300.0,
+                "b": 40.0,
+                "coord_origin": "TOPLEFT"
+              },
+              "charspan": [
+                0,
+                0
+              ]
+            }
+          ],
+          "captions": [],
+          "references": [],
+          "footnotes": [],
+          "data": {
+            "table_cells": [
+              {
+                "row_span": 1,
+                "col_span": 2,
+                "start_row_offset_idx": 0,
+                "end_row_offset_idx": 1,
+                "start_col_offset_idx": 0,
+                "end_col_offset_idx": 2,
+                "text": "Measurements",
+                "column_header": true,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 1,
+                "end_row_offset_idx": 2,
+                "start_col_offset_idx": 0,
+                "end_col_offset_idx": 1,
+                "text": "Pressure",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 1,
+                "end_row_offset_idx": 2,
+                "start_col_offset_idx": 1,
+                "end_col_offset_idx": 2,
+                "text": "100",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              }
+            ],
+            "num_rows": 2,
+            "num_cols": 2,
+            "orientation": "rot_0",
+            "grid": [
+              [
+                {
+                  "row_span": 1,
+                  "col_span": 2,
+                  "start_row_offset_idx": 0,
+                  "end_row_offset_idx": 1,
+                  "start_col_offset_idx": 0,
+                  "end_col_offset_idx": 2,
+                  "text": "Measurements",
+                  "column_header": true,
+                  "row_header": false,
+                  "row_section": false,
+                  "fillable": false
+                },
+                {
+                  "row_span": 1,
+                  "col_span": 2,
+                  "start_row_offset_idx": 0,
+                  "end_row_offset_idx": 1,
+                  "start_col_offset_idx": 0,
+                  "end_col_offset_idx": 2,
+                  "text": "Measurements",
+                  "column_header": true,
+                  "row_header": false,
+                  "row_section": false,
+                  "fillable": false
+                }
+              ],
+              [
+                {
+                  "row_span": 1,
+                  "col_span": 1,
+                  "start_row_offset_idx": 1,
+                  "end_row_offset_idx": 2,
+                  "start_col_offset_idx": 0,
+                  "end_col_offset_idx": 1,
+                  "text": "Pressure",
+                  "column_header": false,
+                  "row_header": false,
+                  "row_section": false,
+                  "fillable": false
+                },
+                {
+                  "row_span": 1,
+                  "col_span": 1,
+                  "start_row_offset_idx": 1,
+                  "end_row_offset_idx": 2,
+                  "start_col_offset_idx": 1,
+                  "end_col_offset_idx": 2,
+                  "text": "100",
+                  "column_header": false,
+                  "row_header": false,
+                  "row_section": false,
+                  "fillable": false
+                }
+              ]
+            ]
+          },
+          "annotations": []
+        }
+      ],
+      "key_value_items": [],
+      "form_items": [],
+      "pages": {
+        "2": {
+          "size": {
+            "width": 600.0,
+            "height": 800.0
+          },
+          "page_no": 2
+        },
+        "5": {
+          "size": {
+            "width": 600.0,
+            "height": 800.0
+          },
+          "page_no": 5
+        }
+      }
+    }
+  },
+  "errors": [],
+  "processing_time": 0.0
+}

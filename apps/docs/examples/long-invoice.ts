@@ -1,5 +1,5 @@
 import { openai } from "@ai-sdk/openai";
-import { createExtractor } from "docture";
+import { createExtractor } from "docture/node";
 import { fileCache } from "docture/llm/cache";
 import { llm } from "docture/llm/text";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";

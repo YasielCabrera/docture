@@ -12,7 +12,8 @@ PDF text, OCR output, or plain text. A strategy can call a model or run code you
 ## Smallest complete example
 
 ```ts
-import { Extractor, contract } from "docture";
+import { contract } from "docture";
+import { Extractor } from "docture/node";
 import { LLM } from "docture/llm";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { openai } from "@ai-sdk/openai";

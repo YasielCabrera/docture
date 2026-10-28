@@ -1,3 +1,4 @@
+import type { DisposalScope } from "./disposal.js";
 /** Optional refinement of the deterministic layout analysis. */
 
 import type {
@@ -43,7 +44,7 @@ export interface LayoutAnalysis {
 export interface LayoutAnalyzer {
   readonly name: string;
   analyze(ctx: LayoutAnalyzerContext): Promise<LayoutAnalysis>;
-  dispose?(): Promise<void>;
+  dispose?(scope?: DisposalScope): Promise<void>;
 }
 
 export function defineLayoutAnalyzer(analyzer: LayoutAnalyzer): LayoutAnalyzer {

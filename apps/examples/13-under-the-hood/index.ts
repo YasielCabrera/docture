@@ -19,7 +19,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { Extractor, contract, createExtractor, declarationOrder, isLoadedSource, preloadedFeatures, readDocument, runPipeline, silentLogger, type LoadedSource, type PipelineComponents } from "docture";
+import { contract, declarationOrder, isLoadedSource, preloadedFeatures, readDocument, runPipeline, silentLogger, type LoadedSource, type PipelineComponents } from "docture";
+import { Extractor, createExtractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { DocumentLoaderMuPdf } from "docture/loaders/mupdf";
 import { z } from "zod";

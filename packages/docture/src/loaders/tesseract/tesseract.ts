@@ -167,7 +167,8 @@ export function defaultCachePath(): string {
  * Worker startup is the expensive part — a thread, a WASM instantiation and a model
  * read each time — so workers are created on demand up to `concurrency` and then
  * reused until `dispose()`. The default leaves one available CPU free and caps the
- * pool at four workers. Each worker can use about 100 MB.
+ * pool at four workers. The recorded four-page, 300 DPI benchmark used about
+ * 210 MiB more memory per extra worker.
  */
 export class TesseractPool {
   private readonly all = new Set<TesseractWorker>();

@@ -520,17 +520,39 @@ function continuationRows(table: TableElement, continuation: TableContinuation):
 }
 
 export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis {
-  const warnings: ConversionWarning[] = [];
+  if (document.pages.every((page) => page.layout !== undefined)) {
+    return {
+      document: {
+        pages: document.pages.map((page) => ({ pageNumber: page.pageNumber, width: page.width, height: page.height, elements: page.layout ?? [], ...(page.evidence === undefined ? {} : { evidence: page.evidence }) })),
+        ...(document.sourceDigest === undefined ? {} : { sourceDigest: document.sourceDigest }),
+        ...(document.physicalSourceDigest === undefined ? {} : { physicalSourceDigest: document.physicalSourceDigest }),
+        ...(document.metadata === undefined ? {} : { metadata: document.metadata }),
+      },
+      warnings: document.conversionWarnings ?? [],
+    };
+  }
+  const warnings: ConversionWarning[] = [...(document.conversionWarnings ?? [])];
   const sources = document.pages.map((page) => ({ page, ...candidatesFor(page) }));
-  const { confirmed: furniture, suspected } = detectFurniture(sources.map(({ page, candidates, source }) => ({
+  const { confirmed: furniture, suspected } = detectFurniture(sources.filter(({ page }) => page.layout === undefined).map(({ page, candidates, source }) => ({
     pageNumber: page.pageNumber,
     width: page.width,
     height: page.height,
     candidates: source === "text" ? [] : candidates,
   })));
-  const pages: { pageNumber: number; width: number; height: number; elements: DocumentElement[] }[] = [];
+  const pages: LayoutPage[] = [];
+  const nativePages = new Set<number>();
   let tail: Tail | undefined;
   for (const [pageIndex, { page, ...sourceCandidates }] of sources.entries()) {
+    if (page.layout !== undefined) {
+      nativePages.add(page.pageNumber);
+      pages.push({
+        pageNumber: page.pageNumber, width: page.width, height: page.height,
+        elements: page.layout,
+        ...(page.evidence === undefined ? {} : { evidence: page.evidence }),
+      });
+      tail = undefined;
+      continue;
+    }
     const frame: PageFrame = { pageNumber: page.pageNumber, width: page.width, height: page.height };
     const pageFurniture = sourceCandidates.candidates.flatMap((candidate) => {
       const found = furniture.get(candidate);
@@ -661,9 +683,13 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
     pages.push({ pageNumber: page.pageNumber, width: page.width, height: page.height, elements });
   }
 
+  const identified = new Map(withElementIds(pages.filter((page) => !nativePages.has(page.pageNumber)))
+    .map((page) => [page.pageNumber, page]));
   return {
     document: {
-      pages: withElementIds(pages),
+      pages: pages.map((page) => identified.get(page.pageNumber) ?? page),
+      ...(document.sourceDigest === undefined ? {} : { sourceDigest: document.sourceDigest }),
+      ...(document.physicalSourceDigest === undefined ? {} : { physicalSourceDigest: document.physicalSourceDigest }),
       ...(document.metadata === undefined ? {} : { metadata: document.metadata }),
     },
     warnings,
@@ -767,10 +793,15 @@ function mergeGroup(elements: readonly DocumentElement[]): readonly DocumentElem
   return undefined;
 }
 
+interface ElementOwner {
+  readonly elementId: string;
+  readonly rowOffset: number;
+}
+
 function applyGroups(
   elements: readonly DocumentElement[],
   annotationById: ReadonlyMap<string, LayoutAnnotation>,
-): { elements?: DocumentElement[]; reason?: string } {
+): { elements: DocumentElement[]; owners: ReadonlyMap<string, ElementOwner> } | { reason: string } {
   const positions = new Map<string, number[]>();
   elements.forEach((element, index) => {
     const group = annotationById.get(element.id)?.group;
@@ -786,6 +817,7 @@ function applyGroups(
   }
 
   const grouped: DocumentElement[] = [];
+  const owners = new Map<string, ElementOwner>();
   for (let index = 0; index < elements.length; ) {
     const element = elements[index];
     if (element === undefined) break;
@@ -804,9 +836,17 @@ function applyGroups(
     }
     const merged = mergeGroup(members);
     if (merged === undefined) return { reason: `group ${group} has incompatible roles` };
+    const parent = merged[0];
+    if (merged.length === 1 && parent !== undefined) {
+      let rowOffset = 0;
+      for (const member of members) {
+        owners.set(member.id, { elementId: parent.id, rowOffset });
+        if (member.kind === "table") rowOffset += member.rows.length;
+      }
+    }
     grouped.push(...merged);
   }
-  return { elements: grouped };
+  return { elements: grouped, owners };
 }
 
 /** The document a layout analyzer sees: page furniture is not its to classify or order. */
@@ -902,6 +942,7 @@ function applyToBody(
 
   const annotationById = new Map(annotations.map((annotation) => [annotation.id, annotation]));
   const pages: LayoutPage[] = [];
+  const owners = new Map<string, ElementOwner>();
   for (const page of document.pages) {
     const transformed: DocumentElement[] = [];
     for (const element of page.elements) {
@@ -936,10 +977,27 @@ function applyToBody(
       );
     }
     const grouped = applyGroups(keepContinuedLast(page.elements, transformed), annotationById);
-    if (grouped.elements === undefined) {
-      return { document, valid: false, reason: grouped.reason ?? "invalid grouping" };
+    if ("reason" in grouped) {
+      return { document, valid: false, reason: grouped.reason };
     }
+    for (const [id, owner] of grouped.owners) owners.set(id, owner);
     pages.push({ ...page, elements: grouped.elements });
   }
-  return { document: { ...document, pages }, valid: true };
+  return {
+    document: {
+      ...document,
+      pages: pages.map((page) => ({
+        ...page,
+        ...(page.evidence === undefined ? {} : { evidence: page.evidence.map((source) => {
+          const owner = owners.get(source.elementId);
+          return owner === undefined ? source : {
+            ...source,
+            elementId: owner.elementId,
+            ...(source.granularity === "table-cell" ? { row: source.row + owner.rowOffset } : {}),
+          };
+        }) }),
+      })),
+    },
+    valid: true,
+  };
 }

@@ -29,6 +29,7 @@
  */
 
 import type { ClassifiedExtraction } from "./contracts/classifier.js";
+import { createDisposalScope, type DisposalScope } from "./contracts/disposal.js";
 import { extractionContractOf, type Classification } from "./contracts/classifier.js";
 import type { DocumentLoader } from "./contracts/loader.js";
 import { runSplitter, type SplitContext, type Splitter } from "./contracts/splitter.js";
@@ -47,7 +48,7 @@ import { MissingComponentError, SplitFailedError, UnclassifiedGroupError } from 
 import { preloadedFeatures } from "./pipeline/features.js";
 import { readDocument } from "./pipeline/read.js";
 import { checkedRuleFailureMode, withProcessHints, type RunOptions } from "./pipeline/run.js";
-import { resolveSource } from "./pipeline/source.js";
+import { resolveSource, type SourceResolver } from "./pipeline/source.js";
 
 export interface ProcessExtractOptions extends RunOptions {
   /**
@@ -71,6 +72,11 @@ export interface SplitReport {
 
 export class Process<C extends readonly Classification[] = readonly Classification[]> {
   #loaders: DocumentLoader[] = [];
+  readonly #sourceResolver: SourceResolver;
+
+  constructor(options: { readonly sourceResolver?: SourceResolver } = {}) {
+    this.#sourceResolver = options.sourceResolver ?? resolveSource;
+  }
   #splitter: Splitter | undefined;
   #extractor: Extractor | undefined;
   #source: DocumentSource | undefined;
@@ -79,6 +85,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
   #splitPlanned = false;
   #logger: Logger = silentLogger;
   #lastSplit: SplitReport | undefined;
+  #disposed: Promise<void> | undefined;
 
   // ── Wiring ────────────────────────────────────────────────────────────────────
 
@@ -246,18 +253,13 @@ export class Process<C extends readonly Classification[] = readonly Classificati
   }
 
   /** Release the splitter and the default extractor. Idempotent per component. */
-  async dispose(): Promise<void> {
-    const results = await Promise.allSettled([
-      this.#splitter?.dispose?.(),
-      this.#extractor?.dispose(),
-      ...this.#loaders.map((loader) => loader.dispose?.()),
-    ]);
-    const failures = results
-      .filter((r): r is PromiseRejectedResult => r.status === "rejected")
-      .map((r) => r.reason);
-    if (failures.length > 0) {
-      throw new AggregateError(failures, `${failures.length} component(s) failed to dispose.`);
-    }
+  dispose(scope: DisposalScope = createDisposalScope()): Promise<void> {
+    this.#disposed ??= scope.dispose(
+      ...(this.#splitter === undefined ? [] : [this.#splitter]),
+      ...(this.#extractor === undefined ? [] : [this.#extractor]),
+      ...this.#loaders,
+    );
+    return this.#disposed;
   }
 
   // ── Internals ─────────────────────────────────────────────────────────────────
@@ -283,7 +285,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
       );
     }
 
-    const raw = await resolveSource(source, signal);
+    const raw = await this.#sourceResolver(source, signal);
     const read = await readDocument(loaders, raw, logger, signal, options.stageTimeoutMs);
     return {
       loaded: read.document,

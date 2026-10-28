@@ -35,7 +35,10 @@ import type {
   FlexibleSchema,
   RoutingPolicy,
   LayoutAnalyzer,
+  ContractLike,
 } from "docture";
+import type { PaperlessCliConfig } from "./paperless/types.js";
+export type { PaperlessCliConfig, PaperlessSchemaConfig } from "./paperless/types.js";
 import type { PricingTable } from "docture/llm";
 import type { LanguageModel } from "ai";
 
@@ -52,6 +55,9 @@ export type CliExtractor = Pick<Extractor, "extract" | "extractBatch" | "classif
 export type CliConverter = Pick<DocumentConverter, "convertBatch" | "dispose">;
 
 export interface DoctureConfig {
+  readonly paperless?: PaperlessCliConfig;
+  /** Named contracts available to MCP extraction. Model input cannot replace them. */
+  readonly schemas?: Readonly<Record<string, ContractLike>>;
   /**
    * A fully-built extractor. When present it is used as-is and the wiring options
    * below are ignored — the escape hatch for a pipeline the flags cannot describe.

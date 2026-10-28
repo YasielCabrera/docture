@@ -23,7 +23,8 @@
  *   7. THE LLM SPLITTERS, for when a heading is not enough
  */
 
-import { Extractor, Process, SplittingStrategy, UNCLASSIFIED, UnclassifiedGroupError, aggregateDocGroups, defineClassification, defineSplitter, pageWindows, readDocument, runSplitter, silentLogger, type LoadedPage, type Splitter } from "docture";
+import { SplittingStrategy, UNCLASSIFIED, UnclassifiedGroupError, aggregateDocGroups, defineClassification, defineSplitter, pageWindows, readDocument, runSplitter, silentLogger, type LoadedPage, type Splitter } from "docture";
+import { Extractor, Process } from "docture/node";
 import { ImageSplitter, TextSplitter } from "docture/llm";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { MuPdfRasterizer } from "docture/loaders/mupdf";

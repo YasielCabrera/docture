@@ -18,7 +18,8 @@
 
 import { describe, expect, it } from "vitest";
 import { MockLanguageModelV4 } from "ai/test";
-import { ContractViolationError, Extractor, NoEligibleStrategyError, DoctureError, contract, defineLoader, defineStrategy, linesFromWords, textFromLines, inferForm, type LoadedPage, type PositionedWord } from "docture";
+import { ContractViolationError, NoEligibleStrategyError, DoctureError, contract, defineLoader, defineStrategy, linesFromWords, textFromLines, inferForm, type LoadedPage, type PositionedWord } from "docture";
+import { Extractor } from "docture/node";
 import { llm } from "docture/llm";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { scoreExtraction, formatFailures } from "docture/eval";

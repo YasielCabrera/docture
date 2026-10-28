@@ -168,6 +168,8 @@ describe("the public API is an exact list", () => {
     // entry points
     "Extractor",
     "createExtractor",
+    "createDisposalScope",
+    "createCheckedExtractor",
     "DocumentConverter",
     "createDocumentConverter",
     "Process",
@@ -205,6 +207,7 @@ describe("the public API is an exact list", () => {
     "documentLoaderData",
     // rasterizers + composition
     "withRasterizer",
+    "withOcrFallback",
     "defineRasterizer",
     "DEFAULT_RASTER_OPTIONS",
     // strategies
@@ -212,7 +215,9 @@ describe("the public API is an exact list", () => {
     "defineLayoutAnalyzer",
     "resolveSchema",
     "isLineSourceId",
+    "isEvidenceSourceId",
     "parseDoctureDocument",
+    "parseSourceEvidence",
     "provenanceSegments",
     "sourceLines",
     // classification

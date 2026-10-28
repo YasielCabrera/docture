@@ -139,6 +139,65 @@ describe("review with a frozen configured loader", () => {
 });
 
 describe("review that fails before the reviewer is built", () => {
+  it("disposes a frozen configured loader once when input cannot be read", async () => {
+    const frozen = sharedLoaderConfig(false)
+      .replace("const loader = {", "const loader = Object.freeze({")
+      .replace("},\n};\nexport default", "},\n});\nexport default");
+    const result = await reviewWith(frozen, ["missing.pdf"]);
+
+    expect(result.code).toBe(1);
+    expect(result.disposed).toEqual(["loader"]);
+  });
+
+  it("disposes the supplied converter and frozen shared loader on early failure", async () => {
+    const frozen = sharedLoaderConfig(true)
+      .replace("const loader = {", "const loader = Object.freeze({")
+      .replace("},\n};\nexport default", "},\n});\nexport default");
+    const result = await reviewWith(frozen, ["missing.pdf"]);
+
+    expect(result.code).toBe(1);
+    expect(result.disposed).toEqual(["loader"]);
+  });
+
+  it("disposes a supplied extractor when schema resolution fails", async () => {
+    const result = await review("succeed", ["--schema", "missing-schema.json"]);
+
+    expect(result.code).toBe(2);
+    expect(result.disposed).toEqual(["extractor", "loader"]);
+  });
+
+  for (const [failure, argv] of [
+    ["schema resolution", ["report.pdf", "--schema", "missing-schema.json"]],
+    ["saved conversion parsing", ["--conversion", "schema.json", "--source", "report.pdf"]],
+  ] as const) {
+    it(`disposes the frozen configured loader when ${failure} fails`, async () => {
+      const frozen = sharedLoaderConfig(false)
+        .replace("const loader = {", "const loader = Object.freeze({")
+        .replace("},\n};\nexport default", "},\n});\nexport default");
+      const result = await reviewWith(frozen, argv);
+
+      expect(result.code).toBe(2);
+      expect(result.disposed).toEqual(["loader"]);
+    });
+  }
+
+  it("disposes a supplied converter and configured loader when saved review parsing fails", async () => {
+    const result = await reviewWith(config("succeed"), ["--conversion", "schema.json", "--source", "report.pdf"]);
+
+    expect(result.code).not.toBe(0);
+    expect(result.disposed).toEqual(["converter", "loader"]);
+  });
+
+  it("keeps a frozen loader shared with a supplied converter unchanged and disposes once", async () => {
+    const frozen = sharedLoaderConfig(true)
+      .replace("const loader = {", "const loader = Object.freeze({")
+      .replace("},\n};\nexport default", "},\n});\nexport default");
+    const result = await reviewWith(frozen, ["report.pdf"]);
+
+    expect(result.code).toBe(0);
+    expect(result.disposed).toEqual(["loader"]);
+  });
+
   it("disposes the configured loader once when the input file is missing", async () => {
     const result = await reviewWith(sharedLoaderConfig(false), ["missing.pdf"]);
 

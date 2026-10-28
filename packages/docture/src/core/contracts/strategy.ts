@@ -1,3 +1,4 @@
+import type { DisposalScope } from "./disposal.js";
 /**
  * The extraction-strategy contract.
  *
@@ -8,6 +9,7 @@
 
 import type { DocumentFact, DocumentFeatures } from "../domain/document.js";
 import type { LineSourceId } from "../domain/conversion.js";
+import type { EvidenceSourceId } from "../domain/evidence.js";
 import type { LoadedDocument } from "../domain/geometry.js";
 import type { Logger } from "../domain/logger.js";
 import type { ClassificationResult, ExtractionConflict, Usage, ValidationIssue } from "../domain/result.js";
@@ -69,8 +71,8 @@ export interface OutcomeCitation {
   /** Object keys and array indexes from the root of `data`. */
   readonly path: readonly (string | number)[];
   readonly status: "verified" | "cited-unverified";
-  /** For `verified`, the lines the match spans. Otherwise every cited line that exists. */
-  readonly ids: readonly LineSourceId[];
+  /** Verified source records, or every cited record that exists when unverified. */
+  readonly ids: readonly EvidenceSourceId[];
   readonly value: unknown;
   /**
    * For `verified`, the spans the matched occurrence covers: `span` indexes the
@@ -118,10 +120,10 @@ export interface ExtractionStrategy {
    * pipeline repairs only strategies that implement it, up to `maxRepairs` times.
    */
   repair?(ctx: StrategyContext, previous: RepairInput): Promise<StrategyOutcome>;
-  dispose?(): Promise<void>;
+  dispose?(scope?: DisposalScope): Promise<void>;
 }
 
 /** Identity helper, for symmetry with `defineLoader`. */
-export function defineStrategy(strategy: ExtractionStrategy): ExtractionStrategy {
+export function defineStrategy<const S extends ExtractionStrategy>(strategy: S): S {
   return strategy;
 }

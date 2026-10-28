@@ -269,7 +269,10 @@ export { consoleLogger, silentLogger } from "./domain/logger.js";
 export type { Logger } from "./domain/logger.js";
 
 // ── Sources ─────────────────────────────────────────────────────────────────────
-export { resolveSource, sniffMimeType } from "./pipeline/source.js";
+export { resolveSource, sniffMimeType, type SourceResolver } from "./pipeline/source.js";
+export { createDisposalScope, type DisposalScope, type ScopedDisposable } from "./contracts/disposal.js";
+export { createCheckedExtractor } from "./checked.js";
+export { withOcrFallback, type OcrFallbackOptions, type PageOcrQuality, type OcrFallbackWarning } from "./contracts/ocr-fallback.js";
 
 // ── Advanced: drive the pipeline without an Extractor ───────────────────────────
 export { runPipeline } from "./pipeline/run.js";
@@ -282,3 +285,7 @@ export type { ReadDocument } from "./pipeline/read.js";
  * typing one, both reach for the same names without depending on the SDK directly.
  */
 export type { FlexibleSchema, InferSchema } from "@ai-sdk/provider-utils";
+export { isEvidenceSourceId } from "./domain/evidence.js";
+export type { EvidenceSourceId, ElementSourceId, CellSourceId, EvidenceLocation, SourceEvidence } from "./domain/evidence.js";
+export { parseSourceEvidence } from "./conversion/parse.js";
+export type { SourceEvidenceParse } from "./conversion/parse.js";

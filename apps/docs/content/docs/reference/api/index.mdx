@@ -7,7 +7,8 @@ The `docture` root exports core only. Model components, adapters, evaluation, an
 use explicit `docture` subpaths. `@docture/cli` is the second published package.
 
 ```ts
-import { Extractor, contract } from "docture";
+import { contract } from "docture";
+import { Extractor } from "docture/node";
 import { llm } from "docture/llm/text";
 import { vision } from "docture/llm/vision";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";

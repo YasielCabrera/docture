@@ -241,6 +241,6 @@ export class VisionStrategy implements ExtractionStrategy {
 }
 
 /** Functional form. */
-export function vision(options: VisionStrategyOptions): ExtractionStrategy {
+export function vision(options: VisionStrategyOptions): ExtractionStrategy & Pick<VisionStrategy, "requires"> {
   return new VisionStrategy(options);
 }

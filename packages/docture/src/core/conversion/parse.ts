@@ -3,6 +3,7 @@ import type { ValidationIssue } from "../domain/result.js";
 import { DOCUMENT_SCHEMA_V1, DOCUMENT_SCHEMA_V2 } from "./document-schemas.js";
 import { provenanceSegments } from "./provenance.js";
 import { tableIssues } from "./tables.js";
+import { isEvidenceSourceId, type SourceEvidence } from "../domain/evidence.js";
 
 /** The JSON Schema subset `scripts/generate-document-schema.mjs` emits. */
 export interface SchemaNode {
@@ -25,6 +26,28 @@ export type DoctureDocumentParse =
   | { readonly ok: false; readonly issues: readonly ValidationIssue[] };
 
 type Json = Readonly<Record<string, unknown>>;
+
+export type SourceEvidenceParse =
+  | { readonly ok: true; readonly source: SourceEvidence }
+  | { readonly ok: false; readonly issues: readonly ValidationIssue[] };
+
+/** Validate a standalone native evidence record, such as a saved extraction source. */
+export function parseSourceEvidence(value: unknown): SourceEvidenceParse {
+  const schema = DOCUMENT_SCHEMA_V2.properties?.pages?.items?.properties?.evidence?.items;
+  if (schema === undefined) throw new Error("The generated document schema has no native evidence definition.");
+  const issues: ValidationIssue[] = [];
+  check(schema, value, "", issues);
+  if (issues.length > 0) return { ok: false, issues };
+  const source = value as SourceEvidence;
+  if (!isEvidenceSourceId(source.id) || !source.id.startsWith(`p${source.pageNumber}-`)) issues.push({ path: "id", message: "must be a canonical evidence id matching pageNumber" });
+  if (!Number.isSafeInteger(source.pageNumber) || source.pageNumber < 1 || !Number.isSafeInteger(source.order) || source.order < 0) issues.push({ path: "pageNumber", message: "page and source order must be nonnegative safe integers, with page from 1" });
+  if (source.location.kind === "unlocated") {
+    if (source.location.pageNumbers.length === 0 || source.location.pageNumbers.some((number) => !Number.isSafeInteger(number) || number < 1) || new Set(source.location.pageNumbers).size !== source.location.pageNumbers.length) issues.push({ path: "location.pageNumbers", message: "must list distinct positive page numbers" });
+  } else if (source.location.pageNumber !== source.pageNumber) issues.push({ path: "location.pageNumber", message: "must match the evidence page" });
+  if (source.location.kind === "physical" && (!/^sha256:[a-f0-9]{64}$/u.test(source.location.sourceDigest) || Object.values(source.location.box).some((number) => !Number.isFinite(number) || number < 0))) issues.push({ path: "location", message: "physical evidence requires a bound SHA-256 and finite nonnegative box" });
+  if (source.granularity === "table-cell" && (![source.row, source.column].every((number) => Number.isSafeInteger(number) && number >= 0) || ![source.rowSpan, source.colSpan].every((number) => Number.isSafeInteger(number) && number >= 1))) issues.push({ path: "row", message: "cell coordinates and spans must be safe integers" });
+  return issues.length === 0 ? { ok: true, source } : { ok: false, issues };
+}
 
 const at = (path: string, key: string | number): string => (path === "" ? String(key) : `${path}.${key}`);
 
@@ -182,6 +205,26 @@ function crossFieldIssues(document: DoctureDocument): ValidationIssue[] {
       }
     });
   });
+  const elements = new Map(document.pages.flatMap((page) => page.elements).map((element) => [element.id, element]));
+  const evidenceIds = new Set<string>();
+  const pageNumbers = new Set(document.pages.map((page) => page.pageNumber));
+  document.pages.forEach((page, pageIndex) => (page.evidence ?? []).forEach((source, index) => {
+    const path = `pages.${pageIndex}.evidence.${index}`;
+    if (!isEvidenceSourceId(source.id) || evidenceIds.has(source.id)) issues.push({ path: `${path}.id`, message: "must be a unique canonical evidence id" });
+    evidenceIds.add(source.id);
+    if (source.pageNumber !== page.pageNumber || !source.id.startsWith(`p${page.pageNumber}-`)) issues.push({ path: `${path}.pageNumber`, message: "must match the evidence id and holding page" });
+    if (!Number.isInteger(source.order) || source.order < 0) issues.push({ path: `${path}.order`, message: "must be a nonnegative integer" });
+    const element = elements.get(source.elementId);
+    if (element === undefined) issues.push({ path: `${path}.elementId`, message: "must name a normalized element" });
+    if (source.location.kind === "unlocated") {
+      if (source.location.pageNumbers.length === 0 || source.location.pageNumbers.some((number) => !pageNumbers.has(number)) || new Set(source.location.pageNumbers).size !== source.location.pageNumbers.length) issues.push({ path: `${path}.location.pageNumbers`, message: "must list distinct known pages" });
+    } else if (source.location.pageNumber !== source.pageNumber) issues.push({ path: `${path}.location.pageNumber`, message: "must match the evidence page" });
+    if (source.location.kind === "physical") {
+      if (!/^sha256:[a-f0-9]{64}$/u.test(source.location.sourceDigest)) issues.push({ path: `${path}.location.sourceDigest`, message: "must identify the bound original bytes with SHA-256" });
+      if (Object.values(source.location.box).some((value) => !Number.isFinite(value) || value < 0)) issues.push({ path: `${path}.location.box`, message: "must have finite nonnegative coordinates and dimensions" });
+    }
+    if (source.granularity === "table-cell" && (element?.kind !== "table" || !Number.isInteger(source.row) || !Number.isInteger(source.column) || source.row < 0 || source.column < 0 || !Number.isInteger(source.rowSpan) || !Number.isInteger(source.colSpan) || source.rowSpan < 1 || source.colSpan < 1 || source.row + source.rowSpan > element.rows.length || source.column + source.colSpan > (element.rows[0]?.length ?? 0))) issues.push({ path, message: "cell evidence must address a valid span in its table" });
+  }));
   return issues;
 }
 

@@ -24,7 +24,8 @@
  *   9. CITATIONS — which printed line shows each value, checked
  */
 
-import { CompletionStrategy, Extractor, contract, type ExtractionResult } from "docture";
+import { CompletionStrategy, contract, type ExtractionResult } from "docture";
+import { Extractor } from "docture/node";
 import {
   DEFAULT_SYSTEM_PROMPT,
   LLM,

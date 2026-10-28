@@ -14,6 +14,10 @@ import {
 import type { LoadedDocument, LoadedSource } from "../domain/geometry.js";
 import type { DocumentLoader } from "../contracts/loader.js";
 
+function hasNativeText(document: LoadedDocument): boolean {
+  return document.pages.some((page) => page.evidence?.some((source) => source.text.trim() !== "") === true);
+}
+
 export function documentFeatures(
   document: LoadedDocument,
   loader: DocumentLoader,
@@ -34,7 +38,7 @@ export function documentFeatures(
     mimeType,
     pageCount: document.pages.length,
     textLength,
-    hasTextLayer: textLength >= MIN_TEXT_LAYER_CHARS,
+    hasTextLayer: textLength >= MIN_TEXT_LAYER_CHARS || hasNativeText(document),
     hasGeometry,
     hasRenderablePages,
     form: document.form,
@@ -75,7 +79,7 @@ export function preloadedFeatures(source: LoadedSource): DocumentFeatures {
     mimeType: source.mimeType ?? "application/octet-stream",
     pageCount: document.pages.length,
     textLength,
-    hasTextLayer: textLength >= MIN_TEXT_LAYER_CHARS,
+    hasTextLayer: textLength >= MIN_TEXT_LAYER_CHARS || hasNativeText(document),
     hasGeometry: document.pages.some((p) => (p.lines?.length ?? 0) > 0),
     hasRenderablePages: document.pages.some((p) => p.image !== undefined),
     form: document.form,

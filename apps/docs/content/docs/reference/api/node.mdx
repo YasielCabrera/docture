@@ -1,0 +1,26 @@
+---
+title: Node file sources
+description: Explicit local filesystem access with the same shared core modules.
+---
+
+`docture/node` exports the core API with Node source defaults for `Extractor`, `DocumentConverter`, `Process`, `createExtractor`, `createCheckedExtractor` and `createDocumentConverter`. `resolveSource` is an alias of `resolveNodeSource`. All errors and components use the same relative core modules as the portable entry.
+
+```ts
+import { resolveNodeSource, DocumentConverter } from "docture/node";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+
+async function convertLocalFile(path: string) {
+  const converter = new DocumentConverter({ loaders: [new DocumentLoaderPdfJs()] });
+  try {
+    return await converter.convert(await resolveNodeSource(path), { format: "text" });
+  } finally {
+    await converter.dispose();
+  }
+}
+```
+
+The entry is available only under Node's export condition. The portable root and `docture/chunk` bundle for browsers and workers without Node globals. They accept bytes, ArrayBuffer, RawDocument, LoadedSource and HTTP URLs. Local paths and file URLs through the portable root raise `UnsupportedSourceError`.
+
+Node paths resolve from the process working directory. File URLs retain platform URL decoding. File read failures retain their filesystem cause and recovery advice. Importing the Node entry registers no global resolver. A caller can instead pass `sourceResolver: resolveNodeSource` to a core or LLM factory. Existing code that passes paths to the root must change its import or configure that resolver.
+
+Browser TypeScript consumers currently need `skipLibCheck: true` when using the schema helpers. Their upstream declarations reference the Node `Buffer` global in unrelated helper types. Core browser runtime checks run without `Buffer` or `process`; this declaration limitation does not add a runtime Node dependency.

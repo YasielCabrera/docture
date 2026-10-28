@@ -152,3 +152,13 @@ for (const sample of conversionCorpus) {
   console.log(sample.id, report.failed);
 }
 ```
+
+## Experimental empirical thresholds
+
+`calibrateFields(samples, options)` returns a descriptive `CalibrationReport`. `CalibrationSample` retains labelled expected data and extraction data/citations. `CalibrationOptions` selects target precision, minimum support, scorer options and explicit corpus/model/engine context. Each `CalibrationPair` retains document, segment-aware path, field status, evidence status and available OCR confidence.
+
+Each `FieldThresholdReport` includes complete-tie `ThresholdCandidate` rows and either a supported threshold or a `no-supported-threshold` result. Candidates include every equal-confidence sample together. The report selects the candidate with the widest accepted support that meets the requested empirical precision. It reports accepted, rejected and unknown counts. Missing evidence, uncited values and omissions have unknown confidence; hallucinations count as incorrect predictions. Native element evidence without OCR confidence remains unknown. No value receives invented confidence.
+
+`formatCalibration` renders the same report as text. `RunRecord` and `recordRun` retain citations, citationSources and evidenceSources. Original array positions and literal dotted keys remain distinct. Calibration rejects `alignArraysBy` until it can retain a verified evidence-position mapping. These are in-sample statistics, with no production acceptance guarantee. The report never changes extraction thresholds.
+
+Calibration uses the ordinary scorer's date comparison for array fields and literal dotted keys. Its report and citation lookup retain canonical field paths.

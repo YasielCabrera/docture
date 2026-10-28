@@ -87,10 +87,10 @@ export interface LlmStrategyOptions {
   /** AI SDK telemetry. Inputs and outputs are not recorded unless enabled here. */
   readonly telemetry?: LlmTelemetryOptions;
   /**
-   * Ask the model which loader lines show each value, and check each value against
-   * them. Default `false`. Adds line ids to the prompt and a `citations` list to the
-   * answer, so requests cost more tokens. Only documents with positioned lines can
-   * be cited; see `result.citations`.
+   * Ask the model which source records show each value, and verify against their
+   * text. Default false. Real positioned lines and native element/cell evidence
+   * retain their own granularity. Plain text without addressable evidence stays
+   * uncited. Cited requests add IDs and a citations list to the model exchange.
    */
   readonly citations?: boolean;
 }
@@ -325,6 +325,6 @@ function rawAnswer(output: unknown): unknown {
 }
 
 /** Functional form. `llm({ model })` reads better in a `strategies` array. */
-export function llm(options: LlmStrategyOptions): ExtractionStrategy {
+export function llm(options: LlmStrategyOptions): ExtractionStrategy & Pick<LlmStrategy, "requires"> {
   return new LlmStrategy(options);
 }

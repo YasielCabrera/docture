@@ -91,7 +91,7 @@ export class MuPdfRasterizer implements Rasterizer {
     const pdf = withMuPdfLog(ctx.logger, () => openDocument(mupdf, document.bytes, this.options.password));
     try {
       const pageCount = withMuPdfLog(ctx.logger, () => pdf.countPages());
-      const wanted = requestedPageNumbers(pageCount, options.pages);
+      const wanted = requestedPageNumbers(pageCount, options.pages, options.maxPages);
       const rendered: RasterPage[] = [];
 
       for (const pageNumber of wanted) {

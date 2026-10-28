@@ -320,6 +320,8 @@ export const missingEngineRuntime = String.raw`
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { DoctureError, LoadFailedError, MissingEngineError, createDocumentConverter, silentLogger } from "docture";
+import { DocumentLoaderMammoth } from "docture/loaders/mammoth";
+import { expandEmail } from "docture/inputs/email";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { DocumentLoaderMuPdf, MuPdfRasterizer } from "docture/loaders/mupdf";
 import { DocumentLoaderTesseract } from "docture/loaders/tesseract";
@@ -333,6 +335,8 @@ const image = { bytes: png, mimeType: "image/png" };
 const tiff = { bytes: new Uint8Array(Buffer.from("${twoPageTiffWhite4x2Black2x4Base64}", "base64")), mimeType: "image/tiff" };
 const context = { signal: new AbortController().signal, logger: silentLogger };
 const probes = [
+  ["docture/loaders/mammoth", ["mammoth"], () => new DocumentLoaderMammoth().load({bytes:new Uint8Array([1]),mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"},context)],
+  ["docture/inputs/email", ["postal-mime"], () => expandEmail({bytes:new TextEncoder().encode("From: a@example.test\r\nSubject: hello\r\n\r\nbody"),mimeType:"message/rfc822"})],
   ["docture/loaders/pdfjs", ["pdfjs-dist"], () => new DocumentLoaderPdfJs().load(pdf, context)],
   ["docture/loaders/mupdf", ["mupdf"], () => new DocumentLoaderMuPdf().load(pdf, context)],
   ["docture/loaders/mupdf", ["mupdf"], () => new MuPdfRasterizer().rasterize(pdf, { pages: [1] }, context)],
@@ -541,7 +545,7 @@ export default {
 };
 `,
   noStrategy: String.raw`
-import { Extractor } from "docture";
+import { Extractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 export default { extractor: () => new Extractor().loadDocumentLoader(new DocumentLoaderPdfJs()) };
 `,
@@ -624,16 +628,16 @@ const typedHeader = 'import { defineConfig } from "@docture/cli";\n';
 
 export const typedCliConfigs = {
   docture: {
-    "extractor-value.config.ts": typedHeader + String.raw`import { createExtractor } from "docture";
+    "extractor-value.config.ts": typedHeader + String.raw`import { createExtractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 export default defineConfig({ extractor: createExtractor({ loaders: [new DocumentLoaderPdfJs()] }) });
 `,
-    "extractor-factory.config.ts": typedHeader + String.raw`import { Extractor } from "docture";
+    "extractor-factory.config.ts": typedHeader + String.raw`import { Extractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 export default defineConfig({ extractor: () => new Extractor().loadDocumentLoader(new DocumentLoaderPdfJs()) });
 `,
     "extractor-async.config.ts": typedHeader + String.raw`import { writeFileSync } from "node:fs";
-import { createExtractor } from "docture";
+import { createExtractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 export default defineConfig({
   extractor: async () => createExtractor({
@@ -646,16 +650,17 @@ export default defineConfig({
   }),
 });
 `,
-    "converter-value.config.ts": typedHeader + String.raw`import { createDocumentConverter } from "docture";
+    "converter-value.config.ts": typedHeader + String.raw`import { createDocumentConverter } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 export default defineConfig({ converter: createDocumentConverter({ loaders: [new DocumentLoaderPdfJs()] }) });
 `,
-    "converter-factory.config.ts": typedHeader + String.raw`import { DocumentConverter } from "docture";
+    "converter-factory.config.ts": typedHeader + String.raw`import { DocumentConverter } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 export default defineConfig({ converter: () => new DocumentConverter({ loaders: [new DocumentLoaderPdfJs()] }) });
 `,
     "converter-async.config.ts": typedHeader + String.raw`import { writeFileSync } from "node:fs";
-import { createDocumentConverter, type DocumentLoader } from "docture";
+import { type DocumentLoader } from "docture";
+import { createDocumentConverter } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 const pdf = new DocumentLoaderPdfJs();
 const recording: DocumentLoader = {
@@ -694,7 +699,7 @@ export default defineConfig({
       message: /is missing the following properties from type 'CliExtractor': (?=.*\bextractBatch\b)(?=.*\bclassify\b).*\bextract\b/,
     },
     "converter-given-extractor.config.ts": {
-      source: typedHeader + String.raw`import { createExtractor } from "docture";
+      source: typedHeader + String.raw`import { createExtractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 export default defineConfig({ converter: () => createExtractor({ loaders: [new DocumentLoaderPdfJs()] }) });
 `,
@@ -729,7 +734,7 @@ const protocolErrors = [];
 client.onerror = error => protocolErrors.push(String(error));
 await client.connect(transport);
 const { tools } = await client.listTools();
-assert.deepEqual(tools.map(tool => tool.name), ["convert", "inspect"]);
+assert.deepEqual(tools.map(tool => tool.name), ["convert", "inspect", "extract"]);
 const inspected = await client.callTool({ name: "inspect", arguments: { source: "invoice.pdf" } });
 assert.equal(inspected.isError, false);
 const report = inspected.structuredContent;

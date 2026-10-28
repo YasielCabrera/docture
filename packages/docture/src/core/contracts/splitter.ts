@@ -1,3 +1,4 @@
+import type { DisposalScope } from "./disposal.js";
 /**
  * The splitter contract.
  *
@@ -76,7 +77,7 @@ export interface Splitter {
    * exactly what `EAGER` means.
    */
   splitEager?(pages: readonly LoadedPage[], ctx: SplitContext): Promise<DocGroups>;
-  dispose?(): Promise<void>;
+  dispose?(scope?: DisposalScope): Promise<void>;
 }
 
 /** Identity helper, for symmetry with `defineLoader`. */

@@ -49,11 +49,11 @@ function envelopeOf(result: Record<string, unknown>): Envelope {
 }
 
 describe("the MCP server", () => {
-  it("lists convert and inspect with JSON Schema inputs", async () => {
+  it("lists conversion, inspection and configured extraction with JSON Schema inputs", async () => {
     const { client, server } = await connect(await documents());
     const { tools } = await client.listTools();
 
-    expect(tools.map((tool) => tool.name)).toEqual(["convert", "inspect"]);
+    expect(tools.map((tool) => tool.name)).toEqual(["convert", "inspect", "extract"]);
     expect(tools[0]?.inputSchema).toEqual({
       type: "object",
       properties: {

@@ -246,6 +246,7 @@ export const CONVERT: CommandSpec = {
     OUTPUT_FORMAT,
     CONVERSION_TARGET,
     ASSETS,
+    { name: "pages", type: "string", placeholder: "<n,n,...>", describe: "Convert selected one-based pages, keeping original page numbers" },
     {
       name: "assist-layout",
       type: "boolean",
@@ -351,6 +352,9 @@ export const EVAL: CommandSpec = {
       placeholder: "<usd>",
       describe: "Exit 1 if priced total cost exceeds this; requires pricing",
     },
+    { name: "calibrate", type: "boolean", describe: "Report experimental empirical OCR field thresholds without applying them" },
+    { name: "target-precision", type: "string", placeholder: "<n>", describe: "Calibration target empirical precision in (0,1]", defaultLabel: "0.99" },
+    { name: "min-support", type: "string", placeholder: "<n>", describe: "Minimum accepted labelled samples for a candidate threshold", defaultLabel: "5" },
     { name: "report", type: "string", placeholder: "<path>", describe: "Write the scoreboard here too" },
     {
       name: "align-by",
@@ -482,7 +486,47 @@ export const REVIEW: CommandSpec = {
   ],
 };
 
-export const COMMANDS: readonly CommandSpec[] = [EXTRACT, CONVERT, CLASSIFY, INSPECT, EVAL, REVIEW, MCP];
+export const SERVE: CommandSpec = {
+  name: "serve",
+  summary: "Serve byte-based convert, inspect and configured-schema extract over HTTP",
+  positionals: [],
+  description: "Keeps configured loaders and clients warm. Binds to localhost by default. Non-loopback binding requires DOCTURE_SERVE_TOKEN.",
+  flags: [
+    { name: "host", type: "string", describe: "Address to bind", defaultLabel: "127.0.0.1" },
+    { name: "port", type: "string", describe: "Port to bind; 0 selects an ephemeral port", defaultLabel: "8787" },
+    { name: "schema", type: "string", multiple: true, placeholder: "<name=module>", describe: "Allow a named schema; a plain module uses default" },
+    { name: "concurrency", type: "string", describe: "Maximum active requests", defaultLabel: "4" },
+    { name: "max-queue", type: "string", describe: "Maximum queued requests", defaultLabel: "16" },
+    { name: "max-body-bytes", type: "string", describe: "Maximum encoded JSON request bytes", defaultLabel: "16777216" },
+    { name: "body-timeout", type: "string", describe: "Request body deadline in milliseconds", defaultLabel: "30000" },
+    { name: "shutdown-timeout", type: "string", describe: "Drain deadline before aborting active work", defaultLabel: "30000" },
+    ...MODEL,
+    ...COMMON,
+  ],
+  examples: ["docture serve --port 8787 --schema invoice=./invoice.ts"],
+};
+
+export const PAPERLESS: CommandSpec = {
+  name: "paperless",
+  summary: "Read, extract, plan and explicitly apply configured Paperless mappings",
+  positionals: [
+    { name: "action", describe: "read, search, extract, plan or apply", required: true, variadic: false },
+    { name: "source", describe: "Document ID, or saved plan path for apply", required: false, variadic: false },
+  ],
+  description: "Uses the configured Paperless instance and named schemas. Credentials and mappings cannot be replaced by command arguments.",
+  flags: [
+    { name: "schema", type: "string", placeholder: "<name>", describe: "Configured schema and mapping name" },
+    { name: "query", type: "string", describe: "Bounded native document query" },
+    { name: "limit", type: "string", describe: "Maximum query results within the configured bound" },
+    { name: "version", type: "string", describe: "Selected file-version ID" },
+    { name: "out", type: "string", short: "o", describe: "Save the returned artifact to this path" },
+    { name: "dry-run", type: "boolean", describe: "Print the proposed plan and perform no Paperless writes" },
+    ...COMMON,
+  ],
+  examples: ["docture paperless plan 42 --schema invoice", "docture paperless apply plan.json --schema invoice --dry-run"],
+};
+
+export const COMMANDS: readonly CommandSpec[] = [EXTRACT, CONVERT, CLASSIFY, INSPECT, EVAL, REVIEW, MCP, SERVE, PAPERLESS];
 
 /** Reserved on the help route only, so `extract --json` stays an unknown option. */
 export const HELP_JSON: FlagSpec = {

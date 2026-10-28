@@ -291,7 +291,7 @@ if (RUN_OCR) {
       await loader.dispose();
     });
 
-    it("honours maxPages, and still reports the document's real length", async () => {
+    it("honours maxPages without claiming the capped count is the document's length", async () => {
       const pdf = await makeInvoicePdf({ seed: 607, lineItemCount: 45 });
       expect(pdf.pageCount).toBeGreaterThan(1);
 
@@ -299,7 +299,8 @@ if (RUN_OCR) {
       const document = await loader.load({ bytes: pdf.bytes, mimeType: "application/pdf" }, ctx);
 
       expect(document.pages).toHaveLength(1);
-      expect(document.meta).toMatchObject({ pageCount: pdf.pageCount, pagesRead: 1 });
+      expect(document.meta).toMatchObject({ pagesRead: 1 });
+      expect(document.meta).not.toHaveProperty("pageCount");
       await loader.dispose();
     });
 

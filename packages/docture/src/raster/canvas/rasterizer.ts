@@ -163,7 +163,7 @@ export class NapiCanvasRasterizer implements Rasterizer {
     }
 
     try {
-      const wanted = requestedPageNumbers(pdf.numPages, options.pages);
+      const wanted = requestedPageNumbers(pdf.numPages, options.pages, options.maxPages);
       const rendered: RasterPage[] = [];
 
       for (const pageNumber of wanted) {

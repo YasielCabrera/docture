@@ -1,3 +1,4 @@
+import type { DisposalScope } from "./disposal.js";
 /**
  * The loader contract.
  *
@@ -16,8 +17,8 @@ import type { Logger } from "../domain/logger.js";
 
 /**
  * What a loader can produce. The three booleans are TYPE parameters, not just
- * values, so a strategy can demand a capability and the compiler enforces it at
- * the wiring site — see {@link GeometryLoader}.
+ * values. createCheckedExtractor checks advertised feasibility for literal wiring;
+ * normal constructors and dynamic/fallback wiring use runtime document facts.
  */
 export interface LoaderCapabilities<
   Text extends boolean = boolean,
@@ -56,7 +57,7 @@ export interface DocumentLoader<C extends LoaderCapabilities = LoaderCapabilitie
   readonly capabilities: C;
   load(document: RawDocument, ctx: LoadContext): Promise<LoadedDocument>;
   /** Release engines, workers, WASM instances. Called once, by whoever composed. */
-  dispose?(): Promise<void>;
+  dispose?(scope?: DisposalScope): Promise<void>;
 }
 
 /**

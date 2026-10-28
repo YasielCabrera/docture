@@ -18,7 +18,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { Extractor, defineLoader, defineRasterizer, defineStrategy, imageSize, inferForm, linesFromWords, silentLogger, textFromLines, type ExtractionStrategy, type LoadedPage, type PositionedWord, type Rasterizer } from "docture";
+import { defineLoader, defineRasterizer, defineStrategy, imageSize, inferForm, linesFromWords, silentLogger, textFromLines, type ExtractionStrategy, type LoadedPage, type PositionedWord, type Rasterizer } from "docture";
+import { Extractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { MuPdfRasterizer } from "docture/loaders/mupdf";
 import { z } from "zod";

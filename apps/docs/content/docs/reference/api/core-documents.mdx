@@ -20,11 +20,16 @@ sniffMimeType(bytes: Uint8Array): string | undefined
 isLoadedSource(source: DocumentSource): source is LoadedSource
 ```
 
-`resolveSource()` reads file paths and `file:` URLs, fetches HTTP and HTTPS URLs, and
-normalizes byte inputs. It throws `UnsupportedSourceError` for unsupported protocols,
-failed HTTP responses, empty input, a file that cannot be read, or a `LoadedSource` passed
-directly to this low-level function. A file read failure keeps the file-system error as
-`cause`. Network errors propagate from `fetch()`.
+The portable `resolveSource()` fetches HTTP and HTTPS URLs and normalizes byte inputs.
+Local file paths and `file:` URLs require `resolveNodeSource()` from `docture/node`,
+or a Node extractor or converter that supplies that resolver. `DocumentSource` includes
+these file forms so the same source type can be used with explicit Node wiring.
+
+The portable resolver throws `UnsupportedSourceError` for unsupported protocols,
+local files, failed HTTP requests or body reads, empty input, and a `LoadedSource` passed
+directly to this low-level function. Network and body-read failures retain their cause.
+Caller cancellation keeps its abort reason. The Node resolver also maps file read failures
+and retains the file-system cause.
 `sniffMimeType()` recognizes supported byte signatures without reading the full document.
 
 ## Document data loader
@@ -71,6 +76,8 @@ pipeline eligibility still checks the loaded document at runtime.
 
 `LoadedDocument` contains ordered `pages`, whole-document `text`, inferred `form`, loader
 name, and optional metadata. Pages in `document.text` are joined with a form feed.
+`conversionWarnings` retains typed loader diagnostics in conversion results and saved
+JSON. `sourceMetadata` holds serializable source provenance separately from runtime `meta`.
 
 `LoadedPage` contains a 1-based `pageNumber`, dimensions in PDF points, page `text`,
 optional positioned `lines`, optional `LayoutBlock` and `LoadedAsset` values, and optional
@@ -191,3 +198,7 @@ the pipeline still projects and validates the selected pages.
 `DocumentFeatures.pageCount` describes the selected loaded pages. PDF loader metadata
 can also report the physical source count. Selected OCR loads omit that physical count
 when the rasterizer cannot provide it.
+
+## Resolve portable sources
+
+`SourceResolver` is a structural function from `DocumentSource` and an optional abort signal to `Promise<RawDocument>`. The portable `resolveSource` accepts bytes, ArrayBuffer, raw documents and HTTP URLs. Loaded sources bypass resolution in pipelines. Local paths and file URLs require `docture/node` or a caller-configured resolver. HTTP transport and response-body failures raise `UnsupportedSourceError` with their cause; caller abort reasons remain intact.

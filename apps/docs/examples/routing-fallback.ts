@@ -1,5 +1,6 @@
 import { openai } from "@ai-sdk/openai";
-import { Extractor, defineStrategy, type RoutingPolicy } from "docture";
+import { defineStrategy, type RoutingPolicy } from "docture";
+import { Extractor } from "docture/node";
 import { llm } from "docture/llm/text";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { Invoice } from "./invoice.js";

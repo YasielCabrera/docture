@@ -13,6 +13,8 @@ export type { FieldResult, FieldStatus, Score, ScoreOptions } from "./scorer.js"
 
 export { aggregate, formatFailures, formatScoreboard, recordRun } from "./report.js";
 export type { Aggregate, FieldAggregate, RunRecord } from "./report.js";
+export { calibrateFields, formatCalibration } from "./calibration.js";
+export type { CalibrationSample, CalibrationOptions, CalibrationPair, ThresholdCandidate, FieldThresholdReport, CalibrationReport } from "./calibration.js";
 export { gate } from "./gate.js";
 export type { GateOptions, GateResult } from "./gate.js";
 export { checkConversion } from "./conversion.js";

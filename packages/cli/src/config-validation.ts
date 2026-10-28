@@ -1,6 +1,7 @@
 import type { DoctureConfig } from "./define-config.js";
 import { nearest } from "./cli/args.js";
 import { UsageError } from "./cli/errors.js";
+import { isPaperlessConfig } from "./paperless/config.js";
 
 type Rule = { readonly accepts: (value: unknown) => boolean; readonly description: string };
 
@@ -67,6 +68,8 @@ function pricing(value: unknown): boolean {
 }
 
 const RULES: Readonly<Record<keyof DoctureConfig, Rule>> = {
+  paperless: { accepts: isPaperlessConfig, description: "Paperless connection and allowlisted schema mappings" },
+  schemas: { accepts: (value) => object(value) && Object.entries(value).length <= 100 && Object.entries(value).every(([key, item]) => key.trim() !== "" && schema(item)), description: "a bounded record of named schemas or contracts" },
   extractor: { accepts: (value) => typeof value === "function" || extractor(value), description: "an extractor or a factory" },
   converter: { accepts: (value) => typeof value === "function" || converter(value), description: "a converter or a factory" },
   loaders: { accepts: listOf(loader), description: "an array of named loaders with load() and capabilities" },

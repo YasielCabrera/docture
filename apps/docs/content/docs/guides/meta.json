@@ -15,6 +15,12 @@
     "custom-loader",
     "measuring-accuracy",
     "cli",
-    "migration"
+    "migration",
+    "selected-page-ocr",
+    "docling",
+    "paperless",
+    "http-service",
+    "container-images",
+    "troubleshooting"
   ]
 }

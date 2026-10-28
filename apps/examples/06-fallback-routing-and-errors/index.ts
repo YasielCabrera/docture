@@ -18,7 +18,8 @@
  *   7. TWO STRATEGIES WITH ONE NAME is a wiring error, not a shadowing bug
  */
 
-import { ContractViolationError, DuplicateComponentError, Extractor, ExtractionFailedError, LoadFailedError, MissingEngineError, ModelOutputError, PageSelectionError, NoEligibleLoaderError, NoEligibleStrategyError, NoConvertibleContentError, SplitFailedError, TimeoutError, UnclassifiedGroupError, UnsupportedSourceError, consoleLogger, declarationOrder, defineStrategy, errorCodeOf, isAbortError, messageOf, silentLogger, type ExtractionStrategy, type Logger, type DoctureErrorCode, type RoutingPolicy } from "docture";
+import { ContractViolationError, DuplicateComponentError, ExtractionFailedError, LoadFailedError, MissingEngineError, ModelOutputError, PageSelectionError, NoEligibleLoaderError, NoEligibleStrategyError, NoConvertibleContentError, SplitFailedError, TimeoutError, UnclassifiedGroupError, UnsupportedSourceError, consoleLogger, declarationOrder, defineStrategy, errorCodeOf, isAbortError, messageOf, silentLogger, type ExtractionStrategy, type Logger, type DoctureErrorCode, type RoutingPolicy } from "docture";
+import { Extractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { Invoice } from "../shared/contracts.js";
 import { odooInvoiceParser } from "../shared/parsers/odoo.js";

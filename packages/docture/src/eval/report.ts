@@ -13,6 +13,12 @@ export interface RunRecord {
   readonly loader: string;
   readonly usage: Usage;
   readonly attempts: readonly Attempt[];
+  readonly citations?: ExtractionResult<unknown>["citations"];
+  readonly citationSources?: ExtractionResult<unknown>["citationSources"];
+  readonly evidenceSources?: ExtractionResult<unknown>["evidenceSources"];
+  readonly sourceDigest?: string;
+  readonly physicalSourceDigest?: string;
+  readonly sourceMetadata?: Readonly<Record<string, unknown>>;
 }
 
 export interface Aggregate {
@@ -48,7 +54,7 @@ function mean(values: readonly number[]): number {
 export function recordRun(
   document: string,
   score: Score,
-  result: Pick<ExtractionResult<unknown>, "method" | "loader" | "usage" | "attempts">,
+  result: Pick<ExtractionResult<unknown>, "method" | "loader" | "usage" | "attempts" | "citations" | "citationSources" | "evidenceSources" | "sourceDigest" | "physicalSourceDigest" | "sourceMetadata">,
 ): RunRecord {
   return {
     document,
@@ -57,6 +63,12 @@ export function recordRun(
     loader: result.loader,
     usage: result.usage,
     attempts: result.attempts,
+    ...(result.citations === undefined ? {} : { citations: result.citations }),
+    ...(result.citationSources === undefined ? {} : { citationSources: result.citationSources }),
+    ...(result.evidenceSources === undefined ? {} : { evidenceSources: result.evidenceSources }),
+    ...(result.sourceDigest === undefined ? {} : { sourceDigest: result.sourceDigest }),
+    ...(result.physicalSourceDigest === undefined ? {} : { physicalSourceDigest: result.physicalSourceDigest }),
+    ...(result.sourceMetadata === undefined ? {} : { sourceMetadata: result.sourceMetadata }),
   };
 }
 

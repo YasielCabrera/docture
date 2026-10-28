@@ -7,6 +7,7 @@ import {
   type LayoutBox,
   type LayoutPage,
   type SourceLine,
+  type SourceEvidence,
   type TableElement,
 } from "docture";
 import type { ReviewedExtraction } from "./input.js";
@@ -59,6 +60,8 @@ aside{position:sticky;top:20px;width:340px;max-height:calc(100vh - 40px);overflo
 .status-verified{--status:var(--verified)}.status-cited-unverified{--status:var(--unverified)}
 .status-uncited{--status:var(--uncited)}.status-not-requested{--status:var(--none)}
 .notice{background:#fef3c7;padding:8px;margin:0 0 8px}
+.source-record{padding:8px;border:1px solid #d4d4d8;margin:8px 0}.source-record.selected{background:#dbeafe;border-color:#2563eb}.source-record p{white-space:pre-wrap}.source-record code{overflow-wrap:anywhere}
+.stored-text{background:#fff;border:1px solid #d4d4d8;padding:12px}.stored-text pre{white-space:pre-wrap;overflow-wrap:anywhere}
 `;
 
 function htmlDocument(title: string, body: string, script?: string): string {
@@ -144,6 +147,7 @@ interface Placed {
 }
 
 export interface ConversionReview {
+  readonly sourceDigest?: string;
   readonly title: string;
   readonly pages: readonly LayoutPage[];
   /** One image per page number in `pages`. */
@@ -173,7 +177,7 @@ export function conversionReviewHtml(review: ConversionReview): string {
   const sections = review.pages.map((page) => {
     const image = review.images.get(page.pageNumber);
     const here = placed.get(page.pageNumber) ?? [];
-    const overlays = here.map(({ element, box, segment }) => {
+    const overlays = (page.evidence !== undefined && review.sourceDigest === undefined ? [] : here).map(({ element, box, segment }) => {
       const label = `${element.id} · ${element.kind}${segment === undefined ? "" : ` · part ${segment}`}`;
       return (
         `<div class="box kind-${element.kind}" data-element="${escapeHtml(element.id)}" data-kind="${element.kind}"` +
@@ -203,7 +207,7 @@ export function conversionReviewHtml(review: ConversionReview): string {
 
   const count = review.pages.reduce((sum, page) => sum + page.elements.filter((e) => e.kind !== "page-break").length, 0);
   const body = [
-    `<header><h1>${escapeHtml(review.title)}</h1><p>${review.pages.length} pages, ${count} elements. Hover a box for its id and kind.</p></header>`,
+    `<header><h1>${escapeHtml(review.title)}</h1><p>${review.pages.length} pages, ${count} elements. ${review.images.size === 0 ? "Native text and layout are shown. Page images and physical highlights are unavailable." : "Hover a box for its id and kind."}</p></header>`,
     `<div class="layout"><main>${sections.join("\n")}</main></div>`,
   ].join("\n");
   return htmlDocument(`Review: ${review.title}`, body);
@@ -254,7 +258,7 @@ function reviewFields(extraction: ReviewedExtraction): readonly ReviewField[] {
 }
 
 const SELECT_SCRIPT = `const fields=[...document.querySelectorAll("button.field")];
-const lines=[...document.querySelectorAll(".line[data-line]")];
+const lines=[...document.querySelectorAll(".line[data-line],.source-record[data-line]")];
 function select(button){
 const ids=new Set((button.getAttribute("data-targets")||"").split(" ").filter(Boolean));
 for(const field of fields)field.setAttribute("aria-pressed",String(field===button));
@@ -268,6 +272,7 @@ field.addEventListener("keydown",(event)=>{const next=event.key==="ArrowDown"?fi
 });`;
 
 export interface ExtractionReview {
+  readonly sourceDigest?: string;
   readonly title: string;
   /** Every rendered page; each cited line's page is among them. */
   readonly images: readonly PageImage[];
@@ -278,6 +283,8 @@ export interface ExtractionReview {
 export function extractionReviewHtml(review: ExtractionReview): string {
   const fields = reviewFields(review.extraction);
   const sources: readonly SourceLine[] = review.extraction.cited?.sources ?? [];
+  const native: readonly SourceEvidence[] = review.extraction.cited?.evidenceSources ?? [];
+  const textSource = review.extraction.textSource;
   const buttons = fields.map((field) => {
     const targets = field.ids.length === 0 ? "" : ` data-targets="${escapeHtml(field.ids.join(" "))}"`;
     const status = field.status === "not-requested" ? "not requested" : field.status;
@@ -293,9 +300,11 @@ export function extractionReviewHtml(review: ExtractionReview): string {
     .map((status) => `${fields.filter((field) => field.status === status).length} ${status}`)
     .join(", ");
   const notice =
-    review.extraction.cited === undefined
+    textSource !== undefined
+      ? '<p class="notice">Stored content is logical text. Geometry and physical highlights are unavailable. Form-feed characters do not establish physical page boundaries.</p>'
+      : review.extraction.cited === undefined
       ? '<p class="notice">This result has no citations. Extract with --citations --full, or review with --schema and --model, to see which lines each value came from.</p>'
-      : "";
+      : native.length === 0 ? "" : `<p class="notice">Native citations identify elements or table cells. ${review.images.length === 0 ? "Page images and physical highlights are unavailable." : "Physical boxes require matching bound source bytes."} Exact printed-line highlights are not inferred.</p>`;
 
   const sections = review.images.map((image) => {
     const overlays = sources
@@ -304,6 +313,11 @@ export function extractionReviewHtml(review: ExtractionReview): string {
         (line) =>
           `<div class="line" data-line="${escapeHtml(line.id)}" style="${boxStyle(line.box, image)}" title="${escapeHtml(`${line.id}: ${line.text}`)}"></div>`,
       );
+    for (const source of native) {
+      const location = source.location;
+      if (location.kind !== "physical" || location.pageNumber !== image.pageNumber || location.sourceDigest !== review.sourceDigest) continue;
+      overlays.push(`<div class="line" data-line="${escapeHtml(source.id)}" data-granularity="${source.granularity}" style="${boxStyle(location.box, image)}" title="${escapeHtml(`${source.granularity}: ${source.text}`)}"></div>`);
+    }
     return [
       `<section class="page" data-page="${image.pageNumber}" aria-label="Page ${image.pageNumber}">`,
       `<h2>Page ${image.pageNumber}</h2>`,
@@ -311,12 +325,25 @@ export function extractionReviewHtml(review: ExtractionReview): string {
       "</section>",
     ].join("\n");
   });
+  const records = native.map((source) => {
+    const location = source.location.kind === "physical" ? `Bound physical page ${source.location.pageNumber}` : source.location.kind === "logical" ? `Logical page ${source.location.pageNumber}; no physical box` : `Physical placement unknown; native parent pages ${source.location.pageNumbers.join(", ")}`;
+    const cell = source.granularity === "table-cell" ? `, row ${source.row + 1}, column ${source.column + 1}` : "";
+    return `<article class="source-record" data-line="${escapeHtml(source.id)}" data-granularity="${source.granularity}"><h2>${source.granularity}${cell}</h2><code>${escapeHtml(source.id)}</code><p>${escapeHtml(location)}</p><p>${escapeHtml(source.text)}</p></article>`;
+  });
+  const stored = textSource === undefined ? "" : [
+    '<section class="stored-text" aria-label="Stored source text">',
+    "<h2>Stored source text</h2>",
+    `<p>Digest verified against the saved source descriptor. SHA-256 <code>${escapeHtml(textSource.digest)}</code>.</p>`,
+    `<pre>${escapeHtml(textSource.text)}</pre>`,
+    `<details><summary>Saved source identity</summary><pre>${escapeHtml(textSource.provenanceJson)}</pre></details>`,
+    "</section>",
+  ].join("\n");
 
   const body = [
-    `<header><h1>${escapeHtml(review.title)}</h1><p>${fields.length} fields${review.extraction.cited === undefined ? "" : `: ${counts}`}. Select a field, or move with the arrow keys, to highlight its cited lines.</p></header>`,
+    `<header><h1>${escapeHtml(review.title)}</h1><p>${fields.length} fields${review.extraction.cited === undefined ? "" : `: ${counts}`}. ${textSource === undefined ? "Select a field, or move with the arrow keys, to highlight its cited lines." : "Stored text has no positioned citation evidence."}</p></header>`,
     '<div class="layout">',
     `<aside aria-label="Extracted fields">${notice}<ul class="fields">${buttons.join("\n")}</ul></aside>`,
-    `<main>${sections.join("\n")}</main>`,
+    `<main>${stored}${review.extraction.sourceIdentity === undefined ? "" : `<details><summary>Native source identity</summary><pre>${escapeHtml(review.extraction.sourceIdentity.json)}</pre></details>`}${review.extraction.binarySource === undefined ? "" : `<details><summary>Saved source identity</summary><pre>${escapeHtml(review.extraction.binarySource.provenanceJson)}</pre></details>`}${sections.join("\n")}${records.join("\n")}</main>`,
     "</div>",
   ].join("\n");
   return htmlDocument(`Review: ${review.title}`, body, SELECT_SCRIPT);

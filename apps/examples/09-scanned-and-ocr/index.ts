@@ -28,7 +28,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { Extractor, NoEligibleStrategyError, DoctureError, imageSize, silentLogger, tiffPages, withRasterizer } from "docture";
+import { NoEligibleStrategyError, DoctureError, imageSize, silentLogger, tiffPages, withRasterizer } from "docture";
+import { Extractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { DocumentLoaderTesseract } from "docture/loaders/tesseract";
 import { DocumentLoaderPaddleOcr, PADDLE_MODELS } from "docture/loaders/paddleocr";

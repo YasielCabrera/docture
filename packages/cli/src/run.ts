@@ -25,6 +25,8 @@ const HANDLERS: Readonly<Record<string, () => Promise<Handler>>> = {
   eval: async () => (await import("./commands/eval.js")).evalCommand,
   review: async () => (await import("./commands/review.js")).reviewCommand,
   mcp: async () => (await import("./commands/mcp.js")).mcpCommand,
+  serve: async () => (await import("./commands/serve.js")).serveCommand,
+  paperless: async () => (await import("./commands/paperless.js")).paperlessCommand,
 };
 
 function unknownCommand(name: string): UsageError {

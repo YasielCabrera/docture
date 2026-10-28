@@ -1,3 +1,4 @@
+import { resolveSource } from "../../src/node/index.js";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,7 +7,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   UnsupportedSourceError,
   errorCodeOf,
-  resolveSource,
   sniffMimeType,
   type DocumentSource,
 } from "../../src/core/index.js";

@@ -740,6 +740,12 @@ export const DOCUMENT_SCHEMA_V2: SchemaNode = {
   "title": "DoctureDocument version 2",
   "type": "object",
   "properties": {
+    "physicalSourceDigest": {
+      "type": "string"
+    },
+    "sourceDigest": {
+      "type": "string"
+    },
     "schemaVersion": {
       "const": 2,
       "type": "number"
@@ -755,6 +761,281 @@ export const DOCUMENT_SCHEMA_V2: SchemaNode = {
       "items": {
         "type": "object",
         "properties": {
+          "evidence": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "granularity": {
+                      "const": "element",
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^p[1-9]\\d*-element-[a-f0-9]{12}$"
+                    },
+                    "pageNumber": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "elementId": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "order": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "location": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "const": "physical",
+                              "type": "string"
+                            },
+                            "pageNumber": {
+                              "type": "number"
+                            },
+                            "box": {
+                              "type": "object",
+                              "properties": {
+                                "x": {
+                                  "type": "number"
+                                },
+                                "y": {
+                                  "type": "number"
+                                },
+                                "width": {
+                                  "type": "number"
+                                },
+                                "height": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y",
+                                "width",
+                                "height"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "sourceDigest": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "pageNumber",
+                            "box",
+                            "sourceDigest"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "const": "logical",
+                              "type": "string"
+                            },
+                            "pageNumber": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "pageNumber"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "const": "unlocated",
+                              "type": "string"
+                            },
+                            "pageNumbers": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              }
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "pageNumbers"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "granularity",
+                    "id",
+                    "pageNumber",
+                    "elementId",
+                    "text",
+                    "order",
+                    "location"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "granularity": {
+                      "const": "table-cell",
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^p[1-9]\\d*-cell-[a-f0-9]{12}$"
+                    },
+                    "row": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "column": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "rowSpan": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "colSpan": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "pageNumber": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "elementId": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "order": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "location": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "const": "physical",
+                              "type": "string"
+                            },
+                            "pageNumber": {
+                              "type": "number"
+                            },
+                            "box": {
+                              "type": "object",
+                              "properties": {
+                                "x": {
+                                  "type": "number"
+                                },
+                                "y": {
+                                  "type": "number"
+                                },
+                                "width": {
+                                  "type": "number"
+                                },
+                                "height": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y",
+                                "width",
+                                "height"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "sourceDigest": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "pageNumber",
+                            "box",
+                            "sourceDigest"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "const": "logical",
+                              "type": "string"
+                            },
+                            "pageNumber": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "pageNumber"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "const": "unlocated",
+                              "type": "string"
+                            },
+                            "pageNumbers": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              }
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "pageNumbers"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "granularity",
+                    "id",
+                    "row",
+                    "column",
+                    "rowSpan",
+                    "colSpan",
+                    "pageNumber",
+                    "elementId",
+                    "text",
+                    "order",
+                    "location"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
           "pageNumber": {
             "type": "integer",
             "minimum": 1

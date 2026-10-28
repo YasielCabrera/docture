@@ -1,6 +1,6 @@
 import { openai } from "@ai-sdk/openai";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
-import { Extractor } from "docture";
+import { Extractor } from "docture/node";
 import { LLM } from "docture/llm";
 import { fileCache } from "docture/llm/cache";
 import { Invoice } from "./invoice.js";

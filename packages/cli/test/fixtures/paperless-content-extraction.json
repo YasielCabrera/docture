@@ -1,0 +1,103 @@
+{
+  "file": "paperless:42",
+  "ok": true,
+  "data": {
+    "invoiceNumber": "INV-2026-8830",
+    "sellerName": "Meridian Supply BV"
+  },
+  "method": "llm",
+  "loader": "paperless-content",
+  "attempts": [
+    {
+      "stage": "extract",
+      "strategy": "llm",
+      "status": "ok",
+      "ms": 6,
+      "usage": {
+        "inputTokens": 10,
+        "outputTokens": 5,
+        "totalTokens": 15,
+        "wallMs": 5,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0
+      }
+    }
+  ],
+  "features": {
+    "mimeType": "text/plain",
+    "pageCount": 1,
+    "textLength": 126,
+    "hasTextLayer": true,
+    "hasGeometry": false,
+    "hasRenderablePages": false,
+    "form": "digital"
+  },
+  "usage": {
+    "inputTokens": 10,
+    "outputTokens": 5,
+    "totalTokens": 15,
+    "wallMs": 7,
+    "cacheReadTokens": 0,
+    "cacheWriteTokens": 0
+  },
+  "validation": {
+    "valid": true,
+    "issues": []
+  },
+  "classification": {
+    "name": "UNKNOWN",
+    "confidence": 0,
+    "signals": []
+  },
+  "citations": [
+    {
+      "path": "invoiceNumber",
+      "status": "uncited",
+      "ids": []
+    },
+    {
+      "path": "sellerName",
+      "status": "uncited",
+      "ids": []
+    }
+  ],
+  "citationSources": [],
+  "source": {
+    "kind": "paperless",
+    "schemaVersion": 1,
+    "instance": "http://127.0.0.1:50537/",
+    "documentId": 42,
+    "fileVersionId": 42,
+    "apiVersion": 10,
+    "serverVersion": "3.3.4",
+    "metadata": {
+      "id": 42,
+      "rootDocumentId": null,
+      "title": "Example invoice",
+      "tags": [
+        1
+      ],
+      "customFields": [],
+      "correspondent": null,
+      "documentType": null,
+      "versions": [
+        {
+          "id": 42,
+          "isRoot": true,
+          "checksum": "fixture-original",
+          "added": "2026-01-01"
+        }
+      ],
+      "userCanChange": true
+    },
+    "uiUrl": "http://127.0.0.1:50537/documents/42/details",
+    "variant": "content",
+    "digest": "2e3659e68f02016aaed0ca3394ea71a64aa7cc3991d52570903d722a79388cd4",
+    "nativeChecksum": "fixture-original"
+  },
+  "sourceText": "Invoice INV-2026-8830. Seller Meridian Supply BV. Total 3831.48. This is the full stored OCR text used by the caller's schema.",
+  "limitations": [
+    "Stored OCR content is one logical text page; form feeds do not prove physical page boundaries.",
+    "Content has no positioned line or image evidence. Configure a PDF or Docling loader for richer evidence."
+  ]
+}

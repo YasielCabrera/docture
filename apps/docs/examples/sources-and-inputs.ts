@@ -1,4 +1,5 @@
-import { DocumentLoaderData, Extractor, defineStrategy } from "docture";
+import { DocumentLoaderData, defineStrategy } from "docture";
+import { Extractor } from "docture/node";
 import { Invoice } from "./invoice.js";
 
 const parseCsv = defineStrategy({

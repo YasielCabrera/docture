@@ -1,4 +1,4 @@
-import type { LineSourceId, SourceLine, TextSpan } from "../core/index.js";
+import { isLineSourceId, type EvidenceSourceId, type LineSourceId, type TextSpan } from "../core/index.js";
 
 const WORD = /(?![\u00B2\u00B3\u00B9\u2070-\u209F])[\p{L}\p{N}]/u;
 const DIGIT = /(?![\u00B2\u00B3\u00B9\u2070-\u209F])\p{N}/u;
@@ -64,18 +64,23 @@ function lineOrder(id: LineSourceId): readonly [number, number] {
   return [Number(page), Number(line)];
 }
 
-export function inLineOrder<Line extends SourceLine>(lines: readonly Line[]): Line[] {
+export function inLineOrder<Line extends { readonly id: EvidenceSourceId; readonly pageNumber: number; readonly order?: number }>(lines: readonly Line[]): Line[] {
   return [...lines].sort((first, second) => {
-    const [pageA, lineA] = lineOrder(first.id);
-    const [pageB, lineB] = lineOrder(second.id);
+    const [pageA, lineA] = isLineSourceId(first.id) ? lineOrder(first.id) : [first.pageNumber, first.order ?? 0];
+    const [pageB, lineB] = isLineSourceId(second.id) ? lineOrder(second.id) : [second.pageNumber, second.order ?? 0];
     return pageA - pageB || lineA - lineB;
   });
 }
 
-function runsOf<Line extends SourceLine>(lines: readonly Line[]): Line[][] {
+function runsOf<Line extends { readonly id: EvidenceSourceId }>(lines: readonly Line[]): Line[][] {
   const runs: Line[][] = [];
   let previous: readonly [number, number] | undefined;
   for (const line of lines) {
+    if (!isLineSourceId(line.id)) {
+      runs.push([line]);
+      previous = undefined;
+      continue;
+    }
     const order = lineOrder(line.id);
     const run = runs.at(-1);
     if (run !== undefined && previous !== undefined && previous[0] === order[0] && previous[1] + 1 === order[1]) run.push(line);
@@ -85,7 +90,11 @@ function runsOf<Line extends SourceLine>(lines: readonly Line[]): Line[][] {
   return runs;
 }
 
-export interface EvidenceLine extends SourceLine {
+export interface EvidenceLine {
+  readonly id: EvidenceSourceId;
+  readonly pageNumber: number;
+  readonly text: string;
+  readonly order?: number;
   readonly spans: readonly TextSpan[];
 }
 
@@ -326,6 +335,7 @@ function owners(line: EvidenceLine, form: Form): (number | undefined)[] | undefi
 function spansOf(occurrences: readonly Occurrence[]): { line: LineSourceId; span: number }[] | undefined {
   const refs: { line: LineSourceId; span: number }[] = [];
   for (const { line, form, start, end } of occurrences) {
+    if (!isLineSourceId(line.id)) return undefined;
     const owner = owners(line, form);
     if (owner === undefined) return undefined;
     const spans = new Set(owner.slice(start, end).filter((span) => span !== undefined));
@@ -336,7 +346,7 @@ function spansOf(occurrences: readonly Occurrence[]): { line: LineSourceId; span
 }
 
 export interface Evidence {
-  readonly ids: LineSourceId[];
+  readonly ids: EvidenceSourceId[];
   readonly spans: { line: LineSourceId; span: number }[] | undefined;
 }
 

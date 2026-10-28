@@ -1,9 +1,10 @@
+import { resolveSource } from "../../src/node/index.js";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { UnsupportedSourceError, resolveSource } from "docture";
+import { UnsupportedSourceError } from "docture";
 
 let dir: string;
 

@@ -12,7 +12,10 @@ const ROUND_CONSTANTS = new Uint32Array([
 const rotr = (value: number, bits: number): number => (value >>> bits) | (value << (32 - bits));
 
 export function sha256Hex(text: string): string {
-  const bytes = new TextEncoder().encode(text);
+  return sha256Bytes(new TextEncoder().encode(text));
+}
+
+export function sha256Bytes(bytes: Uint8Array): string {
   const blocks = Math.ceil((bytes.length + 9) / 64);
   const padded = new Uint8Array(blocks * 64);
   padded.set(bytes);

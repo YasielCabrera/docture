@@ -60,9 +60,10 @@ import {
 import { documentFeatures, preloadedFeatures } from "./features.js";
 import { readDocument } from "./read.js";
 import { resolveSchema } from "./schema.js";
-import { resolveSource } from "./source.js";
+import { resolveSource, type SourceResolver } from "./source.js";
 
 export interface PipelineComponents {
+  readonly sourceResolver?: SourceResolver;
   readonly loaders: readonly DocumentLoader[];
   readonly strategies: readonly ExtractionStrategy[];
   readonly classifiers: readonly Classifier[];
@@ -271,7 +272,7 @@ export async function runPipeline<T>(
     documentLabel = preloaded.fileName;
     featuresFor = (selected) => preloadedFeatures({ ...preloaded, loaded: selected });
   } else {
-    const raw = await resolveSource(source, signal);
+    const raw = await (components.sourceResolver ?? resolveSource)(source, signal);
     const loaded = await readDocument(
       components.loaders, raw, logger, signal, stageTimeoutMs,
       options.pages === undefined ? undefined : { pages: options.pages },
@@ -436,6 +437,9 @@ export async function runPipeline<T>(
             data: parsed.data,
             method: strategy.name,
             loader: loaderName,
+            ...(document.sourceDigest === undefined ? {} : { sourceDigest: document.sourceDigest }),
+            ...(document.physicalSourceDigest === undefined ? {} : { physicalSourceDigest: document.physicalSourceDigest }),
+            ...(document.sourceMetadata === undefined ? {} : { sourceMetadata: document.sourceMetadata }),
             attempts: [...loadAttempts.filter((a) => a.status === "failed"), ...attempts],
             features,
             usage: { ...usage, wallMs: Date.now() - startedAt },

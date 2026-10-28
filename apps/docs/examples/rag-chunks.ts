@@ -1,4 +1,4 @@
-import { DocumentConverter } from "docture";
+import { DocumentConverter } from "docture/node";
 import { chunkDocument } from "docture/chunk";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 

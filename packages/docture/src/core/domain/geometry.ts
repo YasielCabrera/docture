@@ -10,6 +10,8 @@
 
 import type { DocumentForm } from "./document.js";
 import type { RasterOptions } from "./raster.js";
+import type { ConversionWarning, DocumentElement } from "./conversion.js";
+import type { SourceEvidence } from "./evidence.js";
 
 /** An axis-aligned box in PDF points, using the same top-left origin as text. */
 export interface LayoutBox {
@@ -107,6 +109,9 @@ export interface DocumentMetadata {
 }
 
 export interface LoadedPage {
+  /** Trusted normalized elements from an importer, independent of line geometry. */
+  readonly layout?: readonly DocumentElement[];
+  readonly evidence?: readonly SourceEvidence[];
   /** 1-based, in document order. */
   readonly pageNumber: number;
   /** Page width in PDF points. */
@@ -144,6 +149,13 @@ export interface LoadedPage {
 }
 
 export interface LoadedDocument {
+  /** Loader conversion diagnostics retained alongside deterministic analysis warnings. */
+  readonly conversionWarnings?: readonly ConversionWarning[];
+  /** Serializable source provenance, retained in extraction results separately from runtime metadata. */
+  readonly sourceMetadata?: Readonly<Record<string, unknown>>;
+  readonly physicalSourceDigest?: string;
+  /** Digest of the imported source representation, distinct from separately bound original bytes. */
+  readonly sourceDigest?: string;
   readonly pages: readonly LoadedPage[];
   /** Whole-document text, pages joined by a form feed. */
   readonly text: string;

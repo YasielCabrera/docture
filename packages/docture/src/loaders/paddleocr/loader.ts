@@ -272,7 +272,7 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
       form: inferForm(pages.map((p) => p.text.trim().length)),
       loader: this.name,
       meta: {
-        ...(ctx.request?.pages === undefined ? { pageCount: rendered.length } : {}),
+        ...(ctx.request?.pages === undefined && this.options.maxPages === undefined ? { pageCount: rendered.length } : {}),
         pagesRead: pages.length,
         dpi,
         // The model NAME, or "custom" — never the paths, which may be a user's
@@ -303,14 +303,6 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
 
   // ── Pixels in ─────────────────────────────────────────────────────────────────
 
-  /**
-   * The images to recognize, one per page.
-   *
-   * Every page is rendered in one call, which is what the {@link Rasterizer}
-   * contract allows — it exposes no page count to iterate against. That is also why
-   * `maxPages` caps the OCR pass rather than the render: recognition is the part
-   * that costs seconds per page, rendering is milliseconds.
-   */
   private async render(
     document: RawDocument,
     mimeType: string,
@@ -351,6 +343,7 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
       dpi,
       format: "png",
       ...(ctx.request?.pages === undefined ? {} : { pages: ctx.request.pages }),
+      ...(this.options.maxPages === undefined ? {} : { maxPages: this.options.maxPages }),
     }, ctx);
     if (rendered.length === 0) {
       throw new Error(`paddleocr: ${rasterizer.name} rendered no pages for this document.`);

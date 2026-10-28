@@ -1,4 +1,5 @@
-import { createExtractor, defineLoader, defineStrategy, inferForm } from "docture";
+import { defineLoader, defineStrategy, inferForm } from "docture";
+import { createExtractor } from "docture/node";
 import { Invoice } from "./invoice.js";
 
 const csvLoader = defineLoader({

@@ -1,4 +1,5 @@
-import { Extractor, defineStrategy, type TextLine } from "docture";
+import { defineStrategy, type TextLine } from "docture";
+import { Extractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { Invoice } from "./invoice.js";
 

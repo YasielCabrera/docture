@@ -129,3 +129,9 @@ signature, the declared type wins. WEBP detection requires both `RIFF` and `WEBP
 
 The low-level `sniffMimeType()` and `resolveSource()` functions are documented in the
 [core documents API](/docs/reference/api/core-documents).
+
+## Select a runtime entry
+
+The root `docture` and `docture/chunk` support portable byte, HTTP and preloaded workflows. Import local-file constructors or `resolveNodeSource` from `docture/node`. Node wrappers use the same core modules and errors. They do not register a process-wide resolver. Existing path-based applications must change the import or pass `sourceResolver: resolveNodeSource` explicitly.
+
+DOCX text is isolated at `docture/loaders/mammoth`, MIME expansion at `docture/inputs/email`, Azure Read at `docture/loaders/azure-di`, and stored Paperless sources at `docture/sources/paperless`. Docling JSON enters through `docture/import/docling`; the service adapter is `docture/loaders/docling`. Service adapters use fetch and require no npm service SDK. Select and install optional local engines explicitly.

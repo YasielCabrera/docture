@@ -1,5 +1,6 @@
 import { openai } from "@ai-sdk/openai";
-import { createExtractor, withRasterizer } from "docture";
+import { withRasterizer } from "docture";
+import { createExtractor } from "docture/node";
 import { llm } from "docture/llm/text";
 import { vision } from "docture/llm/vision";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";

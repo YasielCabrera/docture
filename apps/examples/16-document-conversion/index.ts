@@ -6,7 +6,8 @@
  * Needs: nothing. The PDF is generated deterministically in memory.
  */
 
-import { DocumentConverter, parseDoctureDocument, provenanceSegments, type LoadedPage } from "docture";
+import { parseDoctureDocument, provenanceSegments, type LoadedPage } from "docture";
+import { DocumentConverter } from "docture/node";
 import { chunkDocument } from "docture/chunk";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { makeRichDocumentPdf } from "docture/testing/fixtures";

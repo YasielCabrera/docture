@@ -24,11 +24,16 @@
     "internals": "tsx 13-under-the-hood/index.ts",
     "cli": "tsx 15-cli/index.ts",
     "convert": "tsx 16-document-conversion/index.ts",
-    "offline": "pnpm quick-start && pnpm contracts && pnpm loaders && pnpm capabilities && pnpm plugins && pnpm fallback && pnpm long && pnpm classify && pnpm bundles && pnpm accuracy && pnpm internals && pnpm convert",
+    "offline": "pnpm quick-start && pnpm contracts && pnpm loaders && pnpm capabilities && pnpm plugins && pnpm fallback && pnpm long && pnpm classify && pnpm bundles && pnpm accuracy && pnpm internals && pnpm convert && pnpm docling && pnpm checked-tools-eval && pnpm input-loaders && pnpm paperless && pnpm service",
     "all": "pnpm offline && pnpm model && pnpm scanned && pnpm cli",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "clean": "rm -rf documents *.tsbuildinfo"
+    "clean": "rm -rf documents *.tsbuildinfo",
+    "docling": "tsx 18-docling/index.ts",
+    "input-loaders": "tsx 20-input-loaders/index.ts && tsx 20-input-loaders/azure.ts && tsx 20-input-loaders/ocr.ts",
+    "paperless": "tsx 21-paperless/index.ts",
+    "service": "tsx 22-http-service/index.ts",
+    "checked-tools-eval": "tsx 19-checked-tools-eval/index.ts"
   },
   "dependencies": {
     "docture": "workspace:*",

@@ -13,7 +13,7 @@
  *   3. READ THE ENVELOPE: which strategy answered, and what it cost
  */
 
-import { Extractor } from "docture";
+import { Extractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { Invoice } from "../shared/contracts.js";
 import { odooInvoiceParser } from "../shared/parsers/odoo.js";

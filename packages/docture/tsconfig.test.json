@@ -79,6 +79,33 @@
       ],
       "docture/testing/fixtures": [
         "./src/testing/fixtures/index.ts"
+      ],
+      "docture/node": [
+        "./src/node/index.ts"
+      ],
+      "docture/loaders/mammoth": [
+        "./src/loaders/mammoth/index.ts"
+      ],
+      "docture/llm/tool": [
+        "./src/llm/tool.ts"
+      ],
+      "docture/inputs/email": [
+        "./src/inputs/email/index.ts"
+      ],
+      "docture/loaders/azure-di": [
+        "./src/loaders/azure-di/index.ts"
+      ],
+      "docture/sources/paperless": [
+        "./src/sources/paperless/index.ts"
+      ],
+      "docture/import/docling": [
+        "./src/import/docling/index.ts"
+      ],
+      "docture/loaders/docling": [
+        "./src/loaders/docling/index.ts"
+      ],
+      "docture/sinks/paperless": [
+        "./src/sinks/paperless/index.ts"
       ]
     }
   },

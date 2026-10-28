@@ -42,7 +42,8 @@ are optional peers that you install explicitly. The only other published package
 Define a contract, wire a loader and a model, extract:
 
 ```ts
-import { Extractor, contract } from "docture";
+import { contract } from "docture";
+import { Extractor } from "docture/node";
 import { LLM } from "docture/llm";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { openai } from "@ai-sdk/openai";
@@ -86,7 +87,7 @@ invoice.total; // number
 Convert a digital PDF without a schema or model:
 
 ```ts
-import { DocumentConverter } from "docture";
+import { DocumentConverter } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 
 const converter = new DocumentConverter()
@@ -141,7 +142,8 @@ A scanned batch is routinely one PDF holding several unrelated documents. `Proce
 answers "what documents are in this file, and what is in each of them?":
 
 ```ts
-import { Process, SplittingStrategy } from "docture";
+import { SplittingStrategy } from "docture";
+import { Process } from "docture/node";
 import { TextSplitter } from "docture/llm/split";
 
 const documents = await new Process()
@@ -452,7 +454,8 @@ Replace the removed `@docture/core` import with `docture`, `@docture/llm` with
 The root no longer exports `LLM`, `llm`, splitters, or model utilities. For example:
 
 ```ts
-import { Extractor, contract } from "docture";
+import { contract } from "docture";
+import { Extractor } from "docture/node";
 import { LLM } from "docture/llm";
 import { fileCache } from "docture/llm/cache";
 ```

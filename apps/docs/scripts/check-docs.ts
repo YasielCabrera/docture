@@ -367,6 +367,8 @@ const importCount = await checkPublicImports([
   resolve(ROOT, "../../README.md"),
   resolve(ROOT, "../../packages/docture/README.md"),
   resolve(ROOT, "../../packages/cli/README.md"),
+  resolve(ROOT, "../../packages/docture/AGENTS.md"),
+  resolve(ROOT, "../../packages/cli/AGENTS.md"),
 ]);
 const examples = resolve(ROOT, "../examples");
 const exampleReadmes = [
@@ -382,6 +384,8 @@ const recipeCount = await checkInstallRecipes([
   resolve(ROOT, "../../README.md"),
   resolve(ROOT, "../../packages/docture/README.md"),
   resolve(ROOT, "../../packages/cli/README.md"),
+  resolve(ROOT, "../../packages/docture/AGENTS.md"),
+  resolve(ROOT, "../../packages/cli/AGENTS.md"),
   ...exampleReadmes,
 ]);
 await checkLinksAndExamples(files);

@@ -4,6 +4,8 @@ import type { LineSourceId, SourceLine } from "../domain/conversion.js";
 import type { LoadedDocument, TextLine, TextSpan } from "../domain/geometry.js";
 import { formatFieldPath } from "../domain/field-path.js";
 import type { FieldCitation } from "../domain/result.js";
+import type { EvidenceSourceId, SourceEvidence } from "../domain/evidence.js";
+import { isLineSourceId } from "../conversion/source-lines.js";
 
 export type FieldPath = readonly (string | number)[];
 
@@ -84,27 +86,35 @@ function withConfidence<C extends FieldCitation>(citation: C, confidence: number
   return confidence === undefined ? citation : { ...citation, minOcrConfidence: confidence };
 }
 
-function citationFor(leaf: PresentLeaf, entry: OutcomeCitation | undefined, lines: ReadonlyMap<string, TextLine>): FieldCitation {
+function citationFor(leaf: PresentLeaf, entry: OutcomeCitation | undefined, lines: ReadonlyMap<string, TextLine>, known: ReadonlySet<string>): FieldCitation {
   const path = formatFieldPath(leaf.path);
   if (entry === undefined) return { path, status: "uncited", ids: [] };
-  const ids = entry.ids.filter((id) => lines.has(id));
+  const ids = entry.ids.filter((id) => known.has(id));
+  const confidenceIds = ids.filter(isLineSourceId);
+  const lineOnly = ids.length === confidenceIds.length;
   const [first, ...rest] = ids;
   if (entry.status === "verified" && first !== undefined && ids.length === entry.ids.length && sameLeaf(entry.value, leaf.value)) {
-    return withConfidence({ path, status: "verified", ids: [first, ...rest] }, matchedConfidence(entry, ids, lines));
+    return withConfidence({ path, status: "verified", ids: [first, ...rest] }, lineOnly ? matchedConfidence(entry, confidenceIds, lines) : undefined);
   }
-  return withConfidence({ path, status: "cited-unverified", ids }, citedConfidence(ids, lines));
+  return withConfidence({ path, status: "cited-unverified", ids }, lineOnly ? citedConfidence(confidenceIds, lines) : undefined);
 }
 
 export function alignCitations(
   data: unknown,
   cited: readonly OutcomeCitation[],
   document: LoadedDocument,
-): { readonly citations: FieldCitation[]; readonly citationSources: SourceLine[] } {
+): { readonly citations: FieldCitation[]; readonly citationSources: SourceLine[]; readonly evidenceSources?: SourceEvidence[] } {
   const known = new Map(document.pages.flatMap((page) => sourceLines(page)).map((line) => [line.id, line]));
   const lines = new Map(document.pages.flatMap((page) =>
     (page.lines ?? []).map((line, index) => [lineSourceId(page.pageNumber, index), line] as const)));
   const entries = new Map(cited.map((entry) => [pathKey(entry.path), entry]));
-  const citations = presentLeaves(data).map((leaf) => citationFor(leaf, entries.get(pathKey(leaf.path)), lines));
-  const ids = [...new Set(citations.flatMap((citation) => citation.ids))].sort(byPageThenLine);
-  return { citations, citationSources: ids.flatMap((id) => known.get(id) ?? []) };
+  const native = document.pages.flatMap((page) => page.evidence ?? []);
+  const knownIds = new Set<string>([...known.keys(), ...native.map((source) => source.id)]);
+  const citations = presentLeaves(data).map((leaf) => citationFor(leaf, entries.get(pathKey(leaf.path)), lines, knownIds));
+  const ids = new Set<EvidenceSourceId>(citations.flatMap((citation) => citation.ids));
+  const lineIds = [...ids].filter(isLineSourceId).sort(byPageThenLine);
+  return {
+    citations, citationSources: lineIds.flatMap((id) => known.get(id) ?? []),
+    ...(native.length === 0 ? {} : { evidenceSources: native.filter((source) => ids.has(source.id)) }),
+  };
 }

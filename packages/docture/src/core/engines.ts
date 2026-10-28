@@ -8,6 +8,8 @@ export const ENGINE_RANGES = {
   "onnxruntime-node": "1.27.0",
   "@napi-rs/canvas": "^1.0.10",
   utif2: "4.1.0",
+  mammoth: "1.13.0",
+  "postal-mime": "4.1.4",
 } as const;
 
 export type Engine = keyof typeof ENGINE_RANGES;

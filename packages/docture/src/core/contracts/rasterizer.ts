@@ -1,3 +1,4 @@
+import type { DisposalScope } from "./disposal.js";
 /**
  * The rasterizer contract — its own plugin type.
  *
@@ -25,7 +26,7 @@ export interface Rasterizer {
     options: RasterOptions,
     ctx: RasterizeContext,
   ): Promise<readonly RasterPage[]>;
-  dispose?(): Promise<void>;
+  dispose?(scope?: DisposalScope): Promise<void>;
 }
 
 /** Identity helper, for symmetry with `defineLoader`. */

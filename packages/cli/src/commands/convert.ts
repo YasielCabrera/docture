@@ -95,6 +95,7 @@ export async function convertCommand(
   const format = FORMAT_MAP[selectedFormat];
   const assets = choiceFlag(parsed, ASSETS) ?? "referenced";
   const concurrency = numberFlag(parsed, "concurrency", { min: 1, max: 64, integer: true });
+  const pages = selectedPages(parsed);
   const inputs = await expandInputs(parsed.positionals, io.cwd);
   const root = resolve(io.cwd, out);
 
@@ -119,6 +120,7 @@ export async function convertCommand(
       ...plan.pipeline,
       format: format.format,
       assets,
+      ...(pages === undefined ? {} : { pages }),
       output: { to: "file", path: targets.get(index) },
     }));
   }
@@ -139,6 +141,7 @@ export async function convertCommand(
       format: format.format,
       assets,
       signal,
+      ...(pages === undefined ? {} : { pages }),
       concurrency: concurrency ?? wiring.concurrency,
     });
     for await (const item of batch) {
@@ -195,4 +198,15 @@ export async function convertCommand(
     );
   }
   return failed === 0 ? 0 : 1;
+}
+
+function selectedPages(parsed: Parsed): readonly number[] | undefined {
+  const value = stringFlag(parsed, "pages");
+  if (value === undefined) return undefined;
+  const parts = value.split(",");
+  const pages = parts.map(Number);
+  if (!parts.every((part) => /^[1-9]\d*$/.test(part)) || !pages.every(Number.isSafeInteger)) {
+    throw new UsageError("--pages expects comma-separated positive whole page numbers, such as 2,4,5.");
+  }
+  return [...new Set(pages)].sort((a, b) => a - b);
 }

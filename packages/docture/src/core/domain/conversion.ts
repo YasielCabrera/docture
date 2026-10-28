@@ -9,6 +9,7 @@
 import type { DocumentFeatures } from "./document.js";
 import type { DocumentMetadata, LayoutBox, LoadedAsset } from "./geometry.js";
 import type { Attempt, Usage } from "./result.js";
+import type { SourceEvidence } from "./evidence.js";
 
 export type ConversionFormat = "text" | "markdown" | "html" | "json";
 export type ConversionAssetMode = "referenced" | "embedded" | "omit";
@@ -187,6 +188,7 @@ export type DocumentElement =
 
 /** The reusable, exporter-independent result of layout analysis. */
 export interface LayoutPage {
+  readonly evidence?: readonly SourceEvidence[];
   /** @integer @minimum 1 */
   readonly pageNumber: number;
   readonly width: number;
@@ -195,6 +197,8 @@ export interface LayoutPage {
 }
 
 export interface LayoutDocument {
+  readonly physicalSourceDigest?: string;
+  readonly sourceDigest?: string;
   readonly pages: readonly LayoutPage[];
   readonly metadata?: DocumentMetadata;
 }
@@ -208,6 +212,8 @@ export type DoctureDocumentAsset =
  * Read a saved snapshot with `parseDoctureDocument`, which also accepts version 1.
  */
 export interface DoctureDocument {
+  readonly physicalSourceDigest?: string;
+  readonly sourceDigest?: string;
   readonly schemaVersion: 2;
   readonly loader: string;
   readonly method: string;
@@ -237,6 +243,7 @@ export interface ConversionAsset extends LoadedAsset {
 }
 
 export interface ConvertedPage {
+  readonly evidence?: readonly SourceEvidence[];
   readonly pageNumber: number;
   /** Page width in PDF points, copied from the loaded page. */
   readonly width: number;

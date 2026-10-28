@@ -1,3 +1,4 @@
+import type { DisposalScope } from "./disposal.js";
 /**
  * Classification: deciding what kind of document this is, so the right schema and
  * the right parser get used.
@@ -142,7 +143,7 @@ export interface Classifier {
    * report via the returned signal's `note`.
    */
   classify(ctx: ClassifyContext): Promise<ClassificationSignal | null>;
-  dispose?(): Promise<void>;
+  dispose?(scope?: DisposalScope): Promise<void>;
 }
 
 /** Identity helper, for symmetry with `defineLoader`. */

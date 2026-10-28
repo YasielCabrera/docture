@@ -1,4 +1,4 @@
-import { createExtractor } from "docture";
+import { createExtractor } from "docture/node";
 import { formatFailures, scoreExtraction } from "docture/eval";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { fixedStrategy } from "docture/testing/doubles";

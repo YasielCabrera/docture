@@ -3,7 +3,8 @@
  * ids behind its text.
  */
 
-import { createHash } from "node:crypto";
+import { sha256Hex } from "../core/conversion/sha256.js";
+import type { SourceEvidence } from "../core/domain/evidence.js";
 import type {
   DocumentElement,
   HeadingElement,
@@ -38,10 +39,11 @@ export interface ChunkOptions {
 
 /** A conversion result, or a saved document read with `parseDoctureDocument`. */
 export interface ChunkableDocument {
-  readonly pages: readonly { readonly elements: readonly DocumentElement[] }[];
+  readonly pages: readonly { readonly elements: readonly DocumentElement[]; readonly evidence?: readonly SourceEvidence[] }[];
 }
 
 export interface DocumentChunk {
+  readonly evidence?: readonly SourceEvidence[];
   /** Derived from the element ids, table row ranges, and options, so it is stable across runs. */
   readonly id: string;
   /** Markdown of the chunk's elements, separated by blank lines. */
@@ -182,6 +184,7 @@ export function chunkDocument(document: ChunkableDocument, options: ChunkOptions
   };
 
   const chunks: DocumentChunk[] = [];
+  const evidence = document.pages.flatMap((page) => page.evidence ?? []);
   let members: Unit[] = [];
   let fresh = 0;
   const close = (): void => {
@@ -194,10 +197,16 @@ export function chunkDocument(document: ChunkableDocument, options: ChunkOptions
       headingPath,
     ]);
     chunks.push({
-      id: `chunk-${createHash("sha256").update(key).digest("hex").slice(0, 16)}`,
+      id: `chunk-${sha256Hex(key).slice(0, 16)}`,
       text: textOf(members, fresh),
       elementIds,
       provenance: members.flatMap((member) => member.provenance),
+      ...(evidence.length === 0 ? {} : { evidence: evidence.filter((source) => members.some((member) => {
+        if (member.element.id !== source.elementId) return false;
+        if (member.rows === undefined || source.granularity !== "table-cell" || member.element.kind !== "table") return true;
+        const [start, end] = member.rows;
+        return source.row < member.element.headerRows || source.row < end && source.row + source.rowSpan > start;
+      })) }),
     });
     members = overlapElements === 0 ? [] : members.slice(-overlapElements);
     fresh = 0;

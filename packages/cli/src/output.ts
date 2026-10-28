@@ -108,7 +108,7 @@ export function attemptLines(attempts: readonly Attempt[], style: Style): string
     .join("");
 }
 
-export type Command = "extract" | "convert" | "classify" | "inspect" | "eval" | "review" | "help";
+export type Command = "extract" | "convert" | "classify" | "inspect" | "eval" | "review" | "help" | "paperless";
 
 export interface FailedItem {
   readonly file: string;
@@ -141,6 +141,9 @@ export function envelope<R, S = never>(
 }
 
 export interface ExtractionData {
+  readonly sourceDigest?: string;
+  readonly physicalSourceDigest?: string;
+  readonly sourceMetadata?: Readonly<Record<string, unknown>>;
   readonly data: unknown;
   readonly method?: string;
   readonly loader?: string;
@@ -152,6 +155,7 @@ export interface ExtractionData {
   readonly conflicts?: ExtractionResult<unknown>["conflicts"];
   readonly citations?: ExtractionResult<unknown>["citations"];
   readonly citationSources?: ExtractionResult<unknown>["citationSources"];
+  readonly evidenceSources?: ExtractionResult<unknown>["evidenceSources"];
 }
 
 export type DocumentRecord = Item<ExtractionData>;
@@ -168,6 +172,9 @@ export function recordOf(
     data: result.data,
     method: result.method,
     loader: result.loader,
+    ...(result.sourceDigest === undefined ? {} : { sourceDigest: result.sourceDigest }),
+    ...(result.physicalSourceDigest === undefined ? {} : { physicalSourceDigest: result.physicalSourceDigest }),
+    ...(result.sourceMetadata === undefined ? {} : { sourceMetadata: result.sourceMetadata }),
     attempts: result.attempts,
     usage: result.usage,
     features: result.features,
@@ -176,6 +183,7 @@ export function recordOf(
     ...(result.conflicts === undefined ? {} : { conflicts: result.conflicts }),
     ...(result.citations === undefined ? {} : { citations: result.citations }),
     ...(result.citationSources === undefined ? {} : { citationSources: result.citationSources }),
+    ...(result.evidenceSources === undefined ? {} : { evidenceSources: result.evidenceSources }),
   };
 }
 

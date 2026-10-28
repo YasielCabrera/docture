@@ -13,6 +13,7 @@
  * ```
  */
 
+import { createDisposalScope, type DisposalScope } from "./disposal.js";
 import type { RawDocument } from "../domain/document.js";
 import type { LoadedDocument, LoadedPage } from "../domain/geometry.js";
 import type { RasterOptions } from "../domain/raster.js";
@@ -44,17 +45,19 @@ export function withRasterizer<C extends LoaderCapabilities>(
   loader: DocumentLoader<C>,
   rasterizer: Rasterizer,
   options: WithRasterizerOptions = {},
-): DocumentLoader<WithImages<C>> & AsyncDisposable & { dispose(): Promise<void> } {
+): DocumentLoader<WithImages<C>> & AsyncDisposable & { dispose(scope?: DisposalScope): Promise<void> } {
   const capabilities = {
     ...loader.capabilities,
     images: true,
   } as unknown as WithImages<C>;
 
+  let disposed: Promise<void> | undefined;
   return {
     name: `${loader.name}+${rasterizer.name}`,
     capabilities,
 
     async load(document: RawDocument, ctx): Promise<LoadedDocument> {
+      disposed = undefined;
       const loaded = await loader.load(document, ctx);
       const render = pageImageRenderer(rasterizer, document, ctx);
       const pages: LoadedPage[] = loaded.pages.map((page) => ({
@@ -70,15 +73,9 @@ export function withRasterizer<C extends LoaderCapabilities>(
       return this.dispose();
     },
 
-    async dispose(): Promise<void> {
-      // Both, and report both failures — the composition owns what it wrapped.
-      const results = await Promise.allSettled([loader.dispose?.(), rasterizer.dispose?.()]);
-      const failures = results
-        .filter((r): r is PromiseRejectedResult => r.status === "rejected")
-        .map((r) => r.reason);
-      if (failures.length > 0) {
-        throw new AggregateError(failures, "Composed loader failed to dispose cleanly.");
-      }
+    dispose(scope: DisposalScope = createDisposalScope()): Promise<void> {
+      disposed ??= scope.dispose(loader, rasterizer);
+      return disposed;
     },
   };
 }

@@ -97,7 +97,7 @@ createMcpServer(options: McpServerOptions): Promise<McpServer>
 ENGINE_RANGES: { "@modelcontextprotocol/sdk": "1.32.2" }
 ```
 
-`createMcpServer()` returns the SDK's `McpServer` with the `convert` and `inspect` tools
+`createMcpServer()` returns the SDK's `McpServer` with `convert`, `inspect`, configured `extract`, and configured Paperless tools
 that `docture mcp` serves. Connect it to any SDK transport:
 
 ```ts
@@ -167,3 +167,11 @@ control sequences.
 thresholds exit with code 1, including when extraction itself succeeds. The output summary
 contains `passed`, `reasons`, and configured thresholds. Cost requires configured pricing;
 unpriced usage is excluded. Verbose output includes the worst normalized fields.
+
+## Configure named extraction and Paperless mappings
+
+`DoctureConfig.schemas` allowlists named caller contracts for MCP `extract`; `schema` remains the default. Model input can select a configured name and source, but cannot replace schema, model or server credentials. Full extraction envelopes retain citations, native evidenceSources, validation and conflicts.
+
+`PaperlessCliConfig` configures the connection, named schemas, query bound and `enableApply` gate. Each `PaperlessSchemaConfig` supplies a caller contract, source variant, mapping identity, existing field IDs, additive tag IDs and evidence policy. CLI `paperless` actions and MCP Paperless tools share the library source and sink. Apply is absent from default MCP listings and rejected unless enabled in config. CLI `--dry-run` prints the plan and writes no Paperless metadata.
+
+MCP configuration is fixed for the server lifetime. Pipelines stay warm across calls. `server.close()` cancels active calls, waits for settlement, and disposes shared configured resources once. Like the HTTP service, it waits for cancellation-ignoring engines to finish before disposal.
