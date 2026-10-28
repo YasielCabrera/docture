@@ -146,6 +146,12 @@ aliases and `Config` names with these canonical exports:
 | `docture/loaders/tesseract` | `TesseractJsLoader`, `TesseractConfig`, `TesseractJsLoaderOptions` | `DocumentLoaderTesseract` | `DocumentLoaderTesseractOptions` |
 | `docture/loaders/paddleocr` | `PaddleOcrLoader`, `PaddleOcrConfig`, `PaddleOcrLoaderOptions` | `DocumentLoaderPaddleOcr` | `DocumentLoaderPaddleOcrOptions` |
 
+The root export `loadDocument` is now `readDocument`. It takes the same arguments.
+
+| Entry | Removed name | Replacement |
+| --- | --- | --- |
+| `docture` | `loadDocument` | `readDocument` |
+
 Custom code that constructs `Attempt` records must supply `stage`: `load`, `classify`,
 `extract`, `repair`, or `layout`. Keep `strategy` as the component name.
 

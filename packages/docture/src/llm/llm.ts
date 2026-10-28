@@ -13,6 +13,7 @@ import { LlmLayoutAnalyzer, type LlmLayoutAnalyzerOptions } from "./layout.js";
 import type { PricingTable } from "./pricing.js";
 import { ImageSplitter, TextSplitter, type SplitterOptions } from "./split.js";
 import { modelIdOf } from "./model-id.js";
+import type { LlmTelemetryOptions } from "./telemetry.js";
 import { LlmStrategy, type LlmStrategyOptions } from "./strategy.js";
 import { VisionStrategy, type VisionStrategyOptions } from "./vision.js";
 
@@ -32,6 +33,8 @@ export interface LlmOptions {
   /** Default 0 — extraction should be reproducible. */
   readonly temperature?: number;
   readonly maxRetries?: number;
+  /** AI SDK telemetry for every component this model builds. */
+  readonly telemetry?: LlmTelemetryOptions;
   /** Overrides for the text extraction strategy. */
   readonly extraction?: Shared<LlmStrategyOptions>;
   /** Overrides for the vision strategy. */
@@ -74,6 +77,7 @@ export class LLM implements ModelBackend {
     temperature?: number;
     maxRetries?: number;
     instructions?: string;
+    telemetry?: LlmTelemetryOptions;
   } {
     const o = this.#options;
     return {
@@ -83,6 +87,7 @@ export class LLM implements ModelBackend {
       ...(o.temperature === undefined ? {} : { temperature: o.temperature }),
       ...(o.maxRetries === undefined ? {} : { maxRetries: o.maxRetries }),
       ...(o.instructions === undefined ? {} : { instructions: o.instructions }),
+      ...(o.telemetry === undefined ? {} : { telemetry: o.telemetry }),
     };
   }
 

@@ -6,6 +6,7 @@
     "with-a-model",
     "without-a-model",
     "document-conversion",
+    "retrieval-chunks",
     "scanned-documents",
     "routing-and-fallback",
     "long-documents",

@@ -17,7 +17,9 @@
  */
 
 import { spawn } from "node:child_process";
-import { dirname, relative, resolve } from "node:path";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { field, heading, note, step } from "../shared/print.js";
 import { DOCUMENTS_DIR, idsOfKind, pathOf } from "../shared/documents.js";
@@ -29,15 +31,19 @@ const ROOT = resolve(HERE, "..");
 const BIN = resolve(ROOT, "node_modules/@docture/cli/src/bin.ts");
 
 /** Run `docture ...` and echo both the command and what it printed. */
-async function cli(args: readonly string[], { quiet = false, expectedExit = 0 } = {}): Promise<void> {
+async function cli(
+  args: readonly string[],
+  { quiet = false, expectedExit = 0, stdin }: { quiet?: boolean; expectedExit?: number; stdin?: { shown: string; bytes: Uint8Array } } = {},
+): Promise<void> {
   const shown = ["docture", ...args.map((a) => relative(ROOT, a) === a ? a : relative(ROOT, a))];
-  console.log(`\n  $ ${shown.join(" ")}\n`);
+  console.log(`\n  $ ${stdin === undefined ? "" : `${stdin.shown} | `}${shown.join(" ")}\n`);
 
   await new Promise<void>((done, reject) => {
     const child = spawn(resolve(ROOT, "node_modules/.bin/tsx"), [BIN, ...args], {
       cwd: ROOT,
-      stdio: quiet ? ["ignore", "pipe", "pipe"] : "inherit",
+      stdio: [stdin === undefined ? "ignore" : "pipe", quiet ? "pipe" : "inherit", quiet ? "pipe" : "inherit"],
     });
+    child.stdin?.end(stdin?.bytes);
     let captured = "";
     child.stdout?.on("data", (chunk: Buffer) => (captured += chunk.toString()));
     child.stderr?.on("data", (chunk: Buffer) => (captured += chunk.toString()));
@@ -124,9 +130,61 @@ async function main(): Promise<void> {
     { quiet: true },
   );
 
-  // ── 6. The flags worth knowing ────────────────────────────────────────────────
+  step("6. - reads the document from stdin");
 
-  step("6. the flags worth knowing");
+  note("For a pipe: `curl … | docture extract - …`. The result is labelled `stdin`.");
+
+  await cli(["inspect", "-", "--format", "json", "--no-config"], {
+    quiet: true,
+    stdin: { shown: `cat ${relative(ROOT, pathOf("invoice-odoo"))}`, bytes: await readFile(pathOf("invoice-odoo")) },
+  });
+
+  step("7. --dry-run — check the invocation, read nothing");
+
+  note(
+    "Resolves the config, schema, inputs, outputs and wiring, prints the plan as JSON and\n" +
+      "stops. No document is loaded and no output directory is created.",
+  );
+
+  await cli(["extract", pathOf("invoice-odoo"), "--config", config, "-o", "out/", "--dry-run"], { quiet: true });
+
+  step("8. help --json — the flags, for an agent");
+
+  await cli(["help", "convert", "--json"], { quiet: true });
+
+  step("9. mcp — convert and inspect as MCP tools");
+
+  note(
+    "`docture mcp` speaks JSON-RPC on stdin and stdout. An agent host starts it from its\n" +
+      'config: { "mcpServers": { "docture": { "command": "npx", "args": ["docture", "mcp"] } } }.\n' +
+      "Here three frames are piped in by hand; the server answers and stops at end of input.",
+  );
+
+  const frames = [
+    { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "tour", version: "1" } } },
+    { jsonrpc: "2.0", method: "notifications/initialized" },
+    { jsonrpc: "2.0", id: 2, method: "tools/list" },
+  ];
+  await cli(["mcp", "--no-config"], {
+    quiet: true,
+    stdin: { shown: "initialize, tools/list", bytes: new TextEncoder().encode(frames.map((frame) => JSON.stringify(frame)).join("\n") + "\n") },
+  });
+
+  step("10. review — see the boxes over the page");
+
+  note(
+    "`docture review` writes one offline HTML file: each page as an image, with every\n" +
+      "element's box drawn over it. Open it in a browser and hover a box for its id and kind.\n" +
+      "With --schema and --model it extracts with citations instead, and selecting a field\n" +
+      "highlights the lines it cites. A saved result works too:\n\n" +
+      "  docture review --conversion report.json --source report.pdf\n" +
+      "  docture review --extraction result.json --source invoice.pdf --item 0",
+  );
+
+  const review = join(await mkdtemp(join(tmpdir(), "docture-review-")), "review.html");
+  await cli(["review", pathOf("invoice-odoo"), "--no-config", "-o", review], { quiet: true });
+
+  step("11. the flags worth knowing");
 
   const rows: readonly (readonly [string, string])[] = [
     ["--schema ./schema.ts", "the shape you want. `#Invoice` picks one export"],
@@ -142,10 +200,11 @@ async function main(): Promise<void> {
     ["--format ndjson", "one line per document, as each finishes"],
     ["-o out/", "a file, or a directory when there are several inputs"],
     ["--min-f1 0.95", "on `eval`: exit 1 below this, so CI can gate on it"],
+    ["--dry-run", "print the plan as JSON; read and write nothing"],
   ];
   for (const [flag, what] of rows) console.log(`  ${flag.padEnd(30)} ${what}`);
 
-  step("7. eval — score a corpus from the command line");
+  step("12. eval — score a corpus from the command line");
 
   note(
     "`docture eval` extracts each document, scores it field by field against a truth\n" +

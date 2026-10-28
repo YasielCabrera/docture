@@ -9,6 +9,8 @@ function elementText(element: DocumentElement): string[] {
     case "heading":
     case "paragraph":
     case "code":
+    case "page-header":
+    case "page-footer":
       return [element.text];
     case "list":
       return element.items.map((item) => item.text);

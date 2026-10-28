@@ -44,7 +44,7 @@ export type MuPdfStructuredText = ReturnType<MuPdfPage["toStructuredText"]>;
  */
 let sink: Logger = silentLogger;
 
-export const loadMuPdf = lazyEngine(async (): Promise<MuPdf> => {
+export const importMuPdf = lazyEngine(async (): Promise<MuPdf> => {
   const module = await importEngine("docture/loaders/mupdf", ["mupdf"], () => import("mupdf"));
   module.setLog({
     // MuPDF's "error" is a diagnostic about the document, not a failed call — a

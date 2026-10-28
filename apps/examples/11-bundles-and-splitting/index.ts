@@ -23,7 +23,7 @@
  *   7. THE LLM SPLITTERS, for when a heading is not enough
  */
 
-import { Extractor, Process, SplittingStrategy, UNCLASSIFIED, UnclassifiedGroupError, aggregateDocGroups, defineClassification, defineSplitter, loadDocument, pageWindows, runSplitter, silentLogger, type LoadedPage, type Splitter } from "docture";
+import { Extractor, Process, SplittingStrategy, UNCLASSIFIED, UnclassifiedGroupError, aggregateDocGroups, defineClassification, defineSplitter, pageWindows, readDocument, runSplitter, silentLogger, type LoadedPage, type Splitter } from "docture";
 import { ImageSplitter, TextSplitter } from "docture/llm";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { MuPdfRasterizer } from "docture/loaders/mupdf";
@@ -256,7 +256,7 @@ async function main(): Promise<void> {
 
   step("6. EAGER vs LAZY, and the pieces underneath both");
 
-  const read = await loadDocument(
+  const read = await readDocument(
     [new DocumentLoaderPdfJs()],
     { bytes: new Uint8Array(await readFile(path)), mimeType: "application/pdf" },
     silentLogger,

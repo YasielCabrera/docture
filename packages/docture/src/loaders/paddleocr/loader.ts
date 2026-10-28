@@ -1,5 +1,6 @@
 import { requestedPageNumbers } from "../../core/pipeline/pages.js";
 import { PageSelectionError } from "../../core/pipeline/errors.js";
+import { readsAsTiff } from "../../core/pipeline/source.js";
 import {
   imageSize,
   inferForm,
@@ -13,9 +14,9 @@ import {
   type LoaderCapabilities,
   type PositionedWord,
   type RasterOptions,
-  type RasterPage,
   type Rasterizer,
   type RawDocument,
+  type TiffPage,
 } from "../../core/index.js";
 import {
   PaddleEngine,
@@ -25,12 +26,9 @@ import {
   type Recognition,
   type RecognitionStrategy,
 } from "./paddle.js";
+import { readableTiffPages, tiffPagesAsPng } from "./tiff.js";
 
-/**
- * What this loader will OCR without a rasterizer, and what it can size from a
- * header. Also exactly what a {@link Rasterizer} in this library emits.
- */
-const IMAGE_MIME_TYPES = ["image/png", "image/jpeg"] as const;
+const IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/tiff"] as const;
 
 /** 300 DPI is the usual floor for OCR accuracy; below ~200 it degrades sharply. */
 const DEFAULT_DPI = 300;
@@ -66,9 +64,16 @@ export function lineToleranceFor(paddingVertical: number): number {
   return CORE_LINE_TOLERANCE / (1 + 2 * Math.max(0, paddingVertical));
 }
 
-/** A rendered page paired with what OCR made of it. */
+type OcrPage = {
+  readonly pageNumber: number;
+  readonly widthPx: number;
+  readonly heightPx: number;
+  readonly scale: number;
+} & ({ readonly bytes: Uint8Array } | { readonly tiff: TiffPage });
+
 interface RecognizedPage {
-  readonly raster: RasterPage;
+  readonly raster: OcrPage;
+  readonly image: Uint8Array;
   readonly recognition: Recognition;
 }
 
@@ -234,13 +239,13 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
       if (raster === undefined) throw new PageSelectionError([number], knownCount);
       return raster;
     });
-    const recognized = await this.recognizeAll(read, ctx);
+    const recognized = await this.recognizeAll(read, await this.imagesOf(read, document.bytes, ctx.signal), ctx);
 
     // Rendering is memoized per page and per set of options, so asking twice costs
     // once — while a document nobody looks at costs nothing.
     const renders = new Map<string, Promise<Uint8Array>>();
-    const pages = recognized.map(({ raster, recognition }) =>
-      this.toPage(raster, recognition, document, mimeType, dpi, ctx, renders),
+    const pages = recognized.map(({ raster, image, recognition }) =>
+      this.toPage(raster, "tiff" in raster ? image : undefined, recognition, document, mimeType, dpi, ctx, renders),
     );
 
     const confidence =
@@ -303,24 +308,24 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
     mimeType: string,
     dpi: number,
     ctx: LoadContext,
-  ): Promise<readonly RasterPage[]> {
-    if ((IMAGE_MIME_TYPES as readonly string[]).includes(mimeType)) {
+  ): Promise<readonly OcrPage[]> {
+    const pointsPerPixel = 72 / dpi;
+    const images = IMAGE_MIME_TYPES as readonly string[];
+    if (readsAsTiff(mimeType, document.bytes, images)) {
+      return readableTiffPages(document.bytes, mimeType).map((tiff) => ({
+        pageNumber: tiff.pageNumber,
+        widthPx: tiff.widthPx,
+        heightPx: tiff.heightPx,
+        scale: pointsPerPixel,
+        tiff,
+      }));
+    }
+    if (images.includes(mimeType)) {
       const size = imageSize(document.bytes);
       if (size === undefined) {
         throw new Error(`paddleocr: these bytes are not a readable PNG or JPEG (${mimeType}).`);
       }
-      return [
-        {
-          pageNumber: 1,
-          bytes: document.bytes,
-          widthPx: size.widthPx,
-          heightPx: size.heightPx,
-          format: mimeType === "image/jpeg" ? "jpeg" : "png",
-          // An image carries no page size, so it is treated as a page scanned at
-          // `dpi` — which is what makes its geometry comparable to a PDF's.
-          scale: 72 / dpi,
-        },
-      ];
+      return [{ pageNumber: 1, ...size, scale: pointsPerPixel, bytes: document.bytes }];
     }
 
     const rasterizer = this.options.rasterizer;
@@ -328,7 +333,7 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
       throw new Error(
         `paddleocr: ${mimeType} has to be rendered before it can be recognized, and no ` +
           `rasterizer is wired. Pass one — new DocumentLoaderPaddleOcr({ rasterizer: new ` +
-          `NapiCanvasRasterizer() }) — or hand this loader a PNG or JPEG.`,
+          `NapiCanvasRasterizer() }) — or hand this loader a PNG, JPEG or TIFF.`,
       );
     }
 
@@ -345,11 +350,23 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
     return rendered;
   }
 
+  private async imagesOf(
+    pages: readonly OcrPage[],
+    document: Uint8Array,
+    signal: AbortSignal,
+  ): Promise<readonly Uint8Array[]> {
+    const tiff = pages.flatMap((page) => ("tiff" in page ? [page.tiff] : []));
+    const decoded = tiff.length === 0 ? [] : await tiffPagesAsPng(document, tiff, signal);
+    let next = 0;
+    return pages.map((page) => ("tiff" in page ? decoded[next++]! : page.bytes));
+  }
+
   // ── Text out ──────────────────────────────────────────────────────────────────
 
   /** OCR every page, and return them paired with the raster they came from. */
   private async recognizeAll(
-    rasters: readonly RasterPage[],
+    rasters: readonly OcrPage[],
+    images: readonly Uint8Array[],
     ctx: LoadContext,
   ): Promise<readonly RecognizedPage[]> {
     const engine = (this.engine ??= new PaddleEngine({
@@ -366,7 +383,7 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
     }));
 
     const recognitions = await engine.recognizeAll(
-      rasters.map((raster) => raster.bytes),
+      images,
       {
         concurrency: this.options.concurrency ?? "auto",
         signal: ctx.signal,
@@ -384,12 +401,13 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
       if (recognition === undefined) {
         throw new Error(`paddleocr: page ${index + 1} produced no recognition.`);
       }
-      return { raster, recognition };
+      return { raster, image: images[index]!, recognition };
     });
   }
 
   private toPage(
-    raster: RasterPage,
+    raster: OcrPage,
+    decoded: Uint8Array | undefined,
     recognition: Recognition,
     document: RawDocument,
     mimeType: string,
@@ -434,8 +452,12 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
       height: raster.heightPx * raster.scale,
       text: textFromLines(lines),
       lines,
+      // A TIFF page serves the PNG it was decoded to: the original bytes are not an
+      // image a vision model can take.
       image: (options?: RasterOptions) =>
-        this.pageImage(pageNumber, document, mimeType, dpi, options, ctx, renders),
+        decoded === undefined
+          ? this.pageImage(pageNumber, document, mimeType, dpi, options, ctx, renders)
+          : Promise.resolve(decoded),
     };
   }
 

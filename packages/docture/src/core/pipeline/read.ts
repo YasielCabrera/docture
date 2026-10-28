@@ -35,7 +35,7 @@ export interface ReadDocument {
 
 
 /** Try each eligible loader in order; the first that does not throw wins. */
-export async function loadDocument(
+export async function readDocument(
   loaders: readonly DocumentLoader[],
   raw: RawDocument,
   logger: Logger,

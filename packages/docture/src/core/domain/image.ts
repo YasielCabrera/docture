@@ -1,5 +1,5 @@
 /**
- * Pixel dimensions from a PNG or JPEG header.
+ * Pixel dimensions from a PNG, JPEG or classic TIFF header.
  *
  * In core for the same reason {@link linesFromWords} is: every OCR loader needs it
  * and none of them should own it. An OCR loader can be handed an image directly,
@@ -10,10 +10,12 @@
  * Read from the header rather than decoded: the engine is going to decode the pixels
  * anyway, and this only has to answer "how big".
  *
- * PNG and JPEG specifically, because those are the two formats a
- * {@link Rasterizer} in this library emits and the two `sniffMimeType` recognises
- * as OCR-able input. A format we cannot size is a format we do not claim to accept.
+ * PNG and JPEG because a {@link Rasterizer} in this library emits them, TIFF
+ * because scanners and fax software do; a TIFF reports its first page. A format we
+ * cannot size is a format we do not claim to accept.
  */
+
+import { tiffPages } from "./tiff.js";
 
 export interface ImageSize {
   readonly widthPx: number;
@@ -25,9 +27,14 @@ const SOF_MARKERS = new Set([
   0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
 ]);
 
-/** `undefined` when the bytes are not a PNG or JPEG we can read a size from. */
+/** `undefined` when the bytes are not a PNG, JPEG or TIFF we can read a size from. */
 export function imageSize(bytes: Uint8Array): ImageSize | undefined {
-  return pngSize(bytes) ?? jpegSize(bytes);
+  return pngSize(bytes) ?? jpegSize(bytes) ?? tiffSize(bytes);
+}
+
+function tiffSize(bytes: Uint8Array): ImageSize | undefined {
+  const first = tiffPages(bytes)?.[0];
+  return first === undefined ? undefined : { widthPx: first.widthPx, heightPx: first.heightPx };
 }
 
 function pngSize(bytes: Uint8Array): ImageSize | undefined {

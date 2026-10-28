@@ -82,11 +82,22 @@ export interface Chunk {
   readonly pages: readonly number[];
 }
 
+/**
+ * Text placed before a chunk that starts on `pageNumber`, such as the header of a
+ * table continuing from an earlier page. Undefined adds nothing.
+ */
+export type ChunkContext = (pageNumber: number) => string | undefined;
+
+function opening(context: ChunkContext | undefined, pageNumber: number, text: string): string {
+  const before = context?.(pageNumber);
+  return before === undefined ? text : `${before}\n\n${text}`;
+}
+
 /** One chunk per page. What `paginate` sends. */
-export function chunkByPage(document: LoadedDocument): Chunk[] {
+export function chunkByPage(document: LoadedDocument, context?: ChunkContext): Chunk[] {
   return document.pages
     .filter((page) => page.text.trim() !== "")
-    .map((page) => ({ text: page.text, pages: [page.pageNumber] }));
+    .map((page) => ({ text: opening(context, page.pageNumber, page.text), pages: [page.pageNumber] }));
 }
 
 /**
@@ -95,9 +106,9 @@ export function chunkByPage(document: LoadedDocument): Chunk[] {
  * Page boundaries rather than a sliding window: a table row cut in half yields two
  * unparseable fragments, and no merge rule recovers from that. A single page over
  * budget is emitted whole — better one oversized request that might work than a
- * guaranteed-broken split.
+ * guaranteed-broken split. A chunk's `context` text counts against the budget.
  */
-export function chunkByBudget(document: LoadedDocument, maxChars: number): Chunk[] {
+export function chunkByBudget(document: LoadedDocument, maxChars: number, context?: ChunkContext): Chunk[] {
   const chunks: Chunk[] = [];
   let text = "";
   let pages: number[] = [];
@@ -110,7 +121,7 @@ export function chunkByBudget(document: LoadedDocument, maxChars: number): Chunk
       text = "";
       pages = [];
     }
-    text = text === "" ? page.text : `${text}\n\n${page.text}`;
+    text = text === "" ? opening(context, page.pageNumber, page.text) : `${text}\n\n${page.text}`;
     pages.push(page.pageNumber);
   }
 

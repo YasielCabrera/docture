@@ -1,6 +1,6 @@
 # 15-cli — The command line
 
-> `inspect`, `extract`, `classify`, `eval`, a schema module, a kinds module, and a config file.
+> `inspect`, `extract`, `classify`, `eval`, `review`, a schema module, a kinds module, and a config file.
 
 **Needs:** `pnpm run fetch`. `inspect` needs no key; `extract` and `classify` work keyless through the config in this folder.
 
@@ -20,7 +20,8 @@ pnpm add @docture/cli
 
 It requires `ai` and `pdfjs-dist` and installs them as dependencies. Its default canvas
 renderer is an optional dependency, `@napi-rs/canvas@1.0.10`. If you omitted optional
-dependencies, add that version before using rendering flags such as `--vision`.
+dependencies, add that version before using `review` or rendering flags such as
+`--vision`. The tour writes its `review` page to a temporary directory and prints the path.
 
 The config imports `defineConfig` from `@docture/cli`, pipeline APIs from `docture`,
 and `DocumentLoaderPdfJs` from `docture/loaders/pdfjs`. To build a similar config in
@@ -103,12 +104,23 @@ report hallucinations that are not hallucinations.
 
 ## Output formats
 
-All five commands accept `--format json|ndjson|text`. JSON has the shape
+`extract`, `convert`, `classify`, `inspect`, and `eval` accept `--format json|ndjson|text`. JSON has the shape
 `{ version: 1, command, ok, results, summary? }`. `extract` defaults to JSON;
 the other commands default to text. Each result names its file and has either
 `ok: true` plus command data or `ok: false` plus `error: { code, message, hint? }`.
 NDJSON streams those items one per line. `--full` adds extraction metadata.
 `convert --to md|html|txt|json` selects the written document format.
+
+## For scripts and agents
+
+- `-` reads the document from stdin: `cat scan.pdf | docture inspect -`. The result is
+  labelled `stdin`.
+- `--dry-run` on `extract`, `convert`, `classify`, and `eval` prints the plan as JSON
+  and exits. It loads no document and writes no file.
+- `docture help --json` and `docture <command> --help --json` print every flag, with its
+  choices and default, in the same envelope.
+- `docture mcp` serves `convert` and `inspect` as MCP tools over stdio. It needs
+  `@modelcontextprotocol/sdk@1.32.2`; the tour runs it with three hand-written frames.
 
 ## What to read next
 

@@ -1,12 +1,14 @@
 import { NoObjectGeneratedError } from "ai";
 import { ModelOutputError, isAbortError, sumUsage, type Usage, type ValidationIssue } from "../core/index.js";
+import { repairOutputOf, withRepairOutput } from "../core/pipeline/errors.js";
 import { toUsage, type PricingTable } from "./pricing.js";
 
 export function withCompletedUsage(
   error: unknown,
   parts: readonly Partial<Usage>[],
   wallMs: number,
-  reportFailureUsage?: (usage: Partial<Usage>) => void,
+  reportFailureUsage: ((usage: Partial<Usage>) => void) | undefined,
+  { wholeAnswer }: { readonly wholeAnswer: boolean },
 ): unknown {
   if (!(error instanceof ModelOutputError)) {
     if (!isAbortError(error) && parts.some((part) => part !== undefined)) {
@@ -14,13 +16,15 @@ export function withCompletedUsage(
     }
     return error;
   }
-  return new ModelOutputError(error.message, {
+  const completed = new ModelOutputError(error.message, {
     cause: error.cause,
     usage: sumUsage(parts, wallMs),
     ...(error.rawOutput === undefined ? {} : { rawOutput: error.rawOutput }),
     ...(error.finishReason === undefined ? {} : { finishReason: error.finishReason }),
     ...(error.issues === undefined ? {} : { issues: error.issues }),
   });
+  const text = repairOutputOf(error);
+  return wholeAnswer && text !== undefined ? withRepairOutput(completed, text) : completed;
 }
 
 function issuePath(path: unknown): string | undefined {
@@ -71,11 +75,12 @@ export function modelOutputError(error: unknown, context: {
     ? sumUsage(parts, context.wallMs)
     : undefined;
   const issues = validationIssues(error);
-  return new ModelOutputError(error.message, {
+  const failure = new ModelOutputError(error.message, {
     cause: error,
     ...(usage === undefined ? {} : { usage }),
     ...(error.text === undefined ? {} : { rawOutput: error.text }),
     ...(error.finishReason === undefined ? {} : { finishReason: error.finishReason }),
     ...(issues === undefined ? {} : { issues }),
   });
+  return error.text === undefined ? failure : withRepairOutput(failure, error.text);
 }

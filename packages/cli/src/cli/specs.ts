@@ -7,7 +7,24 @@
  * copies of `--timeout` is three chances for one of them to mean something else.
  */
 
-import type { CommandSpec, FlagSpec } from "./args.js";
+import type { ConversionAssetMode, CompletionStrategy } from "docture";
+import { ENGINE_RANGES } from "../mcp/engines.js";
+import type { ChoiceFlagSpec, CommandSpec, FlagSpec, PositionalSpec } from "./args.js";
+
+const OUTPUT_FORMATS = ["json", "ndjson", "text"] as const;
+export const CONVERSION_TARGETS = ["md", "html", "txt", "json"] as const;
+const ASSET_MODES = ["referenced", "embedded", "omit"] as const satisfies readonly ConversionAssetMode[];
+const COMPLETIONS = ["forbidden", "paginate", "concatenate"] as const satisfies readonly CompletionStrategy[];
+
+const FILES: readonly PositionalSpec[] = [
+  { name: "file", describe: "Paths, globs, http(s) URLs, or - for stdin", required: true, variadic: true },
+];
+
+const DRY_RUN: FlagSpec = {
+  name: "dry-run",
+  type: "boolean",
+  describe: "Validate the invocation and print the plan as JSON. Reads no document and writes no file",
+};
 
 /** Present on every command. */
 const COMMON: readonly FlagSpec[] = [
@@ -29,12 +46,40 @@ const COMMON: readonly FlagSpec[] = [
   { name: "help", type: "boolean", short: "h", describe: "Show this help" },
 ];
 
-const OUTPUT_FORMAT: FlagSpec = {
+export const OUTPUT_FORMAT: ChoiceFlagSpec<(typeof OUTPUT_FORMATS)[number]> = {
   name: "format",
   type: "string",
   placeholder: "<fmt>",
-  describe: "json | ndjson | text. JSON is a versioned envelope; NDJSON streams result items",
+  choices: OUTPUT_FORMATS,
+  describe: "JSON is a versioned envelope; NDJSON streams result items",
   defaultLabel: "text",
+};
+
+export const COMPLETION: ChoiceFlagSpec<(typeof COMPLETIONS)[number]> = {
+  name: "completion",
+  type: "string",
+  placeholder: "<mode>",
+  choices: COMPLETIONS,
+  describe: "How a document too big for one request is split",
+  defaultLabel: "forbidden",
+};
+
+export const CONVERSION_TARGET: ChoiceFlagSpec<(typeof CONVERSION_TARGETS)[number]> = {
+  name: "to",
+  type: "string",
+  placeholder: "<fmt>",
+  choices: CONVERSION_TARGETS,
+  describe: "Document format to write",
+  defaultLabel: "md",
+};
+
+export const ASSETS: ChoiceFlagSpec<(typeof ASSET_MODES)[number]> = {
+  name: "assets",
+  type: "string",
+  placeholder: "<mode>",
+  choices: ASSET_MODES,
+  describe: "How page images and figures are written",
+  defaultLabel: "referenced",
 };
 
 /** Choosing and paying for a model. */
@@ -92,13 +137,7 @@ const RUN: readonly FlagSpec[] = [
     placeholder: "<n>",
     describe: "Send at most this many page images to the model, under --vision",
   },
-  {
-    name: "completion",
-    type: "string",
-    placeholder: "<mode>",
-    describe: "forbidden | paginate | concatenate — how a document too big for one request is split",
-    defaultLabel: "forbidden",
-  },
+  COMPLETION,
   {
     name: "max-chars",
     type: "string",
@@ -142,7 +181,7 @@ const RUN: readonly FlagSpec[] = [
 export const EXTRACT: CommandSpec = {
   name: "extract",
   summary: "Extract structured data from one or many documents",
-  args: "<file...>",
+  positionals: FILES,
   description:
     "Runs the pipeline over every input and writes a JSON envelope to stdout.\n" +
     "Diagnostics go to stderr, so the output stays pipeable.",
@@ -165,10 +204,17 @@ export const EXTRACT: CommandSpec = {
     {
       name: "full",
       type: "boolean",
-      describe: "Add method, loader, attempts, usage, features, and classification to result items",
+      describe:
+        "Add method, loader, attempts, usage, features, classification, validation, conflicts, and, with --citations, citations and citationSources to result items",
+    },
+    {
+      name: "citations",
+      type: "boolean",
+      describe: "Ask the model which document lines show each value, and check them. Needs --full",
     },
     ...MODEL,
     ...RUN,
+    DRY_RUN,
     ...COMMON,
   ],
   examples: [
@@ -185,7 +231,7 @@ export const EXTRACT: CommandSpec = {
 export const CONVERT: CommandSpec = {
   name: "convert",
   summary: "Convert PDFs to TXT, Markdown, HTML, or JSON",
-  args: "<file...>",
+  positionals: FILES,
   description:
     "Recovers grounded document text and layout for indexing and RAG. Outputs and\n" +
     "referenced images are written beneath the required --out directory.",
@@ -198,20 +244,8 @@ export const CONVERT: CommandSpec = {
       describe: "Output directory. Required",
     },
     OUTPUT_FORMAT,
-    {
-      name: "to",
-      type: "string",
-      placeholder: "<fmt>",
-      describe: "md | html | txt | json",
-      defaultLabel: "md",
-    },
-    {
-      name: "assets",
-      type: "string",
-      placeholder: "<mode>",
-      describe: "referenced | embedded | omit",
-      defaultLabel: "referenced",
-    },
+    CONVERSION_TARGET,
+    ASSETS,
     {
       name: "assist-layout",
       type: "boolean",
@@ -220,6 +254,7 @@ export const CONVERT: CommandSpec = {
     { name: "timeout", type: "string", placeholder: "<ms>", describe: "Per-stage deadline. Omit for none" },
     { name: "concurrency", type: "string", placeholder: "<n>", describe: "Overlaps model calls and I/O; local PDF work uses one thread", defaultLabel: "4" },
     ...MODEL,
+    DRY_RUN,
     ...COMMON,
   ],
   examples: [
@@ -236,7 +271,7 @@ export const CONVERT: CommandSpec = {
 export const CLASSIFY: CommandSpec = {
   name: "classify",
   summary: "Decide what kind of document this is, without extracting",
-  args: "<file...>",
+  positionals: FILES,
   description:
     "Reads each document and asks the classifiers what it is. Cheap next to a full\n" +
     "extraction, and the way to check a routing decision before paying for one.",
@@ -251,6 +286,7 @@ export const CLASSIFY: CommandSpec = {
     ...MODEL.filter((f) => f.name !== "instructions"),
     { name: "timeout", type: "string", placeholder: "<ms>", describe: "Per-stage deadline. Omit for none" },
     { name: "concurrency", type: "string", placeholder: "<n>", describe: "Overlaps model calls and I/O; local PDF work uses one thread", defaultLabel: "4" },
+    DRY_RUN,
     ...COMMON,
   ],
   examples: ["docture classify inbox/*.pdf --classifications ./kinds.ts -m openai/gpt-5"],
@@ -259,7 +295,7 @@ export const CLASSIFY: CommandSpec = {
 export const INSPECT: CommandSpec = {
   name: "inspect",
   summary: "Show what the loaders see — no model, no API key",
-  args: "<file...>",
+  positionals: FILES,
   description:
     "The answer to “why did no strategy run?”. Loads the document exactly as `extract`\n" +
     "would and prints the features eligibility is decided from.",
@@ -283,7 +319,7 @@ export const INSPECT: CommandSpec = {
 export const EVAL: CommandSpec = {
   name: "eval",
   summary: "Score extractions against ground truth",
-  args: "<file...>",
+  positionals: FILES,
   description:
     "Extracts each document, scores it field by field, and prints a Markdown\n" +
     "scoreboard. Exits 1 when --min-f1 is not met, so CI can gate on accuracy.",
@@ -338,6 +374,7 @@ export const EVAL: CommandSpec = {
     },
     ...MODEL,
     ...RUN,
+    DRY_RUN,
     ...COMMON,
   ],
   examples: [
@@ -345,7 +382,122 @@ export const EVAL: CommandSpec = {
   ],
 };
 
-export const COMMANDS: readonly CommandSpec[] = [EXTRACT, CONVERT, CLASSIFY, INSPECT, EVAL];
+export const MCP: CommandSpec = {
+  name: "mcp",
+  summary: "Serve convert and inspect to an agent over MCP stdio",
+  positionals: [],
+  description:
+    "Starts a Model Context Protocol server on stdin and stdout. Its convert and inspect\n" +
+    "tools return the same version 1 envelope as --format json, and call no model.\n" +
+    "Needs the optional peer @modelcontextprotocol/sdk.",
+  flags: COMMON.filter((flag) => flag.name !== "verbose" && flag.name !== "quiet"),
+  examples: ["docture mcp", "docture mcp --config ./docture.config.ts"],
+  notes: [
+    "Register it with an MCP host, for example in its JSON server configuration:",
+    '  { "mcpServers": { "docture": { "command": "npx", "args": ["docture", "mcp"] } } }',
+    "Relative sources resolve against the directory the host starts the server in.",
+    `Install the SDK beside the CLI: npm install @modelcontextprotocol/sdk@${ENGINE_RANGES["@modelcontextprotocol/sdk"]}`,
+  ],
+};
+
+export const REVIEW: CommandSpec = {
+  name: "review",
+  summary: "Write an offline HTML page that overlays conversion boxes or cited fields on page images",
+  positionals: [
+    {
+      name: "file",
+      describe: "The document to convert or extract, a path, http(s) URL, or - for stdin. Omit with --conversion or --extraction",
+      required: false,
+      variadic: false,
+    },
+  ],
+  description:
+    "Draws what docture found over each rendered page, in one self-contained HTML file\n" +
+    "that loads nothing from the network. Without --schema or --model it reviews a\n" +
+    "conversion; with them it extracts with citations and lists every field beside the\n" +
+    "pages, highlighting the lines each field cites.",
+  flags: [
+    {
+      name: "out",
+      type: "string",
+      short: "o",
+      placeholder: "<path>",
+      describe: "The HTML file to write",
+      defaultLabel: "review.html",
+    },
+    { name: "dpi", type: "string", placeholder: "<n>", describe: "Page image resolution", defaultLabel: "96" },
+    {
+      name: "conversion",
+      type: "string",
+      placeholder: "<path>",
+      describe: "Review a saved `convert --to json` file instead of converting. Needs --source",
+    },
+    {
+      name: "extraction",
+      type: "string",
+      placeholder: "<path>",
+      describe: "Review a saved `extract --full` result instead of extracting. Needs --source",
+    },
+    {
+      name: "source",
+      type: "string",
+      placeholder: "<file>",
+      describe: "The original document a saved file came from; its pages are rendered",
+    },
+    {
+      name: "item",
+      type: "string",
+      placeholder: "<n>",
+      describe: "Which result of a saved batch envelope to review, from 0. Required when it holds several",
+    },
+    {
+      name: "schema",
+      type: "string",
+      short: "s",
+      placeholder: "<path>",
+      describe: "Extract with this schema and review the cited fields",
+    },
+    ...MODEL,
+    COMPLETION,
+    {
+      name: "max-chars",
+      type: "string",
+      placeholder: "<n>",
+      describe: "Character budget per request under --completion concatenate",
+      defaultLabel: "24000",
+    },
+    { name: "timeout", type: "string", placeholder: "<ms>", describe: "Per-stage deadline. Omit for none" },
+    DRY_RUN,
+    ...COMMON,
+  ],
+  examples: [
+    "docture review report.pdf -o review.html",
+    "docture review --conversion report.json --source report.pdf",
+    "docture review invoice.pdf --schema ./invoice.ts --model openai/gpt-5",
+    "docture review --extraction results.json --source invoice.pdf --item 0",
+  ],
+  notes: [
+    "Pages are rendered with the configured loaders, or PDF.js and @napi-rs/canvas by default.",
+    "Saved conversion JSON and extraction results are validated before any page is rendered.",
+  ],
+};
+
+export const COMMANDS: readonly CommandSpec[] = [EXTRACT, CONVERT, CLASSIFY, INSPECT, EVAL, REVIEW, MCP];
+
+/** Reserved on the help route only, so `extract --json` stays an unknown option. */
+export const HELP_JSON: FlagSpec = {
+  name: "json",
+  type: "boolean",
+  describe: "Print the command and flag specs as a JSON envelope",
+};
+
+/** `docture help [command]`, parsed like a command but not listed as one. */
+export const HELP: CommandSpec = {
+  name: "help",
+  summary: "Show help for every command, or for one",
+  positionals: [{ name: "command", describe: "The command to describe", required: false, variadic: false }],
+  flags: [HELP_JSON, ...COMMON.filter((flag) => flag.name === "no-color" || flag.name === "help")],
+};
 
 export function findCommand(name: string): CommandSpec | undefined {
   return COMMANDS.find((c) => c.name === name);

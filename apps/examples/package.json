@@ -48,6 +48,7 @@
     "tesseract.js": "7.0.0",
     "ppu-paddle-ocr": "6.3.0",
     "onnxruntime-node": "1.27.0",
-    "@napi-rs/canvas": "1.0.10"
+    "@napi-rs/canvas": "1.0.10",
+    "utif2": "4.1.0"
   }
 }

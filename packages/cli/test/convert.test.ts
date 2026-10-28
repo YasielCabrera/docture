@@ -74,7 +74,7 @@ describe("convert", () => {
     const result = await cli(["convert", "report.pdf", "-o", "out", "--to", "json", "--assets", assets, "--format", "json"], { cwd });
     expect(result.code).toBe(0);
     const document = JSON.parse(await readFile(join(cwd, "out/report.json"), "utf8"));
-    expect(document.schemaVersion).toBe(1);
+    expect(document.schemaVersion).toBe(2);
     expect(document.loader).toBe("fake");
     expect(document.method).toBe("deterministic");
     expect(document.pages[0].elements[0]).toMatchObject({

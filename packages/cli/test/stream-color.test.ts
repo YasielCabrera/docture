@@ -16,6 +16,7 @@ describe("stream color", () => {
       cwd, env: { NO_COLOR: "1" }, color: true, stdoutColor: true,
       write(chunk: string) { stdout += chunk; },
       diagnostic(chunk: string) { stderr += chunk; },
+      readStdin: async () => new Uint8Array(),
     };
     expect(await run(["inspect", "a.pdf", "--verbose"], { io })).toBe(0);
     expect(stdout).toContain("a.pdf");

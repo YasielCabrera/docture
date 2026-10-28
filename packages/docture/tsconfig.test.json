@@ -20,6 +20,9 @@
       "docture/eval": [
         "./src/eval/index.ts"
       ],
+      "docture/chunk": [
+        "./src/chunk/index.ts"
+      ],
       "docture/llm/text": [
         "./src/llm/text.ts"
       ],

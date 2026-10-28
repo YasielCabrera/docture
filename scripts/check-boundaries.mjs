@@ -21,13 +21,19 @@ async function files(directory) {
 
 const llmRoles = {
   "llm/cache": "llm/helpers",
+  "llm/citations": "llm/helpers",
   "llm/entries/cache": "llm/helpers",
+  "llm/evidence": "llm/helpers",
+  "llm/fold": "llm/helpers",
   "llm/merge": "llm/helpers",
   "llm/pricing": "llm/helpers",
   "llm/prompt": "llm/helpers",
   "llm/relax": "llm/helpers",
+  "llm/repair": "llm/helpers",
   "llm/failure": "llm/shared",
   "llm/model-id": "llm/shared",
+  "llm/request": "llm/shared",
+  "llm/telemetry": "llm/shared",
   "llm/strategy": "llm/text",
   "llm/text": "llm/text",
   "llm/vision": "llm/vision",
@@ -65,7 +71,7 @@ const engines = {
   "loaders/pdfjs": ["pdfjs-dist"],
   "loaders/mupdf": ["mupdf"],
   "loaders/tesseract": ["tesseract.js"],
-  "loaders/paddleocr": ["ppu-paddle-ocr", "onnxruntime-node"],
+  "loaders/paddleocr": ["ppu-paddle-ocr", "onnxruntime-node", "utif2"],
   "raster/canvas": ["pdfjs-dist", "@napi-rs/canvas"],
   "testing/fixtures": ["pdfkit"],
   "testing/conformance": ["vitest"],
@@ -153,5 +159,45 @@ for (const folder of await readdir(join(root, "packages"))) {
   if (!value.private) packages.push(value.name);
 }
 assert.deepEqual(packages.sort(), ["@docture/cli", "docture"]);
+
+const cliSource = join(root, "packages/cli/src");
+const cliManifest = JSON.parse(await readFile(join(root, "packages/cli/package.json"), "utf8"));
+const cliPeers = Object.keys(cliManifest.peerDependencies ?? {});
+const isCliPeer = specifier => cliPeers.some(peer => specifier === peer || specifier.startsWith(`${peer}/`));
+const cliStaticImports = new Map();
+for (const path of await files(cliSource)) {
+  const name = relative(cliSource, path);
+  const tree = ts.createSourceFile(path, await readFile(path, "utf8"), ts.ScriptTarget.Latest, true);
+  const local = [];
+  function visitCli(node) {
+    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteralLike(node.moduleSpecifier)) {
+      const specifier = node.moduleSpecifier.text;
+      const typeOnly = ts.isImportDeclaration(node) ? node.importClause?.isTypeOnly === true : node.isTypeOnly;
+      if (!typeOnly && specifier.startsWith(".")) local.push(relative(cliSource, resolve(dirname(path), specifier)).replace(/\.js$/, ".ts"));
+      if (!typeOnly && isCliPeer(specifier)) failures.push(`cli/${name} statically imports the optional peer ${specifier}; load it through importEngine`);
+    }
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments[0] && ts.isStringLiteralLike(node.arguments[0])) {
+      if (isCliPeer(node.arguments[0].text) && !name.startsWith("mcp/")) failures.push(`cli/${name} loads ${node.arguments[0].text} outside src/mcp`);
+    }
+    ts.forEachChild(node, visitCli);
+  }
+  visitCli(tree);
+  cliStaticImports.set(name, local);
+}
+const cliRoot = new Set();
+for (const queue = ["index.ts"]; queue.length > 0;) {
+  const name = queue.pop();
+  if (cliRoot.has(name)) continue;
+  cliRoot.add(name);
+  queue.push(...(cliStaticImports.get(name) ?? []));
+}
+for (const name of ["mcp/index.ts", "mcp/server.ts"]) {
+  if (cliRoot.has(name)) failures.push(`@docture/cli statically reaches cli/${name}; keep the MCP server behind the lazy mcp command`);
+}
+const cliRanges = /ENGINE_RANGES = (\{[\s\S]*?\}) as const/.exec(await readFile(join(cliSource, "mcp/engines.ts"), "utf8"))?.[1];
+assert.deepEqual(Function(`return ${cliRanges}`)(), cliManifest.peerDependencies, "CLI ENGINE_RANGES must equal its declared peers");
+for (const peer of cliPeers) assert.equal(cliManifest.peerDependenciesMeta?.[peer]?.optional, true, `${peer} must be an optional CLI peer`);
+assert.deepEqual(Object.keys(cliManifest.exports), [".", "./mcp"]);
+
 assert.deepEqual(failures, [], "Public module boundaries must stay isolated");
 console.log(`Verified two publications and ${Object.keys(manifest.exports).length} isolated ESM entries.`);

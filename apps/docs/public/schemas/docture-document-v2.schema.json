@@ -1,0 +1,1615 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DoctureDocument version 2",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "const": 2,
+      "type": "number"
+    },
+    "loader": {
+      "type": "string"
+    },
+    "method": {
+      "type": "string"
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "pageNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          },
+          "elements": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "heading",
+                      "type": "string"
+                    },
+                    "level": {
+                      "anyOf": [
+                        {
+                          "const": 2,
+                          "type": "number"
+                        },
+                        {
+                          "const": 1,
+                          "type": "number"
+                        },
+                        {
+                          "const": 3,
+                          "type": "number"
+                        },
+                        {
+                          "const": 4,
+                          "type": "number"
+                        },
+                        {
+                          "const": 5,
+                          "type": "number"
+                        },
+                        {
+                          "const": 6,
+                          "type": "number"
+                        }
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "runs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string"
+                          },
+                          "href": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "provenance": {
+                      "type": "object",
+                      "properties": {
+                        "continuations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "pageNumber": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "box": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "width": {
+                                    "type": "number"
+                                  },
+                                  "height": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "width",
+                                  "height"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sourceIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "lineIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                                },
+                                "minItems": 1
+                              }
+                            },
+                            "required": [
+                              "pageNumber",
+                              "box",
+                              "sourceIds"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "minItems": 1
+                        },
+                        "pageNumber": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "box": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "width": {
+                              "type": "number"
+                            },
+                            "height": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y",
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "sourceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "lineIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "pageNumber",
+                        "box",
+                        "sourceIds"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "level",
+                    "text",
+                    "runs",
+                    "id",
+                    "provenance"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "paragraph",
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "runs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string"
+                          },
+                          "href": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "provenance": {
+                      "type": "object",
+                      "properties": {
+                        "continuations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "pageNumber": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "box": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "width": {
+                                    "type": "number"
+                                  },
+                                  "height": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "width",
+                                  "height"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sourceIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "lineIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                                },
+                                "minItems": 1
+                              }
+                            },
+                            "required": [
+                              "pageNumber",
+                              "box",
+                              "sourceIds"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "minItems": 1
+                        },
+                        "pageNumber": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "box": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "width": {
+                              "type": "number"
+                            },
+                            "height": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y",
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "sourceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "lineIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "pageNumber",
+                        "box",
+                        "sourceIds"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "text",
+                    "runs",
+                    "id",
+                    "provenance"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "code",
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "provenance": {
+                      "type": "object",
+                      "properties": {
+                        "continuations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "pageNumber": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "box": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "width": {
+                                    "type": "number"
+                                  },
+                                  "height": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "width",
+                                  "height"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sourceIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "lineIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                                },
+                                "minItems": 1
+                              }
+                            },
+                            "required": [
+                              "pageNumber",
+                              "box",
+                              "sourceIds"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "minItems": 1
+                        },
+                        "pageNumber": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "box": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "width": {
+                              "type": "number"
+                            },
+                            "height": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y",
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "sourceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "lineIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "pageNumber",
+                        "box",
+                        "sourceIds"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "text",
+                    "id",
+                    "provenance"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "list",
+                      "type": "string"
+                    },
+                    "ordered": {
+                      "type": "boolean"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string"
+                          },
+                          "runs": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "text": {
+                                  "type": "string"
+                                },
+                                "href": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "text"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "marker": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "text",
+                          "runs"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "provenance": {
+                      "type": "object",
+                      "properties": {
+                        "continuations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "pageNumber": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "box": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "width": {
+                                    "type": "number"
+                                  },
+                                  "height": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "width",
+                                  "height"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sourceIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "lineIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                                },
+                                "minItems": 1
+                              }
+                            },
+                            "required": [
+                              "pageNumber",
+                              "box",
+                              "sourceIds"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "minItems": 1
+                        },
+                        "pageNumber": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "box": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "width": {
+                              "type": "number"
+                            },
+                            "height": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y",
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "sourceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "lineIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "pageNumber",
+                        "box",
+                        "sourceIds"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "ordered",
+                    "items",
+                    "id",
+                    "provenance"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "table",
+                      "type": "string"
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "headerRows": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "spans": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "row": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "col": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "rowSpan": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "colSpan": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        },
+                        "required": [
+                          "row",
+                          "col",
+                          "rowSpan",
+                          "colSpan"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "minItems": 1
+                    },
+                    "rowProvenance": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "pageNumber": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "box": {
+                            "type": "object",
+                            "properties": {
+                              "x": {
+                                "type": "number"
+                              },
+                              "y": {
+                                "type": "number"
+                              },
+                              "width": {
+                                "type": "number"
+                              },
+                              "height": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "x",
+                              "y",
+                              "width",
+                              "height"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "sourceIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "lineIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                            },
+                            "minItems": 1
+                          }
+                        },
+                        "required": [
+                          "pageNumber",
+                          "box",
+                          "sourceIds"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "minItems": 1
+                    },
+                    "sourceText": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "provenance": {
+                      "type": "object",
+                      "properties": {
+                        "continuations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "pageNumber": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "box": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "width": {
+                                    "type": "number"
+                                  },
+                                  "height": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "width",
+                                  "height"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sourceIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "lineIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                                },
+                                "minItems": 1
+                              }
+                            },
+                            "required": [
+                              "pageNumber",
+                              "box",
+                              "sourceIds"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "minItems": 1
+                        },
+                        "pageNumber": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "box": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "width": {
+                              "type": "number"
+                            },
+                            "height": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y",
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "sourceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "lineIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "pageNumber",
+                        "box",
+                        "sourceIds"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "rows",
+                    "headerRows",
+                    "id",
+                    "provenance"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "figure",
+                      "type": "string"
+                    },
+                    "assetId": {
+                      "type": "string"
+                    },
+                    "alt": {
+                      "type": "string"
+                    },
+                    "caption": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "provenance": {
+                      "type": "object",
+                      "properties": {
+                        "continuations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "pageNumber": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "box": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "width": {
+                                    "type": "number"
+                                  },
+                                  "height": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "width",
+                                  "height"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sourceIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "lineIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                                },
+                                "minItems": 1
+                              }
+                            },
+                            "required": [
+                              "pageNumber",
+                              "box",
+                              "sourceIds"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "minItems": 1
+                        },
+                        "pageNumber": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "box": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "width": {
+                              "type": "number"
+                            },
+                            "height": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y",
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "sourceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "lineIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "pageNumber",
+                        "box",
+                        "sourceIds"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "assetId",
+                    "id",
+                    "provenance"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "page-break",
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "provenance": {
+                      "type": "object",
+                      "properties": {
+                        "continuations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "pageNumber": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "box": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "width": {
+                                    "type": "number"
+                                  },
+                                  "height": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "width",
+                                  "height"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sourceIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "lineIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                                },
+                                "minItems": 1
+                              }
+                            },
+                            "required": [
+                              "pageNumber",
+                              "box",
+                              "sourceIds"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "minItems": 1
+                        },
+                        "pageNumber": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "box": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "width": {
+                              "type": "number"
+                            },
+                            "height": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y",
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "sourceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "lineIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "pageNumber",
+                        "box",
+                        "sourceIds"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "id",
+                    "provenance"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "page-header",
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "runs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string"
+                          },
+                          "href": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "evidence": {
+                      "anyOf": [
+                        {
+                          "const": "tagged",
+                          "type": "string"
+                        },
+                        {
+                          "const": "repeated",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "provenance": {
+                      "type": "object",
+                      "properties": {
+                        "continuations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "pageNumber": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "box": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "width": {
+                                    "type": "number"
+                                  },
+                                  "height": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "width",
+                                  "height"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sourceIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "lineIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                                },
+                                "minItems": 1
+                              }
+                            },
+                            "required": [
+                              "pageNumber",
+                              "box",
+                              "sourceIds"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "minItems": 1
+                        },
+                        "pageNumber": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "box": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "width": {
+                              "type": "number"
+                            },
+                            "height": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y",
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "sourceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "lineIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "pageNumber",
+                        "box",
+                        "sourceIds"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "text",
+                    "runs",
+                    "evidence",
+                    "id",
+                    "provenance"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "page-footer",
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "runs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string"
+                          },
+                          "href": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "evidence": {
+                      "anyOf": [
+                        {
+                          "const": "tagged",
+                          "type": "string"
+                        },
+                        {
+                          "const": "repeated",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "provenance": {
+                      "type": "object",
+                      "properties": {
+                        "continuations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "pageNumber": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "box": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "width": {
+                                    "type": "number"
+                                  },
+                                  "height": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "width",
+                                  "height"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sourceIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "lineIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                                },
+                                "minItems": 1
+                              }
+                            },
+                            "required": [
+                              "pageNumber",
+                              "box",
+                              "sourceIds"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "minItems": 1
+                        },
+                        "pageNumber": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "box": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "width": {
+                              "type": "number"
+                            },
+                            "height": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y",
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "sourceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "lineIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^p[1-9]\\d*-line-[1-9]\\d*$"
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "pageNumber",
+                        "box",
+                        "sourceIds"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "text",
+                    "runs",
+                    "evidence",
+                    "id",
+                    "provenance"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "pageNumber",
+          "width",
+          "height",
+          "elements"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "mimeType": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "mimeType",
+              "reference"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "mimeType": {
+                "type": "string"
+              },
+              "data": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "mimeType",
+              "data"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "const": "LAYOUT_DEGRADED",
+                "type": "string"
+              },
+              {
+                "const": "AMBIGUOUS_READING_ORDER",
+                "type": "string"
+              },
+              {
+                "const": "UNSUPPORTED_ASSET",
+                "type": "string"
+              },
+              {
+                "const": "UNSAFE_LINK",
+                "type": "string"
+              },
+              {
+                "const": "LAYOUT_ANALYZER_FAILED",
+                "type": "string"
+              },
+              {
+                "const": "INVALID_LAYOUT_ANALYSIS",
+                "type": "string"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "pageNumber": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "loader",
+    "method",
+    "pages",
+    "assets",
+    "warnings"
+  ],
+  "additionalProperties": false
+}

@@ -9,9 +9,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import {
   coreRuntime, coreTypes, llmRuntime, llmTypes, loaderRuntime, loaderTypes, conformanceTest,
-  bundleConsumers, bundleRuntime, entryRuntime, missingEngineRuntime, paddleRuntimeWithoutOnnx, missingCanvasRuntime,
+  bundleConsumers, bundleRuntime, entryRuntime, missingEngineRuntime, paddleRuntimeWithoutOnnx, paddleTiffRuntime, missingCanvasRuntime,
   engineConformanceTest, pdfjsAdoptionRuntime, pdfkitAdoptionRuntime, classifierRuntime, classifierTypes,
   cliPeerContexts, cliMissingEngineConfig, cliVisionConfig, cliApplicationLoaderVisionConfig, typedCliConfigs,
+  mcpAbsentRuntime, mcpClientRuntime, mcpTypes, cliRootBundleConsumer,
 } from "./verify-packages-consumers.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -43,11 +44,11 @@ Consumer installs use real registry dependencies. No publishing or Git writes.`)
 }
 
 const expectedPublications = ["@docture/cli", "docture"];
-const expectedExports = [".", "./llm", "./eval", ...[
+const expectedExports = [".", "./llm", "./eval", "./chunk", ...[
   "text", "vision", "classifier", "layout", "split", "cache", "pricing", "prompt", "merge", "relax", "extractor",
 ].map(name => `./llm/${name}`), ...["pdfjs", "mupdf", "tesseract", "paddleocr"].map(name => `./loaders/${name}`),
 "./raster/canvas", ...["doubles", "conformance", "fixtures"].map(name => `./testing/${name}`)];
-const optionalPeers = ["ai", "zod", "pdfjs-dist", "mupdf", "tesseract.js", "ppu-paddle-ocr", "onnxruntime-node", "@napi-rs/canvas", "pdfkit", "vitest"];
+const optionalPeers = ["ai", "zod", "pdfjs-dist", "mupdf", "tesseract.js", "ppu-paddle-ocr", "onnxruntime-node", "@napi-rs/canvas", "utif2", "pdfkit", "vitest"];
 const engineNames = [...optionalPeers.filter(name => name !== "zod"), "tesseract.js-core", "onnxruntime-common"];
 const toolNames = ["esbuild", "rollup", "@rollup/plugin-node-resolve", "@rollup/plugin-commonjs", "@rollup/plugin-terser"];
 const engineMatrix = {
@@ -65,7 +66,7 @@ const engineTiers = {
   ])),
 };
 const tierDirectory = tier => tier.replace(/[^a-z0-9.]+/gi, "-");
-const pinnedEngines = ["tesseract.js", "ppu-paddle-ocr", "onnxruntime-node"];
+const pinnedEngines = ["tesseract.js", "ppu-paddle-ocr", "onnxruntime-node", "utif2"];
 const applicationOcrEngines = { "tesseract.js": "6.0.1", "ppu-paddle-ocr": "6.6.1", "onnxruntime-node": "1.30.0" };
 const zodMatrix = [["npm", "3.25.76"], ["npm", "4.1.8"], ["npm", "4.6.7"], ["pnpm", "3.25.76"]];
 const applicationEngines = [["pdfjs-dist", "6.3.289", pdfjsAdoptionRuntime, ["zod"]], ["pdfkit", "0.17.2", pdfkitAdoptionRuntime, []]];
@@ -271,8 +272,9 @@ async function checkPackedPackage(directory, manifest, ts, sourceDirectory) {
 }
 
 const helperModules = ["cache", "pricing", "prompt", "merge", "relax"];
+const internalHelpers = ["citations", "evidence", "fold"];
 const capabilityModules = { text: ["text", "strategy"], vision: ["vision"], classifier: ["classifier"], layout: ["layout"], split: ["split"] };
-const capabilityBase = [...helperModules, "entries/cache", "failure", "model-id"];
+const capabilityBase = [...helperModules, ...internalHelpers, "entries/cache", "failure", "model-id", "repair", "request", "telemetry"];
 const llmAllowed = {
   core: [],
   ...Object.fromEntries(Object.entries(capabilityModules).map(([name, modules]) => [name, [...capabilityBase, ...modules]])),
@@ -299,13 +301,13 @@ function contributionProblems(profile, modules) {
     const path = id.replaceAll("\\", "/");
     const library = libraryModule(path);
     if (profile === "helpers") {
-      return library === undefined ? path.includes("/node_modules/") : ![...helperModules, "entries/cache"].some(name => library === `llm/${name}`);
+      return library === undefined ? path.includes("/node_modules/") : ![...helperModules, ...internalHelpers, "entries/cache"].some(name => library === `llm/${name}`);
     }
     const unrelatedEngine = engineNames.filter(name => name !== "ai" || profile === "core")
       .some(name => path.includes(`/node_modules/${name}/`) || path.includes(`/node_modules/${name.replace("/", "+")}@`));
     if (unrelatedEngine) return true;
     if (library === undefined) return false;
-    if (/^(loaders|raster|testing|eval)\//.test(library)) return true;
+    if (/^(loaders|raster|testing|eval|chunk)\//.test(library)) return true;
     if (!library.startsWith("llm/")) return false;
     return profile !== "broad" && !llmAllowed[profile].includes(library.slice("llm/".length));
   });
@@ -680,12 +682,67 @@ async function main() {
     assert.ok(damaged.stderr.includes("it may be corrupt, truncated, or password-protected"), damaged.stderr);
     assert.doesNotMatch(damaged.stderr, /Install the engine/);
   });
+  const mcpRange = cli.manifest.peerDependencies["@modelcontextprotocol/sdk"];
+  await check("npm packed CLI imports both entries without the MCP SDK and names it only when serving", async () => {
+    const consumer = join(output, "npm-cli");
+    assert.equal(cli.manifest.peerDependenciesMeta["@modelcontextprotocol/sdk"]?.optional, true);
+    assert.deepEqual(await versionOf(consumer, "@modelcontextprotocol/sdk"), []);
+    await save(join(consumer, "mcp-absent.mjs"), mcpAbsentRuntime);
+    await run("npm-cli-mcp-absent-entries", "node", ["mcp-absent.mjs", mcpRange], consumer);
+    const missing = await runFailing("npm-cli-mcp-absent", join(consumer, "node_modules", ".bin", "docture"), ["mcp", "--no-config"], consumer);
+    assert.ok(missing.stderr.includes(`@docture/cli/mcp needs the optional peer @modelcontextprotocol/sdk@${mcpRange}, which is not installed.`), missing.stderr);
+    assert.equal(missing.stdout, "");
+  });
+  await check(`npm packed CLI serves convert and inspect over MCP stdio with @modelcontextprotocol/sdk@${mcpRange}`, async () => {
+    const consumer = await newConsumer("npm-cli-mcp");
+    await install(consumer, "npm", "cli-mcp", [packed.docture.target, packed["@docture/cli"].target, `@modelcontextprotocol/sdk@${mcpRange}`, versionSpec("@types/node")]);
+    assert.deepEqual(await versionOf(consumer, "@modelcontextprotocol/sdk"), [mcpRange]);
+    await cp(invoice, join(consumer, "invoice.pdf"));
+    await save(join(consumer, "mcp-client.mjs"), mcpClientRuntime);
+    await save(join(consumer, "mcp-client.json"), JSON.parse(await run("npm-cli-mcp-client", "node", ["mcp-client.mjs"], consumer)));
+    await save(join(consumer, "mcp-types.ts"), mcpTypes);
+    await run("npm-cli-mcp-types", tsc, ["--noEmit", "--strict", "--skipLibCheck", "false", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--target", "ES2023", "--types", "node", "mcp-types.ts"], consumer);
+  });
+  await check("esbuild keeps the MCP SDK out of the root CLI entry's static chunks", async () => {
+    const consumer = join(output, "npm-cli-mcp");
+    const directory = join(consumer, "bundle-esbuild-cli-root");
+    await save(join(consumer, "cli-root-consumer.mjs"), cliRootBundleConsumer);
+    // Splitting keeps each dynamic import() in its own chunk, so the entry's static
+    // closure is exactly what importing @docture/cli loads.
+    const result = await tools.esbuild.build({
+      entryPoints: [join(consumer, "cli-root-consumer.mjs")], absWorkingDir: consumer, outdir: directory,
+      bundle: true, splitting: true, format: "esm", platform: "node", target: "node22", metafile: true,
+      external: ["@napi-rs/*"], logLevel: "silent",
+    });
+    await save(join(directory, "metafile.json"), result.metafile);
+    const outputs = result.metafile.outputs;
+    const reached = new Set();
+    // Dynamic import targets are entry points too; start from the consumer alone.
+    for (const queue = Object.keys(outputs).filter(key => outputs[key].entryPoint === "cli-root-consumer.mjs"); queue.length > 0;) {
+      const key = queue.pop();
+      if (reached.has(key)) continue;
+      reached.add(key);
+      queue.push(...outputs[key].imports.filter(item => item.kind === "import-statement" && !item.external).map(item => item.path));
+    }
+    const sdk = id => id.includes("node_modules/@modelcontextprotocol/");
+    const staticInputs = [...reached].flatMap(key => Object.keys(outputs[key].inputs));
+    assert.deepEqual(staticInputs.filter(id => sdk(id) || /@docture\/cli\/dist\/mcp\/(?:server|index)\.js$/.test(id)), [], "the root entry loads no MCP code statically");
+    assert.ok(Object.values(outputs).some(value => Object.keys(value.inputs).some(sdk)), "the lazy mcp command still reaches the SDK");
+  });
   await check("npm PaddleOCR without ONNX Runtime names the runtime it needs", async () => {
     const consumer = await newConsumer("npm-paddle-without-onnx");
     await install(consumer, "npm", "paddle-without-onnx", [packed.docture.target, versionSpec("ppu-paddle-ocr")]);
     assert.deepEqual(await versionOf(consumer, "onnxruntime-node"), []);
     await save(join(consumer, "paddle.mjs"), paddleRuntimeWithoutOnnx);
     await run("npm-paddle-without-onnx", "node", ["paddle.mjs"], consumer);
+  });
+  await check("npm PaddleOCR decodes TIFF with utif2 and rejects malformed TIFF before the engine", async () => {
+    const consumer = await newConsumer("npm-paddle-tiff");
+    await install(consumer, "npm", "paddle-tiff", [packed.docture.target, versionSpec("utif2")]);
+    assert.deepEqual(await versionOf(consumer, "utif2"), [library.manifest.devDependencies.utif2]);
+    assert.deepEqual(await versionOf(consumer, "ppu-paddle-ocr"), []);
+    await save(join(consumer, "paddle-tiff.mjs"), paddleTiffRuntime);
+    await run("npm-paddle-tiff", "node", ["paddle-tiff.mjs"], consumer);
   });
   let canvasAbsent;
   await check("npm canvas rasterizer beside PDF.js without canvas names the canvas it needs", async () => {
@@ -881,8 +938,9 @@ async function main() {
     const bin = join(consumer, "node_modules", ".bin", "docture");
     const extract = ["extract", invoice, "--schema", "../schema.json", "--format", "ndjson"];
     const usage = JSON.parse(await run("pnpm-peer-contexts-usage", bin, [...extract, "--full"], join(consumer, "usage")));
-    assert.deepEqual([usage.usage.inputTokens, usage.usage.outputTokens], [1010, 255]);
+    assert.deepEqual([usage.usage.inputTokens, usage.usage.outputTokens], [2010, 505]);
     assert.deepEqual(usage.attempts.map(({ strategy, status, errorCode, usage: spent }) => ({ strategy, status, errorCode, inputTokens: spent?.inputTokens })), [
+      { strategy: "bad", status: "failed", errorCode: "MODEL_OUTPUT_FAILED", inputTokens: 1000 },
       { strategy: "bad", status: "failed", errorCode: "MODEL_OUTPUT_FAILED", inputTokens: 1000 },
       { strategy: "good", status: "ok", errorCode: undefined, inputTokens: 10 },
     ]);

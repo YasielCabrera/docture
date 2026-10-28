@@ -19,7 +19,7 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { Extractor, contract, createExtractor, declarationOrder, isLoadedSource, loadDocument, preloadedFeatures, runPipeline, silentLogger, type LoadedSource, type PipelineComponents } from "docture";
+import { Extractor, contract, createExtractor, declarationOrder, isLoadedSource, preloadedFeatures, readDocument, runPipeline, silentLogger, type LoadedSource, type PipelineComponents } from "docture";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { DocumentLoaderMuPdf } from "docture/loaders/mupdf";
 import { z } from "zod";
@@ -114,10 +114,10 @@ async function main(): Promise<void> {
   step("3. read once, extract many");
 
   /**
-   * `loadDocument` is the load stage alone: a list of loaders, some bytes, and out comes
+   * `readDocument` is the load stage alone: a list of loaders, some bytes, and out comes
    * the parsed document plus which loader won and what the others did.
    */
-  const read = await loadDocument(
+  const read = await readDocument(
     [new DocumentLoaderPdfJs()],
     { bytes: new Uint8Array(await readFile(path)), mimeType: "application/pdf" },
     silentLogger,

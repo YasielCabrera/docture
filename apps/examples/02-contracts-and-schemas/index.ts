@@ -13,9 +13,13 @@
  *   4. ANY SCHEMA LIBRARY, including raw JSON Schema
  *   5. `resolveSchema` — the three faces of a contract a strategy actually uses
  *   6. A VIOLATION IS TYPED, and says which field and why
+ *   7. RULES check what a schema cannot, such as lines adding up to the subtotal
  */
 
-import { ContractViolationError, Extractor, contract, contractName, isContract, resolveSchema, schemaOf, type InferContract } from "docture";
+import {
+  ContractViolationError, Extractor, contract, contractName, isContract, resolveSchema, schemaOf,
+  type InferContract, type ValidationRule,
+} from "docture";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { z } from "zod";
 import { Invoice } from "../shared/contracts.js";
@@ -51,6 +55,17 @@ const NamedInvoice = contract({
   hints: "Amounts may use a comma as a thousands separator.",
   schema: BareInvoice,
 });
+
+/**
+ * A schema checks each field's shape. It cannot say that the line amounts add up to
+ * the subtotal, so that check is a rule. The data parameter is typed from the contract.
+ */
+export const linesAddUp: ValidationRule<InferContract<typeof Invoice>> = (invoice) => {
+  const summed = invoice.lineItems.reduce((total, item) => total + item.amount, 0);
+  return Math.abs(summed - invoice.subtotal) < 0.005
+    ? []
+    : [{ path: "subtotal", message: `line items add to ${summed.toFixed(2)}` }];
+};
 
 async function main(): Promise<void> {
   const path = await requireDocument("invoice-odoo");
@@ -218,6 +233,27 @@ async function main(): Promise<void> {
     } else {
       field("unexpected", "the impossible schema was satisfied");
     }
+
+    step("7. rules check what a schema cannot");
+
+    /**
+     * Rules run after the schema passes. By default they REPORT: the data comes back
+     * and `result.validation` lists the issues. `onRuleFailure: "fail"` instead fails
+     * the attempt with CONTRACT_VIOLATION, so the next strategy gets its turn.
+     */
+    const checked = await extractor.extract(path, Invoice, { rules: [linesAddUp] });
+    field("lines add up, validation", JSON.stringify(checked.validation));
+
+    const approval: ValidationRule = () => [{ path: "total", message: "needs a second approver" }];
+    const reported = await extractor.extract(path, Invoice, { rules: [approval] });
+    field("report mode, data kept", reported.data.invoiceNumber);
+    field("report mode, validation", JSON.stringify(reported.validation));
+
+    const failed = await extractor.safeExtract(path, Invoice, { rules: [approval], onRuleFailure: "fail" });
+    field(
+      "fail mode, error code",
+      !failed.ok && failed.error instanceof ContractViolationError ? failed.error.code : "(unexpected)",
+    );
 
     console.log("\n  Next: 03-loaders-and-sources — where the bytes come from.");
   } finally {

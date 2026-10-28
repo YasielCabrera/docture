@@ -16,6 +16,7 @@
     "loader-tesseract",
     "loader-paddleocr",
     "raster-canvas",
+    "chunk",
     "eval",
     "testing",
     "cli"

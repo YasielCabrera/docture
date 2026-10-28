@@ -13,11 +13,46 @@ import type { Attempt, Usage } from "./result.js";
 export type ConversionFormat = "text" | "markdown" | "html" | "json";
 export type ConversionAssetMode = "referenced" | "embedded" | "omit";
 
-export interface ElementProvenance {
+/** Canonical id of one positioned loader line: `p<page>-line-<1-based index into page.lines>`. */
+export type LineSourceId = `p${number}-line-${number}`;
+
+/** One positioned line of a loaded page, addressable by its canonical id. */
+export interface SourceLine {
+  readonly id: LineSourceId;
+  readonly pageNumber: number;
+  /** Union of the line's spans; `{ x: 0, y, width: 0, height }` when it has none. */
+  readonly box: LayoutBox;
+  /** The loader's `TextLine.text`, verbatim. */
+  readonly text: string;
+}
+
+/** One page's share of an element's source. */
+export interface ProvenanceSegment {
+  /** @integer @minimum 1 */
   readonly pageNumber: number;
   readonly box: LayoutBox;
   /** Stable ids of the loader blocks or lines this element came from. */
   readonly sourceIds: readonly string[];
+  /**
+   * Canonical ids of the positioned lines this element came from, in source order.
+   * Absent when the page has no positioned lines.
+   * @minItems 1
+   * @pattern ^p[1-9]\d*-line-[1-9]\d*$
+   */
+  readonly lineIds?: readonly LineSourceId[];
+}
+
+/**
+ * Where an element came from. The segment fields describe the page where the
+ * element starts; read every page's share with `provenanceSegments`.
+ */
+export interface ElementProvenance extends ProvenanceSegment {
+  /**
+   * The later pages a table or paragraph continues onto, one segment per page in
+   * page order, starting with the next page. Absent when the element is page-local.
+   * @minItems 1
+   */
+  readonly continuations?: readonly ProvenanceSegment[];
 }
 
 export interface InlineText {
@@ -59,11 +94,42 @@ export interface ListElement extends ElementBase {
   }[];
 }
 
+/**
+ * A merged table cell. Its text sits in the anchor slot `rows[row][col]`; every
+ * other slot it covers holds `""`. A span never crosses the `headerRows` boundary.
+ */
+export interface TableCellSpan {
+  /** Zero-based anchor row. @integer @minimum 0 */
+  readonly row: number;
+  /** Zero-based anchor column. @integer @minimum 0 */
+  readonly col: number;
+  /** @integer @minimum 1 */
+  readonly rowSpan: number;
+  /** @integer @minimum 1 */
+  readonly colSpan: number;
+}
+
 export interface TableElement extends ElementBase {
   readonly kind: "table";
+  /** Every row has one slot per column when `spans` is present. */
   readonly rows: readonly (readonly string[])[];
+  /** Leading rows that label columns, from 0 to `rows.length`. @integer @minimum 0 */
   readonly headerRows: number;
-  /** Original loader line text, retained for exact TXT output. */
+  /**
+   * Merged cells, sorted by row and then column. Absent when every cell is 1x1.
+   * @minItems 1
+   */
+  readonly spans?: readonly TableCellSpan[];
+  /**
+   * One segment per row, index-aligned with `rows`: the page, box and source of
+   * the line each row came from. Present on tables built from positioned lines.
+   * @minItems 1
+   */
+  readonly rowProvenance?: readonly ProvenanceSegment[];
+  /**
+   * Original loader line text, retained for exact TXT output. It includes a header
+   * row repeated at the top of a continuation page, which `rows` drops.
+   */
   readonly sourceText?: string;
 }
 
@@ -78,6 +144,28 @@ export interface PageBreakElement extends ElementBase {
   readonly kind: "page-break";
 }
 
+/**
+ * Where page furniture came from. `tagged`: the loader's structure tag said so.
+ * `repeated`: inferred from text repeated in the top or bottom band of several pages.
+ */
+export type FurnitureEvidence = "tagged" | "repeated";
+
+/** A running header. Markdown and HTML omit it; TXT and JSON keep it. */
+export interface PageHeaderElement extends ElementBase {
+  readonly kind: "page-header";
+  readonly text: string;
+  readonly runs: readonly InlineText[];
+  readonly evidence: FurnitureEvidence;
+}
+
+/** A running footer, such as a page number. Markdown and HTML omit it; TXT and JSON keep it. */
+export interface PageFooterElement extends ElementBase {
+  readonly kind: "page-footer";
+  readonly text: string;
+  readonly runs: readonly InlineText[];
+  readonly evidence: FurnitureEvidence;
+}
+
 export type DocumentElement =
   | HeadingElement
   | ParagraphElement
@@ -85,10 +173,13 @@ export type DocumentElement =
   | ListElement
   | TableElement
   | FigureElement
-  | PageBreakElement;
+  | PageBreakElement
+  | PageHeaderElement
+  | PageFooterElement;
 
 /** The reusable, exporter-independent result of layout analysis. */
 export interface LayoutPage {
+  /** @integer @minimum 1 */
   readonly pageNumber: number;
   readonly width: number;
   readonly height: number;
@@ -104,9 +195,12 @@ export type DoctureDocumentAsset =
   | { readonly id: string; readonly mimeType: string; readonly reference: string; readonly data?: never }
   | { readonly id: string; readonly mimeType: string; readonly data: string; readonly reference?: never };
 
-/** Portable conversion snapshot. Breaking shape changes require a new schema version. */
+/**
+ * Portable conversion snapshot. Breaking shape changes require a new schema version.
+ * Read a saved snapshot with `parseDoctureDocument`, which also accepts version 1.
+ */
 export interface DoctureDocument {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly loader: string;
   readonly method: string;
   readonly pages: readonly LayoutPage[];
@@ -125,6 +219,7 @@ export type ConversionWarningCode =
 export interface ConversionWarning {
   readonly code: ConversionWarningCode;
   readonly message: string;
+  /** @integer @minimum 1 */
   readonly pageNumber?: number;
 }
 
@@ -135,7 +230,14 @@ export interface ConversionAsset extends LoadedAsset {
 
 export interface ConvertedPage {
   readonly pageNumber: number;
-  /** A format-specific fragment without the whole-document wrapper. */
+  /** Page width in PDF points, copied from the loaded page. */
+  readonly width: number;
+  readonly height: number;
+  /**
+   * A format-specific fragment without the whole-document wrapper. It holds every
+   * element that starts on this page, including the rest of a table or paragraph
+   * that continues onto later pages.
+   */
   readonly content: string;
   readonly elements: readonly DocumentElement[];
 }

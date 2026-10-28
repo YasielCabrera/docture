@@ -68,7 +68,7 @@ describe("DocumentLoaderTesseract — what it advertises", () => {
   it("only claims PDFs when a rasterizer is wired", () => {
     // Honesty is what keeps routing working: with no way to turn a page into pixels,
     // the pipeline should pass a PDF to another loader rather than pick this one.
-    expect(new DocumentLoaderTesseract().capabilities.mimeTypes).toEqual(["image/png", "image/jpeg"]);
+    expect(new DocumentLoaderTesseract().capabilities.mimeTypes).toEqual(["image/png", "image/jpeg", "image/tiff"]);
     expect(ocrLoader().capabilities.mimeTypes).toContain("application/pdf");
   });
 });

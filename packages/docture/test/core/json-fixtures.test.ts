@@ -1,7 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { DocumentConverter, DocumentLoaderData, type ConversionAssetMode } from "../../src/core/index.js";
+import {
+  DocumentConverter, DocumentLoaderData, parseDoctureDocument, type ConversionAssetMode,
+} from "../../src/core/index.js";
 import { DocumentLoaderPdfJs } from "../../src/loaders/pdfjs/index.js";
 import { DocumentLoaderMuPdf } from "../../src/loaders/mupdf/index.js";
 import { makeRichDocumentPdf } from "../../src/testing/fixtures/index.js";
@@ -37,7 +39,7 @@ const fixtures = [
 let validator: ReturnType<typeof z.fromJSONSchema>;
 beforeAll(async () => {
   const schema = JSON.parse(await readFile(new URL(
-    "../../../../apps/docs/public/schemas/docture-document-v1.schema.json", import.meta.url,
+    "../../../../apps/docs/public/schemas/docture-document-v2.schema.json", import.meta.url,
   ), "utf8").catch(() => "null"));
   validator = schema === null ? z.never() : z.fromJSONSchema(schema);
 });
@@ -49,6 +51,7 @@ describe("JSON conversion fixtures", () => {
       expect(result.mimeType).toBe("application/json");
       const parsed = JSON.parse(result.content);
       expect(validator.safeParse(parsed).success).toBe(true);
+      expect(parseDoctureDocument(parsed).ok).toBe(true);
       expect(parsed.pages.map((page: { elements: unknown }) => page.elements)).toEqual(result.pages.map((page) => page.elements));
     }
   });
@@ -62,6 +65,7 @@ describe("JSON conversion fixtures", () => {
         expect(result.mimeType).toBe("application/json");
         expect(result.pages).toHaveLength(2);
         expect(validator.safeParse(JSON.parse(result.content)).success).toBe(true);
+        expect(parseDoctureDocument(JSON.parse(result.content)).ok).toBe(true);
       }
     }
   });
@@ -75,6 +79,7 @@ describe("JSON conversion fixtures", () => {
         }, { format: "json" });
         expect(result.mimeType).toBe("application/json");
         expect(validator.safeParse(JSON.parse(result.content)).success).toBe(true);
+        expect(parseDoctureDocument(JSON.parse(result.content)).ok).toBe(true);
       }
     }
   });

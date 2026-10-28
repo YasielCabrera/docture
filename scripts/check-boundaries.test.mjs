@@ -54,8 +54,8 @@ test("runtime boundary checks reject every supported foreign import form", async
       const target = join(directory, "packages", name);
       await mkdir(target, { recursive: true });
       await cp(join(root, "packages", name, "package.json"), join(target, "package.json"));
+      await cp(join(root, "packages", name, "src"), join(target, "src"), { recursive: true });
       if (name === "docture") {
-        await cp(join(root, "packages/docture/src"), join(target, "src"), { recursive: true });
         await cp(join(root, "packages/docture/tsconfig.test.json"), join(target, "tsconfig.test.json"));
       }
     }
@@ -144,6 +144,26 @@ test("runtime boundary checks reject every supported foreign import form", async
         await rm(path, { force: true });
       }
     });
+    const cli = join(directory, "packages/cli/src");
+    const cliCases = [
+      ["a static MCP SDK import in the CLI", "run.ts", 'import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";\nexport const leaked = McpServer;', "cli/run.ts statically imports the optional peer @modelcontextprotocol/sdk/server/mcp.js"],
+      ["a lazy MCP SDK import outside src/mcp", "run.ts", 'export const leaked = () => import("@modelcontextprotocol/sdk/server/mcp.js");', "cli/run.ts loads @modelcontextprotocol/sdk/server/mcp.js outside src/mcp"],
+      ["the root CLI entry reaching the MCP server", "index.ts", 'export { createMcpServer } from "./mcp/index.js";', "@docture/cli statically reaches cli/mcp/index.ts"],
+    ];
+    for (const [name, file, code, message] of cliCases) {
+      await t.test(`rejects ${name}`, async () => {
+        const path = join(cli, file);
+        const original = await readFile(path, "utf8");
+        try {
+          await writeFile(path, `${original}\n${code}\n`);
+          const result = check();
+          assert.notEqual(result.status, 0, `${name} must be rejected`);
+          assert.ok(result.stderr.includes(message), result.stdout + result.stderr);
+        } finally {
+          await writeFile(path, original);
+        }
+      });
+    }
     await t.test("passes after removing the foreign import", control);
   } finally {
     await rm(directory, { recursive: true, force: true });

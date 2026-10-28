@@ -52,7 +52,7 @@ member contains `name`, typed `data`, full `result`, and 1-based original `pages
 optional `dispose()`.
 
 `ClassifyContext` contains the loaded `document`, runtime `features`, candidate kinds,
-`signal`, and `logger`.
+`signal`, `logger`, and optional `documentLabel`, the source's file name when it has one.
 
 ```ts
 defineClassifier(classifier: Classifier): Classifier
@@ -110,7 +110,8 @@ an abstention. Caller cancellation stops classification and preserves its reason
 `belongsToSameDocument(first, second, context)`, optional `splitEager()`, and optional
 `dispose()`.
 
-`SplitContext` contains classifications, signal, logger, and optional `recordUsage()`.
+`SplitContext` contains classifications, signal, logger, optional `recordUsage()`, and
+optional `documentLabel`, the bundle's file name when it has one.
 
 `SplitVerdict` contains `belongsToSameDocument`, first and optional second page
 classifications, and optional confidence.

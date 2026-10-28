@@ -5,7 +5,7 @@ import { basename, extname } from "node:path";
 import type { LayoutAnalyzer } from "./contracts/layout-analyzer.js";
 import type { DocumentLoader } from "./contracts/loader.js";
 import type { ModelBackend } from "./contracts/model.js";
-import { applyLayoutAnnotations, analyzeDocument } from "./conversion/analyze.js";
+import { applyLayoutAnnotations, analyzeDocument, withoutFurniture } from "./conversion/analyze.js";
 import { conversionAssets, exportDocument } from "./conversion/export.js";
 import type {
   ConversionBatchItem,
@@ -31,7 +31,7 @@ import {
   messageOf,
 } from "./pipeline/errors.js";
 import { documentFeatures, preloadedFeatures } from "./pipeline/features.js";
-import { loadDocument } from "./pipeline/read.js";
+import { readDocument } from "./pipeline/read.js";
 import { exportJsonDocument } from "./conversion/json.js";
 import { resolveSource } from "./pipeline/source.js";
 
@@ -190,7 +190,7 @@ export class DocumentConverter {
       let returnedUsage: Partial<Usage> | undefined;
       try {
         const result = await analyzer.analyze({
-          document: layout,
+          document: withoutFurniture(layout),
           signal: deadline.signal,
           logger: logger.child({ layoutAnalyzer: analyzer.name }),
         });
@@ -374,7 +374,7 @@ export class DocumentConverter {
       );
     }
     const raw = await resolveSource(source, signal);
-    const read = await loadDocument(this.#loaders, raw, logger, signal, stageTimeoutMs, {
+    const read = await readDocument(this.#loaders, raw, logger, signal, stageTimeoutMs, {
       layout: true,
       assets: requestAssets,
     });

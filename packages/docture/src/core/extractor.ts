@@ -7,7 +7,7 @@ import {
 } from "./domain/contract.js";
 import { isLoadedSource, type DocumentSource } from "./domain/document.js";
 import type { Logger } from "./domain/logger.js";
-import type { ExtractionResult } from "./domain/result.js";
+import type { ExtractionResult, RuleFailureMode, ValidationRule } from "./domain/result.js";
 import {
   flattenTree,
   isClassificationTree,
@@ -25,9 +25,9 @@ import type { ExtractionStrategy } from "./contracts/strategy.js";
 import { classifyDocument, type ClassifyOptions } from "./pipeline/classify.js";
 import { declarationOrder, type RoutingPolicy } from "./pipeline/eligibility.js";
 import { DuplicateComponentError, MissingComponentError } from "./pipeline/errors.js";
-import { loadDocument } from "./pipeline/read.js";
+import { readDocument } from "./pipeline/read.js";
 import { documentFeatures, preloadedFeatures } from "./pipeline/features.js";
-import { runPipeline, snapshotRunOptions, withContractGuidance, type RunOptions } from "./pipeline/run.js";
+import { checkedMaxRepairs, runPipeline, snapshotRunOptions, withContractGuidance, type RunOptions } from "./pipeline/run.js";
 import { resolveSource } from "./pipeline/source.js";
 import { silentLogger } from "./domain/logger.js";
 
@@ -46,13 +46,22 @@ export interface ExtractorOptions {
   readonly stageTimeoutMs?: number;
   /** How to reconcile disagreeing classifiers. Default: most-confident wins. */
   readonly classify?: ClassifyOptions;
+  /**
+   * Default rules for every call. They receive `unknown` because one extractor serves
+   * many contracts. A call's own `rules`, even `[]`, replaces them.
+   */
+  readonly rules?: readonly ValidationRule[];
+  /** Default `"report"`. */
+  readonly onRuleFailure?: RuleFailureMode;
+  /** Default repairs per strategy. Default 1; 0 disables repair. A call may override it. */
+  readonly maxRepairs?: number;
 }
 
 export type SafeExtraction<T> =
   | { readonly ok: true; readonly result: ExtractionResult<T> }
   | { readonly ok: false; readonly error: Error };
 
-export interface BatchOptions extends RunOptions {
+export interface BatchOptions<T = unknown> extends RunOptions<T> {
   /** How many documents to process at once. Default 4. */
   readonly concurrency?: number;
 }
@@ -83,6 +92,9 @@ export class Extractor implements DocumentExtractor {
   #logger: Logger;
   #stageTimeoutMs: number | undefined;
   #classify: ClassifyOptions | undefined;
+  #rules: readonly ValidationRule[] | undefined;
+  #onRuleFailure: RuleFailureMode | undefined;
+  #maxRepairs: number | undefined;
   #disposed: Promise<void> | undefined;
 
   constructor(options: ExtractorOptions = {}) {
@@ -94,6 +106,9 @@ export class Extractor implements DocumentExtractor {
     this.#logger = options.logger ?? silentLogger;
     this.#stageTimeoutMs = options.stageTimeoutMs;
     this.#classify = options.classify;
+    this.#rules = options.rules === undefined ? undefined : [...options.rules];
+    this.#onRuleFailure = options.onRuleFailure;
+    this.#maxRepairs = options.maxRepairs === undefined ? undefined : checkedMaxRepairs(options.maxRepairs);
 
     // Two components under one name would silently shadow. Fail at wiring time.
     assertUnique("loader", this.#loaders);
@@ -210,7 +225,7 @@ export class Extractor implements DocumentExtractor {
   async extract<C extends ContractLike>(
     source: DocumentSource,
     contract: C,
-    options?: RunOptions,
+    options?: RunOptions<InferContract<C>>,
   ): Promise<ExtractionResult<InferContract<C>>> {
     return runPipeline(
       this.#components(),
@@ -224,7 +239,7 @@ export class Extractor implements DocumentExtractor {
   extractResult<C extends ContractLike>(
     source: DocumentSource,
     contract: C,
-    options?: RunOptions,
+    options?: RunOptions<InferContract<C>>,
   ): Promise<ExtractionResult<InferContract<C>>> {
     return this.extract(source, contract, options);
   }
@@ -244,7 +259,7 @@ export class Extractor implements DocumentExtractor {
   async extractData<C extends ContractLike>(
     source: DocumentSource,
     contract: C,
-    options?: RunOptions,
+    options?: RunOptions<InferContract<C>>,
   ): Promise<InferContract<C>> {
     const result = await this.extract(source, contract, options);
     return result.data;
@@ -254,7 +269,7 @@ export class Extractor implements DocumentExtractor {
   async safeExtract<C extends ContractLike>(
     source: DocumentSource,
     contract: C,
-    options?: RunOptions,
+    options?: RunOptions<InferContract<C>>,
   ): Promise<SafeExtraction<InferContract<C>>> {
     try {
       return { ok: true, result: await this.extract(source, contract, options) };
@@ -273,7 +288,7 @@ export class Extractor implements DocumentExtractor {
   async *extractBatch<C extends ContractLike>(
     sources: readonly DocumentSource[],
     contract: C,
-    options?: BatchOptions,
+    options?: BatchOptions<InferContract<C>>,
   ): AsyncGenerator<BatchItem<InferContract<C>>, void, undefined> {
     const limit = Math.max(1, options?.concurrency ?? 4);
     const controller = new AbortController();
@@ -408,6 +423,9 @@ export class Extractor implements DocumentExtractor {
       logger: this.#logger,
       ...(this.#stageTimeoutMs === undefined ? {} : { stageTimeoutMs: this.#stageTimeoutMs }),
       ...(this.#classify === undefined ? {} : { classify: this.#classify }),
+      ...(this.#rules === undefined ? {} : { rules: this.#rules }),
+      ...(this.#onRuleFailure === undefined ? {} : { onRuleFailure: this.#onRuleFailure }),
+      ...(this.#maxRepairs === undefined ? {} : { maxRepairs: this.#maxRepairs }),
     };
   }
 
@@ -417,7 +435,7 @@ export class Extractor implements DocumentExtractor {
    * Extracting `contract({ name: "invoice", description: "…" })` should not need the
    * word "invoice" repeated in an options bag.
    */
-  #runOptions(contract: ContractLike, options: RunOptions | undefined): RunOptions {
+  #runOptions<T>(contract: ContractLike, options: RunOptions<T> | undefined): RunOptions<T> {
     if (!isContract(contract)) return options ?? {};
     const guided = withContractGuidance(options ?? {}, contract);
     if (guided.classifications !== undefined || this.#classifications.length > 0) return guided;
@@ -444,18 +462,21 @@ export class Extractor implements DocumentExtractor {
 
     let document;
     let features;
+    let documentLabel: string | undefined;
 
     if (isLoadedSource(source)) {
       document = source.loaded;
       features = preloadedFeatures(source);
+      documentLabel = source.fileName;
     } else {
       const raw = await resolveSource(source, signal);
       const mimeType = raw.mimeType ?? "application/octet-stream";
-      const loaded = await loadDocument(
+      const loaded = await readDocument(
         this.#loaders, raw, logger, signal, options?.stageTimeoutMs ?? this.#stageTimeoutMs,
       );
       document = loaded.document;
       features = documentFeatures(document, loaded.loader, mimeType);
+      documentLabel = raw.fileName;
     }
 
     const result = await classifyDocument(
@@ -467,6 +488,7 @@ export class Extractor implements DocumentExtractor {
       signal,
       options?.stageTimeoutMs ?? this.#stageTimeoutMs,
       options?.classify ?? this.#classify ?? {},
+      documentLabel,
     );
 
     const matched = candidates.find((candidate) => candidate.name === result.name);

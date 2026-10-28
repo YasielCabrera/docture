@@ -7,22 +7,23 @@
  * 499 — and the exit code still says something failed.
  */
 
-import { lstat, mkdir, readlink, realpath, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdir, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 import type { ExtractionResult, Usage } from "docture";
 import { boolFlag, choiceFlag, listFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { explain, UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io, type Style } from "../cli/io.js";
+import { OUTPUT_FORMAT } from "../cli/specs.js";
 import { resolveConfig } from "../config.js";
-import { expandInputs, stem, type Input } from "../inputs.js";
+import { describeInput, expandInputs, sourcesOf, stem, type Input } from "../inputs.js";
 import { commonOptions, wiringFlags } from "../options.js";
+import { localInputs, refuseInputAliases, refuseMissingLeafAliases } from "../output-safety.js";
 import {
   attemptLines,
   envelope,
   errorRecord,
-  OUTPUT_FORMATS,
   reportFailure,
+  reportWiring,
   formatCount,
   formatMs,
   formatUsd,
@@ -32,8 +33,9 @@ import {
   toNdjson,
   type DocumentRecord,
 } from "../output.js";
+import { emitPlan } from "../plan.js";
 import { resolveSchemaSource } from "../schema.js";
-import { buildWiring } from "../wiring.js";
+import { buildWiring, planWiring, type WiringInput } from "../wiring.js";
 
 /** Where each document goes when `--out` names a directory. */
 function outputPaths(inputs: readonly Input[], out: string, cwd: string): Map<number, string> {
@@ -47,136 +49,15 @@ function outputPaths(inputs: readonly Input[], out: string, cwd: string): Map<nu
       // Two inputs with the same basename would overwrite each other, and the
       // survivor would look exactly like a complete run.
       throw new UsageError(
-        `"${clash}" and "${input.source}" would both be written to ${path}.`,
+        `"${clash}" and "${describeInput(input)}" would both be written to ${path}.`,
         "Rename one, or drop --out and use --format ndjson.",
       );
     }
-    taken.set(path, input.source);
+    taken.set(path, describeInput(input));
     paths.set(index, path);
   });
 
   return paths;
-}
-
-function localPathOf(input: Input): string | undefined {
-  if (isAbsolute(input.source)) return input.source;
-  if (/^file:/i.test(input.source)) {
-    try {
-      return fileURLToPath(input.source);
-    } catch {
-      return undefined;
-    }
-  }
-  return undefined;
-}
-
-type FileIdentity =
-  | { kind: "present"; key: string }
-  | { kind: "unresolvable" }
-  | { kind: "uninspectable" };
-
-async function identity(path: string): Promise<FileIdentity> {
-  try {
-    const { dev, ino } = await stat(path, { bigint: true });
-    return { kind: "present", key: `${dev}:${ino}` };
-  } catch (error) {
-    if (error instanceof Error && "code" in error && (
-      error.code === "ENOENT" || error.code === "ENOTDIR" || error.code === "ELOOP"
-    )) {
-      return { kind: "unresolvable" };
-    }
-    return { kind: "uninspectable" };
-  }
-}
-
-async function refuseInputAliases(inputs: readonly Input[], outputs: readonly string[]): Promise<void> {
-  if (outputs.length === 0) return;
-  const sources = await Promise.all(inputs.map(async (input) => {
-    const path = localPathOf(input);
-    return path === undefined ? undefined : { source: input.source, path, identity: await identity(path) };
-  }));
-  for (const output of outputs) {
-    const outputIdentity = await identity(output);
-    const source = sources.find((input) => input !== undefined && (
-      input.path === output || (outputIdentity.kind === "present" && input.identity.kind === "present"
-        && input.identity.key === outputIdentity.key)
-    ));
-    if (source !== undefined) {
-      throw new UsageError(
-        `--out target "${output}" would overwrite input "${source.source}".`,
-        "Choose a different --out, or omit --out.",
-      );
-    }
-    if (outputIdentity.kind === "uninspectable") {
-      throw new UsageError(
-        `Cannot inspect --out target "${output}" to verify it does not overwrite a local input.`,
-        "Choose a new --out destination, or omit --out.",
-      );
-    }
-    if (outputIdentity.kind === "present") {
-      const uninspectable = sources.find((input) => input?.identity.kind === "uninspectable");
-      if (uninspectable !== undefined) {
-        throw new UsageError(
-          `Cannot verify --out target "${output}" against input "${uninspectable.source}" because the input cannot be inspected.`,
-          "Choose a new --out destination, or omit --out.",
-        );
-      }
-    }
-  }
-}
-
-async function missingLeafTarget(rawPath: string): Promise<string | undefined> {
-  try {
-    await stat(rawPath);
-    return undefined;
-  } catch (error) {
-    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) return undefined;
-  }
-
-  let current = rawPath;
-  const visited = new Set<string>();
-  while (true) {
-    const leaf = basename(current);
-    if (current.endsWith(sep) || leaf === "" || leaf === "." || leaf === "..") return undefined;
-    try {
-      const parent = dirname(current);
-      const parentIdentity = await identity(parent);
-      if (parentIdentity.kind !== "present") return undefined;
-      const key = `${parentIdentity.key}/${leaf}`;
-      let entry: Awaited<ReturnType<typeof lstat>>;
-      try {
-        entry = await lstat(current);
-      } catch (error) {
-        return error instanceof Error && "code" in error && error.code === "ENOENT" ? key : undefined;
-      }
-      if (!entry.isSymbolicLink() || visited.has(key)) return undefined;
-      visited.add(key);
-      const target = await readlink(current);
-      // Keep symlink traversal before any .. segments for the next native lookup.
-      current = isAbsolute(target) ? target : `${await realpath(parent)}${sep}${target}`;
-    } catch {
-      return undefined;
-    }
-  }
-}
-
-async function refuseMissingLeafAliases(inputs: readonly Input[], outputs: readonly string[]): Promise<void> {
-  if (outputs.length === 0) return;
-  const sources = await Promise.all(inputs.map(async (input) => {
-    const path = localPathOf(input);
-    return path === undefined ? undefined : { source: input.source, key: await missingLeafTarget(path) };
-  }));
-  for (const output of outputs) {
-    const key = await missingLeafTarget(output);
-    if (key === undefined) continue;
-    const source = sources.find((input) => input?.key === key);
-    if (source !== undefined) {
-      throw new UsageError(
-        `--out target "${output}" would overwrite input "${source.source}".`,
-        "Choose a different --out, or omit --out.",
-      );
-    }
-  }
 }
 
 function sumUsage(results: readonly ExtractionResult<unknown>[]): Usage {
@@ -214,12 +95,19 @@ export async function extractCommand(
 ): Promise<ExitCode> {
   const common = commonOptions(parsed, io.color);
   const style = styleFor(common.color);
-  const format = choiceFlag(parsed, "format", OUTPUT_FORMATS) ?? "json";
+  const format = choiceFlag(parsed, OUTPUT_FORMAT) ?? "json";
   const full = boolFlag(parsed, "full");
+  if (boolFlag(parsed, "citations") && !full) {
+    throw new UsageError(
+      "--citations needs --full: citations are written only to the full result record.",
+      "Add --full.",
+    );
+  }
   const out = stringFlag(parsed, "out");
   const schemaFlag = stringFlag(parsed, "schema");
   const only = listFlag(parsed, "only");
   const concurrencyFlag = numberFlag(parsed, "concurrency", { min: 1, max: 64, integer: true });
+  const dryRun = boolFlag(parsed, "dry-run");
 
   const inputs = await expandInputs(parsed.positionals, io.cwd);
 
@@ -231,14 +119,15 @@ export async function extractCommand(
   const targets = perFile && out !== undefined ? outputPaths(inputs, out, io.cwd) : undefined;
   const outFile = out !== undefined && !perFile ? resolve(io.cwd, out) : undefined;
   const outputs = targets ? [...targets.values()] : outFile ? [outFile] : [];
-  await refuseInputAliases(inputs, outputs);
-  if (perFile) {
+  const local = localInputs(inputs);
+  await refuseInputAliases(local, outputs);
+  if (perFile && !dryRun) {
     for (const parent of new Set(outputs.map((path) => dirname(path)))) {
       await mkdir(parent, { recursive: true });
     }
-    await refuseInputAliases(inputs, outputs);
+    await refuseInputAliases(local, outputs);
   }
-  await refuseMissingLeafAliases(inputs, outputs);
+  await refuseMissingLeafAliases(local, outputs);
 
   const config = await resolveConfig({
     cwd: io.cwd,
@@ -253,23 +142,28 @@ export async function extractCommand(
     command: "extract",
   });
 
-  const wiring = await buildWiring({
+  const wiringInput: WiringInput = {
     io,
     ...(config === undefined ? {} : { config }),
     flags: wiringFlags(parsed),
     needsModel: true,
-  });
+  };
 
-  if (!common.quiet) {
-    if (common.verbose) {
-      for (const note of [...wiring.notes, schemaSource.describe]) {
-        io.diagnostic(`${style.dim("·")} ${style.dim(note)}\n`);
-      }
-    }
-    for (const warning of [...wiring.warnings, ...schemaSource.warnings]) {
-      io.diagnostic(`${style.yellow("!")} ${warning}\n`);
-    }
+  if (dryRun) {
+    const plan = await planWiring(wiringInput);
+    reportWiring(io, common, style, [...plan.notes, schemaSource.describe], [...plan.warnings, ...schemaSource.warnings]);
+    return emitPlan(io, "extract", inputs, plan, (_input, index) => {
+      const path = targets?.get(index) ?? outFile;
+      return {
+        ...plan.pipeline,
+        schema: schemaSource.origin,
+        output: path === undefined ? { to: "stdout" } : { to: "file", path },
+      };
+    });
   }
+
+  const wiring = await buildWiring(wiringInput);
+  reportWiring(io, common, style, [...wiring.notes, schemaSource.describe], [...wiring.warnings, ...schemaSource.warnings]);
 
   /**
    * Stream to stdout — unless `--out` is taking it. Three cases, and only one of
@@ -291,7 +185,7 @@ export async function extractCommand(
 
   try {
     const batch = wiring.extractor.extractBatch(
-      inputs.map((input) => input.source),
+      await sourcesOf(inputs, io, signal),
       schemaSource.schema,
       {
         signal,

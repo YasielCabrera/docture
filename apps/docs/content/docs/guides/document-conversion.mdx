@@ -71,7 +71,8 @@ await converter.convert(source, { format: "json" });
 - JSON exports the versioned `DoctureDocument` with semantic elements, provenance, and assets.
 
 All four formats read the same semantic elements. Headings, paragraphs, lists, tables,
-code, figures, and page breaks retain page and bounding-box provenance.
+code, figures, page breaks, and running headers and footers retain page and bounding-box
+provenance.
 
 ## Assets
 
@@ -95,8 +96,30 @@ pixel-matched HTML rendering of the page.
 
 Core first applies deterministic reading-order and structure rules using tagged hints,
 geometry, and typography. Uncertain structures remain paragraphs. It does not
-dehyphenate text, remove headers or footers, generate captions, or change substantive
-characters.
+dehyphenate text, generate captions, or change substantive characters.
+
+## Running headers and footers
+
+Core marks running headers and footers as `page-header` and `page-footer` elements.
+Markdown and HTML leave them out of the body, so chunks built from that output do not
+repeat a company name or page number per page. TXT and JSON keep them, in place at the
+top and bottom of each page.
+
+```ts
+const result = await converter.convert(source, { format: "markdown" });
+const footers = result.pages.flatMap((page) =>
+  page.elements.filter((element) => element.kind === "page-footer"),
+);
+console.log(footers.map((footer) => footer.text)); // ["Page 1 of 3", ...]
+```
+
+A tagged PDF's `header` and `footer` hints count when the line sits in the top or bottom
+10% of the page. Without tags, core infers furniture from text that repeats in those bands
+on at least three pages, including odd-page and even-page running heads. Page numbers
+match when they follow the page. These thresholds are heuristics. A one-page or two-page
+document gets furniture only from tags. A header lower than 10% of the page stays in the
+body. The [reference](/docs/reference/api/core-conversion#semantic-layout) lists the
+rules.
 
 Optional model assistance can refine roles and ordering:
 
@@ -114,9 +137,100 @@ const converter = new DocumentConverter()
 ```
 
 The model response schema contains element IDs, roles, levels, and order only. It has no
-text field. Core rejects unknown IDs, duplicate IDs, and invalid order permutations. A
+text field. The model never sees page headers and footers. Core rejects unknown IDs,
+duplicate IDs, and invalid order permutations. A
 failed or invalid response leaves deterministic conversion in place and adds a warning
 and failed attempt.
+
+## Tables and merged cells
+
+Core groups aligned rows into `table` elements. Rows with the same number of cells at
+matching positions form a plain table. When rows differ in cell count, the rows with the
+most cells set the column bands. A shorter row joins the table when each of its cells
+falls in a band, so a totals row stays with its table. A label over two columns becomes
+a merged cell:
+
+```ts
+const result = await converter.convert(source, { format: "json" });
+const table = result.pages[0]?.elements.find((element) => element.kind === "table");
+console.log(table?.rows); // [["Item", "Quarters", ""], ["", "Q1", "Q2"], ["Alpha", "10", "20"]]
+console.log(table?.headerRows); // 2
+console.log(table?.spans); // [{ row: 0, col: 1, rowSpan: 1, colSpan: 2 }]
+```
+
+`rows` keeps one slot per column. A merged cell's text is in its anchor slot, and every
+slot it covers holds `""`. Each format renders spans differently:
+
+- HTML puts the `headerRows` rows in `<thead>` and writes `colspan` and `rowspan` on the
+  anchor cell.
+- Markdown has no merged cells. It flattens the header rows into one row and joins each
+  column's labels with ` / `, as in `| Item | Quarters / Q1 | Quarters / Q2 |`. Covered
+  body cells stay blank, so a value is never copied into another cell.
+- TXT keeps the original source lines.
+- JSON keeps `rows`, `headerRows`, and `spans`.
+
+Detection is a heuristic. A label must cover more than half of each column it merges,
+and those columns must be empty in its row. Rows above the band rows join only as header
+rows that a merged label proves. A row span needs a cell box that covers at least half of
+each row line, which OCR or synthetic geometry can provide and PDF text layers rarely do.
+An empty cell never makes a row span. Text layers that emit one span per word keep the
+plain table rule. A layout analyzer group that would produce an invalid table is
+ignored, and the tables stay separate. The
+[reference](/docs/reference/api/core-conversion#semantic-layout) lists the rules.
+
+## Tables and paragraphs across pages
+
+A table that runs over a page break becomes one table, and so does a paragraph cut
+mid-sentence. The joined element lives on the page where it starts. Its provenance keeps
+one segment per page, and a table keeps one `rowProvenance` entry per row:
+
+```ts
+import { provenanceSegments } from "docture";
+
+const result = await converter.convert(source, { format: "json" });
+const table = result.pages[0]?.elements.find((element) => element.kind === "table");
+if (table?.kind === "table") {
+  console.log(provenanceSegments(table.provenance).map((segment) => segment.pageNumber)); // [1, 2]
+  console.log(table.rowProvenance?.map((segment) => segment.pageNumber)); // [1, 1, 1, 2, 2, 2]
+}
+```
+
+Each `ConvertedPage` holds the elements that start on it, so page 1's content includes the
+rows from page 2, and page 2 omits them. Every format renders a joined element once, on its
+starting page. The next page's `<!-- page: N -->` marker, HTML `section`, or TXT form feed
+follows the whole element. TXT stays in page order but is no longer exact per physical
+page. A footer line of page 1 that is not detected as furniture prints after the joined
+text.
+
+Joining is a heuristic, and it keeps elements apart when the evidence is weak. A table or
+paragraph joins only when it ends in the bottom quarter of its page and the next page's
+first element starts in that page's top quarter. A table continues with rows that have the
+table's cell count, the same font size and weight, cells of at most 40 characters, and cells
+inside the table's columns. In a column whose body cells on the earlier page are all
+numbers without letters, a continued row must have no letters there. An unrelated table, a
+key-value block, or two-column prose in the table's columns therefore starts a new element
+when the table has such a column. After a continued row, a totals row with fewer cells
+joins when its cells fall in the table's columns. A later row with the full cell count
+meets every check above, so a bold header further down starts a new table. Every row after the first must start
+within three times the table's row spacing of the row above, so a footer or signature line
+lower on the page stays out. A copy of the header row at the top of the next page is
+dropped from `rows` and kept in `sourceText`. A row in a different font weight, or rows in
+other columns, start a new element. A paragraph continues when it does not end with `.`,
+`!`, `?`, `:`, or `;`, and the next page's first element starts with a lowercase letter.
+Text in scripts without letter case therefore never joins. Page furniture, and a top or
+bottom line that blank space sets apart from the body, are skipped. Text-only pages never
+join.
+
+Some layouts still join wrongly:
+
+- A table without a number column gets no content check. A second table in the same
+  columns whose header has the body's font weight joins the first.
+- Furniture detection needs three or more pages. On a two-page document, a running header
+  whose cells fall in the table's columns and pass the number check joins the table.
+- A line at the bottom of a page that ends without punctuation, such as a list entry, joins
+  a paragraph that starts with a lowercase letter at the top of the next page. A layout analyzer can reorder a joined element's page, but the
+element stays last in its page's text, and annotations that would retype or group it are
+ignored.
 
 ## Serverless and in-memory use
 
@@ -174,8 +288,22 @@ returns exit code `1`.
 
 ## Export structured JSON
 
-`format: "json"` returns a version 1 document with page dimensions, semantic elements,
+`format: "json"` returns a version 2 document with page dimensions, semantic elements,
 provenance, assets, and warnings. The CLI writes it with `docture convert report.pdf
 --out converted --to json`. `--format json` separately selects the command envelope.
 See the [JSON format reference](/docs/reference/api/core-conversion#versioned-json) and
-the [generated schema](/schemas/docture-document-v1.schema.json).
+the [generated schema](/schemas/docture-document-v2.schema.json).
+
+Validate a saved file before you use it. `parseDoctureDocument()` accepts version 1 and
+version 2 files and returns version 2:
+
+```ts
+import { readFile } from "node:fs/promises";
+import { parseDoctureDocument } from "docture";
+
+const parsed = parseDoctureDocument(JSON.parse(await readFile("converted/report.json", "utf8")));
+if (!parsed.ok) throw new Error(parsed.issues.map((issue) => issue.path + ": " + issue.message).join("\n"));
+```
+
+To see the elements over the pages they came from, run `docture review --conversion
+converted/report.json --source report.pdf`. See [Review](/docs/guides/cli#review).

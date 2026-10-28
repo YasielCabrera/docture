@@ -8,8 +8,12 @@ import type {
   InlineText,
   LayoutDocument,
   LayoutPage,
+  LineSourceId,
   ListElement,
+  PageFooterElement,
+  PageHeaderElement,
   ParagraphElement,
+  ProvenanceSegment,
   TableElement,
 } from "../domain/conversion.js";
 import type {
@@ -17,105 +21,38 @@ import type {
   LayoutBox,
   LoadedDocument,
   LoadedPage,
-  TextLayoutBlock,
   TextLine,
   TextSpan,
 } from "../domain/geometry.js";
+import {
+  bodyFontSize,
+  boxOfLines,
+  candidatesFor,
+  fontSizes,
+  HEADING_SIZE_RATIO,
+  median,
+  unionBox,
+  type Candidate,
+} from "./candidates.js";
+import {
+  appendParagraph,
+  continuesParagraph,
+  leadingBandLines,
+  positioned,
+  tableTraits,
+  takeTableContinuation,
+  trailingBandLines,
+  type PageFrame,
+  type TableContinuation,
+  type TableTraits,
+} from "./continuation.js";
+import { detectFurniture, type Furniture } from "./furniture.js";
+import { looksLikeTableGroup, tableGroupAt, tableGroupIds, type TableGroup } from "./table-grid.js";
+import { appendTableRows } from "./tables.js";
 
 export interface DeterministicAnalysis {
   readonly document: LayoutDocument;
   readonly warnings: readonly ConversionWarning[];
-}
-
-interface Candidate {
-  readonly id: string;
-  /** Loader ids retained when one visual line is split into column candidates. */
-  readonly sourceIds?: readonly string[];
-  readonly pageNumber: number;
-  readonly box: LayoutBox;
-  readonly lines: readonly TextLine[];
-  readonly role?: TextLayoutBlock["role"];
-  readonly level?: number;
-}
-
-function median(values: readonly number[]): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = sorted.length >> 1;
-  if (sorted.length % 2 === 1) return sorted[middle] ?? 0;
-  return ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2;
-}
-
-function boxOfLines(lines: readonly TextLine[]): LayoutBox {
-  const spans = lines.flatMap((line) => line.spans);
-  if (spans.length === 0) {
-    const y = Math.min(...lines.map((line) => line.y), 0);
-    const bottom = Math.max(...lines.map((line) => line.y + line.height), 0);
-    return { x: 0, y, width: 0, height: Math.max(0, bottom - y) };
-  }
-  const x = Math.min(...spans.map((span) => span.x));
-  const y = Math.min(...spans.map((span) => span.y));
-  const right = Math.max(...spans.map((span) => span.x + span.width));
-  const bottom = Math.max(...spans.map((span) => span.y + span.height));
-  return { x, y, width: right - x, height: bottom - y };
-}
-
-function unionBox(boxes: readonly LayoutBox[]): LayoutBox {
-  if (boxes.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
-  const x = Math.min(...boxes.map((box) => box.x));
-  const y = Math.min(...boxes.map((box) => box.y));
-  const right = Math.max(...boxes.map((box) => box.x + box.width));
-  const bottom = Math.max(...boxes.map((box) => box.y + box.height));
-  return { x, y, width: right - x, height: bottom - y };
-}
-
-function candidatesFor(page: LoadedPage): { candidates: Candidate[]; source: "blocks" | "lines" | "text" } {
-  const textBlocks = (page.blocks ?? []).filter(
-    (block): block is TextLayoutBlock => block.kind === "text",
-  );
-  if (textBlocks.length > 0) {
-    return {
-      candidates: textBlocks.map((block) => ({
-        id: block.id,
-        pageNumber: page.pageNumber,
-        box: {
-          x: block.x,
-          y: block.y,
-          width: block.width,
-          height: block.height,
-        },
-        lines: block.lines,
-        ...(block.role === undefined ? {} : { role: block.role }),
-        ...(block.level === undefined ? {} : { level: block.level }),
-      })),
-      source: "blocks",
-    };
-  }
-
-  if (page.lines !== undefined && page.lines.length > 0) {
-    return {
-      candidates: page.lines.map((line, index) => ({
-        id: `p${page.pageNumber}-line-${index + 1}`,
-        pageNumber: page.pageNumber,
-        box: boxOfLines([line]),
-        lines: [line],
-      })),
-      source: "lines",
-    };
-  }
-
-  return {
-    candidates: page.text
-      .split(/\r?\n\s*\r?\n/u)
-      .filter((text) => text.trim().length > 0)
-      .map((text, index) => ({
-        id: `p${page.pageNumber}-paragraph-${index + 1}`,
-        pageNumber: page.pageNumber,
-        box: { x: 0, y: 0, width: 0, height: 0 },
-        lines: [{ text, y: 0, height: 0, spans: [] }],
-      })),
-    source: "text",
-  };
 }
 
 /**
@@ -207,14 +144,6 @@ function hasAmbiguousReadingOrder(candidates: readonly Candidate[]): boolean {
   return false;
 }
 
-function fontSizes(candidate: Candidate): number[] {
-  return candidate.lines.flatMap((line) =>
-    line.spans.flatMap((span) =>
-      span.style?.fontSize === undefined ? [] : [span.style.fontSize],
-    ),
-  );
-}
-
 function allSpans(candidate: Candidate): readonly TextSpan[] {
   return candidate.lines.flatMap((line) => line.spans);
 }
@@ -238,13 +167,34 @@ function textOf(runs: readonly InlineText[]): string {
   return runs.map((run) => run.text).join("");
 }
 
+function withLineIds(
+  provenance: Omit<ElementProvenance, "lineIds">,
+  lineIds: readonly LineSourceId[],
+): ElementProvenance {
+  const unique = [...new Set(lineIds)];
+  return unique.length === 0 ? provenance : { ...provenance, lineIds: unique };
+}
+
 function provenance(candidates: readonly Candidate[]): ElementProvenance {
   const first = candidates[0];
-  return {
+  return withLineIds({
     pageNumber: first?.pageNumber ?? 0,
     box: unionBox(candidates.map((candidate) => candidate.box)),
     sourceIds: candidates.flatMap((candidate) => candidate.sourceIds ?? [candidate.id]),
-  };
+  }, candidates.flatMap((candidate) => candidate.lineIds));
+}
+
+function rowSegments(candidate: Candidate): ProvenanceSegment[] {
+  const aligned = candidate.lineIds.length === candidate.lines.length;
+  return candidate.lines.map((line, index) => {
+    const id = aligned ? candidate.lineIds[index] : undefined;
+    return {
+      pageNumber: candidate.pageNumber,
+      box: boxOfLines([line]),
+      sourceIds: candidate.sourceIds ?? [candidate.id],
+      ...(id === undefined ? {} : { lineIds: [id] }),
+    };
+  });
 }
 
 function headingLevel(size: number, bodySize: number): 1 | 2 | 3 | 4 | 5 | 6 {
@@ -274,27 +224,6 @@ function originalListMarker(text: string): string | undefined {
   return ORDERED.exec(text)?.[0] ?? UNORDERED.exec(text)?.[0];
 }
 
-function isTableCandidate(candidate: Candidate): boolean {
-  if (candidate.role === "table") return true;
-  if (candidate.lines.length !== 1) return false;
-  const spans = candidate.lines[0]?.spans ?? [];
-  if (spans.length < 2) return false;
-  const typicalHeight = median(spans.map((span) => span.height).filter((height) => height > 0)) || 10;
-  return spans.some((span, index) => {
-    const next = spans[index + 1];
-    return next !== undefined && next.x - (span.x + span.width) >= typicalHeight;
-  });
-}
-
-function compatibleTableRows(first: Candidate, next: Candidate): boolean {
-  if (first.role === "table" && next.role === "table") return true;
-  const a = first.lines[0]?.spans ?? [];
-  const b = next.lines[0]?.spans ?? [];
-  if (a.length !== b.length || a.length < 2) return false;
-  const tolerance = Math.max(4, median([...a, ...b].map((span) => span.height)) * 1.25);
-  return a.every((span, index) => Math.abs(span.x - (b[index]?.x ?? Number.POSITIVE_INFINITY)) <= tolerance);
-}
-
 interface CandidateGap {
   readonly index: number;
   readonly boundary: number;
@@ -316,31 +245,6 @@ function columnGap(candidate: Candidate, pageWidth: number): CandidateGap | unde
   }
   if (best === undefined || best.size < Math.max(24, pageWidth * 0.08)) return undefined;
   return { index: best.index, boundary: best.boundary };
-}
-
-function looksLikeTableGroup(candidates: readonly Candidate[]): boolean {
-  if (candidates.some((candidate) => candidate.role === "table")) return true;
-  if (candidates.length < 2) return false;
-  const first = candidates[0]?.lines.flatMap((line) => line.spans) ?? [];
-  const remaining = candidates.slice(1).flatMap((candidate) => candidate.lines.flatMap((line) => line.spans));
-  const typographicHeader =
-    first.length >= 2 &&
-    first.every((span) => span.style?.bold === true) &&
-    remaining.some((span) => span.style?.bold !== true);
-  if (typographicHeader) return true;
-
-  // Some text layers lose font weight. Three or more aligned rows of compact
-  // cells are still strong table evidence; longer prose remains conservative.
-  return (
-    candidates.length >= 3 &&
-    candidates.every((candidate) =>
-      candidate.lines.every(
-        (line) =>
-          line.spans.length >= 2 &&
-          line.spans.every((span) => span.text.trim().length <= 40),
-      ),
-    )
-  );
 }
 
 function splitCandidate(candidate: Candidate, gap: CandidateGap): Candidate[] {
@@ -374,7 +278,9 @@ function splitCandidate(candidate: Candidate, gap: CandidateGap): Candidate[] {
 function splitColumnCandidates(
   candidates: readonly Candidate[],
   pageWidth: number,
+  acceptTable: (group: TableGroup) => boolean,
 ): Candidate[] {
+  const bandTables = tableGroupIds(candidates, (group) => group.rule === "bands" && acceptTable(group));
   const output: Candidate[] = [];
   for (let index = 0; index < candidates.length; ) {
     const candidate = candidates[index];
@@ -401,10 +307,12 @@ function splitColumnCandidates(
     }
 
     if (group.length >= 2) {
-      if (looksLikeTableGroup(group.map((item) => item.candidate))) {
+      const splittableLines = group.filter((item) => !bandTables.has(item.candidate.id));
+      if (looksLikeTableGroup(group.map((item) => item.candidate)) || splittableLines.length < 2) {
         output.push(...group.map((item) => item.candidate));
       } else {
-        output.push(...group.flatMap((item) => splitCandidate(item.candidate, item.gap)));
+        output.push(...group.flatMap((item) =>
+          bandTables.has(item.candidate.id) ? [item.candidate] : splitCandidate(item.candidate, item.gap)));
       }
       index += group.length;
       continue;
@@ -413,12 +321,6 @@ function splitColumnCandidates(
     index += 1;
   }
   return output;
-}
-
-function tableRows(candidates: readonly Candidate[]): readonly (readonly string[])[] {
-  return candidates.flatMap((candidate) =>
-    candidate.lines.map((line) => line.spans.map((span) => span.text.trim())),
-  );
 }
 
 function elementForCandidate(
@@ -435,7 +337,7 @@ function elementForCandidate(
   const short = text.trim().length <= 120 && !text.includes("\n");
   const isHeading =
     candidate.role === "heading" ||
-    (size > 0 && bodySize > 0 && size >= bodySize * 1.18 && short) ||
+    (size > 0 && bodySize > 0 && size >= bodySize * HEADING_SIZE_RATIO && short) ||
     (mostlyBold && short && size >= bodySize);
 
   if (isHeading) {
@@ -471,9 +373,12 @@ function elementForCandidate(
   };
 }
 
-function analyzeTextCandidates(candidates: readonly Candidate[]): DocumentElement[] {
-  const sizes = candidates.flatMap(fontSizes).filter((size) => size > 0);
-  const bodySize = median(sizes) || 10;
+function analyzeTextCandidates(
+  candidates: readonly Candidate[],
+  bodySize: number,
+  acceptTable: (group: TableGroup) => boolean,
+  traits: Map<DocumentElement, TableTraits>,
+): DocumentElement[] {
   const elements: DocumentElement[] = [];
 
   for (let index = 0; index < candidates.length; ) {
@@ -508,35 +413,24 @@ function analyzeTextCandidates(candidates: readonly Candidate[]): DocumentElemen
       continue;
     }
 
-    if (isTableCandidate(candidate)) {
-      const grouped: Candidate[] = [candidate];
-      for (let cursor = index + 1; cursor < candidates.length; cursor += 1) {
-        const next = candidates[cursor];
-        if (
-          next === undefined ||
-          !isTableCandidate(next) ||
-          !compatibleTableRows(grouped[0] ?? candidate, next)
-        ) {
-          break;
-        }
-        grouped.push(next);
-      }
-      const rows = tableRows(grouped);
-      const width = rows[0]?.length ?? 0;
-      const consistent = rows.length >= 2 && width >= 2 && rows.every((row) => row.length === width);
-      if (consistent && looksLikeTableGroup(grouped)) {
-        const element: TableElement = {
-          id: grouped[0]?.id ?? candidate.id,
-          kind: "table",
-          rows,
-          headerRows: 1,
-          sourceText: grouped.flatMap((item) => item.lines.map((value) => value.text)).join("\n"),
-          provenance: provenance(grouped),
-        };
-        elements.push(element);
-        index += grouped.length;
-        continue;
-      }
+    const table = tableGroupAt(candidates, index, acceptTable);
+    if (table !== undefined) {
+      const grouped = table.candidates;
+      const element: TableElement = {
+        id: grouped[0]?.id ?? candidate.id,
+        kind: "table",
+        rows: table.rows,
+        headerRows: table.headerRows,
+        ...(table.spans === undefined ? {} : { spans: table.spans }),
+        rowProvenance: grouped.flatMap(rowSegments),
+        sourceText: grouped.flatMap((item) => item.lines.map((value) => value.text)).join("\n"),
+        provenance: provenance(grouped),
+      };
+      const found = tableTraits(table);
+      if (found !== undefined) traits.set(element, found);
+      elements.push(element);
+      index += grouped.length;
+      continue;
     }
 
     elements.push(elementForCandidate(candidate, bodySize));
@@ -562,11 +456,85 @@ function figureElements(page: LoadedPage): DocumentElement[] {
     }));
 }
 
+function furnitureElement(candidate: Candidate, furniture: Furniture): PageHeaderElement | PageFooterElement {
+  const runs = inlineFromLines(candidate.lines);
+  return {
+    id: candidate.id,
+    kind: furniture.kind,
+    text: textOf(runs),
+    runs,
+    evidence: furniture.evidence,
+    provenance: provenance([candidate]),
+  };
+}
+
+function isFurniture(element: DocumentElement): element is PageHeaderElement | PageFooterElement {
+  return element.kind === "page-header" || element.kind === "page-footer";
+}
+
+interface Tail {
+  readonly elements: DocumentElement[];
+  readonly elementIndex: number;
+  readonly page: PageFrame;
+  readonly box: LayoutBox;
+  readonly table?: TableTraits;
+}
+
+function isBodyText(element: DocumentElement): boolean {
+  return element.kind !== "figure" && element.kind !== "page-break" && !isFurniture(element);
+}
+
+function continuationRows(table: TableElement, continuation: TableContinuation): TableElement | undefined {
+  return appendTableRows(table, {
+    rows: continuation.grid.rows,
+    ...(continuation.grid.spans === undefined ? {} : { spans: continuation.grid.spans }),
+    rowProvenance: continuation.rows.flatMap(rowSegments),
+    sourceText: continuation.consumed.flatMap((candidate) => candidate.lines.map((line) => line.text)).join("\n"),
+  }, provenance(continuation.consumed));
+}
+
 export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis {
   const warnings: ConversionWarning[] = [];
-  const pages: LayoutPage[] = document.pages.map((page, pageIndex) => {
-    const sourceCandidates = candidatesFor(page);
-    const candidates = splitColumnCandidates(sourceCandidates.candidates, page.width);
+  const sources = document.pages.map((page) => ({ page, ...candidatesFor(page) }));
+  const furniture = detectFurniture(sources.map(({ page, candidates, source }) => ({
+    pageNumber: page.pageNumber,
+    width: page.width,
+    height: page.height,
+    candidates: source === "text" ? [] : candidates,
+  })));
+  const pages: { pageNumber: number; width: number; height: number; elements: DocumentElement[] }[] = [];
+  let tail: Tail | undefined;
+  for (const [pageIndex, { page, ...sourceCandidates }] of sources.entries()) {
+    const frame: PageFrame = { pageNumber: page.pageNumber, width: page.width, height: page.height };
+    const pageFurniture = sourceCandidates.candidates.flatMap((candidate) => {
+      const found = furniture.get(candidate);
+      return found === undefined ? [] : [furnitureElement(candidate, found)];
+    });
+    const furnitureIds = new Set(pageFurniture.map((element) => element.id));
+    const acceptTable = (group: TableGroup): boolean =>
+      (group.rule === "equal-width" || positioned(frame)) && looksLikeTableGroup(group.candidates);
+
+    const tailElement = tail === undefined ? undefined : tail.elements[tail.elementIndex];
+    let continuedTable: { readonly table: TableElement; readonly box: LayoutBox; readonly consumed: ReadonlySet<Candidate> } | undefined;
+    if (tail?.table !== undefined && tailElement?.kind === "table") {
+      const continuation = takeTableContinuation(
+        { ...tail.table, table: tailElement, page: tail.page, box: tail.box },
+        frame,
+        sourceCandidates.candidates.filter((candidate) => !furniture.has(candidate)),
+      );
+      const table = continuation === undefined ? undefined : continuationRows(tailElement, continuation);
+      if (continuation !== undefined && table !== undefined) {
+        continuedTable = { table, box: unionBox(continuation.consumed.map((candidate) => candidate.box)), consumed: new Set(continuation.consumed) };
+      }
+    }
+
+    const candidates = splitColumnCandidates(
+      continuedTable === undefined
+        ? sourceCandidates.candidates
+        : sourceCandidates.candidates.filter((candidate) => !continuedTable.consumed.has(candidate)),
+      page.width,
+      acceptTable,
+    );
     if (sourceCandidates.source !== "blocks") {
       warnings.push({
         code: "LAYOUT_DEGRADED",
@@ -584,10 +552,49 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
       });
     }
     const ordered = readingOrder(candidates, page.width);
+    const bodySize = bodyFontSize(sourceCandidates.candidates);
+    const body = ordered.filter((candidate) =>
+      !furnitureIds.has(candidate.id) && !(candidate.sourceIds ?? []).some((id) => furnitureIds.has(id)));
     // `ordered` already carries the inferred column order. Sorting the resulting
     // elements by y/x here would quietly turn two columns back into row-major
     // order. Figures follow grounded text because they add no indexable text.
-    const elements = [...analyzeTextCandidates(ordered), ...figureElements(page)];
+    const byPosition = (a: DocumentElement, b: DocumentElement) =>
+      a.provenance.box.y - b.provenance.box.y || a.provenance.box.x - b.provenance.box.x;
+    const traits = new Map<DocumentElement, TableTraits>();
+    const elements: DocumentElement[] = [
+      ...pageFurniture.filter((element) => element.kind === "page-header").sort(byPosition),
+      ...analyzeTextCandidates(body, bodySize, acceptTable, traits),
+      ...figureElements(page),
+      ...pageFurniture.filter((element) => element.kind === "page-footer").sort(byPosition),
+    ];
+    const bodyText = (): DocumentElement[] => elements.filter(isBodyText);
+    const boxes = (texts: readonly DocumentElement[]) => texts.map((element) => element.provenance.box);
+
+    let joinedBox: LayoutBox | undefined;
+    if (tail !== undefined && continuedTable !== undefined) {
+      tail.elements[tail.elementIndex] = continuedTable.table;
+      joinedBox = continuedTable.box;
+    } else if (tail !== undefined && tailElement?.kind === "paragraph") {
+      const texts = bodyText();
+      const first = texts[leadingBandLines(boxes(texts), page.height)];
+      if (first !== undefined && continuesParagraph(tailElement, tail, first, frame)) {
+        tail.elements[tail.elementIndex] = appendParagraph(tailElement, first);
+        elements.splice(elements.indexOf(first), 1);
+        joinedBox = first.provenance.box;
+      }
+    }
+
+    const texts = bodyText();
+    const last = texts[texts.length - 1 - trailingBandLines(boxes(texts), page.height)];
+    const lastIndex = last === undefined ? -1 : elements.indexOf(last);
+    if (!positioned(frame)) tail = undefined;
+    else if (last !== undefined) {
+      const table = traits.get(last);
+      tail = { elements, elementIndex: lastIndex, page: frame, box: last.provenance.box, ...(table === undefined ? {} : { table }) };
+    } else if (tail !== undefined && joinedBox !== undefined) {
+      tail = { ...tail, page: frame, box: joinedBox };
+    } else tail = undefined;
+
     if (pageIndex + 1 < document.pages.length) {
       elements.push({
         id: `p${page.pageNumber}-page-break`,
@@ -599,13 +606,8 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
         },
       });
     }
-    return {
-      pageNumber: page.pageNumber,
-      width: page.width,
-      height: page.height,
-      elements,
-    };
-  });
+    pages.push({ pageNumber: page.pageNumber, width: page.width, height: page.height, elements });
+  }
 
   return {
     document: {
@@ -658,27 +660,27 @@ function retype(element: DocumentElement, annotation: LayoutAnnotation): Documen
 }
 
 function mergeProvenance(elements: readonly DocumentElement[]): ElementProvenance {
-  return {
+  return withLineIds({
     pageNumber: elements[0]?.provenance.pageNumber ?? 0,
     box: unionBox(elements.map((element) => element.provenance.box)),
     sourceIds: elements.flatMap((element) => element.provenance.sourceIds),
-  };
+  }, elements.flatMap((element) => element.provenance.lineIds ?? []));
 }
 
-function mergeGroup(elements: readonly DocumentElement[]): DocumentElement | undefined {
+function mergeGroup(elements: readonly DocumentElement[]): readonly DocumentElement[] | undefined {
   const first = elements[0];
-  if (first === undefined || elements.length === 1) return first;
+  if (first === undefined || elements.length === 1) return elements;
   const provenance = mergeProvenance(elements);
   if (elements.every((element) => element.kind === "list")) {
     const lists = elements as readonly ListElement[];
     if (!lists.every((list) => list.ordered === lists[0]?.ordered)) return undefined;
-    return {
+    return [{
       id: first.id,
       kind: "list",
       ordered: lists[0]?.ordered ?? false,
       items: lists.flatMap((list) => list.items),
       provenance,
-    };
+    }];
   }
   if (elements.every((element) => element.kind === "paragraph")) {
     const paragraphs = elements as readonly ParagraphElement[];
@@ -686,34 +688,29 @@ function mergeGroup(elements: readonly DocumentElement[]): DocumentElement | und
       ...(index === 0 ? [] : [{ text: "\n" }]),
       ...paragraph.runs,
     ]);
-    return {
+    return [{
       id: first.id,
       kind: "paragraph",
       text: paragraphs.map((paragraph) => paragraph.text).join("\n"),
       runs,
       provenance,
-    };
+    }];
   }
   if (elements.every((element) => element.kind === "code")) {
-    return {
+    return [{
       id: first.id,
       kind: "code",
       text: elements.map((element) => (element as CodeElement).text).join("\n"),
       provenance,
-    };
+    }];
   }
   if (elements.every((element) => element.kind === "table")) {
-    const tables = elements as readonly TableElement[];
-    return {
-      id: first.id,
-      kind: "table",
-      rows: tables.flatMap((table) => table.rows),
-      headerRows: tables[0]?.headerRows ?? 0,
-      sourceText: tables
-        .flatMap((table) => (table.sourceText === undefined ? [] : [table.sourceText]))
-        .join("\n"),
-      provenance,
-    };
+    const [base, ...rest] = elements as readonly TableElement[];
+    const merged = rest.reduce<TableElement | undefined>(
+      (table, next) => (table === undefined ? undefined : appendTableRows(table, next)),
+      base,
+    );
+    return merged === undefined ? elements : [{ ...merged, provenance }];
   }
   return undefined;
 }
@@ -755,13 +752,86 @@ function applyGroups(
     }
     const merged = mergeGroup(members);
     if (merged === undefined) return { reason: `group ${group} has incompatible roles` };
-    grouped.push(merged);
+    grouped.push(...merged);
   }
   return { elements: grouped };
 }
 
-/** Validate analyzer ids and order before applying any suggestion. */
+/** The document a layout analyzer sees: page furniture is not its to classify or order. */
+export function withoutFurniture(document: LayoutDocument): LayoutDocument {
+  if (!document.pages.some((page) => page.elements.some(isFurniture))) return document;
+  return {
+    ...document,
+    pages: document.pages.map((page) => ({
+      ...page,
+      elements: page.elements.filter((element) => !isFurniture(element)),
+    })),
+  };
+}
+
+function restoreFurniture(original: LayoutDocument, analyzed: LayoutDocument): LayoutDocument {
+  return {
+    ...analyzed,
+    pages: analyzed.pages.map((page, index) => {
+      const furniture = original.pages[index]?.elements.filter(isFurniture) ?? [];
+      if (furniture.length === 0) return page;
+      return {
+        ...page,
+        elements: [
+          ...furniture.filter((element) => element.kind === "page-header"),
+          ...page.elements.filter((element) => element.kind !== "page-break"),
+          ...furniture.filter((element) => element.kind === "page-footer"),
+          ...page.elements.filter((element) => element.kind === "page-break"),
+        ],
+      };
+    }),
+  };
+}
+
+function forContinuedElements(document: LayoutDocument, annotations: readonly LayoutAnnotation[]): readonly LayoutAnnotation[] {
+  const continued = new Map(document.pages.flatMap((page) => page.elements)
+    .filter((element) => element.provenance.continuations !== undefined)
+    .map((element) => [element.id, element.kind]));
+  if (continued.size === 0) return annotations;
+  return annotations.map((annotation) => {
+    const kind = continued.get(annotation.id);
+    if (kind === undefined) return annotation;
+    const { group: _group, role, ...rest } = annotation;
+    return role === undefined || role === kind ? { ...rest, ...(role === undefined ? {} : { role }) } : rest;
+  });
+}
+
+function keepContinuedLast(original: readonly DocumentElement[], ordered: readonly DocumentElement[]): DocumentElement[] {
+  const index = original.findIndex((element) => element.provenance.continuations !== undefined);
+  const id = original[index]?.id;
+  const continued = ordered.find((element) => element.id === id);
+  if (continued === undefined) return [...ordered];
+  const after = new Set(original.slice(index + 1).map((element) => element.id));
+  const rest = ordered.filter((element) => element !== continued);
+  return [...rest.filter((element) => !after.has(element.id)), continued, ...rest.filter((element) => after.has(element.id))];
+}
+
+/**
+ * Validate analyzer ids and order before applying any suggestion. Annotations
+ * naming page furniture are ignored, and furniture keeps its slot. A table or
+ * paragraph that continues onto the next page stays last in its page's text, and
+ * annotations that would retype or group it are ignored.
+ */
 export function applyLayoutAnnotations(
+  document: LayoutDocument,
+  suggested: readonly LayoutAnnotation[],
+): { document: LayoutDocument; valid: boolean; reason?: string } {
+  const annotations = forContinuedElements(document, suggested);
+  const body = withoutFurniture(document);
+  if (body === document) return applyToBody(document, annotations);
+  const furnitureIds = new Set(document.pages.flatMap((page) => page.elements.filter(isFurniture).map((element) => element.id)));
+  const applied = applyToBody(body, annotations.filter((annotation) => !furnitureIds.has(annotation.id)));
+  return applied.valid
+    ? { document: restoreFurniture(document, applied.document), valid: true }
+    : { ...applied, document };
+}
+
+function applyToBody(
   document: LayoutDocument,
   annotations: readonly LayoutAnnotation[],
 ): { document: LayoutDocument; valid: boolean; reason?: string } {
@@ -813,7 +883,7 @@ export function applyLayoutAnnotations(
           (annotationById.get(a.id)?.order ?? 0) - (annotationById.get(b.id)?.order ?? 0),
       );
     }
-    const grouped = applyGroups(transformed, annotationById);
+    const grouped = applyGroups(keepContinuedLast(page.elements, transformed), annotationById);
     if (grouped.elements === undefined) {
       return { document, valid: false, reason: grouped.reason ?? "invalid grouping" };
     }

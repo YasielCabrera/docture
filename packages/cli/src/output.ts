@@ -76,6 +76,21 @@ export function reportFailure(
   }
 }
 
+/** The wiring notes under `--verbose`, and its warnings unless `--quiet`. */
+export function reportWiring(
+  io: Io,
+  options: { readonly verbose: boolean; readonly quiet: boolean },
+  style: Style,
+  notes: readonly string[],
+  warnings: readonly string[],
+): void {
+  if (options.quiet) return;
+  if (options.verbose) {
+    for (const note of notes) io.diagnostic(`${style.dim("·")} ${style.dim(note)}\n`);
+  }
+  for (const warning of warnings) io.diagnostic(`${style.yellow("!")} ${warning}\n`);
+}
+
 /** Every attempt, in order. What `--verbose` is for: a fallback is never silent. */
 export function attemptLines(attempts: readonly Attempt[], style: Style): string {
   return attempts
@@ -93,8 +108,7 @@ export function attemptLines(attempts: readonly Attempt[], style: Style): string
     .join("");
 }
 
-export const OUTPUT_FORMATS = ["json", "ndjson", "text"] as const;
-export type Command = "extract" | "convert" | "classify" | "inspect" | "eval";
+export type Command = "extract" | "convert" | "classify" | "inspect" | "eval" | "review" | "help";
 
 export interface FailedItem {
   readonly file: string;
@@ -134,6 +148,10 @@ export interface ExtractionData {
   readonly usage?: Usage;
   readonly features?: ExtractionResult<unknown>["features"];
   readonly classification?: ExtractionResult<unknown>["classification"];
+  readonly validation?: ExtractionResult<unknown>["validation"];
+  readonly conflicts?: ExtractionResult<unknown>["conflicts"];
+  readonly citations?: ExtractionResult<unknown>["citations"];
+  readonly citationSources?: ExtractionResult<unknown>["citationSources"];
 }
 
 export type DocumentRecord = Item<ExtractionData>;
@@ -154,6 +172,10 @@ export function recordOf(
     usage: result.usage,
     features: result.features,
     ...(result.classification === undefined ? {} : { classification: result.classification }),
+    validation: result.validation,
+    ...(result.conflicts === undefined ? {} : { conflicts: result.conflicts }),
+    ...(result.citations === undefined ? {} : { citations: result.citations }),
+    ...(result.citationSources === undefined ? {} : { citationSources: result.citationSources }),
   };
 }
 

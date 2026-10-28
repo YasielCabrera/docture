@@ -16,7 +16,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { Extractor, SplittingStrategy, loadDocument, silentLogger } from "docture";
+import { Extractor, SplittingStrategy, readDocument, silentLogger } from "docture";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { scoreExtraction, formatFailures } from "docture/eval";
 import { readFile } from "node:fs/promises";
@@ -39,10 +39,17 @@ import { documentsPresent, idsOfKind, pathOf, present, truthPathOf } from "../sh
 import { pageRange } from "../shared/print.js";
 
 // Imported from the examples themselves.
+import { linesAddUp } from "../02-contracts-and-schemas/index.js";
 import { invoiceChain } from "../06-fallback-routing-and-errors/index.js";
 import { headingClassifier } from "../10-classification/index.js";
 import { ACCOUNT_KINDS, accountSplitter, bundleProcess } from "../11-bundles-and-splitting/index.js";
-import { convertRichFixture } from "../16-document-conversion/index.js";
+import {
+  chunkContinuedTable,
+  convertContinuedTable,
+  convertGroupHeaderTable,
+  convertRichFixture,
+  convertRunningHeaders,
+} from "../16-document-conversion/index.js";
 
 describe("document conversion", () => {
   it("runs the documented conversion example without a model or filesystem output", async () => {
@@ -51,6 +58,48 @@ describe("document conversion", () => {
     expect(result.pages).toHaveLength(2);
     expect(result.content).toContain("Document Conversion Fixture");
     expect(result.assets.length).toBeGreaterThan(0);
+  });
+
+  it("keeps running headers and footers out of Markdown and in saved JSON", async () => {
+    const report = await convertRunningHeaders();
+    expect(report.markdown).toBe([
+      "<!-- page: 1 -->", "Findings for section 1.",
+      "<!-- page: 2 -->", "Findings for section 2.",
+      "<!-- page: 3 -->", "Findings for section 3.",
+    ].join("\n\n"));
+    expect(report.footers).toEqual(["Page 1 of 3", "Page 2 of 3", "Page 3 of 3"]);
+    expect(report.sourceVersion).toBe(2);
+  });
+
+  it("renders a group header over two columns as one merged cell", async () => {
+    const table = await convertGroupHeaderTable();
+    expect(table.headerRows).toBe(2);
+    expect(table.spans).toEqual([{ row: 0, col: 1, rowSpan: 1, colSpan: 2 }]);
+    expect(table.html).toBe(
+      "<table><thead><tr><th>Item</th><th colspan=\"2\">Quarters</th></tr><tr><th></th><th>Q1</th><th>Q2</th></tr></thead>" +
+        "<tbody><tr><td>Alpha</td><td>10</td><td>20</td></tr><tr><td>Beta</td><td>30</td><td>40</td></tr></tbody></table>",
+    );
+    expect(table.markdownHeader).toBe("| Item | Quarters / Q1 | Quarters / Q2 |");
+  });
+
+  it("joins a table that continues onto the next page", async () => {
+    const continued = await convertContinuedTable();
+    expect(continued.rows).toEqual([["Item", "Amount"], ["Alpha", "10"], ["Beta", "20"], ["Gamma", "30"], ["Delta", "40"], ["Epsilon", "50"]]);
+    expect(continued.pages).toEqual([1, 2]);
+    expect(continued.rowPages).toEqual([1, 1, 1, 2, 2, 2]);
+    expect(continued.markdown).toBe([
+      "<!-- page: 1 -->",
+      "| Item | Amount |\n| --- | --- |\n| Alpha | 10 |\n| Beta | 20 |\n| Gamma | 30 |\n| Delta | 40 |\n| Epsilon | 50 |",
+      "<!-- page: 2 -->",
+    ].join("\n\n"));
+  });
+
+  it("chunks the continued table with its header in every piece", async () => {
+    expect(await chunkContinuedTable()).toEqual([
+      { text: "| Item | Amount |\n| --- | --- |\n| Alpha | 10 |\n| Beta | 20 |", pages: [1] },
+      { text: "| Item | Amount |\n| --- | --- |\n| Gamma | 30 |\n| Delta | 40 |", pages: [2] },
+      { text: "| Item | Amount |\n| --- | --- |\n| Epsilon | 50 |", pages: [2] },
+    ]);
   });
 });
 
@@ -101,6 +150,20 @@ describe("the Odoo invoice", () => {
     const summed = data.lineItems.reduce((total, item) => total + item.amount, 0);
     expect(summed).toBeCloseTo(data.subtotal, 2);
     expect(data.subtotal + data.tax).toBeCloseTo(data.total, 2);
+  });
+
+  it.runIf(invoices)("passes example 02's line-sum rule and reports an issue it was handed", async () => {
+    const extractor = invoiceExtractor();
+    const passed = await extractor.extract(pathOf("invoice-odoo"), Invoice, { rules: [linesAddUp] });
+    const reported = await extractor.extract(pathOf("invoice-odoo"), Invoice, {
+      rules: [linesAddUp, () => [{ path: "total", message: "needs a second approver" }]],
+    });
+    await extractor.dispose();
+
+    expect(passed.validation).toEqual({ valid: true, issues: [] });
+    expect(reported.validation).toEqual({
+      valid: false, issues: [{ path: "total", message: "needs a second approver" }],
+    });
   });
 
   /**
@@ -367,7 +430,7 @@ describe("the bundle", () => {
   });
 
   it.runIf(statement)("the splitter answers seam by seam", async () => {
-    const read = await loadDocument(
+    const read = await readDocument(
       [new DocumentLoaderPdfJs()],
       { bytes: new Uint8Array(await readFile(pathOf("statement"))), mimeType: "application/pdf" },
       silentLogger,

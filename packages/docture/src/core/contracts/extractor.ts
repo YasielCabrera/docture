@@ -18,6 +18,6 @@ export interface DocumentExtractor {
   extractResult<C extends ContractLike>(
     source: DocumentSource,
     contract: C,
-    options?: RunOptions,
+    options?: RunOptions<InferContract<C>>,
   ): Promise<ExtractionResult<InferContract<C>>>;
 }

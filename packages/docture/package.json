@@ -44,6 +44,12 @@
       "import": "./dist/eval/index.js",
       "default": "./dist/eval/index.js"
     },
+    "./chunk": {
+      "source": "./src/chunk/index.ts",
+      "types": "./dist/chunk/index.d.ts",
+      "import": "./dist/chunk/index.js",
+      "default": "./dist/chunk/index.js"
+    },
     "./llm/text": {
       "source": "./src/llm/text.ts",
       "types": "./dist/llm/text.d.ts",
@@ -180,6 +186,7 @@
     "ppu-paddle-ocr": "6.3.0",
     "onnxruntime-node": "1.27.0",
     "@napi-rs/canvas": "^1.0.10",
+    "utif2": "4.1.0",
     "pdfkit": ">=0.17.2 <0.21.0",
     "vitest": ">=3",
     "zod": "^3.25.76 || ^4.1.8"
@@ -196,6 +203,7 @@
     "ppu-paddle-ocr": "6.3.0",
     "tesseract.js": "7.0.0",
     "typescript": "7.0.2",
+    "utif2": "4.1.0",
     "vitest": "4.1.10",
     "zod": "4.4.3"
   },
@@ -228,6 +236,9 @@
       "optional": true
     },
     "@napi-rs/canvas": {
+      "optional": true
+    },
+    "utif2": {
       "optional": true
     },
     "pdfkit": {

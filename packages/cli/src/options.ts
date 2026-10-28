@@ -6,8 +6,8 @@
  * would be a bug nobody would look for.
  */
 
-import type { CompletionStrategy } from "docture";
 import { boolFlag, choiceFlag, numberFlag, stringFlag, type Parsed } from "./cli/args.js";
+import { COMPLETION } from "./cli/specs.js";
 import type { WiringFlags } from "./wiring.js";
 
 export interface CommonOptions {
@@ -29,8 +29,6 @@ export function commonOptions(parsed: Parsed, colorAvailable: boolean): CommonOp
   };
 }
 
-const COMPLETIONS = ["forbidden", "paginate", "concatenate"] as const satisfies readonly CompletionStrategy[];
-
 /** Every flag the wiring cares about, validated. Absent stays absent. */
 export function wiringFlags(parsed: Parsed): WiringFlags {
   const model = stringFlag(parsed, "model");
@@ -43,7 +41,7 @@ export function wiringFlags(parsed: Parsed): WiringFlags {
   const maxPages = numberFlag(parsed, "max-pages", { min: 1, integer: true });
   const maxChars = numberFlag(parsed, "max-chars", { min: 256, integer: true });
   const timeoutMs = numberFlag(parsed, "timeout", { min: 1, integer: true });
-  const completion = choiceFlag(parsed, "completion", COMPLETIONS);
+  const completion = choiceFlag(parsed, COMPLETION);
 
   return {
     ...(model === undefined ? {} : { model }),
@@ -61,5 +59,6 @@ export function wiringFlags(parsed: Parsed): WiringFlags {
     ...(boolFlag(parsed, "classify") ? { classify: true } : {}),
     ...(boolFlag(parsed, "assist-layout") ? { assistLayout: true } : {}),
     ...(classificationsPath === undefined ? {} : { classificationsPath }),
+    ...(boolFlag(parsed, "citations") ? { citations: true } : {}),
   };
 }

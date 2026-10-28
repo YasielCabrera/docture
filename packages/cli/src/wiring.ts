@@ -65,6 +65,8 @@ export interface WiringFlags {
   readonly classify?: boolean;
   readonly assistLayout?: boolean;
   readonly classificationsPath?: string;
+  /** Cite and verify each extracted value. Only the text strategy the CLI builds can. */
+  readonly citations?: boolean;
 }
 
 export interface WiringInput {
@@ -86,28 +88,53 @@ export interface WiringInput {
   readonly ignoreSuppliedExtractor?: boolean;
 }
 
-export interface Wiring {
-  readonly extractor: CliExtractor;
+/**
+ * What an extraction pipeline is made of, by name. `opaque` when the config hands
+ * over a built extractor, which cannot be asked what is inside it.
+ */
+export type PipelinePlan =
+  | { readonly opaque: true }
+  | {
+      readonly loaders: readonly string[];
+      readonly strategies: readonly string[];
+      readonly classifiers: readonly string[];
+      /** The model id the default strategies or classifier call; `null` when none is. */
+      readonly model: string | null;
+    };
+
+/** The same for conversion. */
+export type ConversionPlan =
+  | { readonly opaque: true }
+  | {
+      readonly loaders: readonly string[];
+      readonly layoutAnalyzer: string | null;
+      readonly model: string | null;
+    };
+
+/** Everything a dry run reports: validated, named, and holding no extractor. */
+export interface WiringPlan {
+  readonly pipeline: PipelinePlan;
   readonly classifications: readonly Classification[];
-  /**
-   * Empty when nothing can produce a verdict. `undefined` when the config handed
-   * over a built extractor, which cannot be asked what is inside it.
-   */
-  readonly classifiers?: readonly string[];
-  readonly concurrency: number;
-  /** What was wired, for `--verbose`. */
   readonly notes: readonly string[];
-  /** Likely misconfigurations, printed whether or not `--verbose` is on. */
   readonly warnings: readonly string[];
   dispose(): Promise<void>;
 }
 
-export interface ConversionWiring {
-  readonly converter: CliConverter;
-  readonly concurrency: number;
+export interface ConversionWiringPlan {
+  readonly pipeline: ConversionPlan;
   readonly notes: readonly string[];
   readonly warnings: readonly string[];
   dispose(): Promise<void>;
+}
+
+export interface Wiring extends WiringPlan {
+  readonly extractor: CliExtractor;
+  readonly concurrency: number;
+}
+
+export interface ConversionWiring extends ConversionWiringPlan {
+  readonly converter: CliConverter;
+  readonly concurrency: number;
 }
 
 export interface ConversionWiringInput {
@@ -119,6 +146,28 @@ export interface ConversionWiringInput {
 /** Only a PDF renderer is bundled, so only a PDF loader is worth composing one onto. */
 function rendersPdfs(loader: DocumentLoader): boolean {
   return loader.capabilities.mimeTypes.some((m) => m === "application/pdf" || m === "*/*");
+}
+
+/** The configured loaders, or the PDF.js default every command shares. */
+export function baseLoaders(config: LoadedConfig | undefined): readonly DocumentLoader[] {
+  return config?.config.loaders ?? [new DocumentLoaderPdfJs()];
+}
+
+/**
+ * `loaders` with page rendering composed onto each PDF loader that cannot render.
+ * The rasterizer is loaded only when one needs it; it is absent otherwise.
+ */
+export async function renderingLoaders(
+  loaders: readonly DocumentLoader[],
+  dpi: number | undefined,
+): Promise<{ readonly loaders: readonly DocumentLoader[]; readonly rasterizer?: Rasterizer }> {
+  const needsRendering = (loader: DocumentLoader): boolean => loader.capabilities.images !== true && rendersPdfs(loader);
+  if (!loaders.some(needsRendering)) return { loaders };
+  const rasterizer = await loadRasterizer(dpi);
+  return {
+    loaders: loaders.map((loader) => (needsRendering(loader) ? withRasterizer(loader, rasterizer) : loader)),
+    rasterizer,
+  };
 }
 
 async function loadRasterizer(dpi: number | undefined): Promise<Rasterizer> {
@@ -204,8 +253,12 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
     if (flags.model !== undefined) {
       warnings.push("--model is ignored: the config supplies a built extractor.");
     }
+    if (flags.citations === true) {
+      warnings.push("--citations is ignored: the config supplies a built extractor.");
+    }
     return {
       extractor,
+      pipeline: { opaque: true },
       classifications,
       concurrency,
       notes,
@@ -216,7 +269,7 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
 
   // 2. Loaders.
   const configured = config?.config.loaders;
-  let loaders: readonly DocumentLoader[] = configured ?? [new DocumentLoaderPdfJs()];
+  let loaders = baseLoaders(config);
   notes.push(
     configured === undefined
       ? "loaders [pdfjs] (default)"
@@ -225,15 +278,13 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
 
   const wantsVision = flags.vision === true || config?.config.vision === true;
   if (wantsVision) {
-    const rasterizer = await loadRasterizer(flags.dpi);
-    loaders = loaders.map((loader) =>
-      loader.capabilities.images === true || !rendersPdfs(loader)
-        ? loader
-        : withRasterizer(loader, rasterizer),
-    );
-    notes.push(
-      `rasterizer ${rasterizer.name}${flags.dpi === undefined ? "" : ` at ${flags.dpi} dpi`}`,
-    );
+    const rendering = await renderingLoaders(loaders, flags.dpi);
+    loaders = rendering.loaders;
+    if (rendering.rasterizer !== undefined) {
+      notes.push(
+        `rasterizer ${rendering.rasterizer.name}${flags.dpi === undefined ? "" : ` at ${flags.dpi} dpi`}`,
+      );
+    }
   }
 
   // 3. Strategies. A config's list replaces ours entirely; otherwise whatever model
@@ -253,9 +304,10 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
    * is the whole of what `docture classify` needs.
    */
   const modelWouldBeUsed = fromConfig.length === 0 || flags.classify === true;
-  const model = modelWouldBeUsed
+  const chosen = modelWouldBeUsed
     ? await chooseModel(flags, config, io, notes, warnings)
     : undefined;
+  const model = chosen?.model;
 
   const instructions = flags.instructions ?? config?.config.instructions;
   const shared = {
@@ -277,11 +329,15 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
           : "--model is ignored: the config supplies its own strategies.",
       );
     }
+    if (flags.citations === true) {
+      warnings.push("--citations is ignored: the config supplies its own strategies.");
+    }
   } else if (model !== undefined) {
     strategies = [
       llm({
         model,
         ...shared,
+        ...(flags.citations === true ? { citations: true } : {}),
         ...(flags.completion === undefined ? {} : { completion: flags.completion }),
         ...(flags.maxChars === undefined ? {} : { maxCharsPerRequest: flags.maxChars }),
       }),
@@ -317,9 +373,10 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
   }
 
   const stageTimeoutMs = flags.timeoutMs ?? config?.config.stageTimeoutMs;
+  const ordered = [...(input.before ?? []), ...strategies];
   const extractor = createExtractor({
     loaders,
-    strategies: [...(input.before ?? []), ...strategies],
+    strategies: ordered,
     ...(classifiers.length === 0 ? {} : { classifiers }),
     ...(classifications.length === 0 ? {} : { classifications }),
     ...(config?.config.policy === undefined ? {} : { policy: config.config.policy }),
@@ -328,8 +385,13 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
 
   return {
     extractor,
+    pipeline: {
+      loaders: loaders.map((loader) => loader.name),
+      strategies: ordered.map((strategy) => strategy.name),
+      classifiers: classifiers.map((c) => c.name),
+      model: chosen?.id ?? null,
+    },
     classifications,
-    classifiers: classifiers.map((c) => c.name),
     concurrency,
     notes,
     warnings,
@@ -358,6 +420,7 @@ export async function buildConversionWiring(
     }
     return {
       converter,
+      pipeline: { opaque: true },
       concurrency: config?.config.concurrency ?? 4,
       notes,
       warnings,
@@ -365,7 +428,7 @@ export async function buildConversionWiring(
     };
   }
 
-  const loaders = config?.config.loaders ?? [new DocumentLoaderPdfJs()];
+  const loaders = baseLoaders(config);
   notes.push(
     config?.config.loaders === undefined
       ? "loaders [pdfjs] (default)"
@@ -373,9 +436,10 @@ export async function buildConversionWiring(
   );
 
   let layoutAnalyzer: LayoutAnalyzer | undefined = config?.config.layoutAnalyzer;
+  let modelId: string | null = null;
   if (flags.assistLayout === true) {
-    const model = await chooseModel(flags, config, io, notes, warnings);
-    if (model === undefined) {
+    const chosen = await chooseModel(flags, config, io, notes, warnings);
+    if (chosen === undefined) {
       throw new UsageError(
         "--assist-layout needs a model.",
         "Pass --model <provider>/<model-id>, or set `model` in docture.config.ts.",
@@ -385,8 +449,9 @@ export async function buildConversionWiring(
     const cache = cacheDir === undefined ? undefined : fileCache(cacheDir);
     const pricing = await loadPricing(flags.pricingPath, config, io.cwd);
     const instructions = flags.instructions ?? config?.config.instructions;
+    modelId = chosen.id;
     layoutAnalyzer = llmLayout({
-      model,
+      model: chosen.model,
       ...(cache === undefined ? {} : { cache }),
       ...(pricing === undefined ? {} : { pricing }),
       ...(instructions === undefined ? {} : { instructions }),
@@ -408,10 +473,43 @@ export async function buildConversionWiring(
   });
   return {
     converter,
+    pipeline: {
+      loaders: loaders.map((loader) => loader.name),
+      layoutAnalyzer: layoutAnalyzer?.name ?? null,
+      model: modelId,
+    },
     concurrency: config?.config.concurrency ?? 4,
     notes,
     warnings,
     dispose: () => converter.dispose(),
+  };
+}
+
+/**
+ * {@link buildWiring} for a dry run. A config's extractor factory is not called,
+ * because building it is user code the plan cannot see into; an extractor the
+ * config already built is still disposed.
+ */
+export async function planWiring(input: WiringInput): Promise<WiringPlan> {
+  const supplied = input.ignoreSuppliedExtractor === true ? undefined : input.config?.config.extractor;
+  if (typeof supplied !== "function") return buildWiring(input);
+  return {
+    pipeline: { opaque: true },
+    classifications: await loadClassifications(input.flags.classificationsPath, input.config, input.io.cwd),
+    notes: ["extractor factory from config — not built for a dry run"],
+    warnings: [],
+    dispose: async () => {},
+  };
+}
+
+/** {@link buildConversionWiring} for a dry run, on the same terms as {@link planWiring}. */
+export async function planConversionWiring(input: ConversionWiringInput): Promise<ConversionWiringPlan> {
+  if (typeof input.config?.config.converter !== "function") return buildConversionWiring(input);
+  return {
+    pipeline: { opaque: true },
+    notes: ["converter factory from config — not built for a dry run"],
+    warnings: [],
+    dispose: async () => {},
   };
 }
 
@@ -422,7 +520,7 @@ async function chooseModel(
   io: Io,
   notes: string[],
   warnings: string[],
-): Promise<LanguageModel | undefined> {
+): Promise<{ readonly model: LanguageModel; readonly id: string } | undefined> {
   if (flags.model !== undefined) {
     const resolved = await resolveModel(flags.model, {
       cwd: io.cwd,
@@ -432,7 +530,7 @@ async function chooseModel(
     });
     notes.push(`model ${resolved.id} via ${resolved.via}`);
     if (resolved.warning !== undefined) warnings.push(resolved.warning);
-    return resolved.model;
+    return { model: resolved.model, id: resolved.id };
   }
   if (config?.config.model !== undefined) {
     if (typeof config.config.model === "string") {
@@ -444,10 +542,11 @@ async function chooseModel(
       });
       notes.push(`model ${resolved.id} from config via ${resolved.via}`);
       if (resolved.warning !== undefined) warnings.push(resolved.warning);
-      return resolved.model;
+      return { model: resolved.model, id: resolved.id };
     }
     notes.push("model from config");
-    return config.config.model;
+    const model = config.config.model;
+    return { model, id: typeof model === "string" ? model : `${model.provider}/${model.modelId}` };
   }
   return undefined;
 }

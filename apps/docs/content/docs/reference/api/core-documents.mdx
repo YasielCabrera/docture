@@ -124,10 +124,18 @@ word height. Blank words are removed; output lines and spans are sorted in readi
 ```ts
 textFromLines(lines: readonly TextLine[]): string
 imageSize(bytes: Uint8Array): ImageSize | undefined
+tiffPages(bytes: Uint8Array): readonly TiffPage[] | undefined
 ```
 
 `textFromLines()` joins line text with newlines. `imageSize()` returns `ImageSize` with
-`widthPx` and `heightPx` for readable PNG and JPEG headers, otherwise `undefined`.
+`widthPx` and `heightPx` for readable PNG, JPEG, and classic TIFF headers, otherwise
+`undefined`. For a TIFF it reports the first page.
+
+`tiffPages()` reads the image file directory (IFD) chain of a classic TIFF in either byte
+order. Each `TiffPage` adds `pageNumber` (1-based, in IFD order), `ifdOffset`,
+`littleEndian`, and the TIFF `compression` code to `widthPx` and `heightPx`. It returns
+`undefined` when any page is malformed: a looping IFD chain, an IFD or strip outside the
+bytes, or a page without a size. BigTIFF is not recognized.
 
 ## Rasterizers
 

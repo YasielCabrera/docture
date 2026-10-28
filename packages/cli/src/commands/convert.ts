@@ -3,15 +3,16 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
-  type ConversionAssetMode,
   type ConversionFormat,
   type ConversionResult,
 } from "docture";
-import { choiceFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
+import { boolFlag, choiceFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { explain, UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io } from "../cli/io.js";
+import { ASSETS, CONVERSION_TARGET, OUTPUT_FORMAT, type CONVERSION_TARGETS } from "../cli/specs.js";
 import { resolveConfig } from "../config.js";
-import { expandInputs, stem, type Input } from "../inputs.js";
+import { describeInput, expandInputs, stem, type Input } from "../inputs.js";
+import { convertInputs } from "../operations.js";
 import { commonOptions, wiringFlags } from "../options.js";
 import {
   attemptLines,
@@ -19,18 +20,17 @@ import {
   errorRecord,
   formatMs,
   reportFailure,
+  reportWiring,
   toJson,
   toNdjson,
-  OUTPUT_FORMATS,
   type Item,
 } from "../output.js";
-import { buildConversionWiring } from "../wiring.js";
+import { emitPlan } from "../plan.js";
+import { buildConversionWiring, planConversionWiring, type ConversionWiringInput } from "../wiring.js";
 
-const FORMATS = ["md", "html", "txt", "json"] as const;
-const ASSET_MODES = ["referenced", "embedded", "omit"] as const satisfies readonly ConversionAssetMode[];
 
 const FORMAT_MAP: Readonly<
-  Record<(typeof FORMATS)[number], { format: ConversionFormat; extension: string }>
+  Record<(typeof CONVERSION_TARGETS)[number], { format: ConversionFormat; extension: string }>
 > = {
   md: { format: "markdown", extension: ".md" },
   html: { format: "html", extension: ".html" },
@@ -50,11 +50,11 @@ function outputPaths(
     const clash = taken.get(path);
     if (clash !== undefined) {
       throw new UsageError(
-        `"${clash}" and "${input.source}" would both be written to ${path}.`,
+        `"${clash}" and "${describeInput(input)}" would both be written to ${path}.`,
         "Rename one input before converting the batch.",
       );
     }
-    taken.set(path, input.source);
+    taken.set(path, describeInput(input));
     paths.set(index, path);
   }
   return paths;
@@ -90,10 +90,10 @@ export async function convertCommand(
       "Conversion writes documents and assets beneath this directory.",
     );
   }
-  const outputFormat = choiceFlag(parsed, "format", OUTPUT_FORMATS) ?? "text";
-  const selectedFormat = choiceFlag(parsed, "to", FORMATS) ?? "md";
+  const outputFormat = choiceFlag(parsed, OUTPUT_FORMAT) ?? "text";
+  const selectedFormat = choiceFlag(parsed, CONVERSION_TARGET) ?? "md";
   const format = FORMAT_MAP[selectedFormat];
-  const assets = choiceFlag(parsed, "assets", ASSET_MODES) ?? "referenced";
+  const assets = choiceFlag(parsed, ASSETS) ?? "referenced";
   const concurrency = numberFlag(parsed, "concurrency", { min: 1, max: 64, integer: true });
   const inputs = await expandInputs(parsed.positionals, io.cwd);
   const root = resolve(io.cwd, out);
@@ -106,18 +106,25 @@ export async function convertCommand(
     ...(common.configPath === undefined ? {} : { explicit: common.configPath }),
     ...(common.noConfig ? { disabled: true } : {}),
   });
-  const wiring = await buildConversionWiring({
+  const wiringInput: ConversionWiringInput = {
     io,
     ...(config === undefined ? {} : { config }),
     flags: wiringFlags(parsed),
-  });
+  };
 
-  if (!common.quiet) {
-    if (common.verbose) {
-      for (const note of wiring.notes) io.diagnostic(`${style.dim("·")} ${style.dim(note)}\n`);
-    }
-    for (const warning of wiring.warnings) io.diagnostic(`${style.yellow("!")} ${warning}\n`);
+  if (boolFlag(parsed, "dry-run")) {
+    const plan = await planConversionWiring(wiringInput);
+    reportWiring(io, common, style, plan.notes, plan.warnings);
+    return emitPlan(io, "convert", inputs, plan, (_input, index) => ({
+      ...plan.pipeline,
+      format: format.format,
+      assets,
+      output: { to: "file", path: targets.get(index) },
+    }));
   }
+
+  const wiring = await buildConversionWiring(wiringInput);
+  reportWiring(io, common, style, wiring.notes, wiring.warnings);
 
   const records = new Array<Item<{
     output: string;
@@ -128,18 +135,14 @@ export async function convertCommand(
   let failed = 0;
   let succeeded = 0;
   try {
-    const batch = wiring.converter.convertBatch(
-      inputs.map((input) => input.source),
-      {
-        format: format.format,
-        assets,
-        signal,
-        concurrency: concurrency ?? wiring.concurrency,
-      },
-    );
+    const batch = convertInputs(wiring.converter, inputs, io, {
+      format: format.format,
+      assets,
+      signal,
+      concurrency: concurrency ?? wiring.concurrency,
+    });
     for await (const item of batch) {
-      const input = inputs[item.index];
-      const label = input?.label ?? String(item.index);
+      const label = item.input.label;
       if (!item.outcome.ok) {
         failed += 1;
         const explained = explain(item.outcome.error);

@@ -19,6 +19,8 @@ export interface Io {
   write(chunk: string): void;
   /** Diagnostics: progress, warnings, errors, summaries. */
   diagnostic(chunk: string): void;
+  /** Every byte of standard input, for a `-` file argument. Called at most once per run. */
+  readStdin(signal?: AbortSignal): Promise<Uint8Array>;
   readonly cwd: string;
   readonly env: Readonly<Record<string, string | undefined>>;
   /** Whether stderr can take ANSI colour. */
@@ -73,6 +75,14 @@ export function processIo(): Io {
   return {
     write: (chunk) => void process.stdout.write(chunk),
     diagnostic: (chunk) => void process.stderr.write(chunk),
+    readStdin: async (signal) => {
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of process.stdin) {
+        signal?.throwIfAborted();
+        chunks.push(chunk as Uint8Array);
+      }
+      return Buffer.concat(chunks);
+    },
     cwd: process.cwd(),
     env: process.env,
     color: process.stderr.isTTY === true && process.env["NO_COLOR"] === undefined,
@@ -86,10 +96,20 @@ export interface CapturedIo extends Io {
   readonly stderr: string;
 }
 
-export function captureIo(overrides: Partial<Io> = {}): CapturedIo {
+export interface CaptureOptions extends Partial<Omit<Io, "readStdin">> {
+  /** What `readStdin` returns. Empty by default. */
+  readonly stdin?: Uint8Array;
+}
+
+export function captureIo(overrides: CaptureOptions = {}): CapturedIo {
   let stdout = "";
   let stderr = "";
+  const stdin = overrides.stdin ?? new Uint8Array();
   return {
+    readStdin: async (signal) => {
+      signal?.throwIfAborted();
+      return stdin;
+    },
     write: (chunk) => {
       stdout += chunk;
     },

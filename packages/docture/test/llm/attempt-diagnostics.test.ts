@@ -47,6 +47,7 @@ describe("attempt diagnostics", () => {
     const extractor = createExtractor({
       loaders: [{ ...good, name: "broken", async load() { throw new Error("load failed"); } }, good],
       strategies: [llm({ model }), fixedStrategy("fallback", { value: "recovered" })],
+      maxRepairs: 0,
     });
     const result = await extractor.extract(new Uint8Array([1]), z.object({ value: z.string() }));
     expect(result.data).toEqual({ value: "recovered" });

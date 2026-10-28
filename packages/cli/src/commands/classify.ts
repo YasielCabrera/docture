@@ -10,19 +10,21 @@ import type { ClassificationResult } from "docture";
 import { boolFlag, choiceFlag, numberFlag, type Parsed } from "../cli/args.js";
 import { explain, UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io } from "../cli/io.js";
+import { OUTPUT_FORMAT } from "../cli/specs.js";
 import { resolveConfig } from "../config.js";
-import { expandInputs } from "../inputs.js";
+import { expandInputs, sourcesOf } from "../inputs.js";
 import { commonOptions, wiringFlags } from "../options.js";
 import {
   envelope,
   errorRecord,
   reportFailure,
+  reportWiring,
   toJson,
   toNdjson,
-  OUTPUT_FORMATS,
   type Item,
 } from "../output.js";
-import { buildWiring } from "../wiring.js";
+import { emitPlan } from "../plan.js";
+import { buildWiring, planWiring, type WiringInput, type WiringPlan } from "../wiring.js";
 
 type Verdict = Item<Pick<ClassificationResult, "name" | "confidence" | "signals">>;
 
@@ -54,6 +56,23 @@ async function pooled<T, R>(
   return results;
 }
 
+async function refuseIncomplete(wiring: WiringPlan): Promise<void> {
+  if (wiring.classifications.length === 0) {
+    await wiring.dispose();
+    throw new UsageError(
+      "`docture classify` needs candidate document kinds.",
+      "Pass --classifications ./kinds.ts, or set `classifications` in docture.config.ts.",
+    );
+  }
+  if (!("opaque" in wiring.pipeline) && wiring.pipeline.classifiers.length === 0) {
+    await wiring.dispose();
+    throw new UsageError(
+      "Nothing is wired that could classify anything.",
+      "Pass --model <provider>/<model-id>, or declare `classifiers` in docture.config.ts.",
+    );
+  }
+}
+
 export async function classifyCommand(
   parsed: Parsed,
   io: Io,
@@ -61,7 +80,7 @@ export async function classifyCommand(
 ): Promise<ExitCode> {
   const common = commonOptions(parsed, io.color);
   const style = styleFor(common.color);
-  const format = choiceFlag(parsed, "format", OUTPUT_FORMATS) ?? "text";
+  const format = choiceFlag(parsed, OUTPUT_FORMAT) ?? "text";
   const concurrency = numberFlag(parsed, "concurrency", { min: 1, max: 64, integer: true });
 
   const config = await resolveConfig({
@@ -71,7 +90,7 @@ export async function classifyCommand(
   });
 
   const inputs = await expandInputs(parsed.positionals, io.cwd);
-  const wiring = await buildWiring({
+  const wiringInput: WiringInput = {
     io,
     ...(config === undefined ? {} : { config }),
     // A classification is only ever produced by a classifier, and the only one the
@@ -79,44 +98,32 @@ export async function classifyCommand(
     // command is asking for the thing.
     flags: { ...wiringFlags(parsed), classify: true },
     needsModel: false,
-  });
+  };
 
-  if (wiring.classifications.length === 0) {
-    await wiring.dispose();
-    throw new UsageError(
-      "`docture classify` needs candidate document kinds.",
-      "Pass --classifications ./kinds.ts, or set `classifications` in docture.config.ts.",
-    );
-  }
-  // Kinds with nobody to choose between them can only ever answer UNKNOWN. Better
-  // to say the wiring is incomplete than to hand back a page of confident nothing.
-  if (wiring.classifiers !== undefined && wiring.classifiers.length === 0) {
-    await wiring.dispose();
-    throw new UsageError(
-      "Nothing is wired that could classify anything.",
-      "Pass --model <provider>/<model-id>, or declare `classifiers` in docture.config.ts.",
-    );
+  if (boolFlag(parsed, "dry-run")) {
+    const plan = await planWiring(wiringInput);
+    await refuseIncomplete(plan);
+    reportWiring(io, common, style, plan.notes, plan.warnings);
+    return emitPlan(io, "classify", inputs, plan, () => ({
+      ...plan.pipeline,
+      classifications: plan.classifications.map((kind) => kind.name),
+      output: { to: "stdout" },
+    }));
   }
 
-  if (!common.quiet) {
-    if (common.verbose) {
-      for (const note of wiring.notes) io.diagnostic(`${style.dim("·")} ${style.dim(note)}\n`);
-    }
-    for (const warning of wiring.warnings) {
-      // The "no candidate kinds" warning cannot fire here: the check above already
-      // turned that case into a usage error.
-      io.diagnostic(`${style.yellow("!")} ${warning}\n`);
-    }
-  }
+  const wiring = await buildWiring(wiringInput);
+  await refuseIncomplete(wiring);
+  reportWiring(io, common, style, wiring.notes, wiring.warnings);
 
   const hintsShown = new Set<string>();
   let failed = 0;
   let verdicts: Verdict[];
 
   try {
-    verdicts = await pooled(inputs, concurrency ?? wiring.concurrency, async (input) => {
+    const sources = await sourcesOf(inputs, io, signal);
+    verdicts = await pooled(inputs, concurrency ?? wiring.concurrency, async (input, index) => {
       try {
-        const result = await wiring.extractor.classify(input.source, undefined, { signal });
+        const result = await wiring.extractor.classify(sources[index]!, undefined, { signal });
         const record: Verdict = {
           file: input.label,
           ok: true,

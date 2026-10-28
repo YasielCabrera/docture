@@ -24,10 +24,11 @@
  *   3. TWO OCR ENGINES, one interface
  *   4. FIX TWO: show the page to a vision model
  *   5. A SCANNED PDF — where the rasterizer goes
+ *   6. A MULTI-PAGE TIFF — what scanners and fax software emit
  */
 
 import { readFile } from "node:fs/promises";
-import { Extractor, NoEligibleStrategyError, DoctureError, imageSize, withRasterizer } from "docture";
+import { Extractor, NoEligibleStrategyError, DoctureError, imageSize, silentLogger, tiffPages, withRasterizer } from "docture";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { DocumentLoaderTesseract } from "docture/loaders/tesseract";
 import { DocumentLoaderPaddleOcr, PADDLE_MODELS } from "docture/loaders/paddleocr";
@@ -307,14 +308,91 @@ async function main(): Promise<void> {
       "select another loader. With this wiring, PDF.js reads PDFs and OCR reads images:\n\n" +
       "  .loadDocumentLoader(\n" +
       "    new DocumentLoaderPdfJs(),                              // PDFs with text\n" +
-      "    new DocumentLoaderTesseract({ rasterizer }),            // PNG/JPEG here\n" +
+      "    new DocumentLoaderTesseract({ rasterizer }),            // PNG/JPEG/TIFF here\n" +
       "  )\n\n" +
       "For scanned PDFs, select the Tesseract loader for PDFs or retry with an OCR\n" +
       "extractor after inspecting the text layer. `form` reports `digital`, `scanned`\n" +
       "or `mixed` so you can choose that path explicitly.",
   );
 
+  step("6. a multi-page TIFF — what scanners and fax software emit");
+
+  /**
+   * One file, several pages, each with its own size. `tiffPages` reads the page list from
+   * the header without decoding pixels, and the OCR loader reads every page in order.
+   */
+  const tiff = await scanAsTiff(scanBytes);
+  for (const page of tiffPages(tiff) ?? []) {
+    field(`page ${page.pageNumber}`, `${page.widthPx} x ${page.heightPx} px, compression ${page.compression}`);
+  }
+
+  if (ocrEnabled()) {
+    for (const loader of [new DocumentLoaderTesseract(), new DocumentLoaderPaddleOcr()]) {
+      try {
+        const read = await loader.load({ bytes: tiff, mimeType: "image/tiff" }, { signal: AbortSignal.timeout(300_000), logger: silentLogger });
+        for (const page of read.pages) {
+          const image = await page.image?.();
+          field(`${loader.name} page ${page.pageNumber}`, `${page.text.trim().length.toLocaleString()} chars, page.image() is ${imageSize(image ?? new Uint8Array()) ? "a PNG" : "missing"}`);
+        }
+      } finally {
+        await loader.dispose();
+      }
+    }
+  }
+  note(
+    "Tesseract reads classic TIFF compressed with none, LZW, PackBits, or CCITT G3/G4.\n" +
+      "PaddleOCR also reads Deflate, and decodes TIFF with the optional utif2 peer.\n" +
+      "page.image() returns PNG for a TIFF page, so a vision model never receives TIFF bytes.",
+  );
+
   console.log("\n  Next: 10-classification — what kind of document is this?");
+}
+
+/**
+ * The scan as an uncompressed 8-bit grayscale TIFF with two pages: full size and half
+ * size. It stands in for a scanner's output; reading a TIFF needs none of this.
+ */
+async function scanAsTiff(png: Uint8Array): Promise<Uint8Array> {
+  const { createCanvas, loadImage } = await import("@napi-rs/canvas");
+  const image = await loadImage(png);
+  const pages = [1, 0.5].map((factor) => {
+    const width = Math.round(image.width * factor);
+    const height = Math.round(image.height * factor);
+    const context = createCanvas(width, height).getContext("2d");
+    context.drawImage(image, 0, 0, width, height);
+    const rgba = context.getImageData(0, 0, width, height).data;
+    const gray = new Uint8Array(width * height);
+    for (let i = 0; i < gray.length; i++) gray[i] = (rgba[i * 4]! + rgba[i * 4 + 1]! + rgba[i * 4 + 2]!) / 3;
+    return { width, height, gray };
+  });
+
+  const ifdSize = 2 + 9 * 12 + 4;
+  const bytes = new Uint8Array(8 + pages.reduce((sum, page) => sum + ifdSize + page.gray.length, 0));
+  const view = new DataView(bytes.buffer);
+  bytes.set([0x49, 0x49, 42, 0]);
+  let at = 8;
+  view.setUint32(4, at, true);
+  pages.forEach((page, index) => {
+    const data = at + ifdSize;
+    const entries: [tag: number, type: 3 | 4, value: number][] = [
+      [256, 4, page.width], [257, 4, page.height], [258, 3, 8], [259, 3, 1], [262, 3, 1],
+      [273, 4, data], [277, 3, 1], [278, 4, page.height], [279, 4, page.gray.length],
+    ];
+    view.setUint16(at, entries.length, true);
+    entries.forEach(([tag, type, value], i) => {
+      const entry = at + 2 + i * 12;
+      view.setUint16(entry, tag, true);
+      view.setUint16(entry + 2, type, true);
+      view.setUint32(entry + 4, 1, true);
+      if (type === 3) view.setUint16(entry + 8, value, true);
+      else view.setUint32(entry + 8, value, true);
+    });
+    bytes.set(page.gray, data);
+    const next = data + page.gray.length;
+    view.setUint32(at + 2 + entries.length * 12, index + 1 < pages.length ? next : 0, true);
+    at = next;
+  });
+  return bytes;
 }
 
 if (isMain(import.meta.url)) await run(main);

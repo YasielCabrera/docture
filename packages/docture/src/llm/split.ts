@@ -34,6 +34,9 @@ import { cacheKey, storedUsage, fingerprint, type ContentPart, type LlmCache } f
 import { toUsage, type PricingTable } from "./pricing.js";
 import { modelIdOf, providerOf } from "./model-id.js";
 import { modelOutputError } from "./failure.js";
+import { callTelemetry, type LlmTelemetryOptions } from "./telemetry.js";
+
+export type { LlmTelemetryOptions } from "./telemetry.js";
 
 export interface SplitterOptions {
   readonly model: LanguageModel;
@@ -53,6 +56,8 @@ export interface SplitterOptions {
   readonly format?: RasterFormat;
   /** Cap the pages an EAGER split sends in one request. Default 40. */
   readonly maxEagerPages?: number;
+  /** AI SDK telemetry. Inputs and outputs are not recorded unless enabled here. */
+  readonly telemetry?: LlmTelemetryOptions;
 }
 
 const seamSchema = z.object({
@@ -134,7 +139,7 @@ abstract class ModelSplitter implements Splitter {
       { type: "text", text: "Does page two continue page one's document? Classify each page." },
     ];
 
-    const value = await this.#ask(seamSchema, content, "seam", ctx);
+    const value = await this.#ask(seamSchema, content, "seam", ctx, [first.pageNumber, second.pageNumber]);
     return {
       belongsToSameDocument: value.belongsToSameDocument,
       classificationPage1: reconcile(value.classificationPage1, ctx.classifications),
@@ -164,7 +169,7 @@ abstract class ModelSplitter implements Splitter {
           `List every document in these ${sent.length} pages. ` +
           "Each page must appear in exactly one document, and page numbers must ascend.",
       });
-      const value = await this.#ask(eagerSchema, content, "eager", ctx);
+      const value = await this.#ask(eagerSchema, content, "eager", ctx, sent.map((page) => page.pageNumber));
       const known = new Set(sent.map((page) => page.pageNumber));
       const normalized = this.#coverEveryPage(value.documents
         .map((document) => ({
@@ -240,6 +245,7 @@ abstract class ModelSplitter implements Splitter {
     content: readonly ContentPart[],
     variant: string,
     ctx: SplitContext,
+    pages: readonly number[],
   ): Promise<T> {
     const cache = this.options.cache;
     const key =
@@ -269,6 +275,9 @@ abstract class ModelSplitter implements Splitter {
       temperature: this.options.temperature ?? 0,
       maxRetries: this.options.maxRetries ?? 2,
       abortSignal: ctx.signal,
+      ...callTelemetry(this.options.telemetry, {
+        stage: "split", component: this.name, document: ctx.documentLabel, pages,
+      }),
     }).then((response) => ({ output: response.output, usage: response.usage })).catch((error: unknown) => {
       const failure = modelOutputError(error, {
         modelId: modelIdOf(this.options.model), pricing: this.options.pricing, wallMs: Date.now() - started,

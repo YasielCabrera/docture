@@ -1,4 +1,4 @@
-import { generateText, Output, jsonSchema, type LanguageModel } from "ai";
+import { jsonSchema, type LanguageModel } from "ai";
 import type { ProviderOptions } from "@ai-sdk/provider-utils";
 import {
   sumUsage,
@@ -8,17 +8,23 @@ import {
   type ExtractionStrategy,
   type LoadedPage,
   type RasterFormat,
+  type RepairInput,
   type StrategyContext,
   type StrategyOutcome,
   type Usage,
 } from "../core/index.js";
-import { cacheKey, storedUsage, fingerprint, type ContentPart, type LlmCache } from "./cache.js";
-import { mergePartials } from "./merge.js";
-import { buildPrompt } from "./prompt.js";
+import { cacheKey, fingerprint, type ContentPart, type LlmCache } from "./cache.js";
+import { mergePartialsWithDiagnostics } from "./merge.js";
+import { buildPrompt, type PromptParts } from "./prompt.js";
 import { modelIdOf, providerOf } from "./model-id.js";
-import { toUsage, type PricingTable } from "./pricing.js";
+import type { PricingTable } from "./pricing.js";
 import { relaxJsonSchema } from "./relax.js";
-import { modelOutputError, withCompletedUsage } from "./failure.js";
+import { withCompletedUsage } from "./failure.js";
+import { repairFingerprint, repairMessages } from "./repair.js";
+import { requestObject, type ObjectRequest, type ObjectResponse } from "./request.js";
+import { callTelemetry, type LlmTelemetryOptions, type TelemetryScope } from "./telemetry.js";
+
+export type { LlmTelemetryOptions } from "./telemetry.js";
 
 export interface VisionStrategyOptions {
   readonly model: LanguageModel;
@@ -49,6 +55,8 @@ export interface VisionStrategyOptions {
   /** Requests in flight at once. Positive integer. Default 4. */
   readonly concurrency?: number;
   readonly needsClassification?: ClassificationNeed;
+  /** AI SDK telemetry. Inputs and outputs are not recorded unless enabled here. */
+  readonly telemetry?: LlmTelemetryOptions;
 }
 
 const MEDIA_TYPES: Readonly<Record<RasterFormat, string>> = {
@@ -104,37 +112,75 @@ export class VisionStrategy implements ExtractionStrategy {
     return images;
   }
 
-  async extract(ctx: StrategyContext): Promise<StrategyOutcome> {
-    ctx.signal.throwIfAborted();
-
-    const modelId = modelIdOf(this.options.model);
-    const format = this.options.format ?? "png";
-    const mediaType = MEDIA_TYPES[format];
-
-    const pages = ctx.document.pages.slice(0, this.options.maxPages ?? ctx.document.pages.length);
-    if (pages.length === 0) throw new Error("the document has no pages to render");
-
+  private prompt(ctx: StrategyContext): PromptParts {
     const hint = [
       ctx.hints,
       ctx.classification === undefined ? undefined : this.options.hints?.[ctx.classification.name],
     ].filter((value): value is string => value !== undefined).join("\n") || undefined;
+    return buildPrompt("(the document is supplied as page images below)", {
+      ...(this.options.system === undefined ? {} : { system: this.options.system }),
+      ...(this.options.instructions === undefined ? {} : { instructions: this.options.instructions }),
+      ...(ctx.classification === undefined ? {} : { classification: ctx.classification }),
+      ...(hint === undefined ? {} : { hints: hint }),
+    });
+  }
 
-    const { system, prompt } = buildPrompt(
-      "(the document is supplied as page images below)",
-      {
-        ...(this.options.system === undefined ? {} : { system: this.options.system }),
-        ...(this.options.instructions === undefined
-          ? {}
-          : { instructions: this.options.instructions }),
-        ...(ctx.classification === undefined ? {} : { classification: ctx.classification }),
-        ...(hint === undefined ? {} : { hints: hint }),
-      },
-    );
-
-    const pagesPerRequest = this.options.pagesPerRequest ?? 20;
-    const groupSize = this.options.pageMode === "perPage" ? 1 : pagesPerRequest;
-    const groups = Array.from({ length: Math.ceil(pages.length / groupSize) }, (_, index) =>
+  private groups(ctx: StrategyContext): LoadedPage[][] {
+    const pages = ctx.document.pages.slice(0, this.options.maxPages ?? ctx.document.pages.length);
+    const groupSize = this.options.pageMode === "perPage" ? 1 : this.options.pagesPerRequest ?? 20;
+    return Array.from({ length: Math.ceil(pages.length / groupSize) }, (_, index) =>
       pages.slice(index * groupSize, (index + 1) * groupSize));
+  }
+
+  private async content(prompt: string, group: readonly LoadedPage[]): Promise<ContentPart[]> {
+    const mediaType = MEDIA_TYPES[this.options.format ?? "png"];
+    const images = await this.render(group);
+    return [
+      { type: "text", text: prompt },
+      ...images.map((data) => ({ type: "file" as const, data, mediaType })),
+    ];
+  }
+
+  private request(
+    ctx: StrategyContext,
+    request: Pick<ObjectRequest, "schema" | "system" | "input" | "signal" | "startedAt">,
+    keyPrompt: string,
+    variant: string,
+    scope: Omit<TelemetryScope, "component" | "document">,
+  ): Promise<ObjectResponse> {
+    const modelId = modelIdOf(this.options.model);
+    const format = this.options.format ?? "png";
+    return requestObject({
+      ...request,
+      telemetry: callTelemetry(this.options.telemetry, { ...scope, component: this.name, document: ctx.documentLabel }),
+      model: this.options.model,
+      modelId,
+      cache: this.options.cache,
+      key: cacheKey({
+        provider: providerOf(this.options.model),
+        ...(this.options.providerOptions === undefined ? {} : { providerOptions: this.options.providerOptions }),
+        temperature: this.options.temperature,
+        modelId,
+        system: request.system,
+        prompt: keyPrompt,
+        jsonSchema: ctx.schema.jsonSchema,
+        variant:
+          `vision:${format}:${this.options.dpi ?? 200}:${this.options.maxEdge ?? 1568}:` +
+          `${this.options.pagesPerRequest ?? 20}:${variant}`,
+      }),
+      temperature: this.options.temperature,
+      maxRetries: this.options.maxRetries,
+      providerOptions: this.options.providerOptions,
+      pricing: this.options.pricing,
+    });
+  }
+
+  async extract(ctx: StrategyContext): Promise<StrategyOutcome> {
+    ctx.signal.throwIfAborted();
+
+    const groups = this.groups(ctx);
+    if (groups.length === 0) throw new Error("the document has no pages to render");
+    const { system, prompt } = this.prompt(ctx);
 
     // Same reason as LlmStrategy: a single page cannot satisfy a whole-document
     // schema, so per-page requests get a `required`-free copy and the pipeline
@@ -149,76 +195,47 @@ export class VisionStrategy implements ExtractionStrategy {
 
     const parts = await mapWithConcurrency(groups, this.options.concurrency ?? 4, async (group, index, signal) => {
       signal.throwIfAborted();
-      const images = await this.render(group);
-
-      const content: ContentPart[] = [
-        { type: "text", text: prompt },
-        ...images.map((data) => ({ type: "file" as const, data, mediaType })),
-      ];
-
+      const content = await this.content(prompt, group);
       // The page numbers are part of the key: the same prompt over page 2 is a
       // different request from the same prompt over page 1.
-      const key = cacheKey({
-        provider: providerOf(this.options.model),
-        ...(this.options.providerOptions === undefined ? {} : { providerOptions: this.options.providerOptions }),
-        temperature: this.options.temperature,
-        modelId,
-        system,
-        prompt: fingerprint(content),
-        jsonSchema: ctx.schema.jsonSchema,
-        variant:
-          `vision:${format}:${this.options.dpi ?? 200}:${this.options.maxEdge ?? 1568}:${pagesPerRequest}:` +
-          `${groups.length > 1 ? "relaxed" : "strict"}:` +
-          `${group.map((p) => p.pageNumber).join(",")}`,
-      });
-
-      const cached = await this.options.cache?.get(key);
-      if (cached !== undefined) {
-        usages[index] = toUsage(cached.usage, 0);
-        return cached.data;
-      }
-
-      signal.throwIfAborted();
-      const requestStarted = Date.now();
-      const response = await generateText({
-        model: this.options.model,
-        output: Output.object({ schema: requestSchema }),
-        system,
-        messages: [
-          {
-            role: "user",
-            content,
-          },
-        ],
-        temperature: this.options.temperature ?? 0,
-        maxRetries: this.options.maxRetries ?? 2,
-        abortSignal: signal,
-        ...(this.options.providerOptions === undefined ? {} : { providerOptions: this.options.providerOptions }),
-      }).then((response) => ({ output: response.output, usage: response.usage })).catch((error: unknown) => {
-        const failure = modelOutputError(error, {
-          modelId,
-          pricing: this.options.pricing,
-          wallMs: Date.now() - startedAt,
+      const response = await this.request(ctx, {
+        schema: requestSchema, system, input: { messages: [{ role: "user", content }] }, signal, startedAt,
+      }, fingerprint(content), `${groups.length > 1 ? "relaxed" : "strict"}:${group.map((p) => p.pageNumber).join(",")}`, {
+        stage: "vision", pages: group.map((p) => p.pageNumber), chunk: index,
+      })
+        .catch((error: unknown) => {
+          if (error instanceof ModelOutputError && error.usage !== undefined) usages[index] = error.usage;
+          throw error;
         });
-        if (failure instanceof ModelOutputError && failure.usage !== undefined) usages[index] = failure.usage;
-        throw failure;
-      });
-
-      usages[index] = toUsage(response.usage, Date.now() - requestStarted, modelId, this.options.pricing);
-
-      await this.options.cache?.set(key, {
-        data: response.output,
-        usage: storedUsage(response.usage),
-      });
-      return response.output;
+      usages[index] = response.usage;
+      return response.data;
     }, ctx.signal).catch((error: unknown) => {
-      throw withCompletedUsage(error, usages, Date.now() - startedAt, ctx.reportFailureUsage);
+      throw withCompletedUsage(error, usages, Date.now() - startedAt, ctx.reportFailureUsage, { wholeAnswer: groups.length === 1 });
     });
 
+    const merged = mergePartialsWithDiagnostics(parts.map((data, index) => ({
+      data, pages: (groups[index] ?? []).map((page) => page.pageNumber),
+    })));
     return {
-      data: mergePartials(parts),
+      data: merged.data,
       usage: sumUsage(usages, Date.now() - startedAt),
+      ...(merged.conflicts.length === 0 ? {} : { conflicts: merged.conflicts }),
     };
+  }
+
+  /** Re-sends a single group's images with the answer and its issues; a merged answer goes alone. */
+  async repair(ctx: StrategyContext, previous: RepairInput): Promise<StrategyOutcome> {
+    ctx.signal.throwIfAborted();
+    const groups = this.groups(ctx);
+    const only = groups.length === 1 ? groups[0] : undefined;
+    const { system, prompt } = this.prompt(ctx);
+    const messages = repairMessages(only === undefined ? undefined : await this.content(prompt, only), previous);
+    const response = await this.request(ctx, {
+      schema: ctx.schema.flexible, system, input: { messages }, signal: ctx.signal, startedAt: Date.now(),
+    }, repairFingerprint(messages), "repair", {
+      stage: "repair", pages: (only ?? groups.flat()).map((p) => p.pageNumber),
+    });
+    return { data: response.data, usage: response.usage };
   }
 }
 

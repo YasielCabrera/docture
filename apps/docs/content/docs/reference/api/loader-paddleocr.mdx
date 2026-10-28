@@ -10,6 +10,12 @@ prebuilt native dependencies for supported platforms.
 npm install docture ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0
 ```
 
+For TIFF inputs, also install the TIFF decoder:
+
+```sh
+npm install utif2@4.1.0
+```
+
 For PDF inputs, also install and configure a rasterizer. See the
 [complete OCR install commands](/docs/guides/installation).
 
@@ -21,7 +27,7 @@ new DocumentLoaderPaddleOcr(options?: DocumentLoaderPaddleOcrOptions)
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `rasterizer` | none | Required to accept PDFs; direct PNG and JPEG inputs need none. |
+| `rasterizer` | none | Required to accept PDFs; direct PNG, JPEG, and TIFF inputs need none. |
 | `model` | `v6Tiny` | Model preset or explicit `PaddleModelFiles`. |
 | `dpi` | `300` | Render and OCR resolution. |
 | `maxPages` | all | Maximum pages to read. |
@@ -36,8 +42,18 @@ new DocumentLoaderPaddleOcr(options?: DocumentLoaderPaddleOcrOptions)
 | `executionProviders` | `["cpu"]` | Preferred ONNX execution providers. |
 
 The loader is named `paddleocr` and reports text, geometry, and images. Without a
-rasterizer it accepts PNG and JPEG. With one it also accepts PDF. `dispose()` releases the
+rasterizer it accepts PNG, JPEG, and TIFF. With one it also accepts PDF. `dispose()` releases the
 ONNX sessions and allows a later load to create fresh sessions.
+
+A TIFF loads one page per image file directory, in file order. The loader decodes the
+selected pages with the optional `utif2` peer, loaded only for TIFF input, and gives the
+engine PNG. `maxPages` and requested pages apply before decoding. Classic TIFF in either
+byte order is supported with no compression, LZW, Deflate, PackBits, CCITT Group 3, or
+CCITT Group 4, up to 8192 x 8192 pixels per page. The load rejects before decoding or
+recognition when the file is malformed, uses another compression, or has a larger page.
+Pages decode one at a time, and an abort stops decoding before the next page. The
+decoder reads only the page chain, never sub-IFD, Exif, or GPS directories. TIFF bytes
+labelled PNG or JPEG are read as TIFF. BigTIFF is not supported. `page.image()` on a TIFF page returns the decoded PNG.
 
 ## Models and related types
 

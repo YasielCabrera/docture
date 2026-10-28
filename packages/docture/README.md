@@ -327,6 +327,7 @@ Only `docture` and `@docture/cli` are published. These are all supported library
 | `docture/loaders/tesseract` | `DocumentLoaderTesseract` |
 | `docture/loaders/paddleocr` | `DocumentLoaderPaddleOcr` |
 | `docture/raster/canvas` | `NapiCanvasRasterizer` |
+| `docture/chunk` | Retrieval chunks with page, box, and source-id provenance |
 | `docture/eval` | Field scoring, hallucination detection, and run reports |
 | `docture/testing/doubles` | In-memory documents, loaders, and fixed or failing strategies |
 | `docture/testing/conformance` | Loader and rasterizer contract suites |
@@ -370,6 +371,8 @@ PaddleOCR image OCR:
 ```sh
 npm install docture ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0
 ```
+
+Both OCR loaders read multi-page TIFF. PaddleOCR also needs `utif2@4.1.0` for TIFF.
 
 PDF OCR also needs a configured rasterizer. For the scanned-document example above,
 which combines Tesseract, PDF.js, MuPDF rendering, and a model:

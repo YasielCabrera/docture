@@ -46,6 +46,7 @@ export interface Recognition {
   readonly words: readonly RecognizedWord[];
   /** Mean confidence for the page, 0–1. */
   readonly confidence: number;
+  readonly image?: Uint8Array;
 }
 
 /** Tesseract's `--psm` numbers — the documented, stable CLI interface. */
@@ -83,6 +84,7 @@ export interface EngineOptions {
 export interface RecognizeOptions {
   /** Let Tesseract detect and correct page skew before recognizing. */
   readonly autoRotate: boolean;
+  readonly returnDecodedPng?: boolean;
 }
 
 // ── The slice of tesseract.js used here ─────────────────────────────────────────
@@ -104,6 +106,8 @@ interface TesseractWord {
 interface TesseractPage {
   readonly text: string;
   readonly confidence: number;
+  /** A `data:image/png;base64,` URL when the recognition asked for `imageColor`. */
+  readonly imageColor?: string | null;
   /** `null` unless the recognition asked for `blocks`. */
   readonly blocks: readonly {
     readonly paragraphs: readonly { readonly lines: readonly { readonly words: readonly TesseractWord[] }[] }[];
@@ -188,9 +192,9 @@ export class TesseractPool {
         options.autoRotate ? { rotateAuto: true } : {},
         // `blocks` is off by default in tesseract.js v7 and is the only source of
         // word geometry — without it there is text but nothing positioned.
-        { text: true, blocks: true },
+        { text: true, blocks: true, ...(options.returnDecodedPng === true ? { imageColor: true } : {}) },
       );
-      return toRecognition(result.data);
+      return toRecognition(result.data, options.returnDecodedPng === true);
     } catch (error) {
       // tesseract.js rejects with a plain string, which loses the stack and reads
       // badly anywhere a caller expects an Error.
@@ -312,7 +316,7 @@ export class TesseractPool {
 }
 
 /** Flatten Tesseract's block → paragraph → line → word tree into words. */
-function toRecognition(page: TesseractPage): Recognition {
+function toRecognition(page: TesseractPage, withImage: boolean): Recognition {
   const words: RecognizedWord[] = [];
   for (const block of page.blocks ?? []) {
     for (const paragraph of block.paragraphs) {
@@ -328,5 +332,11 @@ function toRecognition(page: TesseractPage): Recognition {
     }
   }
   // Tesseract reports -1 for a page it recognized nothing on.
-  return { words, confidence: Math.max(0, page.confidence) / 100 };
+  const confidence = Math.max(0, page.confidence) / 100;
+  if (!withImage) return { words, confidence };
+  const url = page.imageColor;
+  if (typeof url !== "string" || !url.startsWith("data:image/png;base64,")) {
+    throw new Error("tesseract: the engine returned no PNG for a page image that was requested.");
+  }
+  return { words, confidence, image: Uint8Array.from(Buffer.from(url.slice(url.indexOf(",") + 1), "base64")) };
 }

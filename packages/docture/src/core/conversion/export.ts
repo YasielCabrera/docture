@@ -9,6 +9,7 @@ import type {
   LayoutDocument,
 } from "../domain/conversion.js";
 import type { LoadedDocument } from "../domain/geometry.js";
+import { anchorAt, flattenHeaderRows } from "./tables.js";
 
 export interface ExportedDocument {
   readonly content: string;
@@ -169,6 +170,8 @@ function plainElement(element: DocumentElement): string {
     case "heading":
     case "paragraph":
     case "code":
+    case "page-header":
+    case "page-footer":
       return element.text;
     case "list":
       return element.items
@@ -240,7 +243,10 @@ function markdownElement(element: DocumentElement, ctx: RenderContext): string {
         )
         .join("\n");
     case "table":
-      return markdownTable(element.rows);
+      return markdownTable(flattenHeaderRows(element));
+    case "page-header":
+    case "page-footer":
+      return "";
     case "figure": {
       if (ctx.mode === "omit") return "";
       const asset = ctx.assets.get(element.assetId);
@@ -257,6 +263,11 @@ function markdownElement(element: DocumentElement, ctx: RenderContext): string {
     case "page-break":
       return "";
   }
+}
+
+/** One element as Markdown, without assets or warnings. Figures and page furniture render as `""`. */
+export function markdownBlock(element: DocumentElement): string {
+  return markdownElement(element, { mode: "omit", assets: new Map(), warnings: [] });
 }
 
 function htmlElement(element: DocumentElement, ctx: RenderContext): string {
@@ -278,7 +289,15 @@ function htmlElement(element: DocumentElement, ctx: RenderContext): string {
     case "table": {
       const rows = element.rows.map((row, rowIndex) => {
         const tag = rowIndex < element.headerRows ? "th" : "td";
-        return `<tr>${row.map((cell) => `<${tag}>${htmlText(cell)}</${tag}>`).join("")}</tr>`;
+        return `<tr>${row.map((cell, colIndex) => {
+          const anchor = anchorAt(element, rowIndex, colIndex);
+          if (anchor.row !== rowIndex || anchor.col !== colIndex) return "";
+          const span = element.spans?.find((item) => item.row === rowIndex && item.col === colIndex);
+          const attributes = span === undefined
+            ? ""
+            : `${span.rowSpan > 1 ? ` rowspan="${span.rowSpan}"` : ""}${span.colSpan > 1 ? ` colspan="${span.colSpan}"` : ""}`;
+          return `<${tag}${attributes}>${htmlText(cell)}</${tag}>`;
+        }).join("")}</tr>`;
       });
       const head = rows.slice(0, element.headerRows);
       const body = rows.slice(element.headerRows);
@@ -295,6 +314,8 @@ function htmlElement(element: DocumentElement, ctx: RenderContext): string {
       const caption = element.caption === undefined ? "" : `<figcaption>${htmlText(element.caption)}</figcaption>`;
       return `<figure><img src="${htmlText(assetUrl(asset, ctx.mode))}" alt="${alt}">${caption}</figure>`;
     }
+    case "page-header":
+    case "page-footer":
     case "page-break":
       return "";
   }
@@ -321,6 +342,8 @@ export function exportDocument(
   if (format === "text") {
     const pages = document.pages.map((page) => ({
       pageNumber: page.pageNumber,
+      width: page.width,
+      height: page.height,
       content: nonEmpty(page.elements.map(plainElement)).join("\n\n"),
       elements: page.elements,
     }));
@@ -336,6 +359,8 @@ export function exportDocument(
   if (format === "markdown") {
     const pages = document.pages.map((page) => ({
       pageNumber: page.pageNumber,
+      width: page.width,
+      height: page.height,
       content: `<!-- page: ${page.pageNumber} -->${
         page.elements.length === 0
           ? ""
@@ -354,6 +379,8 @@ export function exportDocument(
 
   const pages = document.pages.map((page) => ({
     pageNumber: page.pageNumber,
+    width: page.width,
+    height: page.height,
     content: `<section id="page-${page.pageNumber}" data-page-number="${page.pageNumber}">\n${nonEmpty(
       page.elements.map((element) => htmlElement(element, ctx)),
     ).join("\n")}\n</section>`,

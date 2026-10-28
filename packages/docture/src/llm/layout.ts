@@ -8,11 +8,15 @@ import type {
   LayoutAnalyzer,
   LayoutAnalyzerContext,
   LayoutAnnotation,
+  LayoutElementRole,
 } from "../core/index.js";
 import { cacheKey, storedUsage, type LlmCache } from "./cache.js";
 import { toUsage, type PricingTable } from "./pricing.js";
 import { modelIdOf, providerOf } from "./model-id.js";
 import { modelOutputError } from "./failure.js";
+import { callTelemetry, type LlmTelemetryOptions } from "./telemetry.js";
+
+export type { LlmTelemetryOptions } from "./telemetry.js";
 
 export interface LlmLayoutAnalyzerOptions {
   readonly model: LanguageModel;
@@ -22,9 +26,11 @@ export interface LlmLayoutAnalyzerOptions {
   readonly pricing?: PricingTable;
   readonly temperature?: number;
   readonly maxRetries?: number;
+  /** AI SDK telemetry. Inputs and outputs are not recorded unless enabled here. */
+  readonly telemetry?: LlmTelemetryOptions;
 }
 
-const roleSchema = z.enum([
+const roles = [
   "heading",
   "paragraph",
   "code",
@@ -32,7 +38,11 @@ const roleSchema = z.enum([
   "table",
   "figure",
   "page-break",
-]);
+] as const satisfies readonly LayoutElementRole[];
+const everyRoleListed: Exclude<LayoutElementRole, (typeof roles)[number]> extends never ? true : false = true;
+void everyRoleListed;
+
+const roleSchema = z.enum(roles);
 
 const annotationSchema = z
   .object({
@@ -65,6 +75,8 @@ function contentOf(element: DocumentElement): unknown {
     case "heading":
     case "paragraph":
     case "code":
+    case "page-header":
+    case "page-footer":
       return element.text;
     case "list":
       return element.items.map((item) => item.text);
@@ -74,6 +86,10 @@ function contentOf(element: DocumentElement): unknown {
       return element.alt ?? "(figure)";
     case "page-break":
       return "(page break)";
+    default: {
+      const unhandled: never = element;
+      return unhandled;
+    }
   }
 }
 
@@ -138,6 +154,11 @@ export class LlmLayoutAnalyzer implements LayoutAnalyzer {
       temperature: this.options.temperature ?? 0,
       maxRetries: this.options.maxRetries ?? 2,
       abortSignal: ctx.signal,
+      ...callTelemetry(this.options.telemetry, {
+        stage: "layout",
+        component: this.name,
+        pages: ctx.document.pages.map((page) => page.pageNumber),
+      }),
     }).then((response) => ({ output: response.output, usage: response.usage })).catch((error: unknown) => {
       throw modelOutputError(error, {
         modelId, pricing: this.options.pricing, wallMs: Date.now() - started,

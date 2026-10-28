@@ -43,17 +43,23 @@ configuration failure. The process executable uses exit code `130` for SIGINT.
 
 ## I/O
 
-`Io` has `write()` for stdout data, `diagnostic()` for stderr messages, plus `cwd`, `env`,
-and color support. `Style` contains the text styling functions used by the CLI.
+`Io` has `write()` for stdout data, `diagnostic()` for stderr messages,
+`readStdin(signal?)` for the bytes behind a `-` file argument, plus `cwd`, `env`, and color
+support. The CLI calls `readStdin()` at most once per run, and never under `--dry-run`. A
+host without stdin returns an empty `Uint8Array`. `Style` contains the text styling
+functions used by the CLI.
 
 ```ts
 processIo(): Io
-captureIo(overrides?: Partial<Io>): CapturedIo
+captureIo(overrides?: CaptureOptions): CapturedIo
 styleFor(color: boolean): Style
 ```
 
 `processIo()` binds the interface to the current Node process and honors `NO_COLOR`.
-`captureIo()` defaults to the current directory, an empty environment, and no color. Its
+`CaptureOptions` accepts any `Io` field except `readStdin`, plus `stdin`, the bytes its
+`readStdin()` returns.
+`captureIo()` defaults to the current directory, an empty environment, no color, and empty
+stdin. Its
 `CapturedIo` result exposes accumulated `stdout` and `stderr`. `styleFor(false)` returns
 plain text functions; `true` returns ANSI styling.
 
@@ -69,6 +75,36 @@ explain(error: unknown): Explained
 required message and code, plus an optional hint. `explain()` preserves core
 `DoctureError` codes and adds recovery hints. Other errors use `USAGE`, `CLI`, or
 `INTERNAL` and a printable message.
+
+## MCP server
+
+Import from `@docture/cli/mcp`. It needs the optional peer
+`@modelcontextprotocol/sdk@1.32.2`; `@docture/cli` itself never loads it.
+
+```ts
+createMcpServer(options: McpServerOptions): Promise<McpServer>
+ENGINE_RANGES: { "@modelcontextprotocol/sdk": "1.32.2" }
+```
+
+`createMcpServer()` returns the SDK's `McpServer` with the `convert` and `inspect` tools
+that `docture mcp` serves. Connect it to any SDK transport:
+
+```ts
+import { processIo } from "@docture/cli";
+import { createMcpServer } from "@docture/cli/mcp";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+
+const server = await createMcpServer({ io: processIo() });
+await server.connect(new StdioServerTransport());
+```
+
+`McpServerOptions` contains required `io`, whose `cwd` resolves relative sources and the
+config and whose `diagnostic()` receives warnings. Optional `signal` cancels every call in
+flight. Optional `configPath` and `noConfig` match `--config` and `--no-config`. The server
+never calls `io.write()`. It owns the tools handlers, so register no further tools on it.
+Without the SDK, `createMcpServer()` rejects with `MissingEngineError` naming the range in
+`ENGINE_RANGES`. See the [CLI guide](/docs/guides/cli#mcp-server) for tool arguments and
+results.
 
 ## Version
 

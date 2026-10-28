@@ -53,6 +53,7 @@ it("counts schema-failed extraction calls before fallback", async () => {
   const result = await core.createExtractor({
     loaders: [loader()],
     strategies: [llm({ name: "first", model: first.model, pricing }), llm({ name: "second", model: second.model, pricing })],
+    maxRepairs: 0,
   }).extract(new Uint8Array([1]), schema);
   expect(result.usage).toMatchObject({ inputTokens: 200, outputTokens: 50, totalTokens: 250, costUsd: 250 });
   expect(result.attempts[0]).toMatchObject({ strategy: "first", status: "failed", errorCode: "MODEL_OUTPUT_FAILED", usage: { inputTokens: 100, outputTokens: 25, totalTokens: 125, costUsd: 125 } });
@@ -60,7 +61,7 @@ it("counts schema-failed extraction calls before fallback", async () => {
 
 it("retains each paid attempt when all strategies fail", async () => {
   const { model } = mockModel([{ value: 123 }]);
-  const outcome = await core.createExtractor({ loaders: [loader()], strategies: [llm({ name: "a", model, pricing }), llm({ name: "b", model, pricing })] })
+  const outcome = await core.createExtractor({ loaders: [loader()], strategies: [llm({ name: "a", model, pricing }), llm({ name: "b", model, pricing })], maxRepairs: 0 })
     .safeExtract(new Uint8Array([1]), schema);
   expect(outcome.ok).toBe(false);
   if (outcome.ok) throw new Error("Expected failed extraction");

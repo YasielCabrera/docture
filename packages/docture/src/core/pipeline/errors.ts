@@ -118,6 +118,19 @@ export class ModelOutputError extends DoctureError {
   }
 }
 
+// A registry symbol, so the pipeline reads text attached by another installed copy.
+const REPAIR_OUTPUT = Symbol.for("docture.internal.model-output-text.v1");
+
+export function withRepairOutput<E extends ModelOutputError>(error: E, text: string): E {
+  Object.defineProperty(error, REPAIR_OUTPUT, { value: text, enumerable: false });
+  return error;
+}
+
+export function repairOutputOf(error: ModelOutputError): string | undefined {
+  const text: unknown = Object.getOwnPropertyDescriptor(error, REPAIR_OUTPUT)?.value;
+  return typeof text === "string" ? text : undefined;
+}
+
 /** Why one candidate could not be used. */
 export interface Ineligibility {
   readonly name: string;

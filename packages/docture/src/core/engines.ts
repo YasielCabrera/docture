@@ -7,6 +7,7 @@ export const ENGINE_RANGES = {
   "ppu-paddle-ocr": "6.3.0",
   "onnxruntime-node": "1.27.0",
   "@napi-rs/canvas": "^1.0.10",
+  utif2: "4.1.0",
 } as const;
 
 export type Engine = keyof typeof ENGINE_RANGES;

@@ -27,7 +27,7 @@ async function parseDocument(mode: ConversionAssetMode = "referenced") {
 describe("versioned conversion", () => {
   it("exports version, dimensions, elements, provenance and final warnings", async () => {
     const { result, document } = await parseDocument();
-    expect(document.schemaVersion).toBe(1);
+    expect(document.schemaVersion).toBe(2);
     expect(document.loader).toBe("json-fixture");
     expect(document.method).toBe("deterministic");
     expect(document.pages.map((p) => ({ pageNumber: p.pageNumber, width: p.width, height: p.height })))
@@ -82,11 +82,12 @@ describe("document schema", () => {
   it("validates conversion output and rejects malformed versions, elements and assets", async () => {
     const { document } = await parseDocument();
     const schema = JSON.parse(await readFile(
-      new URL("../../../../apps/docs/public/schemas/docture-document-v1.schema.json", import.meta.url), "utf8",
+      new URL("../../../../apps/docs/public/schemas/docture-document-v2.schema.json", import.meta.url), "utf8",
     ));
     const validator = z.fromJSONSchema(schema);
     expect(validator.safeParse(document).success).toBe(true);
-    expect(validator.safeParse({ ...document, schemaVersion: 2 }).success).toBe(false);
+    expect(validator.safeParse({ ...document, schemaVersion: 1 }).success).toBe(false);
+    expect(validator.safeParse({ ...document, schemaVersion: 3 }).success).toBe(false);
     expect(validator.safeParse({ ...document, pages: [{ ...document.pages[0], elements: [{ kind: "unknown" }] }] }).success).toBe(false);
     expect(validator.safeParse({
       ...document, pages: [{ ...document.pages[0], elements: [{ ...document.pages[0]?.elements[0], provenance: {} }] }],

@@ -26,7 +26,8 @@ with another supported schema library. Evaluation and test doubles need only:
 npm install docture
 ```
 
-Import core from `docture`, scoring from `docture/eval`, and test doubles from
+Import core from `docture`, retrieval chunks from `docture/chunk`, scoring from
+`docture/eval`, and test doubles from
 `docture/testing/doubles`. None requires an engine or model runtime.
 
 ## PDF.js text extraction and deterministic conversion
@@ -138,6 +139,12 @@ For the canvas-backed scanned-PDF OCR example:
 npm install docture ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10
 ```
 
+To read TIFF files with PaddleOCR, also install its TIFF decoder:
+
+```sh
+npm install utif2@4.1.0
+```
+
 PaddleOCR needs model assets as well as ONNX Runtime's platform-specific native libraries.
 Configure the model source and rasterizer in the [OCR guide](/docs/guides/scanned-documents).
 
@@ -214,6 +221,13 @@ renderer. If optional dependencies were omitted, restore canvas with:
 
 ```sh
 npm install --save-dev @docture/cli @napi-rs/canvas@1.0.10
+```
+
+`docture mcp` and `@docture/cli/mcp` need the optional MCP SDK peer. No other command
+loads it:
+
+```sh
+npm install --save-dev @docture/cli @modelcontextprotocol/sdk@1.32.2
 ```
 
 For the CLI examples using a Zod schema and a local OpenAI provider:

@@ -18,18 +18,19 @@
  *   2. THE THREE COMPLETION STRATEGIES, and what each one sends
  *   3. WHY IT SPLITS AT PAGE BOUNDARIES and nowhere else
  *   4. `relaxJsonSchema` — a fragment cannot satisfy a whole-document schema
- *   5. `mergePartials` — folding the answers back together
+ *   5. `mergePartials` — folding the answers back together, and reporting conflicts
  *   6. THE MODEL, under all three strategies, with the request count
  */
 
 import { readFile } from "node:fs/promises";
-import { CompletionStrategy, Extractor, contract, loadDocument, silentLogger, type DocumentLoader } from "docture";
+import { CompletionStrategy, Extractor, contract, readDocument, silentLogger, type DocumentLoader } from "docture";
 import {
   chunkByBudget,
   chunkByPage,
   estimateTokens,
   llm,
   mergePartials,
+  mergePartialsWithDiagnostics,
   relaxJsonSchema,
 } from "docture/llm";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
@@ -72,12 +73,12 @@ async function main(): Promise<void> {
   step("1. how big is it, really");
 
   /**
-   * `loadDocument` is the load stage on its own — no strategy, no schema. Useful here
+   * `readDocument` is the load stage on its own — no strategy, no schema. Useful here
    * because the question is about the document, not about extracting from it.
    */
   // Typed as the interface, so the optional `dispose` is reachable.
   const loader: DocumentLoader = new DocumentLoaderPdfJs();
-  const read = await loadDocument(
+  const read = await readDocument(
     [loader],
     { bytes: new Uint8Array(await readFile(path)), mimeType: "application/pdf" },
     silentLogger,
@@ -186,6 +187,13 @@ async function main(): Promise<void> {
       "get PACKED under the budget, never sliced to fit it.",
   );
 
+  note(
+    "A table that runs onto the next page loses its header there. The model runs in part\n" +
+      "6 put it back: a request that starts on a page continuing a table from an earlier\n" +
+      "page begins with \"Table header continued from page N:\", the header row, and a\n" +
+      "line marking it as context. That text counts against the budget too.",
+  );
+
   // ── 4. relaxJsonSchema ────────────────────────────────────────────────────────
 
   step("4. relaxJsonSchema — a fragment cannot satisfy a whole-document schema");
@@ -248,6 +256,18 @@ async function main(): Promise<void> {
   field("three fragments in", partials.map((p) => p.transactions.length).join(" + "));
   field("transactions out", merged.transactions.length);
   field("accountNumber", `"${merged.accountNumber}" — page 1's, not page 3's null`);
+
+  /**
+   * When two pages give DIFFERENT present values, the first still wins, but the
+   * disagreement is reported with the pages behind each value. A model run returns
+   * the same list as `result.conflicts`.
+   */
+  const disagreeing = mergePartialsWithDiagnostics([
+    { data: { closingBalance: 1187.84 }, pages: [3] },
+    { data: { closingBalance: 978.3 }, pages: [6] },
+  ]);
+  field("closingBalance kept", JSON.stringify(disagreeing.data));
+  field("conflicts", JSON.stringify(disagreeing.conflicts));
 
   // ── 6. The model, under all three ─────────────────────────────────────────────
 

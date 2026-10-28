@@ -11,121 +11,21 @@
  * be the day someone was using this to work out why their extraction did not run.
  */
 
-import {
-  defineStrategy,
-  hasFact,
-  type DocumentFeatures,
-  type KnownDocumentFact,
-  type LoadedPage,
-} from "docture";
-import { jsonSchema } from "ai";
+import { hasFact, type KnownDocumentFact } from "docture";
 import { boolFlag, choiceFlag, numberFlag, type Parsed } from "../cli/args.js";
-import { explain, type ExitCode } from "../cli/errors.js";
+import { type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io, type Style } from "../cli/io.js";
+import { OUTPUT_FORMAT } from "../cli/specs.js";
 import { resolveConfig } from "../config.js";
 import { expandInputs } from "../inputs.js";
-import { commonOptions, wiringFlags } from "../options.js";
-import {
-  envelope,
-  errorRecord,
-  formatCount,
-  reportFailure,
-  toJson,
-  toNdjson,
-  OUTPUT_FORMATS,
-  type Item,
-} from "../output.js";
+import { commonOptions } from "../options.js";
+import { inspectInputs, inspectProbe, type InspectOptions, type InspectReport } from "../operations.js";
+import { envelope, formatCount, reportFailure, reportWiring, toJson, toNdjson, type Item } from "../output.js";
 import { buildWiring } from "../wiring.js";
-
-interface PageReport {
-  readonly pageNumber: number;
-  readonly width: number;
-  readonly height: number;
-  readonly chars: number;
-  readonly lines: number;
-}
-
-interface Probe {
-  readonly features: DocumentFeatures;
-  readonly pages: readonly PageReport[];
-  readonly text?: string;
-  readonly lines?: readonly { readonly page: number; readonly y: number; readonly text: string }[];
-  readonly render?: { readonly pageNumber: number; readonly bytes?: number; readonly error?: string };
-}
-
-interface Report extends Probe {
-  readonly file: string;
-  readonly loader: string;
-}
-
-interface ProbeOptions {
-  readonly maxPages?: number;
-  readonly text: boolean;
-  readonly lines: boolean;
-  readonly render: boolean;
-}
-
-/** Accepts anything: the probe's output is a report, not a user's schema. */
-const ANY = jsonSchema({} as Record<string, never>);
-
-function pageReport(page: LoadedPage): PageReport {
-  return {
-    pageNumber: page.pageNumber,
-    width: Math.round(page.width),
-    height: Math.round(page.height),
-    chars: page.text.trim().length,
-    lines: page.lines?.length ?? 0,
-  };
-}
-
-function probeStrategy(options: ProbeOptions) {
-  return defineStrategy({
-    name: "inspect",
-    async extract(ctx) {
-      ctx.signal.throwIfAborted();
-      const pages =
-        options.maxPages === undefined ? ctx.document.pages : ctx.document.pages.slice(0, options.maxPages);
-
-      let render: Probe["render"];
-      if (options.render) {
-        const first = pages[0];
-        if (first === undefined || first.image === undefined) {
-          render = { pageNumber: 0, error: "no page can be rendered" };
-        } else {
-          try {
-            const bytes = await first.image();
-            render = { pageNumber: first.pageNumber, bytes: bytes.byteLength };
-          } catch (error) {
-            render = { pageNumber: first.pageNumber, error: explain(error).message };
-          }
-        }
-      }
-
-      const data: Probe = {
-        features: ctx.features,
-        pages: pages.map(pageReport),
-        ...(options.text ? { text: pages.map((p) => p.text).join("\n\f\n") } : {}),
-        ...(options.lines
-          ? {
-              lines: pages.flatMap((page) =>
-                (page.lines ?? []).map((line) => ({
-                  page: page.pageNumber,
-                  y: Math.round(line.y),
-                  text: line.text,
-                })),
-              ),
-            }
-          : {}),
-        ...(render === undefined ? {} : { render }),
-      };
-      return { data };
-    },
-  });
-}
 
 const FACTS: readonly KnownDocumentFact[] = ["TEXT_LAYER", "GEOMETRY", "RENDERABLE_PAGES"];
 
-function renderReport(report: Report, style: Style, options: ProbeOptions): string {
+function renderReport(report: Item<InspectReport> & { ok: true }, style: Style, options: InspectOptions): string {
   const f = report.features;
   const yes = (value: boolean): string => (value ? style.green("yes") : style.dim("no"));
 
@@ -195,10 +95,10 @@ export async function inspectCommand(
 ): Promise<ExitCode> {
   const common = commonOptions(parsed, io.color);
   const style = styleFor(common.color);
-  const format = choiceFlag(parsed, "format", OUTPUT_FORMATS) ?? "text";
+  const format = choiceFlag(parsed, OUTPUT_FORMAT) ?? "text";
   const maxPages = numberFlag(parsed, "pages", { min: 1, integer: true });
 
-  const options: ProbeOptions = {
+  const options: InspectOptions = {
     ...(maxPages === undefined ? {} : { maxPages }),
     text: boolFlag(parsed, "text"),
     lines: boolFlag(parsed, "lines"),
@@ -222,40 +122,23 @@ export async function inspectCommand(
       ...(timeoutMs === undefined ? {} : { timeoutMs }),
     },
     needsModel: false,
-    before: [probeStrategy(options)],
+    before: [inspectProbe(options)],
     ignoreSuppliedExtractor: true,
   });
+  reportWiring(io, common, style, wiring.notes, wiring.warnings);
 
-  if (!common.quiet) {
-    if (common.verbose) {
-      for (const note of wiring.notes) io.diagnostic(`${style.dim("·")} ${style.dim(note)}\n`);
-    }
-    for (const warning of wiring.warnings) io.diagnostic(`${style.yellow("!")} ${warning}\n`);
-  }
-
-  const reports: Item<Report>[] = [];
+  const reports: Item<InspectReport>[] = [];
   const hintsShown = new Set<string>();
   let failed = 0;
 
   try {
-    for (const input of inputs) {
-      try {
-        const result = await wiring.extractor.extract(input.source, ANY, {
-          signal,
-          only: ["inspect"],
-        });
-        const probe = result.data as Probe;
-        const record: Item<Report> = { ...probe, file: input.label, ok: true, loader: result.loader };
-        reports.push(record);
-        if (format === "ndjson") io.write(toNdjson(record));
-      } catch (error) {
+    for await (const record of inspectInputs(wiring.extractor, inputs, io, {}, signal)) {
+      reports.push(record);
+      if (!record.ok) {
         failed += 1;
-        const explained = explain(error);
-        reportFailure(io, input.label, explained, style, hintsShown);
-        const record = errorRecord(input.label, explained);
-        reports.push(record);
-        if (format === "ndjson") io.write(toNdjson(record));
+        reportFailure(io, record.file, record.error, style, hintsShown);
       }
+      if (format === "ndjson") io.write(toNdjson(record));
     }
   } finally {
     await wiring.dispose();
@@ -264,7 +147,7 @@ export async function inspectCommand(
   if (format === "json") {
     io.write(toJson(envelope("inspect", reports)));
   } else if (format === "text") {
-    const rendered = reports.filter((report) => report.ok)
+    const rendered = reports.filter((report): report is Item<InspectReport> & { ok: true } => report.ok)
       .map((report) => renderReport(report, styleFor(io.stdoutColor && !boolFlag(parsed, "no-color") && io.env["NO_COLOR"] === undefined), options)).join("\n");
     io.write(rendered);
   }

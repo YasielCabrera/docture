@@ -20,14 +20,23 @@ import { silentLogger } from "../domain/logger.js";
 import {
   sumUsage,
   type Attempt,
+  type ExtractionConflict,
   type ExtractionResult,
-  type ValidationOutcome,
+  type RuleFailureMode,
   type Usage,
+  type ValidationIssue,
+  type ValidationRule,
 } from "../domain/result.js";
 import type { Contract } from "../domain/contract.js";
 import type { Classification, Classifier } from "../contracts/classifier.js";
 import type { DocumentLoader } from "../contracts/loader.js";
-import type { ExtractionStrategy, StrategyContext, StrategyOutcome } from "../contracts/strategy.js";
+import type {
+  ExtractionStrategy,
+  RepairInput,
+  StrategyContext,
+  StrategyOutcome,
+} from "../contracts/strategy.js";
+import { alignCitations } from "./citations.js";
 import { classifyDocument, type ClassifyOptions } from "./classify.js";
 import { withDeadline } from "./deadline.js";
 import {
@@ -45,9 +54,10 @@ import {
   errorCodeOf,
   isAbortError,
   messageOf,
+  repairOutputOf,
 } from "./errors.js";
 import { documentFeatures, preloadedFeatures } from "./features.js";
-import { loadDocument } from "./read.js";
+import { readDocument } from "./read.js";
 import { resolveSchema } from "./schema.js";
 import { resolveSource } from "./source.js";
 
@@ -62,9 +72,14 @@ export interface PipelineComponents {
   readonly stageTimeoutMs?: number;
   /** How to reconcile disagreeing classifiers. */
   readonly classify?: ClassifyOptions;
+  /** Default rules. A call's own `rules`, even an empty array, replaces them. */
+  readonly rules?: readonly ValidationRule[];
+  readonly onRuleFailure?: RuleFailureMode;
+  /** Default repair budget per strategy. */
+  readonly maxRepairs?: number;
 }
 
-export interface RunOptions {
+export interface RunOptions<T = unknown> {
   readonly signal?: AbortSignal;
   /** Restrict the run to these pages, 1-based. Used when extracting one document
    *  out of a bundle: the pages are already in hand, so re-reading is waste. */
@@ -77,18 +92,31 @@ export interface RunOptions {
   readonly classifications?: readonly Classification[];
   readonly classify?: ClassifyOptions;
   readonly logger?: Logger;
+  /**
+   * Checks on schema-valid data, typed from the contract. Replaces the extractor's
+   * rules; an empty array clears them.
+   */
+  readonly rules?: readonly ValidationRule<T>[];
+  /** Default `"report"`: keep the data and list the issues in `result.validation`. */
+  readonly onRuleFailure?: RuleFailureMode;
+  /**
+   * Times to re-ask a strategy that implements `repair` after its answer failed the
+   * schema or a fail-mode rule. Default 1; 0 disables repair. Each repair is a billed
+   * call, separate from a model's transport `maxRetries`.
+   */
+  readonly maxRepairs?: number;
 }
 
 const PROCESS_HINTS_KEY = "docture.internal.process-hints.v1";
 
-export function withProcessHints(options: RunOptions, hints: string | undefined): RunOptions {
+export function withProcessHints<T>(options: RunOptions<T>, hints: string | undefined): RunOptions<T> {
   return {
     ...snapshotRunOptions(options),
     [Symbol.for(PROCESS_HINTS_KEY)]: hints === undefined ? {} : { hints },
   };
 }
 
-function processHintsOf(options: RunOptions): { readonly hints?: string } | undefined {
+function processHintsOf<T>(options: RunOptions<T>): { readonly hints?: string } | undefined {
   const key = Symbol.for(PROCESS_HINTS_KEY);
   if (!(key in options)) return undefined;
   const selection: unknown = options[key];
@@ -102,10 +130,13 @@ const CONTRACT_GUIDANCE_KEY = "docture.internal.contract-guidance.v1";
 
 type ContractGuidance = Pick<Contract, "name" | "hints">;
 
-export function snapshotRunOptions(options: RunOptions): RunOptions {
-  const { signal, pages, stageTimeoutMs, only, classifications, classify, logger, ...extra } = options;
-  const fields: { [K in keyof RunOptions]-?: RunOptions[K] | undefined } = {
-    signal, pages, stageTimeoutMs, only, classifications, classify, logger,
+export function snapshotRunOptions<T>(options: RunOptions<T>): RunOptions<T> {
+  const {
+    signal, pages, stageTimeoutMs, only, classifications, classify, logger, rules, onRuleFailure, maxRepairs,
+    ...extra
+  } = options;
+  const fields: { [K in keyof RunOptions<T>]-?: RunOptions<T>[K] | undefined } = {
+    signal, pages, stageTimeoutMs, only, classifications, classify, logger, rules, onRuleFailure, maxRepairs,
   };
   const selected = processHintsOf(options);
   return {
@@ -117,11 +148,14 @@ export function snapshotRunOptions(options: RunOptions): RunOptions {
     ...(fields.classifications === undefined ? {} : { classifications: fields.classifications }),
     ...(fields.classify === undefined ? {} : { classify: fields.classify }),
     ...(fields.logger === undefined ? {} : { logger: fields.logger }),
+    ...(fields.rules === undefined ? {} : { rules: fields.rules }),
+    ...(fields.onRuleFailure === undefined ? {} : { onRuleFailure: fields.onRuleFailure }),
+    ...(fields.maxRepairs === undefined ? {} : { maxRepairs: fields.maxRepairs }),
     ...(selected === undefined ? {} : { [Symbol.for(PROCESS_HINTS_KEY)]: selected }),
   };
 }
 
-export function withContractGuidance(options: RunOptions, contract: ContractGuidance): RunOptions {
+export function withContractGuidance<T>(options: RunOptions<T>, contract: ContractGuidance): RunOptions<T> {
   return {
     ...snapshotRunOptions(options),
     [Symbol.for(CONTRACT_GUIDANCE_KEY)]: contract.hints === undefined
@@ -130,7 +164,7 @@ export function withContractGuidance(options: RunOptions, contract: ContractGuid
   };
 }
 
-function contractGuidanceOf(options: RunOptions): ContractGuidance | undefined {
+function contractGuidanceOf<T>(options: RunOptions<T>): ContractGuidance | undefined {
   const key = Symbol.for(CONTRACT_GUIDANCE_KEY);
   if (!(key in options)) return undefined;
   const guidance: unknown = options[key];
@@ -141,8 +175,8 @@ function contractGuidanceOf(options: RunOptions): ContractGuidance | undefined {
   return { name: guidance.name, hints: guidance.hints };
 }
 
-function extractionHints(
-  options: RunOptions,
+function extractionHints<T>(
+  options: RunOptions<T>,
   candidates: readonly Classification[],
   verdict: string | undefined,
 ): string | undefined {
@@ -170,12 +204,15 @@ export async function runPipeline<T>(
   components: PipelineComponents,
   source: DocumentSource,
   schema: FlexibleSchema<T>,
-  options: RunOptions = {},
+  options: RunOptions<T> = {},
 ): Promise<ExtractionResult<T>> {
   const startedAt = Date.now();
   const logger = options.logger ?? components.logger;
   const signal = options.signal ?? new AbortController().signal;
   const stageTimeoutMs = options.stageTimeoutMs ?? components.stageTimeoutMs;
+  const rules = options.rules ?? components.rules ?? [];
+  const onRuleFailure = options.onRuleFailure ?? components.onRuleFailure ?? "report";
+  const maxRepairs = checkedMaxRepairs(options.maxRepairs ?? components.maxRepairs ?? 1);
 
   signal.throwIfAborted();
   const resolved = await resolveSchema(schema);
@@ -189,21 +226,24 @@ export async function runPipeline<T>(
   let loaderName: string;
   let loadAttempts: readonly Attempt[];
   let featuresFor: (selected: LoadedDocument) => DocumentFeatures;
+  let documentLabel: string | undefined;
 
   if (preloaded !== undefined) {
     document = preloaded.loaded;
     loaderName = preloaded.loaded.loader;
     loadAttempts = [];
+    documentLabel = preloaded.fileName;
     featuresFor = (selected) => preloadedFeatures({ ...preloaded, loaded: selected });
   } else {
     const raw = await resolveSource(source, signal);
-    const loaded = await loadDocument(
+    const loaded = await readDocument(
       components.loaders, raw, logger, signal, stageTimeoutMs,
       options.pages === undefined ? undefined : { pages: options.pages },
     );
     document = loaded.document;
     loaderName = loaded.loader.name;
     loadAttempts = loaded.attempts;
+    documentLabel = raw.fileName;
     featuresFor = (selected) => documentFeatures(
       selected,
       loaded.loader,
@@ -239,6 +279,7 @@ export async function runPipeline<T>(
         signal,
         stageTimeoutMs,
         options.classify ?? components.classify ?? {},
+        documentLabel,
       )
     : undefined;
 
@@ -275,82 +316,110 @@ export async function runPipeline<T>(
   let firstViolation: ContractViolationError | undefined;
 
   for (const strategy of plan) {
-    // Same guard as the load loop: a cancelled run stops here, and the `catch`
-    // below never sees it, so fallback cannot resurrect it.
-    signal.throwIfAborted();
-    const started = Date.now();
-    const deadline = withDeadline(`extract:${strategy.name}`, stageTimeoutMs, signal);
-    let reportedFailureUsage: Partial<Usage> | undefined;
-    let outcome: StrategyOutcome | undefined;
-    try {
-      const ctx: StrategyContext = {
-        document,
-        features,
-        schema: resolved,
-        signal: deadline.signal,
-        logger: logger.child({ strategy: strategy.name }),
-        reportFailureUsage: (known) => { reportedFailureUsage = known; },
-        ...(classification === undefined ? {} : { classification }),
-        ...(hints === undefined ? {} : { hints }),
-      };
-      outcome = await strategy.extract(ctx);
-      deadline.signal.throwIfAborted();
+    let repairsLeft = strategy.repair === undefined ? 0 : maxRepairs;
+    let previous: RepairInput | undefined;
+    let conflicts: readonly ExtractionConflict[] = [];
+    for (;;) {
+      signal.throwIfAborted();
+      const stage = previous === undefined ? "extract" : "repair";
+      const started = Date.now();
+      const deadline = withDeadline(`${stage}:${strategy.name}`, stageTimeoutMs, signal);
+      let reportedFailureUsage: Partial<Usage> | undefined;
+      let outcome: StrategyOutcome | undefined;
+      let parsed: { readonly data: T } | undefined;
+      let next: RepairInput | undefined;
+      try {
+        const ctx: StrategyContext = {
+          document,
+          features,
+          schema: resolved,
+          signal: deadline.signal,
+          logger: logger.child({ strategy: strategy.name }),
+          reportFailureUsage: (known) => { reportedFailureUsage = known; },
+          ...(classification === undefined ? {} : { classification }),
+          ...(hints === undefined ? {} : { hints }),
+          ...(documentLabel === undefined ? {} : { documentLabel }),
+        };
+        outcome = previous !== undefined && strategy.repair !== undefined
+          ? await strategy.repair(ctx, previous)
+          : await strategy.extract(ctx);
+        deadline.signal.throwIfAborted();
+        if (outcome.conflicts !== undefined && outcome.conflicts.length > 0) conflicts = outcome.conflicts;
 
-      const validation = await resolved.validate(outcome.data);
-      deadline.signal.throwIfAborted();
-      usage = sumUsage([usage, outcome.usage], usage.wallMs);
-      if (!validation.ok) {
-        const violation = new ContractViolationError(strategy.name, validation.issues);
-        firstViolation ??= violation;
-        attempts.push({
-          ...failedAttempt("extract", strategy.name, Date.now() - started, violation),
-          ...(outcome.usage === undefined ? {} : { usage: outcome.usage }),
+        const validation = await resolved.validate(outcome.data);
+        deadline.signal.throwIfAborted();
+        usage = sumUsage([usage, outcome.usage], usage.wallMs);
+        if (validation.ok) {
+          parsed = { data: validation.data };
+        } else {
+          const violation = new ContractViolationError(strategy.name, validation.issues);
+          firstViolation ??= violation;
+          attempts.push({
+            ...failedAttempt(stage, strategy.name, Date.now() - started, violation),
+            ...(outcome.usage === undefined ? {} : { usage: outcome.usage }),
+          });
+          next = dataRepair(outcome, validation.issues);
+        }
+      } catch (error) {
+        signal.throwIfAborted();
+        const failedUsage = outcome === undefined
+          ? reportedFailureUsage ?? (error instanceof ModelOutputError ? error.usage : undefined)
+          : outcome.usage;
+        const failure = deadline.expired()
+          ? new TimeoutError(`${stage}:${strategy.name}`, stageTimeoutMs ?? 0)
+          : error;
+        if (isAbortError(failure)) throw failure;
+        usage = sumUsage([usage, failedUsage], usage.wallMs);
+        logger.warn("strategy failed", {
+          strategy: strategy.name,
+          errorCode: errorCodeOf(failure),
         });
-        continue;
+        attempts.push({
+          ...failedAttempt(stage, strategy.name, Date.now() - started, failure),
+          ...(failedUsage === undefined ? {} : { usage: failedUsage }),
+        });
+        next = failure instanceof ModelOutputError ? modelOutputRepair(failure) : undefined;
+      } finally {
+        deadline.release();
       }
 
-      attempts.push({
-        stage: "extract",
-        strategy: strategy.name,
-        status: "ok",
-        ms: Date.now() - started,
-        ...(outcome.usage === undefined ? {} : { usage: outcome.usage }),
-      });
+      if (parsed !== undefined && outcome !== undefined) {
+        const ruleIssues = await checkRules<T>(rules, parsed.data);
+        signal.throwIfAborted();
+        if (ruleIssues.length === 0 || onRuleFailure === "report") {
+          attempts.push({
+            stage,
+            strategy: strategy.name,
+            status: "ok",
+            ms: Date.now() - started,
+            ...(outcome.usage === undefined ? {} : { usage: outcome.usage }),
+          });
+          const finalClassification = outcome.classification ?? classification;
+          return {
+            data: parsed.data,
+            method: strategy.name,
+            loader: loaderName,
+            attempts: [...loadAttempts.filter((a) => a.status === "failed"), ...attempts],
+            features,
+            usage: { ...usage, wallMs: Date.now() - startedAt },
+            validation: { valid: ruleIssues.length === 0, issues: ruleIssues },
+            ...(finalClassification === undefined ? {} : { classification: finalClassification }),
+            ...(conflicts.length === 0 ? {} : { conflicts }),
+            ...(outcome.citations === undefined ? {} : alignCitations(parsed.data, outcome.citations, document)),
+          };
+        }
+        const violation = new ContractViolationError(strategy.name, ruleIssues);
+        firstViolation ??= violation;
+        attempts.push({
+          ...failedAttempt(stage, strategy.name, Date.now() - started, violation),
+          ...(outcome.usage === undefined ? {} : { usage: outcome.usage }),
+        });
+        next = dataRepair(outcome, ruleIssues);
+      }
 
-      const finalClassification = outcome.classification ?? classification;
-      const outcomeValidation: ValidationOutcome = { valid: true, issues: [] };
-
-      return {
-        data: validation.data,
-        method: strategy.name,
-        loader: loaderName,
-        attempts: [...loadAttempts.filter((a) => a.status === "failed"), ...attempts],
-        features,
-        usage: { ...usage, wallMs: Date.now() - startedAt },
-        validation: outcomeValidation,
-        ...(finalClassification === undefined ? {} : { classification: finalClassification }),
-      };
-    } catch (error) {
-      signal.throwIfAborted();
-      const failedUsage = outcome === undefined
-        ? reportedFailureUsage ?? (error instanceof ModelOutputError ? error.usage : undefined)
-        : outcome.usage;
-      const failure = deadline.expired()
-        ? new TimeoutError(`extract:${strategy.name}`, stageTimeoutMs ?? 0)
-        : error;
-      // The caller cancelled: stop, do not try the next strategy.
-      if (isAbortError(failure)) throw failure;
-      usage = sumUsage([usage, failedUsage], usage.wallMs);
-      logger.warn("strategy failed", {
-        strategy: strategy.name,
-        errorCode: errorCodeOf(failure),
-      });
-      attempts.push({
-        ...failedAttempt("extract", strategy.name, Date.now() - started, failure),
-        ...(failedUsage === undefined ? {} : { usage: failedUsage }),
-      });
-    } finally {
-      deadline.release();
+      if (next === undefined || repairsLeft === 0) break;
+      repairsLeft -= 1;
+      previous = next;
     }
   }
 
@@ -361,6 +430,36 @@ export async function runPipeline<T>(
     throw new ContractViolationError(firstViolation.strategy, firstViolation.issues, { attempts, usage: failedUsage });
   }
   throw new ExtractionFailedError(attempts, { usage: failedUsage });
+}
+
+export function checkedMaxRepairs(maxRepairs: number): number {
+  if (!Number.isInteger(maxRepairs) || maxRepairs < 0) {
+    throw new RangeError("maxRepairs must be a non-negative integer");
+  }
+  return maxRepairs;
+}
+
+function dataRepair(outcome: StrategyOutcome, issues: readonly ValidationIssue[]): RepairInput {
+  return {
+    kind: "data",
+    data: outcome.data,
+    issues,
+    ...(outcome.citations === undefined ? {} : { citations: outcome.citations }),
+  };
+}
+
+function modelOutputRepair(error: ModelOutputError): RepairInput | undefined {
+  const rawOutput = repairOutputOf(error);
+  if (rawOutput === undefined) return undefined;
+  const issues = error.issues === undefined || error.issues.length === 0
+    ? [{ path: "", message: error.message }]
+    : error.issues;
+  return { kind: "model-output", rawOutput, issues };
+}
+
+async function checkRules<T>(rules: readonly ValidationRule<T>[], data: T): Promise<readonly ValidationIssue[]> {
+  const results = await Promise.all(rules.map(async (rule) => rule(data)));
+  return results.flat();
 }
 
 export { declarationOrder, silentLogger };

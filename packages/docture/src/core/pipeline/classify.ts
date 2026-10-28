@@ -101,6 +101,7 @@ export async function classifyDocument(
   signal: AbortSignal,
   stageTimeoutMs: number | undefined,
   options: ClassifyOptions = {},
+  documentLabel?: string,
 ): Promise<ClassificationResult> {
   signal.throwIfAborted();
   const { eligible } = eligibleClassifiers(classifiers, features);
@@ -114,6 +115,7 @@ export async function classifyDocument(
         candidates,
         signal: deadline.signal,
         logger: logger.child({ classifier: classifier.name }),
+        ...(documentLabel === undefined ? {} : { documentLabel }),
       });
       returnedUsage = verdict?.usage;
       deadline.signal.throwIfAborted();

@@ -198,6 +198,7 @@ describe("the public API is an exact list", () => {
     "linesFromWords",
     "textFromLines",
     "imageSize",
+    "tiffPages",
     "DocumentLoaderData",
     "documentLoaderData",
     // rasterizers + composition
@@ -208,6 +209,10 @@ describe("the public API is an exact list", () => {
     "defineStrategy",
     "defineLayoutAnalyzer",
     "resolveSchema",
+    "isLineSourceId",
+    "parseDoctureDocument",
+    "provenanceSegments",
+    "sourceLines",
     // classification
     "classificationNode",
     "classificationOf",
@@ -252,7 +257,7 @@ describe("the public API is an exact list", () => {
     "sniffMimeType",
     // advanced
     "runPipeline",
-    "loadDocument",
+    "readDocument",
   ].sort();
 
   it("exports exactly the documented runtime values", () => {

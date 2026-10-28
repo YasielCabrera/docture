@@ -11,11 +11,12 @@ import {
   type RunRecord,
   type ScoreOptions,
 } from "docture/eval";
-import { choiceFlag, listFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
-import { CliError, explain, type ExitCode } from "../cli/errors.js";
+import { boolFlag, choiceFlag, listFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
+import { CliError, explain, UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io } from "../cli/io.js";
+import { OUTPUT_FORMAT } from "../cli/specs.js";
 import { resolveConfig } from "../config.js";
-import { expandInputs, stem, type Input } from "../inputs.js";
+import { expandInputs, sourcesOf, stem, type Input } from "../inputs.js";
 import { commonOptions, wiringFlags } from "../options.js";
 import {
   envelope,
@@ -23,14 +24,15 @@ import {
   formatMs,
   formatUsd,
   reportFailure,
+  reportWiring,
   successLine,
   toJson,
   toNdjson,
-  OUTPUT_FORMATS,
   type Item,
 } from "../output.js";
 import { resolveSchemaSource } from "../schema.js";
-import { buildWiring } from "../wiring.js";
+import { emitPlan } from "../plan.js";
+import { buildWiring, planWiring, type WiringInput } from "../wiring.js";
 
 type EvalData = Pick<RunRecord, "method" | "usage"> & {
   readonly score: Pick<RunRecord["score"], "f1" | "precision" | "recall" | "exactMatch">;
@@ -50,15 +52,21 @@ async function truthPathFor(
   cwd: string,
   singleInput: boolean,
 ): Promise<string> {
-  if (truth === undefined) {
-    const base = isAbsolute(input.source) ? input.source : resolve(cwd, input.source);
-    return join(dirname(base), `${stem(input.label)}.expected.json`);
-  }
-
-  const absolute = isAbsolute(truth) ? truth : resolve(cwd, truth);
-  const isDirectory = await stat(absolute)
+  const absolute = truth === undefined ? undefined : isAbsolute(truth) ? truth : resolve(cwd, truth);
+  const isDirectory = absolute !== undefined && await stat(absolute)
     .then((info) => info.isDirectory())
     .catch(() => false);
+
+  if (input.kind === "stdin") {
+    if (absolute === undefined || isDirectory) {
+      throw new UsageError("eval reads stdin only with --truth <file>.", "Pass --truth ./expected.json.");
+    }
+    return absolute;
+  }
+  if (absolute === undefined) {
+    const base = input.kind === "path" ? input.path : resolve(cwd, input.url);
+    return join(dirname(base), `${stem(input.label)}.expected.json`);
+  }
 
   if (isDirectory) return join(absolute, `${stem(input.label)}.json`);
   if (singleInput) return absolute;
@@ -86,7 +94,7 @@ async function readTruth(path: string): Promise<unknown> {
 export async function evalCommand(parsed: Parsed, io: Io, signal: AbortSignal): Promise<ExitCode> {
   const common = commonOptions(parsed, io.color);
   const style = styleFor(common.color);
-  const format = choiceFlag(parsed, "format", OUTPUT_FORMATS) ?? "text";
+  const format = choiceFlag(parsed, OUTPUT_FORMAT) ?? "text";
   const truth = stringFlag(parsed, "truth");
   const report = stringFlag(parsed, "report");
   const alignBy = stringFlag(parsed, "align-by");
@@ -118,32 +126,43 @@ export async function evalCommand(parsed: Parsed, io: Io, signal: AbortSignal): 
   });
 
   const inputs = await expandInputs(parsed.positionals, io.cwd);
+  if (inputs.length > 1 && inputs.some((input) => input.kind === "stdin")) {
+    throw new UsageError(
+      "eval cannot mix stdin with other inputs.",
+      "Score stdin and the files in separate runs.",
+    );
+  }
 
   // Every truth file is located and read UP FRONT. A corpus with one missing file
   // should fail in a second, not after paying a model for the other forty-nine.
   const expected = new Map<number, unknown>();
+  const truthPaths: string[] = [];
   for (const [index, input] of inputs.entries()) {
     const path = await truthPathFor(input, truth, io.cwd, inputs.length === 1);
+    truthPaths.push(path);
     expected.set(index, await readTruth(path));
   }
 
-  const wiring = await buildWiring({
+  const wiringInput: WiringInput = {
     io,
     ...(config === undefined ? {} : { config }),
     flags: wiringFlags(parsed),
     needsModel: true,
-  });
+  };
 
-  if (!common.quiet) {
-    if (common.verbose) {
-      for (const note of [...wiring.notes, schemaSource.describe]) {
-        io.diagnostic(`${style.dim("·")} ${style.dim(note)}\n`);
-      }
-    }
-    for (const warning of [...wiring.warnings, ...schemaSource.warnings]) {
-      io.diagnostic(`${style.yellow("!")} ${warning}\n`);
-    }
+  if (boolFlag(parsed, "dry-run")) {
+    const plan = await planWiring(wiringInput);
+    reportWiring(io, common, style, [...plan.notes, schemaSource.describe], [...plan.warnings, ...schemaSource.warnings]);
+    return emitPlan(io, "eval", inputs, plan, (_input, index) => ({
+      ...plan.pipeline,
+      schema: schemaSource.origin,
+      truth: truthPaths[index],
+      output: { to: "stdout" },
+    }));
   }
+
+  const wiring = await buildWiring(wiringInput);
+  reportWiring(io, common, style, [...wiring.notes, schemaSource.describe], [...wiring.warnings, ...schemaSource.warnings]);
 
   const records: RunRecord[] = [];
   const results = new Array<Item<EvalData> | undefined>(inputs.length);
@@ -152,7 +171,7 @@ export async function evalCommand(parsed: Parsed, io: Io, signal: AbortSignal): 
 
   try {
     const batch = wiring.extractor.extractBatch(
-      inputs.map((input) => input.source),
+      await sourcesOf(inputs, io, signal),
       schemaSource.schema,
       {
         signal,

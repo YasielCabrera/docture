@@ -61,6 +61,17 @@ result.validation;
 // { valid: true, issues: [] }
 ```
 
+A schema checks shapes, not cross-field facts. Add a validation rule for a fact such as
+"the lines add up to the total". Rules report by default: the data comes back with
+`validation.valid` set to `false` and the rule's issues. Pass `onRuleFailure: "fail"` to
+fail the attempt instead. See [validation rules](/docs/reference/api/core-extraction#validation-rules).
+
+```ts
+const result = await extractor.extract("invoice.pdf", Invoice, {
+  rules: [(invoice) => invoice.total >= 0 ? [] : [{ path: "total", message: "Negative total" }]],
+});
+```
+
 If no strategy succeeds and at least one returned invalid data, docture throws the first
 `ContractViolationError` with field paths and messages. If every strategy threw before
 validation, it throws `ExtractionFailedError`.

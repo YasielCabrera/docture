@@ -79,6 +79,8 @@ export interface SchemaSource {
   readonly schema: FlexibleSchema;
   /** For `--verbose`: which file and which export it came from. */
   readonly describe: string;
+  /** For a dry-run plan: `<path>#<export>`, the path of a JSON Schema, or `config`. */
+  readonly origin: string;
   /** Empty unless something about this schema is worth saying before the run. */
   readonly warnings: readonly string[];
 }
@@ -110,6 +112,7 @@ export async function resolveSchemaSource(options: {
     return {
       schema: recognised.schema,
       describe: `schema ${loaded.from}#${loaded.exportName}`,
+      origin: loaded.exportName === "(json)" ? loaded.from : `${loaded.from}#${loaded.exportName}`,
       warnings: recognised.validates ? [] : [NO_VALIDATOR],
     };
   }
@@ -117,7 +120,7 @@ export async function resolveSchemaSource(options: {
   if (options.fromConfig !== undefined) {
     // A config's schema is a value the author imported, not a file we parsed, so
     // it is taken as given — including whether it validates.
-    return { schema: options.fromConfig, describe: "schema from config", warnings: [] };
+    return { schema: options.fromConfig, describe: "schema from config", origin: "config", warnings: [] };
   }
 
   throw new UsageError(

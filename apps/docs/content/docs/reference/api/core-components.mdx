@@ -13,7 +13,8 @@ Import these APIs from `docture`.
 `ClassificationNeed` is `"required" | "hint" | "none"`.
 
 `StrategyContext` contains `document`, runtime `features`, resolved `schema`, optional
-`classification`, optional `hints`, `signal`, and `logger`. Core picks `hints` from the
+`classification`, optional `hints`, `signal`, `logger`, and optional `documentLabel`, the
+source's file name when it has one. Core picks `hints` from the
 first source that applies:
 
 1. `Process` uses its selected kind's hints, or that kind's extraction contract's hints
@@ -32,8 +33,24 @@ usage.
 throws. Each call replaces the previous report for that attempt. Successful strategies
 return usage through `StrategyOutcome`. Ordinary provider errors keep their identity.
 
-`StrategyOutcome` contains unknown `data` and optional `usage` and `classification`. Core
-validates the data after the method returns.
+`StrategyOutcome` contains unknown `data` and optional `usage`, `classification`,
+`conflicts`, and `citations`. Core validates the data after the method returns.
+
+```ts
+interface OutcomeCitation {
+  path: readonly (string | number)[];
+  status: "verified" | "cited-unverified";
+  ids: readonly LineSourceId[];
+  value: unknown;
+}
+```
+
+A strategy that cites returns `citations`, possibly empty, holding only the values its
+model cited. `path` is object keys and array indexes from the root of `data`, and `value`
+is the leaf the status describes, before the caller's schema ran. Core turns them into
+[`result.citations`](/docs/reference/api/core-extraction#field-citations): it keeps a
+status only while `value` still equals the validated leaf, downgrades `verified` when an id
+is not a line of the loaded document, and marks every other present leaf `uncited`.
 
 ```ts
 defineStrategy(strategy: ExtractionStrategy): ExtractionStrategy
@@ -100,7 +117,7 @@ needed, routes strategies, validates returned data, and returns the first valida
 result. It throws the typed failures listed in the [error reference](/docs/reference/errors).
 
 ```ts
-loadDocument(
+readDocument(
   loaders: readonly DocumentLoader[],
   raw: RawDocument,
   logger: Logger,

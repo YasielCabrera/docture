@@ -23,6 +23,7 @@ describe("structured model output", () => {
     const extractor = createExtractor({
       loaders: [inMemoryLoader(loadedDocument(["Invoice INV-42 with total 12.00 EUR and a complete text layer."]))],
       strategies: [llm({ model })],
+      maxRepairs: 0,
     });
     const outcome = await extractor.safeExtract(new Uint8Array([1]), z.object({ value: z.string() }));
     expect(outcome.ok).toBe(false);

@@ -1,12 +1,15 @@
 import { availableParallelism } from "node:os";
 import { requestedPageNumbers } from "../../core/pipeline/pages.js";
 import { PageSelectionError } from "../../core/pipeline/errors.js";
+import { readsAsTiff } from "../../core/pipeline/source.js";
+import { MAX_TIFF_PAGE_PIXELS } from "../../core/domain/tiff.js";
 import {
   imageSize,
   inferForm,
   linesFromWords,
   sniffMimeType,
   textFromLines,
+  tiffPages,
   type DocumentLoader,
   type LoadContext,
   type LoadedDocument,
@@ -17,21 +20,36 @@ import {
   type RasterPage,
   type Rasterizer,
   type RawDocument,
+  type TiffPage,
 } from "../../core/index.js";
 import { TesseractPool, type PageSegmentation, type Recognition } from "./tesseract.js";
 
-/**
- * What this loader will OCR without a rasterizer, and what it can size from a
- * header. Also exactly what a {@link Rasterizer} in this library emits.
- */
-const IMAGE_MIME_TYPES = ["image/png", "image/jpeg"] as const;
+const IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/tiff"] as const;
+
+/** TIFF compressions the bundled leptonica decodes, each checked against a fixture. Deflate is not among them. */
+const TIFF_COMPRESSIONS = new Map([
+  [1, "none"],
+  [3, "CCITT G3"],
+  [4, "CCITT G4"],
+  [5, "LZW"],
+  [32773, "PackBits"],
+]);
 
 /** 300 DPI is the usual floor for OCR accuracy; below ~200 it degrades sharply. */
 const DEFAULT_DPI = 300;
 
+interface OcrPage {
+  readonly pageNumber: number;
+  readonly widthPx: number;
+  readonly heightPx: number;
+  readonly scale: number;
+  readonly loadBytes: () => Uint8Array;
+  readonly keepDecodedPng: boolean;
+}
+
 /** A rendered page paired with what OCR made of it. */
 interface RecognizedPage {
-  readonly raster: RasterPage;
+  readonly raster: OcrPage;
   readonly recognition: Recognition;
 }
 
@@ -216,24 +234,25 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
     mimeType: string,
     dpi: number,
     ctx: LoadContext,
-  ): Promise<readonly RasterPage[]> {
-    if ((IMAGE_MIME_TYPES as readonly string[]).includes(mimeType)) {
+  ): Promise<readonly OcrPage[]> {
+    const pointsPerPixel = 72 / dpi;
+    const images = IMAGE_MIME_TYPES as readonly string[];
+    if (readsAsTiff(mimeType, document.bytes, images)) {
+      return tiffOcrPages(document.bytes, mimeType).map((page) => ({
+        pageNumber: page.pageNumber,
+        widthPx: page.widthPx,
+        heightPx: page.heightPx,
+        scale: pointsPerPixel,
+        loadBytes: () => tiffPageBytes(document.bytes, page),
+        keepDecodedPng: true,
+      }));
+    }
+    if (images.includes(mimeType)) {
       const size = imageSize(document.bytes);
       if (size === undefined) {
         throw new Error(`tesseract: these bytes are not a readable PNG or JPEG (${mimeType}).`);
       }
-      return [
-        {
-          pageNumber: 1,
-          bytes: document.bytes,
-          widthPx: size.widthPx,
-          heightPx: size.heightPx,
-          format: mimeType === "image/jpeg" ? "jpeg" : "png",
-          // An image carries no page size, so it is treated as a page scanned at
-          // `dpi` — which is what makes its geometry comparable to a PDF's.
-          scale: 72 / dpi,
-        },
-      ];
+      return [{ pageNumber: 1, ...size, scale: pointsPerPixel, loadBytes: () => document.bytes, keepDecodedPng: false }];
     }
 
     const rasterizer = this.options.rasterizer;
@@ -241,7 +260,7 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
       throw new Error(
         `tesseract: ${mimeType} has to be rendered before it can be recognized, and no ` +
           `rasterizer is wired. Pass one — new DocumentLoaderTesseract({ rasterizer: new ` +
-          `NapiCanvasRasterizer() }) — or hand this loader a PNG or JPEG.`,
+          `NapiCanvasRasterizer() }) — or hand this loader a PNG, JPEG or TIFF.`,
       );
     }
 
@@ -255,7 +274,14 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
     if (rendered.length === 0) {
       throw new Error(`tesseract: ${rasterizer.name} rendered no pages for this document.`);
     }
-    return rendered;
+    return rendered.map((raster: RasterPage) => ({
+      pageNumber: raster.pageNumber,
+      widthPx: raster.widthPx,
+      heightPx: raster.heightPx,
+      scale: raster.scale,
+      loadBytes: () => raster.bytes,
+      keepDecodedPng: false,
+    }));
   }
 
   // ── Text out ──────────────────────────────────────────────────────────────────
@@ -264,7 +290,7 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
    * OCR every page, up to `concurrency` at a time, and return them in page order.
    */
   private async recognizeAll(
-    rasters: readonly RasterPage[],
+    rasters: readonly OcrPage[],
     dpi: number,
     ctx: LoadContext,
   ): Promise<readonly RecognizedPage[]> {
@@ -300,7 +326,7 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
         // cancellation, so a page already inside the engine runs to completion.
         ctx.signal.throwIfAborted();
         try {
-          const recognition = await pool.recognize(raster.bytes, { autoRotate });
+          const recognition = await pool.recognize(raster.loadBytes(), { autoRotate, returnDecodedPng: raster.keepDecodedPng });
           results[index] = { raster, recognition };
         } catch (error) {
           // One unreadable page ends the load rather than burning minutes on the rest.
@@ -325,7 +351,7 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
   }
 
   private toPage(
-    raster: RasterPage,
+    raster: OcrPage,
     recognition: Recognition,
     document: RawDocument,
     mimeType: string,
@@ -364,8 +390,11 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
       height: raster.heightPx * raster.scale,
       text: textFromLines(lines),
       lines,
-      image: (options?: RasterOptions) =>
-        this.pageImage(pageNumber, document, mimeType, dpi, options, ctx, renders),
+      image: (options?: RasterOptions) => {
+        const decoded = recognition.image;
+        if (decoded !== undefined) return Promise.resolve(decoded);
+        return this.pageImage(pageNumber, document, mimeType, dpi, options, ctx, renders);
+      },
     };
   }
 
@@ -440,4 +469,35 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
     }
     return languages;
   }
+}
+
+function tiffOcrPages(bytes: Uint8Array, mimeType: string): readonly TiffPage[] {
+  const pages = tiffPages(bytes);
+  if (pages === undefined) {
+    throw new Error(`tesseract: these bytes are not a readable TIFF (${mimeType}).`);
+  }
+  const unsupported = pages.find((page) => !TIFF_COMPRESSIONS.has(page.compression));
+  if (unsupported !== undefined) {
+    const supported = [...TIFF_COMPRESSIONS].map(([code, name]) => `${name} (${code})`).join(", ");
+    throw new Error(
+      `tesseract: TIFF page ${unsupported.pageNumber} uses compression ${unsupported.compression}, ` +
+        `which this loader does not read. Supported: ${supported}.`,
+    );
+  }
+  const oversized = pages.find((page) => page.widthPx * page.heightPx > MAX_TIFF_PAGE_PIXELS);
+  if (oversized !== undefined) {
+    throw new Error(
+      `tesseract: TIFF page ${oversized.pageNumber} is ${oversized.widthPx}x${oversized.heightPx} pixels, ` +
+        `more than the ${MAX_TIFF_PAGE_PIXELS} this loader decodes.`,
+    );
+  }
+  return pages;
+}
+
+/** Tesseract decodes only the first IFD, so later pages get a copy whose header points at theirs. */
+function tiffPageBytes(bytes: Uint8Array, page: TiffPage): Uint8Array {
+  if (page.pageNumber === 1) return bytes;
+  const copy = bytes.slice();
+  new DataView(copy.buffer).setUint32(4, page.ifdOffset, page.littleEndian);
+  return copy;
 }

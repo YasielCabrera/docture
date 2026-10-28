@@ -120,6 +120,8 @@ export interface ClassifyContext {
   readonly candidates: readonly Classification[];
   readonly signal: AbortSignal;
   readonly logger: Logger;
+  /** The source's file name, when it has one. Model telemetry may record it. */
+  readonly documentLabel?: string;
 }
 
 export interface Classifier {

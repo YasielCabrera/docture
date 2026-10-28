@@ -26,7 +26,7 @@ can import the root API without a model engine.
 | `docture/loaders/pdfjs` | `pnpm add pdfjs-dist@6.2.108` |
 | `docture/loaders/mupdf` | `pnpm add mupdf@1.28.0` |
 | `docture/loaders/tesseract` | `pnpm add tesseract.js@7.0.0` |
-| `docture/loaders/paddleocr` | `pnpm add ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0` |
+| `docture/loaders/paddleocr` | `pnpm add ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0`, plus `utif2@4.1.0` for TIFF |
 | `docture/raster/canvas` | `pnpm add pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10` |
 | `docture/testing/fixtures` | `pnpm add -D pdfkit@0.19.1` |
 | `docture/testing/conformance` | `pnpm add -D 'vitest@>=3' pdfkit@0.19.1` |
@@ -175,7 +175,7 @@ subpaths; `@docture/cli` is the separate command-line package.
 | all `Classification*`, `defineClassifier`, `LlmClassifier`, `ClassificationStrategy`, tree exports | 10 |
 | `Process`, `defineSplitter`, `runSplitter`, `TextSplitter`, `ImageSplitter`, `SplittingStrategy`, `DocGroups`, `pageWindows`, `aggregateDocGroups`, `UNCLASSIFIED` | 11 |
 | `docture/eval`, `extractBatch`, `BatchItem`/`BatchOptions`, `safeExtract` | 12 |
-| `runPipeline`, `loadDocument`, `PipelineComponents`, `preloadedFeatures`, `isLoadedSource`, `components` | 13 |
+| `runPipeline`, `readDocument`, `PipelineComponents`, `preloadedFeatures`, `isLoadedSource`, `components` | 13 |
 | `docture/testing/doubles`, `docture/testing/fixtures`, `docture/testing/conformance`, `MockLanguageModelV4` | 14 |
 | `@docture/cli` | 15 |
 | `DocumentConverter`, conversion types, layout types, rich conversion fixture | 16 |

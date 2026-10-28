@@ -14,6 +14,7 @@
  */
 export { LLM, model } from "./llm.js";
 export type { LlmOptions } from "./llm.js";
+export type { LlmTelemetryOptions } from "./telemetry.js";
 
 export { LlmStrategy, llm } from "./strategy.js";
 export { modelIdOf } from "./model-id.js";
@@ -40,7 +41,7 @@ export type { LlmExtractorOptions } from "./extractor.js";
 
 // Prompting — exported so a caller can build on the defaults rather than replace them.
 export { DEFAULT_SYSTEM_PROMPT, buildPrompt, wrapUntrusted, chunkByBudget, chunkByPage, estimateTokens } from "./prompt.js";
-export type { BuildPromptOptions, Chunk, PromptParts } from "./prompt.js";
+export type { BuildPromptOptions, Chunk, ChunkContext, PromptParts } from "./prompt.js";
 
 // Response caching — an eval re-scoring a corpus should not pay twice.
 export { cacheKey, fileCache, fingerprint, memoryCache } from "./cache.js";
@@ -51,7 +52,8 @@ export { lookupPricing, toUsage } from "./pricing.js";
 export type { ModelPricing, PricingTable, RawUsage } from "./pricing.js";
 
 /** How partial extractions from `paginate`/`concatenate` are reassembled. */
-export { mergePartials } from "./merge.js";
+export { mergePartials, mergePartialsWithDiagnostics } from "./merge.js";
+export type { MergeDiagnostics, MergePart } from "./merge.js";
 
 /**
  * Strip `required` from a JSON Schema. Exported because a custom multi-request

@@ -59,6 +59,14 @@ export function sniffMimeType(bytes: Uint8Array): string | undefined {
   return undefined;
 }
 
+/**
+ * Whether a loader reading `imageMimeTypes` should decode these bytes as TIFF: they
+ * are labelled TIFF, or are TIFF under another image label the loader reads.
+ */
+export function readsAsTiff(mimeType: string, bytes: Uint8Array, imageMimeTypes: readonly string[]): boolean {
+  return mimeType === "image/tiff" || (imageMimeTypes.includes(mimeType) && sniffMimeType(bytes) === "image/tiff");
+}
+
 function typeFromName(name: string | undefined): string | undefined {
   if (name === undefined) return undefined;
   return EXTENSION_TYPES[extname(name).toLowerCase()];

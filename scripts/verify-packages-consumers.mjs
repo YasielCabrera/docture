@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createExtractor, documentLoaderData, defineStrategy, ContractViolationError } from "docture";
 import { inMemoryLoader, loadedDocument, fixedStrategy } from "docture/testing/doubles";
 import { scoreExtraction } from "docture/eval";
+import { chunkDocument } from "docture/chunk";
 import { z } from "zod";
 
 const text = "Invoice INV-42 total=17. This text is long enough for the text extraction strategy.";
@@ -72,6 +73,11 @@ assert.equal(score.f1, 1);
 assert.equal(score.exactMatch, true);
 const mismatch = scoreExtraction({ invoice: "INV-42", total: 99 }, result.data);
 assert.equal(mismatch.exactMatch, false);
+const chunks = chunkDocument({ pages: [{ elements: [{
+  id: "p1-text-1", kind: "paragraph", text: "Invoice INV-42", runs: [{ text: "Invoice INV-42" }],
+  provenance: { pageNumber: 1, box: { x: 40, y: 100, width: 70, height: 12 }, sourceIds: ["p1-text-1"] },
+}] }] }, { budget: { unit: "characters", max: 100 } });
+assert.deepEqual(chunks.map(chunk => [chunk.text, chunk.provenance[0].pageNumber]), [["Invoice INV-42", 1]]);
 await Promise.all([extractor.dispose(), invalid.dispose(), doubles.dispose()]);
 console.log("core extraction, validation, test doubles, and scoring work without engines");
 `;
@@ -80,6 +86,7 @@ export const coreTypes = String.raw`
 import { createExtractor, documentLoaderData, defineStrategy, type ExtractionResult } from "docture";
 import { loadedDocument } from "docture/testing/doubles";
 import { scoreExtraction } from "docture/eval";
+import { chunkDocument } from "docture/chunk";
 import { z } from "zod";
 const schema = z.object({ invoice: z.string(), total: z.number() });
 const extractor = createExtractor({
@@ -91,6 +98,7 @@ const typed: ExtractionResult<{ invoice: string; total: number }> = result;
 const invoice: string = typed.data.invoice;
 const total: number = typed.data.total;
 scoreExtraction({ invoice, total }, result.data);
+export const chunkIds: readonly string[] = chunkDocument({ pages: [] }, { budget: { unit: "estimatedTokens", max: 500 } }).map((chunk) => chunk.id);
 `;
 
 export const llmRuntime = String.raw`
@@ -267,6 +275,7 @@ export function bundleRuntime(profile) {
 }
 
 const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+const twoPageTiffWhite4x2Black2x4Base64 = "SUkqAAgAAAAJAAABBAABAAAABAAAAAEBBAABAAAAAgAAAAIBAwABAAAACAAAAAMBAwABAAAAAQAAAAYBAwABAAAAAQAAABEBBAABAAAAegAAABYBBAABAAAAAgAAABcBBAABAAAACAAAABwBAwABAAAAAQAAAJgAAAD//////////wAAAAAAAAAAAAAAAAAASUkqAAgAAAAJAAABBAABAAAAAgAAAAEBBAABAAAABAAAAAIBAwABAAAACAAAAAMBAwABAAAAAQAAAAYBAwABAAAAAQAAABEBBAABAAAACgEAABYBBAABAAAABAAAABcBBAABAAAACAAAABwBAwABAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 export function entryRuntime(expected) {
   return String.raw`
@@ -309,6 +318,7 @@ const manifest = JSON.parse(await readFile("node_modules/docture/package.json", 
 const png = new Uint8Array(Buffer.from("${pngBase64}", "base64"));
 const pdf = { bytes: new TextEncoder().encode("%PDF-1.7\n"), mimeType: "application/pdf" };
 const image = { bytes: png, mimeType: "image/png" };
+const tiff = { bytes: new Uint8Array(Buffer.from("${twoPageTiffWhite4x2Black2x4Base64}", "base64")), mimeType: "image/tiff" };
 const context = { signal: new AbortController().signal, logger: silentLogger };
 const probes = [
   ["docture/loaders/pdfjs", ["pdfjs-dist"], () => new DocumentLoaderPdfJs().load(pdf, context)],
@@ -317,6 +327,7 @@ const probes = [
   ["docture/raster/canvas", ["pdfjs-dist", "@napi-rs/canvas"], () => new NapiCanvasRasterizer().rasterize(pdf, { pages: [1] }, context)],
   ["docture/loaders/tesseract", ["tesseract.js"], () => new DocumentLoaderTesseract().load(image, context)],
   ["docture/loaders/paddleocr", ["ppu-paddle-ocr"], () => new DocumentLoaderPaddleOcr().load(image, context)],
+  ["docture/loaders/paddleocr", ["utif2"], () => new DocumentLoaderPaddleOcr().load(tiff, context)],
 ];
 const reports = [];
 for (const [entry, engines, probe] of probes) {
@@ -354,6 +365,22 @@ assert.equal(error.range, manifest.peerDependencies["onnxruntime-node"]);
 assert.equal(error.entry, "docture/loaders/paddleocr");
 assert.match(error.cause.message, /^Cannot find package 'onnxruntime-node' imported from .*ppu-paddle-ocr/);
 console.log("PaddleOCR without ONNX Runtime names the runtime it needs");
+`;
+
+export const paddleTiffRuntime = String.raw`
+import assert from "node:assert/strict";
+import { MissingEngineError, silentLogger } from "docture";
+import { DocumentLoaderPaddleOcr } from "docture/loaders/paddleocr";
+const context = { signal: new AbortController().signal, logger: silentLogger };
+const tiff = new Uint8Array(Buffer.from("${twoPageTiffWhite4x2Black2x4Base64}", "base64"));
+const looping = tiff.slice();
+new DataView(looping.buffer).setUint32(262, 8, true);
+const malformed = await new DocumentLoaderPaddleOcr().load({ bytes: looping, mimeType: "image/tiff" }, context).then(() => undefined, failure => failure);
+assert.equal(malformed?.message, "paddleocr: these bytes are not a readable TIFF (image/tiff).");
+const decoded = await new DocumentLoaderPaddleOcr().load({ bytes: tiff, mimeType: "image/tiff" }, context).then(() => undefined, failure => failure);
+assert.ok(decoded instanceof MissingEngineError, String(decoded?.stack ?? decoded));
+assert.equal(decoded.engine, "ppu-paddle-ocr");
+console.log("PaddleOCR decodes TIFF with utif2 and rejects a looping TIFF before the engine");
 `;
 
 export const missingCanvasRuntime = String.raw`
@@ -664,3 +691,56 @@ export default defineConfig({ converter: () => createExtractor({ loaders: [new D
     },
   },
 };
+
+export const mcpAbsentRuntime = String.raw`import assert from "node:assert/strict";
+import { MissingEngineError } from "docture";
+const range = process.argv[2];
+const cli = await import("@docture/cli");
+assert.equal(typeof cli.run, "function");
+const mcp = await import("@docture/cli/mcp");
+assert.deepEqual(mcp.ENGINE_RANGES, { "@modelcontextprotocol/sdk": range });
+await assert.rejects(mcp.createMcpServer({ io: cli.captureIo() }), error =>
+  error instanceof MissingEngineError && error.message.includes("@docture/cli/mcp needs the optional peer @modelcontextprotocol/sdk@" + range));
+`;
+
+export const mcpClientRuntime = String.raw`import assert from "node:assert/strict";
+import { join } from "node:path";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+const transport = new StdioClientTransport({
+  command: join(process.cwd(), "node_modules", ".bin", "docture"), args: ["mcp", "--no-config"], cwd: process.cwd(), stderr: "pipe",
+});
+let stderr = "";
+transport.stderr?.on("data", chunk => { stderr += chunk; });
+const client = new Client({ name: "verify", version: "1.0.0" });
+const protocolErrors = [];
+client.onerror = error => protocolErrors.push(String(error));
+await client.connect(transport);
+const { tools } = await client.listTools();
+assert.deepEqual(tools.map(tool => tool.name), ["convert", "inspect"]);
+const inspected = await client.callTool({ name: "inspect", arguments: { source: "invoice.pdf" } });
+assert.equal(inspected.isError, false);
+const report = inspected.structuredContent;
+assert.deepEqual([report.version, report.command, report.ok, report.results[0].features.pageCount], [1, "inspect", true, 1]);
+const converted = await client.callTool({ name: "convert", arguments: { source: "invoice.pdf", format: "text" } });
+assert.equal(converted.isError, false);
+assert.match(converted.structuredContent.results[0].content, /INV-2026-/);
+const failed = await client.callTool({ name: "inspect", arguments: { source: "missing.pdf" } });
+assert.equal(failed.isError, true);
+assert.equal(failed.structuredContent.results[0].ok, false);
+await client.close();
+assert.deepEqual(protocolErrors, [], "every stdout line is a JSON-RPC frame");
+assert.equal(stderr, "");
+console.log(JSON.stringify({ tools: tools.map(tool => tool.name), inspected: report, failed: failed.structuredContent }));
+`;
+
+export const mcpTypes = String.raw`import { captureIo } from "@docture/cli";
+import { createMcpServer, ENGINE_RANGES, type McpServerOptions } from "@docture/cli/mcp";
+const options: McpServerOptions = { io: captureIo(), noConfig: true };
+const server = await createMcpServer(options);
+const range: string = ENGINE_RANGES["@modelcontextprotocol/sdk"];
+await server.close();
+void range;
+`;
+
+export const cliRootBundleConsumer = 'import { run, captureIo } from "@docture/cli"; export const code = await run(["--version"], { io: captureIo() });\n';

@@ -47,6 +47,8 @@ export interface SplitContext {
    * that omits it is wrong rather than incomplete.
    */
   readonly recordUsage?: (usage: Partial<Usage>) => void;
+  /** The source's file name, when it has one. Model telemetry may record it. */
+  readonly documentLabel?: string;
 }
 
 export interface Splitter {

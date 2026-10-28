@@ -12,15 +12,17 @@ import {
 import { UsageError } from "../src/cli/errors.js";
 import { COMMANDS, EXTRACT } from "../src/cli/specs.js";
 
+const MODE = { name: "mode", type: "string", describe: "", choices: ["fast", "slow"] } as const;
+
 const SPEC: CommandSpec = {
   name: "demo",
   summary: "for the test",
-  args: "<file...>",
+  positionals: [{ name: "file", describe: "", required: true, variadic: true }],
   flags: [
     { name: "schema", type: "string", short: "s", describe: "" },
     { name: "count", type: "string", describe: "" },
     { name: "only", type: "string", multiple: true, describe: "" },
-    { name: "mode", type: "string", describe: "" },
+    MODE,
     { name: "verbose", type: "boolean", short: "v", describe: "" },
   ],
 };
@@ -99,10 +101,9 @@ describe("numberFlag", () => {
 describe("choiceFlag", () => {
   it("accepts a listed value and names the alternatives for one that is not", () => {
     const ok = parseCommand(SPEC, ["--mode", "fast"]);
-    expect(choiceFlag(ok, "mode", ["fast", "slow"])).toBe("fast");
+    expect(choiceFlag(ok, MODE)).toBe("fast");
 
-    const bad = parseCommand(SPEC, ["--mode", "medium"]);
-    expect(() => choiceFlag(bad, "mode", ["fast", "slow"])).toThrow(/fast, slow/);
+    expect(() => parseCommand(SPEC, ["--mode", "medium"])).toThrow('--mode must be one of fast, slow, got "medium".');
   });
 });
 

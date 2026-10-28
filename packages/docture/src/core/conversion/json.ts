@@ -12,7 +12,7 @@ export function exportJsonDocument(input: {
   readonly warnings: readonly ConversionWarning[];
 }): ExportedDocument {
   const snapshot: DoctureDocument = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     loader: input.loader,
     method: input.method,
     pages: input.document.pages,
@@ -25,7 +25,8 @@ export function exportJsonDocument(input: {
     content: JSON.stringify(snapshot, null, 2) + "\n",
     mimeType: "application/json",
     pages: input.document.pages.map((page) => ({
-      pageNumber: page.pageNumber, content: JSON.stringify(page), elements: page.elements,
+      pageNumber: page.pageNumber, width: page.width, height: page.height,
+      content: JSON.stringify(page), elements: page.elements,
     })),
     assets: input.assets,
     warnings: [],

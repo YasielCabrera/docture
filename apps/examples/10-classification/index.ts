@@ -19,7 +19,7 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { ClassificationStrategy, Extractor, loadDocument, silentLogger, classificationNode, classificationOf, classificationTree, defineClassification, defineClassifier, extractionContractOf, flattenTree, type ClassificationSignal, type Classifier } from "docture";
+import { ClassificationStrategy, Extractor, readDocument, silentLogger, classificationNode, classificationOf, classificationTree, defineClassification, defineClassifier, extractionContractOf, flattenTree, type ClassificationSignal, type Classifier } from "docture";
 import { LlmClassifier } from "docture/llm";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { z } from "zod";
@@ -197,7 +197,7 @@ async function main(): Promise<void> {
 
   // Read the statement ONCE. Both the classify calls and the extract calls below work
   // off these pages, so the six-page file is parsed a single time.
-  const read = await loadDocument(
+  const read = await readDocument(
     [new DocumentLoaderPdfJs()],
     { bytes: new Uint8Array(await readFile(statementPath)), mimeType: "application/pdf" },
     silentLogger,

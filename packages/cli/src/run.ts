@@ -9,9 +9,10 @@
 
 import { boolFlag, nearest, parseCommand, type Parsed } from "./cli/args.js";
 import { explain, exitCodeOf, UsageError, type ExitCode } from "./cli/errors.js";
-import { commandHelp, topLevelHelp } from "./cli/help.js";
-import { styleFor, type Io } from "./cli/io.js";
-import { COMMANDS, findCommand } from "./cli/specs.js";
+import { commandHelp, helpEnvelope, topLevelHelp } from "./cli/help.js";
+import { styleFor, type Io, type Style } from "./cli/io.js";
+import { COMMANDS, findCommand, HELP, HELP_JSON } from "./cli/specs.js";
+import { toJson } from "./output.js";
 import { version } from "./version.js";
 
 type Handler = (parsed: Parsed, io: Io, signal: AbortSignal) => Promise<ExitCode>;
@@ -22,10 +23,33 @@ const HANDLERS: Readonly<Record<string, () => Promise<Handler>>> = {
   classify: async () => (await import("./commands/classify.js")).classifyCommand,
   inspect: async () => (await import("./commands/inspect.js")).inspectCommand,
   eval: async () => (await import("./commands/eval.js")).evalCommand,
+  review: async () => (await import("./commands/review.js")).reviewCommand,
+  mcp: async () => (await import("./commands/mcp.js")).mcpCommand,
 };
 
-function suggestCommand(name: string): string | undefined {
-  return nearest(name, COMMANDS.map((c) => c.name));
+function unknownCommand(name: string): UsageError {
+  const near = nearest(name, COMMANDS.map((c) => c.name));
+  return new UsageError(
+    name.startsWith("-")
+      ? `Unknown option "${name}" — the first argument must be a command.`
+      : `Unknown command "${name}".`,
+    near === undefined
+      ? `Commands: ${COMMANDS.map((c) => c.name).join(", ")}.`
+      : `Did you mean \`docture ${near}\`?`,
+  );
+}
+
+function helpCommand(argv: readonly string[], io: Io, style: Style): ExitCode {
+  const parsed = parseCommand(HELP, argv);
+  const name = parsed.positionals[0];
+  const target = name === undefined ? undefined : findCommand(name);
+  if (name !== undefined && target === undefined) throw unknownCommand(name);
+  if (boolFlag(parsed, "json")) {
+    io.write(toJson(helpEnvelope(target === undefined ? COMMANDS : [target])));
+  } else {
+    io.write(target === undefined ? topLevelHelp(style, version()) : commandHelp(target, style));
+  }
+  return 0;
 }
 
 export interface RunOptions {
@@ -41,6 +65,7 @@ export async function run(argv: readonly string[], options: RunOptions): Promise
     env: supplied.env,
     write: (chunk) => supplied.write(chunk),
     diagnostic: (chunk) => supplied.diagnostic(chunk),
+    readStdin: (signal) => supplied.readStdin(signal),
     color: supplied.color && supplied.env["NO_COLOR"] === undefined,
     stdoutColor: supplied.stdoutColor && supplied.env["NO_COLOR"] === undefined,
   };
@@ -50,7 +75,7 @@ export async function run(argv: readonly string[], options: RunOptions): Promise
 
   const [first, ...rest] = argv;
 
-  if (first === undefined || first === "--help" || first === "-h") {
+  if (first === undefined) {
     io.write(topLevelHelp(stdoutStyle, version()));
     return 0;
   }
@@ -58,35 +83,16 @@ export async function run(argv: readonly string[], options: RunOptions): Promise
     io.write(`${version()}\n`);
     return 0;
   }
-  // `docture help extract` is the same request as `docture extract --help`.
-  if (first === "help") {
-    const target = rest[0] === undefined ? undefined : findCommand(rest[0]);
-    io.write(target === undefined ? topLevelHelp(stdoutStyle, version()) : commandHelp(target, stdoutStyle));
-    return 0;
-  }
-
   const spec = findCommand(first);
-  if (spec === undefined) {
-    const near = suggestCommand(first);
-    return report(
-      new UsageError(
-        first.startsWith("-")
-          ? `Unknown option "${first}" — the first argument must be a command.`
-          : `Unknown command "${first}".`,
-        near === undefined
-          ? `Commands: ${COMMANDS.map((c) => c.name).join(", ")}.`
-          : `Did you mean \`docture ${near}\`?`,
-      ),
-      io,
-      color,
-    );
-  }
+  const helpRoute = first === "help" || first === "--help" || first === "-h";
+  if (!helpRoute && spec === undefined) return report(unknownCommand(first), io, color);
 
   try {
-    const parsed = parseCommand(spec, rest);
+    if (spec === undefined) return helpCommand(rest, io, stdoutStyle);
+    const helpAsked = rest.includes("--help") || rest.includes("-h");
+    const parsed = parseCommand(helpAsked ? { ...spec, flags: [...spec.flags, HELP_JSON] } : spec, rest);
     if (boolFlag(parsed, "help")) {
-      io.write(commandHelp(spec, stdoutStyle));
-      return 0;
+      return helpCommand([spec.name, ...(boolFlag(parsed, "json") ? ["--json"] : [])], io, stdoutStyle);
     }
     const handler = HANDLERS[spec.name];
     if (handler === undefined) throw new UsageError(`"${spec.name}" is not implemented.`);

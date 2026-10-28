@@ -18,7 +18,7 @@ export { defineConfig } from "./config.js";
 export type { DoctureConfig } from "./config.js";
 
 export { captureIo, processIo, styleFor } from "./cli/io.js";
-export type { CapturedIo, Io, Style } from "./cli/io.js";
+export type { CapturedIo, CaptureOptions, Io, Style } from "./cli/io.js";
 
 export { CliError, UsageError, explain } from "./cli/errors.js";
 export type { ExitCode, Explained } from "./cli/errors.js";

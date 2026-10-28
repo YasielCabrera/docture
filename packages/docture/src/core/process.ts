@@ -36,7 +36,7 @@ import type { DocumentSource } from "./domain/document.js";
 import { isLoadedSource } from "./domain/document.js";
 import { SplittingStrategy } from "./domain/enums.js";
 import { isContract } from "./domain/contract.js";
-import type { LoadedDocument } from "./domain/geometry.js";
+import type { LoadedDocument, LoadedSource } from "./domain/geometry.js";
 import type { Logger } from "./domain/logger.js";
 import { EMPTY_USAGE, sumUsage, type Usage } from "./domain/result.js";
 import { silentLogger } from "./domain/logger.js";
@@ -45,7 +45,7 @@ import { UNCLASSIFIED, type DocGroups } from "./domain/split.js";
 import { Extractor } from "./extractor.js";
 import { MissingComponentError, SplitFailedError, UnclassifiedGroupError } from "./pipeline/errors.js";
 import { preloadedFeatures } from "./pipeline/features.js";
-import { loadDocument } from "./pipeline/read.js";
+import { readDocument } from "./pipeline/read.js";
 import { withProcessHints, type RunOptions } from "./pipeline/run.js";
 import { resolveSource } from "./pipeline/source.js";
 
@@ -161,10 +161,9 @@ export class Process<C extends readonly Classification[] = readonly Classificati
     const signal = options.signal ?? new AbortController().signal;
     const logger = options.logger ?? this.#logger;
 
-    const { document, mimeType } = await this.#read(source, signal, logger, options);
-    const groups = await this.#cut(document, mimeType, signal, logger, options);
+    const preloaded = await this.#read(source, signal, logger, options);
+    const groups = await this.#cut(preloaded, signal, logger, options);
 
-    const preloaded = { loaded: document, mimeType };
     const names = this.#classifications.map((c) => c.name);
 
     const jobs: { group: DocGroups[number]; classification: Classification }[] = [];
@@ -238,8 +237,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
     }
     const signal = options.signal ?? new AbortController().signal;
     const logger = options.logger ?? this.#logger;
-    const { document, mimeType } = await this.#read(source, signal, logger, options);
-    await this.#cut(document, mimeType, signal, logger, options);
+    await this.#cut(await this.#read(source, signal, logger, options), signal, logger, options);
     const report = this.#lastSplit;
     if (report === undefined) throw new SplitFailedError("no split was planned");
     return report;
@@ -267,11 +265,12 @@ export class Process<C extends readonly Classification[] = readonly Classificati
     signal: AbortSignal,
     logger: Logger,
     options: RunOptions,
-  ): Promise<{ document: LoadedDocument; mimeType: string }> {
+  ): Promise<LoadedSource & { readonly mimeType: string }> {
     if (isLoadedSource(source)) {
       return {
-        document: source.loaded,
+        loaded: source.loaded,
         mimeType: source.mimeType ?? "application/octet-stream",
+        ...(source.fileName === undefined ? {} : { fileName: source.fileName }),
       };
     }
 
@@ -283,8 +282,12 @@ export class Process<C extends readonly Classification[] = readonly Classificati
     }
 
     const raw = await resolveSource(source, signal);
-    const read = await loadDocument(loaders, raw, logger, signal, options.stageTimeoutMs);
-    return { document: read.document, mimeType: raw.mimeType ?? "application/octet-stream" };
+    const read = await readDocument(loaders, raw, logger, signal, options.stageTimeoutMs);
+    return {
+      loaded: read.document,
+      mimeType: raw.mimeType ?? "application/octet-stream",
+      ...(raw.fileName === undefined ? {} : { fileName: raw.fileName }),
+    };
   }
 
   /**
@@ -295,8 +298,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
    * already exists for it — and the pages are handed over already read.
    */
   async #nameSinglePage(
-    document: LoadedDocument,
-    mimeType: string,
+    bundle: LoadedSource,
     signal: AbortSignal,
     logger: Logger,
     options: RunOptions,
@@ -309,7 +311,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
       return UNCLASSIFIED;
     }
 
-    const verdict = await extractor.classify({ loaded: document, mimeType }, this.#classifications, {
+    const verdict = await extractor.classify(bundle, this.#classifications, {
       ...options,
       signal,
       logger,
@@ -318,12 +320,12 @@ export class Process<C extends readonly Classification[] = readonly Classificati
   }
 
   async #cut(
-    document: LoadedDocument,
-    mimeType: string,
+    bundle: LoadedSource & { readonly mimeType: string },
     signal: AbortSignal,
     logger: Logger,
     options: RunOptions,
   ): Promise<DocGroups> {
+    const document = bundle.loaded;
     if (!this.#splitPlanned) {
       throw new SplitFailedError(
         "no split was planned. Call split([...]) before extract(), or use an Extractor " +
@@ -337,7 +339,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
       const groups: DocGroups = [
         {
           pages: document.pages.map((page) => page.pageNumber),
-          classification: await this.#nameSinglePage(document, mimeType, signal, logger, options),
+          classification: await this.#nameSinglePage(bundle, signal, logger, options),
         },
       ];
       this.#lastSplit = {
@@ -357,7 +359,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
     // A splitter that needs page images must not be handed a text-only document and
     // discover it forty pages in. Features come from what the pages actually carry,
     // which is the stricter reading than whatever the loader claims it can do.
-    const features = preloadedFeatures({ loaded: document, mimeType });
+    const features = preloadedFeatures(bundle);
     const missing = (splitter.requires ?? []).filter((fact) => !hasFact(features, fact));
     if (missing.length > 0) {
       throw new SplitFailedError(`${splitter.name} needs ${missing.join(", ")}`, [
@@ -371,6 +373,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
       classifications: this.#classifications,
       signal,
       logger,
+      ...(bundle.fileName === undefined ? {} : { documentLabel: bundle.fileName }),
       recordUsage: (part) => {
         usage = sumUsage([usage, part], usage.wallMs);
       },

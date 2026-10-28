@@ -17,7 +17,7 @@ import {
   type TextLine,
 } from "../../core/index.js";
 import {
-  loadMuPdf,
+  importMuPdf,
   openDocument,
   withMuPdfLog,
   type MuPdfDocument,
@@ -61,7 +61,7 @@ export class DocumentLoaderMuPdf implements DocumentLoader<LoaderCapabilities<tr
 
   async load(document: RawDocument, ctx: LoadContext): Promise<LoadedDocument> {
     ctx.signal.throwIfAborted();
-    const mupdf = await loadMuPdf();
+    const mupdf = await importMuPdf();
 
     const pdf = withMuPdfLog(ctx.logger, () => openDocument(mupdf, document.bytes, this.options.password));
     try {

@@ -1,6 +1,6 @@
 # 09-scanned-and-ocr — Scanned documents and OCR
 
-> the no-text-layer diagnosis, OCR as a loader, two OCR engines, vision, where the rasterizer goes.
+> the no-text-layer diagnosis, OCR as a loader, two OCR engines, vision, where the rasterizer goes, multi-page TIFF.
 
 **Needs:** `pnpm run fetch`. The diagnosis runs with no key. OCR is behind `RUN_OCR=1`; vision needs `AI_GATEWAY_API_KEY`.
 
@@ -27,7 +27,7 @@ comes from `docture/llm/vision`, also re-exported by `docture/llm`. Install the 
 you choose explicitly. To use every path in a separate application:
 
 ```sh
-pnpm add docture ai@^7.0.0 pdfjs-dist@6.2.108 mupdf@1.28.0 tesseract.js@7.0.0 ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0 @napi-rs/canvas@1.0.10 zod
+pnpm add docture ai@^7.0.0 pdfjs-dist@6.2.108 mupdf@1.28.0 tesseract.js@7.0.0 ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0 @napi-rs/canvas@1.0.10 utif2@4.1.0 zod
 ```
 
 The tour workspace already installs these dependencies. See the
@@ -87,13 +87,13 @@ something discovered on page 40:
 ```ts
 .loadDocumentLoader(
   new DocumentLoaderPdfJs(),                    // PDFs with a text layer
-  new DocumentLoaderTesseract({ rasterizer }),  // PNG/JPEG in this wiring
+  new DocumentLoaderTesseract({ rasterizer }),  // PNG/JPEG/TIFF in this wiring
 )
 ```
 
 Loader choice is by media type and then declaration order — **never** a fallback on empty
 text. PDF.js remains the selected loader for PDFs, including scans. In this wiring Tesseract
-handles standalone PNG and JPEG images. For scanned PDFs, choose
+handles standalone PNG, JPEG, and TIFF images. For scanned PDFs, choose
 `new DocumentLoaderTesseract({ rasterizer })` as the PDF loader or retry with an OCR
 extractor after inspecting the text-layer result.
 

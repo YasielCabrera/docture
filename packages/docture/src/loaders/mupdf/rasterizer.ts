@@ -23,7 +23,7 @@ import {
   type Rasterizer,
   type RawDocument,
 } from "../../core/index.js";
-import { loadMuPdf, openDocument, withMuPdfLog } from "./mupdf.js";
+import { importMuPdf, openDocument, withMuPdfLog } from "./mupdf.js";
 
 export interface MuPdfRasterizerOptions {
   /** Applied when a call does not say otherwise. */
@@ -77,7 +77,7 @@ export class MuPdfRasterizer implements Rasterizer {
     ctx: RasterizeContext,
   ): Promise<readonly RasterPage[]> {
     ctx.signal.throwIfAborted();
-    const mupdf = await loadMuPdf();
+    const mupdf = await importMuPdf();
 
     const dpi = options.dpi ?? this.options.dpi ?? DEFAULT_RASTER_OPTIONS.dpi;
     const format = options.format ?? this.options.format ?? DEFAULT_RASTER_OPTIONS.format;

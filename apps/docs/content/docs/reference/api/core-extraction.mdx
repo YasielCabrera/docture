@@ -27,6 +27,9 @@ the constructor but requires at least one loader.
 | `logger` | `silentLogger` | Pipeline logger. |
 | `stageTimeoutMs` | no deadline | Per-stage deadline. |
 | `classify` | `higherOrder`, threshold `0` | Classifier result selection. |
+| `rules` | `[]` | Default `ValidationRule[]` for every call. Rules receive `unknown` data because one extractor serves many contracts. |
+| `onRuleFailure` | `"report"` | Default `RuleFailureMode`. |
+| `maxRepairs` | `1` | Default repairs per strategy. `0` disables repair. |
 
 Component registration methods return the same extractor: `loadDocumentLoader()`,
 `loadStrategy()`, `loadLlm()`, `loadClassifier()`, `loadClassifications()`, `loadPolicy()`,
@@ -74,6 +77,9 @@ instead of throwing.
 | `classifications` | extractor default | Per-call candidate kinds. |
 | `classify` | extractor default | Per-call classification selection. |
 | `logger` | extractor default | Per-call logger. |
+| `rules` | extractor default | `ValidationRule<T>[]` typed from the contract. Replaces the extractor's rules. An empty array clears them. |
+| `onRuleFailure` | extractor default, then `"report"` | `"report"` keeps the data and lists rule issues in `result.validation`. `"fail"` fails the attempt with `CONTRACT_VIOLATION` and tries the next strategy. |
+| `maxRepairs` | extractor default, then `1` | Times to re-ask a strategy that implements `repair()` after its answer failed. Non-negative integer; other values reject with `RangeError`. `0` makes one call per strategy. |
 
 Extraction rejects on source, loading, eligibility, strategy, validation, timeout, or
 caller abort failures. See the [error reference](/docs/reference/errors).
@@ -91,7 +97,10 @@ caller abort failures. See the [error reference](/docs/reference/errors).
 | `classification` | `ClassificationResult?` | Classification when a strategy requested it. |
 | `features` | `DocumentFeatures` | Runtime facts from the loaded document. |
 | `usage` | `Usage` | Total model usage, cost when known, and elapsed time. |
-| `validation` | `ValidationOutcome` | Final schema validation result. It is valid on success. |
+| `validation` | `ValidationOutcome` | Rule outcome for the returned data. Without rules it is `{ valid: true, issues: [] }`. |
+| `conflicts` | `readonly ExtractionConflict[]?` | Fields the winning strategy's requests disagreed on. Absent when there were none. |
+| `citations` | `readonly FieldCitation[]?` | One entry per present leaf of `data`. Present only when the winning strategy cites. |
+| `citationSources` | `readonly SourceLine[]?` | The lines `citations` name, by page then line. Present exactly when `citations` is. |
 
 `AttemptStatus` is `"ok" | "failed" | "skipped"`. An `Attempt` contains required `stage`, `strategy`, `status`, and `ms`. Its stage is
 `load`, `classify`, `extract`, `repair`, or `layout`. Optional fields are `error`,
@@ -110,6 +119,102 @@ supplies elapsed `wallMs`. Missing totals are not derived by this reducer.
 
 `ValidationIssue` contains a dotted `path` and `message`. `ValidationOutcome` contains
 `valid` and `issues`.
+
+`ExtractionConflict` contains a dotted `path` and `values`, one `ConflictingValue`
+(`value` and `pages`) per distinct present value in document order. A value is a scalar,
+or an object or array that met a scalar at the same path. A strategy reports conflicts
+through `StrategyOutcome.conflicts`; the pipeline copies a non-empty list from the
+winning attempt onto the result. A repair outcome without its own conflicts keeps the
+list of the extract attempt it replaced.
+
+## Field citations
+
+```ts
+type FieldCitation =
+  | { path: string; status: "verified"; ids: readonly [LineSourceId, ...LineSourceId[]] }
+  | { path: string; status: "cited-unverified"; ids: readonly LineSourceId[] }
+  | { path: string; status: "uncited"; ids: readonly [] };
+type CitationStatus = FieldCitation["status"];
+```
+
+A citing strategy, such as `llm({ model, citations: true })`, makes the result carry one
+`FieldCitation` for each present leaf of `data`, in depth-first key and index order. A
+present leaf is a value that is not an object or an array and is not `null`, `undefined`
+or a blank string; `0` and `false` are present. `path` is dotted, as in
+`ValidationIssue`.
+
+- `verified`: the value was found in the cited lines, and `ids` are exactly the lines the
+  match spans.
+- `cited-unverified`: the cited lines exist but do not show the value, or the caller's
+  schema changed the value after the model answered. `ids` lists every cited line that
+  exists and is empty when none did.
+- `uncited`: the model cited nothing for the value, as for a schema default.
+
+`citationSources` holds the `SourceLine` (`id`, `pageNumber`, `box`, `text`) behind every id
+in `citations`, taken from the loaded document, so a page range keeps its original page
+numbers. A box carries no page size; read it from the source you render. A strategy
+reports citations through `StrategyOutcome.citations`, and the pipeline aligns them with
+the validated data: it marks every other leaf `uncited`, drops an entry for a key the
+schema stripped, and drops an id the document does not have.
+
+## Validation rules
+
+```ts
+type ValidationRule<T = unknown> =
+  (data: T) => readonly ValidationIssue[] | Promise<readonly ValidationIssue[]>;
+type RuleFailureMode = "report" | "fail";
+```
+
+A rule checks a fact the schema cannot express, such as line amounts adding up to the
+subtotal. Rules run after the schema accepts a strategy's data, all of them, and their
+issues keep rule order. An empty array means the rule passed.
+
+In `"report"` mode the extraction returns the data with `validation.valid` set to `false`
+and the issues listed. In `"fail"` mode the attempt records `CONTRACT_VIOLATION` with the
+issues, and the next strategy runs. When every strategy fails, the extraction rejects
+with `ContractViolationError`. A rule that throws rejects the extraction with that error
+and does not try another strategy.
+
+```ts
+const result = await extractor.extract("invoice.pdf", Invoice, {
+  rules: [(invoice) => invoice.lineItems.reduce((sum, line) => sum + line.amount, 0) === invoice.subtotal
+    ? []
+    : [{ path: "subtotal", message: "line items do not add up" }]],
+});
+result.validation; // { valid: false, issues: [...] } when the lines disagree
+```
+
+`extractBatch()`, `Process.extract()`, and classifications with their own extractor
+forward `rules`, `onRuleFailure`, and `maxRepairs` like every other run option.
+
+## Repair
+
+When a strategy's answer fails the schema, or a rule in `"fail"` mode, and the strategy
+implements `repair()`, the pipeline asks it again with the previous answer and the issues.
+It does so up to `maxRepairs` times per strategy, default `1`, before trying the next
+strategy. Report-mode rule issues never trigger a repair. A model response that does not
+parse into the schema (`MODEL_OUTPUT_FAILED`) is repaired from its complete text.
+
+Each repair is its own `Attempt` with `stage: "repair"` and its own `usage`, and
+`result.usage` counts every call once. The failed answer that led to it stays in
+`attempts` as a failed `extract` or `repair` attempt. Repair calls are billed model
+requests, separate from the transport `maxRetries` of an LLM strategy, which only retries
+a failed request. A repair gets its own stage deadline, labelled `repair:<strategy>`.
+Caller cancellation during a repair rejects the run without fallback.
+
+```ts
+type RepairInput =
+  | { kind: "data"; data: unknown; issues: readonly ValidationIssue[]; citations?: readonly OutcomeCitation[] }
+  | { kind: "model-output"; rawOutput: string; issues: readonly ValidationIssue[] };
+
+interface ExtractionStrategy {
+  repair?(ctx: StrategyContext, previous: RepairInput): Promise<StrategyOutcome>;
+}
+```
+
+`data` carries an answer the schema or a rule rejected, with the rejected outcome's
+citations when it had any. `model-output` carries the complete response text that did not
+parse; it is not truncated like `Attempt.rawOutput`.
 
 `ClassificationSignal` contains `classifier`, proposed `name` or `null`, `confidence`, and
 optional `note` and `usage`. `ClassificationResult<Name>` contains the selected name or `UNKNOWN`,

@@ -59,13 +59,20 @@ credentials configured for that provider.
 | `classify <file...>` | Decide what kind of document it is, without extracting |
 | `inspect <file...>` | What the loaders see. **No model, no API key** |
 | `eval <file...>` | Score against ground truth, and gate CI on the number |
+| `review [file]` | Write an offline HTML page of boxes or cited fields over the page images |
+| `mcp` | Serve `convert` and `inspect` to an agent host over MCP stdio |
 
-`docture <command> --help` for the flags.
+`docture <command> --help` for the flags. `docture help --json` (or `docture --help --json`)
+prints every command as a version 1 envelope; `docture help extract --json` and
+`docture extract --help --json` print one. Each spec lists positionals and flags with
+their choices and defaults, and `summary.environment` lists the environment variables.
 
 ## Output
 
-Every command accepts `--format json|ndjson|text`. `extract` defaults to JSON;
-`convert`, `classify`, `inspect`, and `eval` default to text. `--json` is removed.
+`extract`, `convert`, `classify`, `inspect`, and `eval` accept `--format json|ndjson|text`.
+`extract` defaults to JSON; the others default to text. These commands no longer accept
+`--json`; only the help route does. A `--format` value outside its choices exits with
+code 2.
 
 JSON always has the shape `{ version: 1, command, ok, results, summary? }`, for one
 or many inputs, including failures. Each result is `{ file, ok: true, ...data }` or
@@ -100,6 +107,35 @@ docture convert reports/*.pdf --out converted/
 Conversion requires an output directory. Markdown and referenced raster assets are the
 defaults. Use `--to md|html|txt|json`, `--assets referenced|embedded|omit`, and optional
 `--assist-layout --model <provider/id>`. A scan needs an OCR loader in the config.
+
+## Review
+
+```sh
+docture review report.pdf -o review.html
+docture review --conversion report.json --source report.pdf
+docture review invoice.pdf --schema ./invoice.ts --model openai/gpt-5
+docture review --extraction results.json --source invoice.pdf --item 0
+```
+
+`review` writes one self-contained HTML file, `review.html` by default. Page images are
+inlined as data URIs at `--dpi` (default 96), and a Content-Security-Policy blocks every
+network request. It renders pages with the configured loaders, or PDF.js and
+`@napi-rs/canvas`.
+
+Without `--schema` or `--model` it converts the document and draws every element's box
+over its page, with the element id, kind, and text. A table or paragraph that continues
+onto later pages gets one box per page. Running headers and footers are boxes of their
+own, and tables keep their merged cells. `--conversion` reads a saved `convert --to json`
+file, version 1 or 2, instead of converting. A saved file has no page images, so
+`--source` names the document it came from.
+
+With `--schema` or `--model` it extracts with citations and lists every present field
+beside the pages with its status: `verified`, `cited-unverified`, or `uncited`. Selecting a
+field, or moving to it with the arrow keys, highlights the exact lines it cites. An uncited
+field highlights nothing. `--extraction` reads a saved `extract --full` result: one record,
+or an envelope. An envelope with several results needs `--item <n>`. A result saved
+without `--citations` lists its fields as not requested. Malformed saved JSON exits 2
+before any page is rendered.
 
 ## The schema
 
@@ -181,13 +217,56 @@ docture extract 'invoices/*.pdf' -s ./invoice.ts -m openai/gpt-5 --out out/ --ca
 - `--out <dir>/` writes one result item to `out/<name>.json`, including failures.
   With one input, `--out <file>` writes the envelope.
 - `--format ndjson` streams one result item per line as each finishes.
-- `--full` adds `method`, `loader`, `attempts`, `usage`, `features`, and optional
-  `classification` to successful extraction items.
+- `--full` adds `method`, `loader`, `attempts`, `usage`, `features`, optional
+  `classification`, `validation`, and optional `conflicts` to successful extraction items.
+- `--citations --full` also adds `citations`, one `{ path, ids, status }` per value, and
+  `citationSources`, the cited lines with their boxes. `--citations` needs `--full`.
 - `--cache <dir>` caches model responses, so re-running a corpus after a schema tweak
   only pays for what changed.
 
 Exit codes: **0** everything worked · **1** a document failed · **2** the command was
 wrong. A CI job wants that distinction, since 2 will fail identically on every rerun.
+
+## Standard input
+
+A `-` file argument reads the document from stdin, for every command except `mcp`:
+
+```sh
+curl -s https://example.com/invoice.pdf | docture extract - -s ./invoice.ts -m openai/gpt-5
+```
+
+The result is labelled `stdin`. Pass `-` at most once. `eval` reads stdin only as its
+single input and only with `--truth <file>`. Stdin has no file name, so the format comes
+from the leading bytes alone: PDF, PNG, JPEG, GIF, TIFF, and WebP work. HTML, plain text,
+Markdown, and ZIP-based Office files fail with `NO_ELIGIBLE_LOADER`; pass them as a path.
+
+## Dry run
+
+`--dry-run` on `extract`, `convert`, `classify`, `eval`, and `review` resolves the config, schema,
+inputs, output targets, truth files, model route, credentials, and wiring, then prints one
+JSON plan envelope with `summary.dryRun: true` and exits 0. It loads no document, reads no
+stdin, calls no model, calls no config factory, and creates no output or cache directory.
+An invalid invocation still exits 2; a missing `eval` truth file exits 1.
+
+## MCP server
+
+`docture mcp` serves two model-free tools, `convert` and `inspect`, to an agent host over
+MCP stdio. It needs the optional peer `@modelcontextprotocol/sdk`; the other commands
+never load it:
+
+```sh
+npm install --save-dev @docture/cli @modelcontextprotocol/sdk@1.32.2
+```
+
+```json
+{ "mcpServers": { "docture": { "command": "npx", "args": ["docture", "mcp"] } } }
+```
+
+Each tool call returns the version 1 envelope as structured content and JSON text, and
+sets `isError` when an item failed, including a config that fails to load or build.
+Malformed arguments and `-` as a source are JSON-RPC invalid-parameter errors. Stdout
+carries only protocol frames. `createMcpServer` from `@docture/cli/mcp` builds the same
+server for any MCP transport.
 
 ## Why did nothing run?
 

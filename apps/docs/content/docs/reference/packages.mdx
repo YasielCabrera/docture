@@ -27,13 +27,15 @@ Its root exports core only. The CLI supplies the `docture` executable.
 | `docture/loaders/pdfjs` | PDF text and geometry through PDF.js | `pdfjs-dist@^6.2.108` |
 | `docture/loaders/mupdf` | MuPDF text, geometry, and rendering | `mupdf@~1.28.0` |
 | `docture/loaders/tesseract` | OCR through Tesseract.js | `tesseract.js@7.0.0` |
-| `docture/loaders/paddleocr` | OCR through PaddleOCR and ONNX Runtime | `ppu-paddle-ocr@6.3.0`, `onnxruntime-node@1.27.0` |
+| `docture/loaders/paddleocr` | OCR through PaddleOCR and ONNX Runtime | `ppu-paddle-ocr@6.3.0`, `onnxruntime-node@1.27.0`; `utif2@4.1.0` for TIFF |
 | `docture/raster/canvas` | PDF.js page rendering with canvas | `pdfjs-dist@^6.2.108`, `@napi-rs/canvas@^1.0.10` |
+| `docture/chunk` | Retrieval chunks with page, box, and source-id provenance | None |
 | `docture/eval` | Field scoring, hallucination detection, and reports | None |
 | `docture/testing/doubles` | In-memory documents, loaders, and fixed or failing strategies | None |
 | `docture/testing/conformance` | Loader and rasterizer conformance suites | `vitest@>=3`, `pdfkit@>=0.17.2 <0.21.0` |
 | `docture/testing/fixtures` | Generated invoice and rich-document PDFs | `pdfkit@>=0.17.2 <0.21.0` |
 | `@docture/cli` | CLI configuration, IO, errors, and `run` | See CLI dependencies below |
+| `@docture/cli/mcp` | The `convert` and `inspect` MCP server | `@modelcontextprotocol/sdk@1.32.2` |
 
 Files under `src` and `dist` are internal. The [API reference](/docs/reference/api)
 documents the named exports of each supported entry point. The
@@ -102,6 +104,9 @@ Runtime, PDFKit, or Vitest.
 `@napi-rs/canvas` as an optional dependency. A normal CLI install attempts that native
 prebuild. Text extraction still works when canvas is unavailable. If optional dependencies
 were omitted, install `@napi-rs/canvas@1.0.10` to use `--vision` or raster assets.
+
+`@modelcontextprotocol/sdk@1.32.2` is an optional peer used only by `docture mcp` and
+`@docture/cli/mcp`. Install it explicitly to serve MCP; the root entry never loads it.
 
 A config that imports Docture components or a provider declares those dependencies in the
 application too. See [the CLI guide](/docs/guides/cli).

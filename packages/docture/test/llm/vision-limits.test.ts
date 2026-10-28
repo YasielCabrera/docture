@@ -60,7 +60,7 @@ describe("vision request limits", () => {
   it("keeps one request at the cap on the original strict schema", async () => {
     const run = setup(2, [{ items: [1, 2] }]);
     const result = await createExtractor({
-      loaders: [run.loader], strategies: [vision({ model: run.model, pagesPerRequest: 2 })],
+      loaders: [run.loader], strategies: [vision({ model: run.model, pagesPerRequest: 2 })], maxRepairs: 0,
     }).safeExtract(new Uint8Array([1]), z.object({ invoice: z.string(), items: z.array(z.number()) }));
     expect(run.groups).toEqual([[1, 2]]);
     expect(result.ok).toBe(false);

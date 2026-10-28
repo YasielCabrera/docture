@@ -211,6 +211,9 @@ describe("direct Contract guidance", () => {
     get classifications() { return this.#values.classifications; }
     get classify() { return this.#values.classify; }
     get logger() { return this.#values.logger; }
+    get rules() { return this.#values.rules; }
+    get onRuleFailure() { return this.#values.onRuleFailure; }
+    get maxRepairs() { return this.#values.maxRepairs; }
   }
 
   const optionShapes: [string, (values: Required<RunOptions>) => RunOptions][] = [
@@ -225,13 +228,16 @@ describe("direct Contract guidance", () => {
       classifications: { value: values.classifications },
       classify: { value: values.classify },
       logger: { value: values.logger },
+      rules: { value: values.rules },
+      onRuleFailure: { value: values.onRuleFailure },
+      maxRepairs: { value: values.maxRepairs },
     })],
   ];
 
   function selectionOptions(signal = new AbortController().signal): Required<RunOptions> {
     return {
       signal, pages: [2], stageTimeoutMs: 10_000, only: ["recorder"],
-      classifications: [sameName], classify: {}, logger: silentLogger,
+      classifications: [sameName], classify: {}, logger: silentLogger, rules: [], onRuleFailure: "report", maxRepairs: 1,
     };
   }
 

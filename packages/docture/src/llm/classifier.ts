@@ -24,6 +24,9 @@ import { wrapUntrusted } from "./prompt.js";
 import { cacheKey, storedUsage, type LlmCache } from "./cache.js";
 import { toUsage, type PricingTable } from "./pricing.js";
 import { modelOutputError } from "./failure.js";
+import { callTelemetry, type LlmTelemetryOptions } from "./telemetry.js";
+
+export type { LlmTelemetryOptions } from "./telemetry.js";
 
 export interface LlmClassifierOptions {
   readonly model: LanguageModel;
@@ -35,6 +38,8 @@ export interface LlmClassifierOptions {
   readonly instructions?: string;
   readonly temperature?: number;
   readonly maxRetries?: number;
+  /** AI SDK telemetry. Inputs and outputs are not recorded unless enabled here. */
+  readonly telemetry?: LlmTelemetryOptions;
 }
 
 const verdictSchema = z.object({
@@ -105,6 +110,12 @@ export class LlmClassifier implements Classifier {
           temperature: this.options.temperature ?? 0,
           maxRetries: this.options.maxRetries ?? 2,
           abortSignal: ctx.signal,
+          ...callTelemetry(this.options.telemetry, {
+            stage: "classify",
+            component: this.name,
+            document: ctx.documentLabel,
+            pages: ctx.document.pages.map((page) => page.pageNumber),
+          }),
         });
         usage = toUsage(response.usage, Date.now() - started, modelId, this.options.pricing);
         await this.options.cache?.set(key, {

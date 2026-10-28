@@ -19,6 +19,9 @@
  *   4. PRICING — tokens are honest, cost needs a table
  *   5. CACHING — run it twice, pay once
  *   6. TWO MODELS AT ONCE, cheap first
+ *   7. REPAIR — a wrong answer is sent back once, with what was wrong
+ *   8. TELEMETRY — every call names its stage, document and pages
+ *   9. CITATIONS — which printed line shows each value, checked
  */
 
 import { CompletionStrategy, Extractor, contract, type ExtractionResult } from "docture";
@@ -36,6 +39,7 @@ import {
 } from "docture/llm";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { z } from "zod";
+import { linesAddUp } from "../02-contracts-and-schemas/index.js";
 import { Invoice } from "../shared/contracts.js";
 import { odooInvoiceParser } from "../shared/parsers/odoo.js";
 import { servicesInvoiceParser } from "../shared/parsers/services.js";
@@ -264,6 +268,71 @@ async function main(): Promise<void> {
       if (result.attempts.some((a) => a.status === "failed")) provenance(result);
     } finally {
       await tiered.dispose();
+    }
+
+    step("7. repair — a wrong answer goes back once, with what was wrong");
+
+    /**
+     * When an answer fails the schema, or a rule in "fail" mode, the pipeline sends the
+     * model its previous answer and the issues, once by default. Each repair is its own
+     * billed attempt with `stage: "repair"`, and `result.usage` counts it. `maxRepairs: 0`
+     * restores one call per strategy. `maxRetries` is separate: it only retries a failed
+     * request, never a wrong answer.
+     */
+    const repaired = await extractor.extract(path, Invoice, {
+      rules: [linesAddUp],
+      onRuleFailure: "fail",
+      maxRepairs: 1,
+    });
+    field("stages", repaired.attempts.map((a) => `${a.stage}:${a.status}`).join(" → "));
+    field("validation", JSON.stringify(repaired.validation));
+    field("tokens, repairs included", repaired.usage.totalTokens);
+
+    step("8. telemetry — every call says which stage and pages it covered");
+
+    /**
+     * Any AI SDK telemetry integration sees docture's calls with a fixed functionId,
+     * such as `docture.extract.llm`, and a `docture` runtime context naming the file and
+     * pages. Prompts and answers are NOT recorded unless you set recordInputs or
+     * recordOutputs, because documents are often sensitive.
+     */
+    const seen: string[] = [];
+    const traced = new Extractor().loadDocumentLoader(new DocumentLoaderPdfJs()).loadStrategy(
+      llm({
+        model: model.model,
+        temperature: 0,
+        telemetry: { integrations: [{ onStart: (event) => { seen.push(event.functionId ?? "(none)"); } }] },
+      }),
+    );
+    try {
+      await traced.extract(path, Invoice, { maxRepairs: 0 });
+      field("function ids", seen.join(", "));
+    } finally {
+      await traced.dispose();
+    }
+
+    step("9. citations — which printed line shows each value");
+
+    /**
+     * `citations: true` numbers the document's lines in the prompt and asks the model
+     * which lines show each value. Each value is then checked against those lines:
+     * `verified` means the value is printed there, `cited-unverified` means the model
+     * pointed at lines that do not show it, `uncited` means it pointed at nothing.
+     * `citationSources` gives the boxes, ready to highlight.
+     */
+    const cited = new Extractor().loadDocumentLoader(new DocumentLoaderPdfJs()).loadStrategy(
+      llm({ model: model.model, temperature: 0, citations: true }),
+    );
+    try {
+      const withCitations = await cited.extract(path, Invoice, { maxRepairs: 0 });
+      for (const citation of (withCitations.citations ?? []).slice(0, 6)) {
+        field(citation.path, `${citation.status} ${citation.ids.join(", ")}`);
+      }
+      const total = withCitations.citations?.find((citation) => citation.path === "total");
+      const line = withCitations.citationSources?.find((source) => source.id === total?.ids[0]);
+      if (line !== undefined) field("total printed at", `page ${line.pageNumber}: ${line.text}`);
+    } finally {
+      await cited.dispose();
     }
 
     note(

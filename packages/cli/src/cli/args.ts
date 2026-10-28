@@ -15,7 +15,7 @@
 import { parseArgs } from "node:util";
 import { UsageError } from "./errors.js";
 
-export interface FlagSpec {
+export interface FlagSpec<C extends string = string> {
   readonly name: string;
   readonly type: "string" | "boolean";
   readonly short?: string;
@@ -26,14 +26,26 @@ export interface FlagSpec {
   readonly multiple?: boolean;
   /** Rendered in help after the description, in parentheses. */
   readonly defaultLabel?: string;
+  /** The only values the parser accepts. Help and `help --json` list them. */
+  readonly choices?: readonly C[];
+}
+
+/** A flag whose value is one of a fixed set, so {@link choiceFlag} can return the literal type. */
+export type ChoiceFlagSpec<C extends string> = FlagSpec<C> & { readonly choices: readonly C[] };
+
+export interface PositionalSpec {
+  readonly name: string;
+  readonly describe: string;
+  readonly required: boolean;
+  /** Accepts any number of values, at least one when required. */
+  readonly variadic: boolean;
 }
 
 export interface CommandSpec {
   readonly name: string;
   /** One line, for the top-level command list. */
   readonly summary: string;
-  /** The argument part of the usage line, e.g. `<file...>`. */
-  readonly args: string;
+  readonly positionals: readonly PositionalSpec[];
   readonly flags: readonly FlagSpec[];
   readonly description?: string;
   readonly examples?: readonly string[];
@@ -99,6 +111,41 @@ export function nearest(unknown: string, names: readonly string[]): string | und
     : undefined;
 }
 
+/** The argument part of the usage line, e.g. `<file...>` or `[command]`. */
+export function usageArgs(spec: CommandSpec): string {
+  return spec.positionals
+    .map((p) => {
+      const name = p.variadic ? `${p.name}...` : p.name;
+      return p.required ? `<${name}>` : `[${name}]`;
+    })
+    .join(" ");
+}
+
+function checkChoices(spec: CommandSpec, values: Parsed["values"]): void {
+  for (const flag of spec.flags) {
+    if (flag.choices === undefined) continue;
+    const value = values[flag.name];
+    for (const raw of Array.isArray(value) ? value : [value]) {
+      if (typeof raw !== "string" || flag.choices.includes(raw)) continue;
+      throw new UsageError(
+        `--${flag.name} must be one of ${flag.choices.join(", ")}, got "${raw}".`,
+        `Run \`docture ${spec.name} --help\`.`,
+      );
+    }
+  }
+}
+
+function checkPositionals(spec: CommandSpec, positionals: readonly string[]): void {
+  const variadic = spec.positionals.some((p) => p.variadic);
+  const extra = positionals[spec.positionals.length];
+  if (!variadic && extra !== undefined) {
+    throw new UsageError(
+      `Unexpected argument "${extra}" for \`docture ${spec.name}\`.`,
+      `Usage: docture ${spec.name}${spec.positionals.length === 0 ? "" : ` ${usageArgs(spec)}`} [options]`,
+    );
+  }
+}
+
 export function parseCommand(spec: CommandSpec, argv: readonly string[]): Parsed {
   const options: Record<
     string,
@@ -119,8 +166,13 @@ export function parseCommand(spec: CommandSpec, argv: readonly string[]): Parsed
       allowPositionals: true,
       strict: true,
     });
+    if (parsed.values["help"] !== true) {
+      checkChoices(spec, parsed.values);
+      checkPositionals(spec, parsed.positionals);
+    }
     return { spec, values: parsed.values, positionals: parsed.positionals };
   } catch (error) {
+    if (error instanceof UsageError) throw error;
     const code = (error as { code?: string }).code;
     const message = error instanceof Error ? error.message : String(error);
     const names = spec.flags.map((f) => f.name);
@@ -196,19 +248,14 @@ export function numberFlag(
   return value;
 }
 
-/** A flag whose value must be one of a fixed set. Returns the literal type. */
-export function choiceFlag<const T extends string>(
+/**
+ * A flag whose value must be one of a fixed set. `parseCommand` already rejected
+ * anything outside `flag.choices`, so this only narrows the type.
+ */
+export function choiceFlag<const C extends string>(
   parsed: Parsed,
-  name: string,
-  choices: readonly T[],
-): T | undefined {
-  const raw = stringFlag(parsed, name);
-  if (raw === undefined) return undefined;
-  const match = choices.find((c) => c === raw);
-  if (match === undefined) {
-    throw new UsageError(
-      `--${name} must be one of ${choices.join(", ")}, got "${raw}".`,
-    );
-  }
-  return match;
+  flag: ChoiceFlagSpec<C>,
+): C | undefined {
+  const raw = stringFlag(parsed, flag.name);
+  return flag.choices.find((choice) => choice === raw);
 }

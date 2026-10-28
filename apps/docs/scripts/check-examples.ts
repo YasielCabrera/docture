@@ -33,7 +33,9 @@ try {
   assert.ok(markdown.includes(fixture.expected.invoiceNumber), "converted Markdown contains the invoice number");
   assert.ok(markdown.includes("<!-- page: 1 -->"), "converted Markdown preserves its page marker");
 
-  console.log("Documentation examples passed: five offline recipes executed with generated PDFs.");
+  assert.match(await example("rag-chunks.ts"), /^chunk-[0-9a-f]{16} page 1 box [\d.]+,[\d.]+,[\d.]+,[\d.]+$/mu);
+
+  console.log("Documentation examples passed: six offline recipes executed with generated PDFs.");
 } finally {
   await rm(directory, { recursive: true, force: true });
 }

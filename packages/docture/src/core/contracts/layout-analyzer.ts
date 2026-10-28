@@ -8,7 +8,8 @@ import type {
 import type { Logger } from "../domain/logger.js";
 import type { Usage } from "../domain/result.js";
 
-export type LayoutElementRole = DocumentElement["kind"];
+/** Roles an analyzer may assign. Page furniture is decided by core and never reaches an analyzer. */
+export type LayoutElementRole = Exclude<DocumentElement["kind"], "page-header" | "page-footer">;
 
 /**
  * Analyzer output deliberately contains no text. It can classify and order known
@@ -25,6 +26,7 @@ export interface LayoutAnnotation {
 }
 
 export interface LayoutAnalyzerContext {
+  /** The deterministic layout without page headers and footers. */
   readonly document: LayoutDocument;
   readonly signal: AbortSignal;
   readonly logger: Logger;

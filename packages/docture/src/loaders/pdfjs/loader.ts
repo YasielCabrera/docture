@@ -17,7 +17,7 @@ import {
   type TextLine,
 } from "../../core/index.js";
 import {
-  loadPdfJs,
+  importPdfJs,
   type PdfJsImageData,
   type PdfJsMarkedContent,
   type PdfJsPage,
@@ -77,7 +77,7 @@ export class DocumentLoaderPdfJs implements DocumentLoader<LoaderCapabilities<tr
 
   async load(document: RawDocument, ctx: LoadContext): Promise<LoadedDocument> {
     ctx.signal.throwIfAborted();
-    const { pdfjs, standardFontDataUrl } = await loadPdfJs();
+    const { pdfjs, standardFontDataUrl } = await importPdfJs();
 
     const task = pdfjs.getDocument({
       // pdf.js takes ownership of the buffer it is given, so hand it a copy —
@@ -139,7 +139,7 @@ export class DocumentLoaderPdfJs implements DocumentLoader<LoaderCapabilities<tr
   }
 
   private async readPage(
-    pdfjs: Awaited<ReturnType<typeof loadPdfJs>>["pdfjs"],
+    pdfjs: Awaited<ReturnType<typeof importPdfJs>>["pdfjs"],
     page: PdfJsPage,
     pageNumber: number,
     ctx: LoadContext,
@@ -380,7 +380,7 @@ async function imageObject(page: PdfJsPage, id: string): Promise<PdfJsImageData 
 }
 
 function unitBox(
-  pdfjs: Awaited<ReturnType<typeof loadPdfJs>>["pdfjs"],
+  pdfjs: Awaited<ReturnType<typeof importPdfJs>>["pdfjs"],
   viewport: PdfJsViewport,
   transform: readonly number[],
 ): { x: number; y: number; width: number; height: number } {
@@ -398,7 +398,7 @@ function unitBox(
 }
 
 async function imagesFrom(
-  pdfjs: Awaited<ReturnType<typeof loadPdfJs>>["pdfjs"],
+  pdfjs: Awaited<ReturnType<typeof importPdfJs>>["pdfjs"],
   page: PdfJsPage,
   viewport: PdfJsViewport,
   pageNumber: number,

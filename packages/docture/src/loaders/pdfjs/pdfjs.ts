@@ -112,7 +112,7 @@ function resolveAssets(): { standardFontDataUrl: string } {
   return { standardFontDataUrl: `${join(root, "standard_fonts")}/` };
 }
 
-export const loadPdfJs = lazyEngine(async (): Promise<{ pdfjs: PdfJsModule; standardFontDataUrl: string }> => {
+export const importPdfJs = lazyEngine(async (): Promise<{ pdfjs: PdfJsModule; standardFontDataUrl: string }> => {
   const module = (await importEngine("docture/loaders/pdfjs", ["pdfjs-dist"], () =>
     import("pdfjs-dist/legacy/build/pdf.mjs"),
   )) as unknown as PdfJsModule;

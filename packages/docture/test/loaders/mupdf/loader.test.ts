@@ -183,9 +183,6 @@ describe("DocumentLoaderMuPdf — specifics", () => {
   });
 
   it("honours a signal aborted while the WASM engine was still loading", async () => {
-    // The window the per-page check exists for. `load` runs synchronously as far as
-    // `await loadMuPdf()`, so aborting here lands after the entry check has already
-    // passed and before the first page is read — and reading must not start anyway.
     const pdf = await makeInvoicePdf({ seed: 308, lineItemCount: 45 });
     const controller = new AbortController();
 

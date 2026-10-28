@@ -33,8 +33,19 @@ npm install --save-dev @docture/cli @ai-sdk/openai zod@^4
 | `classify <file...>` | Choose a document classification without extracting it |
 | `inspect <file...>` | Show loaded text, geometry, and document facts without a model |
 | `eval <file...>` | Extract and compare results with ground truth |
+| `review [file]` | Write an offline HTML page of element boxes or cited fields over the page images |
+| `mcp` | Serve `convert` and `inspect` to an agent host over MCP stdio |
 
 Run `docture <command> --help` for the flags accepted by that command.
+
+Add `--json` for a machine-readable list. `docture help --json` and `docture --help --json`
+print every command.
+`docture help extract --json` and `docture extract --help --json` print the same document
+for one command. The output is a version 1 envelope with command `help`. Each result's
+`spec` lists the positionals and the flags, with each flag's short alias, choices, default
+label, and description. `summary.environment` lists the environment variables. A flag
+value outside its listed choices exits with code `2`, and so does `docture help` with an
+unknown command.
 
 ## Convert
 
@@ -74,8 +85,9 @@ Valibot, ArkType, or other Standard Schema value when validation is required.
 
 ## Output streams
 
-All five commands accept `--format json|ndjson|text`. `extract` defaults to JSON;
-the others default to text. `--json` is removed. `convert --to md|html|txt|json` selects the
+`extract`, `convert`, `classify`, `inspect`, and `eval` accept `--format json|ndjson|text`. `extract` defaults to JSON;
+the others default to text. These commands no longer accept `--json`; only the help route
+does. `convert --to md|html|txt|json` selects the
 document format, independently of the result format.
 
 JSON always prints one envelope, including for a single failed input:
@@ -95,7 +107,7 @@ same result items in completion order, one per line without an envelope.
 
 | Command | Successful result fields |
 | --- | --- |
-| `extract` | `data`; `--full` adds method, loader, attempts, usage, features, and optional classification |
+| `extract` | `data`; `--full` adds method, loader, attempts, usage, features, optional classification, validation, and optional conflicts; `--citations --full` adds citations and citationSources |
 | `convert` | `output` and `assets` as absolute paths, `warnings` |
 | `classify` | `name`, `confidence`, `signals` |
 | `inspect` | `loader`, `features`, `pages`, and requested text, lines, or render information |
@@ -114,6 +126,13 @@ docture extract invoice.pdf -s ./invoice.ts -m openai/gpt-5 | jq '.results[0].da
 With one input, `extract --out <file>` writes the envelope. `--out <directory>/`
 writes one result item per file, including failures. `--full` adds fields only to
 successful extraction items and preserves the envelope.
+
+`extract --citations --full` asks the model which document lines show each value and
+checks each value against them. Each item then carries `citations`, one
+`{ path, ids, status }` per value, and `citationSources`, the cited lines with their page
+numbers and boxes. See [field citations](/docs/reference/api/llm#field-citations).
+`--citations` without `--full` exits 2, and a config that supplies its own strategies or a
+built extractor ignores it with a warning.
 
 Before importing config or schema modules or resolving a model, `extract` refuses
 `--out` destinations known to overwrite a local input. This includes file URLs,
@@ -175,6 +194,63 @@ With several inputs, `--out <dir>` writes one JSON file per input. With one inpu
 `--out <file>` writes that result to one file. A trailing slash forces directory output.
 One document failure does not stop the remaining files.
 
+## Standard input
+
+A `-` file argument reads the document from stdin:
+
+```sh
+curl -s https://example.com/invoice.pdf | docture extract - -s ./invoice.ts -m openai/gpt-5
+```
+
+Every command except `mcp` accepts it. The result is labelled `stdin`. Directory output
+names it `stdin.json`, or `stdin.md` and the other conversion extensions for `convert`.
+Pass `-` at most once; a second one exits with code `2` before stdin is read.
+
+Stdin has no file name, so Docture recognises its format from the leading bytes alone.
+That works for PDF, PNG, JPEG, GIF, TIFF, and WebP. HTML, plain text, Markdown, and
+ZIP-based Office files arrive as `application/octet-stream` and fail with
+`NO_ELIGIBLE_LOADER`; pass those as a path instead.
+
+`eval` reads stdin only as its single input, and only with `--truth <file>`, because stdin
+has no name to find a truth file by. Mixing stdin with file inputs exits with code `2`.
+
+## Dry run
+
+`--dry-run` on `extract`, `convert`, `classify`, `eval`, and `review` checks an invocation without
+running it. It resolves the config, schema, inputs, output targets, truth files, model
+route, credentials, and wiring, then prints one JSON plan envelope and exits with code `0`:
+
+```json
+{
+  "version": 1,
+  "command": "extract",
+  "ok": true,
+  "results": [{
+    "file": "invoice.pdf",
+    "ok": true,
+    "plan": {
+      "input": { "kind": "path", "path": "/work/invoice.pdf" },
+      "loaders": ["pdfjs"],
+      "strategies": ["llm"],
+      "classifiers": [],
+      "model": "openai/gpt-5",
+      "schema": "/work/invoice.ts#default",
+      "output": { "to": "stdout" }
+    }
+  }],
+  "summary": { "dryRun": true }
+}
+```
+
+A dry run loads no document, reads no stdin, calls no model, and creates no output or
+cache directory. It prints the plan to stdout whatever `--format` and `--out` say. `convert`
+plans list the loaders, layout analyzer, format, and output file. `classify` plans list the
+classifiers and classifications. `eval` plans add the truth file. When the config supplies
+an extractor or converter factory, the plan says `"opaque": true` instead of naming its
+parts, and the factory is not called. A config module still runs its own top-level code
+when it is imported. An invalid invocation still exits with code `2`. A missing `eval` truth
+file exits with code `1`, as it does without `--dry-run`.
+
 ## Inspect
 
 `inspect` needs no schema, model, or API key:
@@ -185,6 +261,61 @@ docture inspect scan.pdf --text --lines
 
 Use it to check the selected loader, media type, page count, form, text length, geometry,
 and rendering support.
+
+## Review
+
+`review` writes one HTML file that shows what Docture found on each page:
+
+```sh
+docture review report.pdf -o review.html
+```
+
+The file is self-contained. Page images are data URIs rendered at `--dpi`, 96 by
+default, and a Content-Security-Policy blocks every network request, so you can open it
+offline or attach it to a ticket. The output defaults to `review.html`. Pages are
+rendered with the configured loaders, or with PDF.js and `@napi-rs/canvas` by default.
+Without the canvas package, the command exits with code `1` and prints its install
+command.
+
+### Conversion view
+
+Without `--schema` or `--model`, `review` converts the document and draws each
+element's box over the page. Hover a box for its id and kind. The list under each page
+shows the id, kind, and text of every element on that page. A table or paragraph that
+continues onto later pages gets one box on each page. Running headers and footers are
+boxes of their own, and tables keep their merged cells.
+
+To review a saved conversion, pass the JSON file and the document it came from:
+
+```sh
+docture convert report.pdf --out converted --to json
+docture review --conversion converted/report.json --source report.pdf
+```
+
+Version 1 and version 2 files are accepted. A file that is not valid conversion JSON
+exits with code `2` and names the first invalid fields.
+
+### Extraction view
+
+With `--schema` or `--model`, `review` extracts with citations turned on. It lists every
+present field beside the pages, colored by status: `verified`, `cited-unverified`, or
+`uncited`. Select a field, or move to it with the arrow keys, to highlight the exact
+lines it cites. An uncited field highlights nothing.
+
+```sh
+docture review invoice.pdf --schema ./invoice.ts --model openai/gpt-5
+```
+
+To review a saved result, save it with `extract --citations --full` and pass the source:
+
+```sh
+docture extract invoice.pdf -s ./invoice.ts -m openai/gpt-5 --citations --full -o result.json
+docture review --extraction result.json --source invoice.pdf
+```
+
+`--extraction` accepts one result record or a JSON envelope. An envelope with several
+results needs `--item <n>`, counted from `0`. A result saved without `--citations` lists
+its fields as not requested. Invalid citations, or a failed result, exit with code `2`.
 
 ## Configuration file
 
@@ -232,6 +363,40 @@ report, and accuracy gate.
 
 Exit code `0` means success. Exit code `1` means a document failed or an accuracy gate was
 not met. Exit code `2` means the invocation was invalid.
+
+## MCP server
+
+`docture mcp` serves two model-free tools to an agent host over the Model Context
+Protocol. It needs the optional peer `@modelcontextprotocol/sdk`:
+
+```sh
+npm install --save-dev @docture/cli @modelcontextprotocol/sdk@1.32.2
+```
+
+Register it in the host's MCP server configuration:
+
+```json
+{ "mcpServers": { "docture": { "command": "npx", "args": ["docture", "mcp"] } } }
+```
+
+| Tool | Arguments | Result items |
+| --- | --- | --- |
+| `convert` | `source`, optional `format`: `markdown` (default), `html`, `text`, or `json` | `content`, `format`, `mimeType`, `pageCount`, `loader`, `method`, `warnings` |
+| `inspect` | `source`, optional `pages`: one-based page numbers | the same fields as `inspect --format json` |
+
+`source` is a path relative to the directory the host starts the server in, an absolute
+path, or an http(s) or `file:` URL. Each call resolves `docture.config.*` and disposes its
+wiring afterwards; `--config` and `--no-config` work as for other commands. `convert`
+returns content and writes no files or assets.
+
+Each result is the version 1 envelope, as structured content and as JSON text. A failed
+document sets the MCP `isError` flag and reports `error.code`, for example `LOAD_FAILED`.
+A config that fails to load, or a config factory that throws or returns an invalid
+converter, answers the same way: one failed item with the code the CLI would report.
+Missing or malformed arguments, and `-` as a source, are JSON-RPC invalid-parameter errors.
+Stdout carries only protocol frames; warnings go to stderr. The server stops at the end of
+its input or on Ctrl-C, cancelling calls still in flight. Without the SDK, `docture mcp`
+exits with code `1` and names the version to install. The other commands never load it.
 
 The complete flag and library API reference is under
 [`@docture/cli`](/docs/reference/api/cli).

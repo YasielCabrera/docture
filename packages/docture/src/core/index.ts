@@ -38,16 +38,27 @@ export type {
   DoctureDocumentAsset,
   ElementProvenance,
   FigureElement,
+  FurnitureEvidence,
   HeadingElement,
   InlineText,
   LayoutDocument,
   LayoutPage,
+  LineSourceId,
   ListElement,
   PageBreakElement,
+  PageFooterElement,
+  PageHeaderElement,
   ParagraphElement,
+  ProvenanceSegment,
   SafeConversion,
+  SourceLine,
+  TableCellSpan,
   TableElement,
 } from "./domain/conversion.js";
+export { isLineSourceId, sourceLines } from "./conversion/source-lines.js";
+export { parseDoctureDocument } from "./conversion/parse.js";
+export { provenanceSegments } from "./conversion/provenance.js";
+export type { DoctureDocumentParse } from "./conversion/parse.js";
 export { defineLayoutAnalyzer } from "./contracts/layout-analyzer.js";
 export type {
   LayoutAnalysis,
@@ -90,12 +101,18 @@ export { MIN_TEXT_LAYER_CHARS, hasFact, isLoadedSource } from "./domain/document
 export type {
   Attempt,
   AttemptStatus,
+  CitationStatus,
   ClassificationResult,
   ClassificationSignal,
+  ConflictingValue,
+  ExtractionConflict,
   ExtractionResult,
+  FieldCitation,
+  RuleFailureMode,
   Usage,
   ValidationIssue,
   ValidationOutcome,
+  ValidationRule,
 } from "./domain/result.js";
 export { EMPTY_USAGE, sumUsage } from "./domain/result.js";
 
@@ -136,12 +153,14 @@ export { linesFromWords, textFromLines } from "./domain/lines.js";
 export type { LinesFromWordsOptions, PositionedWord } from "./domain/lines.js";
 
 /**
- * Pixel dimensions from a PNG or JPEG header. Public for the same reason: an OCR
- * loader handed a bare image has no page size to report and must read one from the
- * bytes, and every OCR loader has that problem.
+ * Pixel dimensions from a PNG, JPEG or TIFF header, and the pages of a multi-page
+ * TIFF. Public for the same reason: an OCR loader handed a bare image has no page
+ * size to report and must read one from the bytes, and every OCR loader has that problem.
  */
 export { imageSize } from "./domain/image.js";
 export type { ImageSize } from "./domain/image.js";
+export { tiffPages } from "./domain/tiff.js";
+export type { TiffPage } from "./domain/tiff.js";
 
 /** `form` from per-page text lengths — the digital/scanned/mixed verdict. */
 export { inferForm, preloadedFeatures } from "./pipeline/features.js";
@@ -164,6 +183,8 @@ export { defineStrategy } from "./contracts/strategy.js";
 export type {
   ClassificationNeed,
   ExtractionStrategy,
+  OutcomeCitation,
+  RepairInput,
   StrategyContext,
   StrategyOutcome,
 } from "./contracts/strategy.js";
@@ -252,7 +273,7 @@ export { resolveSource, sniffMimeType } from "./pipeline/source.js";
 // ── Advanced: drive the pipeline without an Extractor ───────────────────────────
 export { runPipeline } from "./pipeline/run.js";
 export type { PipelineComponents, RunOptions } from "./pipeline/run.js";
-export { loadDocument } from "./pipeline/read.js";
+export { readDocument } from "./pipeline/read.js";
 export type { ReadDocument } from "./pipeline/read.js";
 
 /**

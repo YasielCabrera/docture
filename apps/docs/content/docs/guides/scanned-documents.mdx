@@ -48,7 +48,7 @@ and partial results merge in page order.
 
 ## Use Tesseract OCR
 
-Tesseract accepts PNG and JPEG files directly. It needs a rasterizer for PDFs. For the
+Tesseract accepts PNG, JPEG, and multi-page TIFF files directly. It needs a rasterizer for PDFs. For the
 canvas-backed PDF setup below:
 
 ```sh
@@ -75,6 +75,8 @@ local files.
 ```sh
 npm install docture ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10
 ```
+
+PaddleOCR reads TIFF files when `utif2@4.1.0` is also installed.
 
 ```ts
 import { DocumentLoaderPaddleOcr } from "docture/loaders/paddleocr";

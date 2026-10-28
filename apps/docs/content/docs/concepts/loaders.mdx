@@ -21,8 +21,8 @@ interface DocumentLoader {
 | `DocumentLoaderData` | Text, Markdown, CSV, HTML, JSON, XML | Text |
 | `DocumentLoaderPdfJs` | PDF | Text and geometry |
 | `DocumentLoaderMuPdf` | PDF | Text and geometry |
-| `DocumentLoaderTesseract` | PNG, JPEG, and PDF with a rasterizer | OCR text, geometry, confidence, images |
-| `DocumentLoaderPaddleOcr` | PNG, JPEG, and PDF with a rasterizer | OCR text, geometry, confidence, images |
+| `DocumentLoaderTesseract` | PNG, JPEG, multi-page TIFF, and PDF with a rasterizer | OCR text, geometry, confidence, images |
+| `DocumentLoaderPaddleOcr` | PNG, JPEG, multi-page TIFF with `utif2`, and PDF with a rasterizer | OCR text, geometry, confidence, images |
 
 The public subpath identifies the document library. See
 [installation recipes](/docs/guides/installation) for each adapter's engine peer. Each loader exports one class name and one matching options type.

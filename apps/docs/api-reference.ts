@@ -16,23 +16,30 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "AttemptStatus",
         "BatchItem",
         "BatchOptions",
+        "CitationStatus",
         "ClassificationResult",
         "ClassificationSignal",
+        "ConflictingValue",
         "DocumentExtractor",
         "EMPTY_USAGE",
         "sumUsage",
         "mapWithConcurrency",
+        "ExtractionConflict",
         "ExtractionResult",
         "Extractor",
         "ExtractorOptions",
+        "FieldCitation",
         "LoadLlmOptions",
         "ModelBackend",
         "PipelineComponents",
+        "RepairInput",
+        "RuleFailureMode",
         "RunOptions",
         "SafeExtraction",
         "Usage",
         "ValidationIssue",
         "ValidationOutcome",
+        "ValidationRule",
         "createExtractor"
       ],
       "content/docs/reference/api/core-conversion.mdx": [
@@ -48,12 +55,14 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "ConvertedPage",
         "DoctureDocument",
         "DoctureDocumentAsset",
+        "DoctureDocumentParse",
         "ConvertOptions",
         "DocumentConverter",
         "DocumentConverterOptions",
         "DocumentElement",
         "ElementProvenance",
         "FigureElement",
+        "FurnitureEvidence",
         "HeadingElement",
         "InlineText",
         "LayoutAnalysis",
@@ -63,13 +72,23 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "LayoutDocument",
         "LayoutElementRole",
         "LayoutPage",
+        "LineSourceId",
         "ListElement",
         "PageBreakElement",
+        "PageFooterElement",
+        "PageHeaderElement",
         "ParagraphElement",
+        "ProvenanceSegment",
         "SafeConversion",
+        "SourceLine",
+        "TableCellSpan",
         "TableElement",
         "createDocumentConverter",
-        "defineLayoutAnalyzer"
+        "defineLayoutAnalyzer",
+        "isLineSourceId",
+        "parseDoctureDocument",
+        "provenanceSegments",
+        "sourceLines"
       ],
       "content/docs/reference/api/core-contracts.mdx": [
         "Contract",
@@ -127,6 +146,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "TextLoader",
         "TextSpan",
         "TextStyle",
+        "TiffPage",
         "WithImages",
         "WithRasterizerOptions",
         "consoleLogger",
@@ -144,6 +164,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "silentLogger",
         "sniffMimeType",
         "textFromLines",
+        "tiffPages",
         "withRasterizer"
       ],
       "content/docs/reference/api/core-components.mdx": [
@@ -151,13 +172,14 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "ClassificationStrategy",
         "CompletionStrategy",
         "ExtractionStrategy",
+        "OutcomeCitation",
         "ReadDocument",
         "RoutingPolicy",
         "StrategyContext",
         "StrategyOutcome",
         "declarationOrder",
         "defineStrategy",
-        "loadDocument",
+        "readDocument",
         "runPipeline"
       ],
       "content/docs/reference/api/core-classification.mdx": [
@@ -237,6 +259,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "LlmOptions",
         "LlmStrategy",
         "LlmStrategyOptions",
+        "LlmTelemetryOptions",
         "SplitterOptions",
         "TextSplitter",
         "VisionStrategy",
@@ -253,10 +276,13 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       ],
       "content/docs/reference/api/llm-utilities.mdx": [
         "BuildPromptOptions",
+        "MergeDiagnostics",
+        "MergePart",
         "CacheKeyParts",
         "CachedResponse",
         "ContentPart",
         "Chunk",
+        "ChunkContext",
         "DEFAULT_SYSTEM_PROMPT",
         "JsonSchemaLike",
         "LlmCache",
@@ -275,6 +301,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "lookupPricing",
         "memoryCache",
         "mergePartials",
+        "mergePartialsWithDiagnostics",
         "relaxJsonSchema",
         "toUsage"
       ]
@@ -288,6 +315,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       "content/docs/reference/api/llm.mdx": [
         "LlmStrategy",
         "LlmStrategyOptions",
+        "LlmTelemetryOptions",
         "llm",
         "modelIdOf"
       ]
@@ -301,6 +329,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       "content/docs/reference/api/llm.mdx": [
         "VisionStrategy",
         "VisionStrategyOptions",
+        "LlmTelemetryOptions",
         "vision"
       ]
     }
@@ -313,6 +342,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       "content/docs/reference/api/llm.mdx": [
         "LlmClassifier",
         "LlmClassifierOptions",
+        "LlmTelemetryOptions",
         "llmClassifier"
       ]
     }
@@ -325,6 +355,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       "content/docs/reference/api/llm.mdx": [
         "LlmLayoutAnalyzer",
         "LlmLayoutAnalyzerOptions",
+        "LlmTelemetryOptions",
         "llmLayout"
       ]
     }
@@ -339,6 +370,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "TextSplitter",
         "imageSplitter",
         "textSplitter",
+        "LlmTelemetryOptions",
         "SplitterOptions"
       ]
     }
@@ -399,6 +431,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "estimateTokens",
         "BuildPromptOptions",
         "Chunk",
+        "ChunkContext",
         "PromptParts"
       ]
     }
@@ -409,7 +442,10 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     entrypoint: "../../packages/docture/src/llm/merge.ts",
     pages: {
       "content/docs/reference/api/llm-utilities.mdx": [
-        "mergePartials"
+        "MergeDiagnostics",
+        "MergePart",
+        "mergePartials",
+        "mergePartialsWithDiagnostics"
       ]
     }
   },
@@ -492,6 +528,21 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
   },
   {
     packageName: "docture",
+    importPath: "docture/chunk",
+    entrypoint: "../../packages/docture/src/chunk/index.ts",
+    pages: {
+      "content/docs/reference/api/chunk.mdx": [
+        "ChunkBudget",
+        "ChunkOptions",
+        "ChunkableDocument",
+        "DocumentChunk",
+        "chunkDocument",
+        "estimateTokens"
+      ]
+    }
+  },
+  {
+    packageName: "docture",
     importPath: "docture/eval",
     entrypoint: "../../packages/docture/src/eval/index.ts",
     pages: {
@@ -567,6 +618,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     entrypoint: "../../packages/cli/src/index.ts",
     pages: {
       "content/docs/reference/api/cli.mdx": [
+        "CaptureOptions",
         "CapturedIo",
         "CliError",
         "DoctureConfig",
@@ -583,6 +635,18 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "run",
         "styleFor",
         "version"
+      ]
+    }
+  },
+  {
+    packageName: "@docture/cli",
+    importPath: "@docture/cli/mcp",
+    entrypoint: "../../packages/cli/src/mcp/index.ts",
+    pages: {
+      "content/docs/reference/api/cli.mdx": [
+        "ENGINE_RANGES",
+        "McpServerOptions",
+        "createMcpServer"
       ]
     }
   }
