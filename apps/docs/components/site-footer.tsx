@@ -45,7 +45,12 @@ export function SiteFooter() {
             </p>
             <p className="mt-4 text-sm text-fd-muted-foreground">
               Built by{" "}
-              <a href="https://www.powerhouse.io/" className={linkClassName}>
+              <a
+                href="https://www.powerhouse.io/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={linkClassName}
+              >
                 Powerhouse
               </a>
             </p>

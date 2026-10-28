@@ -1,4 +1,3 @@
-import { FileText } from "lucide-react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
@@ -9,6 +8,7 @@ import {
 } from "fumadocs-ui/layouts/notebook/page";
 import { createRelativeLink } from "fumadocs-ui/mdx";
 import { getMDXComponents } from "@/components/mdx";
+import { PageActions } from "@/components/page-actions";
 import { getPageMarkdownUrl, source } from "@/lib/source";
 
 export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
@@ -25,10 +25,7 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
           <DocsTitle className="text-3xl tracking-tight sm:text-4xl">
             {page.data.title}
           </DocsTitle>
-          <a href={getPageMarkdownUrl(page)} className="docs-markdown-link">
-            <FileText aria-hidden="true" className="size-3.5" />
-            View as Markdown
-          </a>
+          <PageActions markdownUrl={getPageMarkdownUrl(page)} />
         </div>
         <DocsDescription className="mb-0 mt-4 text-base leading-relaxed sm:text-lg">
           {page.data.description}

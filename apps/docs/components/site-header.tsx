@@ -30,7 +30,7 @@ export function SiteHeader({ mobileNavigation, className, ...props }: SiteHeader
           <FullSearchTrigger hideIfDisabled className="site-search-full" />
           <SearchTrigger hideIfDisabled className="site-search-compact" />
           <ThemeSwitch />
-          <a href={repositoryUrl} aria-label="GitHub" className="site-header-action site-header-github">
+          <a href={repositoryUrl} target="_blank" rel="noopener noreferrer" aria-label="GitHub" className="site-header-action site-header-github">
             {resolveLinkItems({ githubUrl: repositoryUrl }).map((item) => item.type === "icon" ? (
               <span key={item.url} aria-hidden="true" className="[&_svg]:size-5">{item.icon}</span>
             ) : null)}
@@ -47,7 +47,7 @@ export function SiteHeader({ mobileNavigation, className, ...props }: SiteHeader
                       {link.label}
                     </Link>
                   ))}
-                  <a href={repositoryUrl} className="rounded-control px-3 py-2 text-sm hover:bg-fd-accent">GitHub</a>
+                  <a href={repositoryUrl} target="_blank" rel="noopener noreferrer" className="rounded-control px-3 py-2 text-sm hover:bg-fd-accent">GitHub</a>
                 </PopoverContent>
               </Popover>
             )}

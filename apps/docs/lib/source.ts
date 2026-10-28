@@ -1,7 +1,7 @@
 import { loader } from "fumadocs-core/source";
 import { metaSchema, pageSchema } from "fumadocs-core/source/schema";
 import { defineDocs } from "fumadocs-mdx/macro";
-import { docsContentRoute, docsRoute } from "./shared";
+import { docsRoute } from "./shared";
 
 const docs = defineDocs({
   dir: "content/docs",
@@ -18,8 +18,7 @@ export const source = loader({
 });
 
 export function getPageMarkdownUrl(page: (typeof source)["$inferPage"]): string {
-  const segments = [...page.slugs, "content.md"];
-  return "/" + [page.locale, ...docsContentRoute.split("/"), ...segments].filter(Boolean).join("/");
+  return `${page.url}.md`;
 }
 
 export async function getLLMText(page: (typeof source)["$inferPage"]): Promise<string> {
