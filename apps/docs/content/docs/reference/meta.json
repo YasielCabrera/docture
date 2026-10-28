@@ -1,4 +1,10 @@
 {
   "title": "Reference",
-  "pages": ["packages", "errors", "...api", "architecture", "changelog"]
+  "pages": [
+    "packages",
+    "errors",
+    "api",
+    "architecture",
+    "changelog"
+  ]
 }

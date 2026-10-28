@@ -1,14 +1,13 @@
 {
   "title": "Documentation",
   "pages": [
+    "---Getting started---",
     "index",
     "quick-start",
     "how-it-works",
-    "---Guides---",
-    "...guides",
-    "---Concepts---",
-    "...concepts",
-    "---Reference---",
-    "...reference"
+    "---Documentation---",
+    "guides",
+    "concepts",
+    "reference"
   ]
 }

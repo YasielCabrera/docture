@@ -1,3 +1,4 @@
+import { FileText } from "lucide-react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
@@ -5,7 +6,7 @@ import {
   DocsDescription,
   DocsPage,
   DocsTitle,
-} from "fumadocs-ui/layouts/docs/page";
+} from "fumadocs-ui/layouts/notebook/page";
 import { createRelativeLink } from "fumadocs-ui/mdx";
 import { getMDXComponents } from "@/components/mdx";
 import { getPageMarkdownUrl, source } from "@/lib/source";
@@ -19,11 +20,20 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription>{page.data.description}</DocsDescription>
-      <a href={getPageMarkdownUrl(page)} className="text-sm text-fd-muted-foreground underline">
-        View as Markdown
-      </a>
+      <header className="docs-page-header">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <DocsTitle className="text-3xl tracking-tight sm:text-4xl">
+            {page.data.title}
+          </DocsTitle>
+          <a href={getPageMarkdownUrl(page)} className="docs-markdown-link">
+            <FileText aria-hidden="true" className="size-3.5" />
+            View as Markdown
+          </a>
+        </div>
+        <DocsDescription className="mb-0 mt-4 text-base leading-relaxed sm:text-lg">
+          {page.data.description}
+        </DocsDescription>
+      </header>
       <DocsBody>
         <MDX components={getMDXComponents({ a: createRelativeLink(source, page) })} />
       </DocsBody>
