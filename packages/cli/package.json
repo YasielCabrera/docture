@@ -79,7 +79,10 @@
     "typescript": "7.0.2",
     "vitest": "4.1.10",
     "zod": "4.4.3",
-    "pdfkit": "0.19.1"
+    "pdfkit": "0.19.1",
+    "react": "19.3.1",
+    "@react-pdf/renderer": "4.9.0",
+    "@types/react": "19.3.0"
   },
   "keywords": [
     "cli",

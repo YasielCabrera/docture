@@ -8,9 +8,19 @@ description: Generate labeled documents from schemas and evaluate extraction wit
 Start with [your first labeled PDF](/docs/synthetic/quick-start). Then choose a task:
 
 - [Define models and generators](/docs/synthetic/models) and [add scenarios](/docs/synthetic/scenarios).
-- Create [PDF](/docs/synthetic/pdf-templates) or [HTML templates](/docs/synthetic/html-templates).
+- Create [PDF](/docs/synthetic/pdf-templates), [React](/docs/synthetic/react-templates), or [HTML templates](/docs/synthetic/html-templates).
 - Declare [printed fields](/docs/synthetic/printed-fields) and [verify labels](/docs/synthetic/verification).
 - [Simulate scans and photos](/docs/synthetic/degradation), [build a corpus](/docs/synthetic/corpora), and [evaluate it](/docs/synthetic/evaluation).
+
+## Choose a template kind
+
+| Kind | You write | Layout | Engines |
+| --- | --- | --- | --- |
+| [PDF](/docs/synthetic/pdf-templates) | Drawing calls at explicit coordinates | You place every line | `pdfkit` |
+| [React](/docs/synthetic/react-templates) | React components with `<Field>` | Flexbox, automatic page wrapping, repeating headers | `react`, `@react-pdf/renderer` |
+| [HTML](/docs/synthetic/html-templates) | An HTML string with `data-field` | CSS, one section per page | `playwright-core` and Chromium |
+
+Choose PDF templates to reproduce measured layouts exactly, React templates for rich layouts built from reusable components, and HTML templates when you already have HTML and CSS. PDF and React templates work in corpora and the CLI.
 
 The [API reference](/docs/synthetic/reference) lists every public entry. The root needs no engine. Renderers and other engine-backed entries load their optional peers when used. Choose [installation recipes](/docs/getting-started/installation#synthetic-documents) for the entries you use.
 

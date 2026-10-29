@@ -11,7 +11,7 @@ export async function readExampleSource(file: string): Promise<string> {
 
 export async function expandSourceExamples(markdown: string): Promise<string> {
   const tags = [...markdown.matchAll(/<SourceExample\s+file=["']([^"']+)["'][^>]*\/>/g)];
-  const examples = await Promise.all(tags.map(async (tag) => ({ tag: tag[0], source: await readExampleSource(tag[1] ?? "") })));
-  for (const example of examples) markdown = markdown.replace(example.tag, () => `\`\`\`ts\n${example.source}\n\`\`\``);
+  const examples = await Promise.all(tags.map(async (tag) => ({ tag: tag[0], lang: tag[1]?.endsWith(".tsx") ? "tsx" : "ts", source: await readExampleSource(tag[1] ?? "") })));
+  for (const example of examples) markdown = markdown.replace(example.tag, () => `\`\`\`${example.lang}\n${example.source}\n\`\`\``);
   return markdown;
 }

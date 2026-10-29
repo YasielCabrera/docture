@@ -1,6 +1,8 @@
 import type { LayoutBox } from "docture";
+import type { SyntheticDocument } from "./document.js";
 import type { Formatter, Locale } from "./format.js";
 import type { PrintedMask } from "./mask.js";
+import type { Sample } from "./model.js";
 import { formatKey, type ConcretePath } from "./path.js";
 
 /** A page size in PDF points. */
@@ -85,6 +87,24 @@ export interface TemplateDefinition<T> {
   draw(surface: Surface<T>, value: T, format: Formatter): void;
 }
 
+/**
+ * A template that renders itself through an engine entry, such as `defineReactTemplate` from
+ * `@docture/synthetic/react-pdf`. `writeCorpus`, `renderTemplate` and `docture synth` call
+ * `renderDocument` instead of PDFKit, so they never import that engine themselves.
+ */
+export interface RenderingTemplate<T> {
+  readonly key: string;
+  readonly aliases: readonly string[];
+  readonly family: string;
+  readonly tags: Readonly<Record<string, TagValue>>;
+  readonly locale: Locale;
+  readonly printed: PrintedMask<T>;
+  renderDocument(sample: Sample<T>, options?: { readonly createdAt?: string }): Promise<SyntheticDocument>;
+}
+
+/** Any template a corpus or `docture synth` renders: a PDFKit `Template` or a `RenderingTemplate`. */
+export type SynthTemplate<T> = Template<T> | RenderingTemplate<T>;
+
 export const defaultFonts = { regular: "Helvetica", bold: "Helvetica-Bold", italic: "Helvetica-Oblique", mono: "Courier" } as const;
 
 /** Define a template for values of type `T`: `defineTemplate<Invoice>()({ … })`. */
@@ -103,9 +123,12 @@ export function defineTemplate<T>(): (definition: TemplateDefinition<T>) => Temp
 }
 
 /** Resolve templates by key, alias, family or `all`, keeping registry order and dropping duplicates. */
-export function selectTemplates<T>(registry: readonly Template<T>[], selectors: readonly string[]): readonly Template<T>[] {
+export function selectTemplates<Selected extends Pick<SynthTemplate<unknown>, "key" | "aliases" | "family">>(
+  registry: readonly Selected[],
+  selectors: readonly string[],
+): readonly Selected[] {
   const norm = (text: string): string => text.trim().toLowerCase();
-  const chosen = new Set<Template<T>>();
+  const chosen = new Set<Selected>();
   for (const selector of selectors.map(norm)) {
     const matches =
       selector === "all" || selector === "*"

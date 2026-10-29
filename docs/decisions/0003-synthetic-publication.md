@@ -16,6 +16,7 @@ Publish `@docture/synthetic` beside `docture`, `@docture/cli`, and `@docture/eva
 | `./faker` | Locale-aware generators | `@faker-js/faker` |
 | `./llm` | Cached text pools from a model | `ai` |
 | `./html` | Render an HTML template with Chromium | `playwright-core` |
+| `./react-pdf` | Render a React template with react-pdf | `react`, `@react-pdf/renderer` |
 | `./node` | Write a corpus to disk | None directly |
 
 Only `./node` imports `node:` built-ins. It can also import `pdfkit/`, `verify/`, and `degrade/`, because the corpus writer orchestrates rendering, verification, and degradation. Their engines still load lazily, when a case uses them.
@@ -36,7 +37,9 @@ Ground truth is correct by construction. A value is sampled, then drawn, and the
 
 ## Engines
 
-Every synthetic-only engine is an exact pin until the packed gate verifies a range: `sharp`, `@faker-js/faker`, and `playwright-core`. Their engine matrix records floor and current as the same pinned version. `pdfkit`, `pdfjs-dist`, `@napi-rs/canvas`, and `ai` reuse docture's verified ranges, because docture's gate already runs their floors and newest releases.
+Every synthetic-only engine is an exact pin until the packed gate verifies a range: `sharp`, `@faker-js/faker`, `playwright-core`, and `@react-pdf/renderer`. Their engine matrix records floor and current as the same pinned version. `react` has a verified range, `>=18.3.1 <20.0.0`: the floor tier renders with React 18.3.1 and the current tier with 19.3.1.
+
+React templates read field boxes from the layout that `@react-pdf/renderer` passes to the document's `onRender` callback, the same layout it rendered. That field is internal to react-pdf, so its version stays an exact pin and the packed gate renders and verifies a React template on both tiers. `@react-pdf/renderer` takes `@react-pdf/layout`, `@react-pdf/render`, `@react-pdf/textkit`, and `@react-pdf/font` by caret range, so the pin fixes the API but not every metric; byte equality holds for one installed dependency set, which a consumer's lockfile fixes. A React template carries `renderDocument`, so the corpus writer and `docture synth` render it through `renderTemplate` without importing React. `pdfkit`, `pdfjs-dist`, `@napi-rs/canvas`, and `ai` reuse docture's verified ranges, because docture's gate already runs their floors and newest releases.
 
 Each entry exports `ENGINE_RANGES` for the engines it loads. An absent peer raises docture's `MissingEngineError`, naming the engine, its range, and the entry.
 
@@ -52,12 +55,12 @@ Add `@docture/synthetic` to the Changesets fixed group with the other three publ
 - Only `node/` imports Node built-ins. Each entry can import only its declared `docture` subpaths.
 - Each engine is imported only by its entry and only with `import()`. A type-only import is allowed in that entry.
 - Each engine an entry loads appears in that entry's `ENGINE_RANGES`, with a range equal to the optional peer. Every peer has a range or reuses docture's.
-- `sharp`, `@faker-js/faker`, and `playwright-core` are exact pins equal to the development versions. `pdfkit`, `pdfjs-dist`, and `@napi-rs/canvas` equal docture's ranges.
+- `sharp`, `@faker-js/faker`, `playwright-core`, and `@react-pdf/renderer` are exact pins equal to the development versions. `pdfkit`, `pdfjs-dist`, and `@napi-rs/canvas` equal docture's ranges.
 - The manifest has `sideEffects: false`, one explicit export per entry folder, per-file targets, a node-only `./node`, a required `docture` peer, and no runtime dependencies.
 - `packages/synthetic/src` has no `Date.now()`, no zero-argument `new Date()`, and no `Math.random()`. Time is an input, and randomness comes from `streamFor(seed, key)`.
 
-`pnpm verify:packages` packs all four packages and installs the tarballs outside the workspace with npm and pnpm. Without optional engines, it imports every synthetic entry, compares each `ENGINE_RANGES` with the packed peers, and type-checks the declarations of every entry whose types name no engine. It also checks per-file output and `sideEffects: false`. It probes `MissingEngineError` for `renderPdf`, `degrade`, `./faker`, `./html`, and `./llm`. It also checks that a `SynthesisError` from a second installed copy is recognized.
+`pnpm verify:packages` packs all four packages and installs the tarballs outside the workspace with npm and pnpm. Without optional engines, it imports every synthetic entry, compares each `ENGINE_RANGES` with the packed peers, and type-checks the declarations of every entry whose types name no engine. It also checks per-file output and `sideEffects: false`. It probes `MissingEngineError` for `renderPdf`, `degrade`, `./faker`, `./html`, `./react-pdf`, and `./llm`. It also checks that a `SynthesisError` from a second installed copy is recognized.
 
-The gate builds an esbuild browser bundle of the root and rejects any entry folder, non-core docture module, or engine in it, with a mutation control. With only `pdfkit` installed, it renders a labeled invoice from the packed `./pdfkit` entry. With the pinned engine matrix installed, it verifies labels, degrades a page, generates faker values, launches the HTML renderer up to Chromium, and type-checks the engine-typed entries. It also writes a corpus that packed eval's `jsonlDataset` reads with locations.
+The gate builds an esbuild browser bundle of the root and rejects any entry folder, non-core docture module, or engine in it, with a mutation control. With only `pdfkit` installed, it renders a labeled invoice from the packed `./pdfkit` entry. With the pinned engine matrix installed, it verifies labels, degrades a page, generates faker values, launches the HTML renderer up to Chromium, renders and verifies a React template, and type-checks the engine-typed entries. It also writes a corpus that packed eval's `jsonlDataset` reads with locations.
 
 The ordinary typecheck, behavioral tests, and build remain release gates. Rendering with a real Chromium build and live model calls need local installs or credentials; deterministic tests cover them in CI.

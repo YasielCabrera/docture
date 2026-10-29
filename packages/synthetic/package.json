@@ -1,7 +1,7 @@
 {
   "name": "@docture/synthetic",
   "version": "0.2.0",
-  "description": "Generate labeled synthetic documents from an extraction schema: seeded values, typed templates, field boxes, label verification and scan, photo and fax degradations.",
+  "description": "Generate labeled synthetic documents from an extraction schema: seeded values, typed PDFKit and React templates, field boxes, label verification and scan, photo and fax degradations.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -80,6 +80,12 @@
       "types": "./dist/html/index.d.ts",
       "import": "./dist/html/index.js",
       "default": "./dist/html/index.js"
+    },
+    "./react-pdf": {
+      "source": "./src/react-pdf/index.ts",
+      "types": "./dist/react-pdf/index.d.ts",
+      "import": "./dist/react-pdf/index.js",
+      "default": "./dist/react-pdf/index.js"
     }
   },
   "scripts": {
@@ -89,31 +95,36 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "peerDependencies": {
-    "docture": "workspace:^",
-    "pdfkit": ">=0.17.2 <0.21.0",
-    "pdfjs-dist": "^6.2.108",
-    "@napi-rs/canvas": "^1.0.10",
-    "sharp": "0.35.5",
     "@faker-js/faker": "10.6.0",
+    "@napi-rs/canvas": "^1.0.10",
+    "ai": "^7.0.0",
+    "docture": "workspace:^",
+    "pdfjs-dist": "^6.2.108",
+    "pdfkit": ">=0.17.2 <0.21.0",
     "playwright-core": "1.64.1",
-    "ai": "^7.0.0"
+    "sharp": "0.35.5",
+    "react": ">=18.3.1 <20.0.0",
+    "@react-pdf/renderer": "4.9.0"
   },
   "devDependencies": {
+    "@ai-sdk/provider-utils": "5.0.20",
+    "@docture/eval": "workspace:*",
+    "@faker-js/faker": "10.6.0",
+    "@napi-rs/canvas": "1.0.10",
+    "@react-pdf/renderer": "4.9.0",
     "@types/node": "^24.13.3",
+    "@types/pdfkit": "^0.17.6",
+    "@types/react": "19.3.0",
+    "ai": "7.0.51",
     "docture": "workspace:*",
+    "pdfjs-dist": "6.2.108",
+    "pdfkit": "0.19.1",
+    "playwright-core": "1.64.1",
+    "react": "19.3.1",
+    "sharp": "0.35.5",
     "typescript": "7.0.2",
     "vitest": "4.1.10",
-    "zod": "4.4.3",
-    "pdfkit": "0.19.1",
-    "@types/pdfkit": "^0.17.6",
-    "pdfjs-dist": "6.2.108",
-    "@napi-rs/canvas": "1.0.10",
-    "sharp": "0.35.5",
-    "@faker-js/faker": "10.6.0",
-    "playwright-core": "1.64.1",
-    "ai": "7.0.51",
-    "@ai-sdk/provider-utils": "5.0.20",
-    "@docture/eval": "workspace:*"
+    "zod": "4.4.3"
   },
   "sideEffects": false,
   "keywords": [
@@ -121,7 +132,9 @@
     "documents",
     "ground-truth",
     "evaluation",
-    "docture"
+    "docture",
+    "react",
+    "react-pdf"
   ],
   "peerDependenciesMeta": {
     "pdfkit": {
@@ -143,6 +156,12 @@
       "optional": true
     },
     "ai": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "@react-pdf/renderer": {
       "optional": true
     }
   }

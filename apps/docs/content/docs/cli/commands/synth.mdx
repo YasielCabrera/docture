@@ -5,8 +5,10 @@ description: "Generate labeled synthetic documents from docture.synth.ts"
 
 Samples values from the model in docture.synth.ts, renders them with its templates and
 writes each document with its ground truth and field boxes. Every subcommand is a thin
-shell over @docture/synthetic. Rendering needs pdfkit, degraded renditions sharp, and
-verification the CLI's PDF.js.
+shell over @docture/synthetic. PDF templates need pdfkit, React templates react and
+@react-pdf/renderer, degraded renditions sharp, and verification the CLI's PDF.js.
+Node does not compile JSX: run with NODE_OPTIONS="--import tsx" when the config
+imports .tsx templates.
 
 ## Arguments
 

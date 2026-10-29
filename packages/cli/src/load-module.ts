@@ -51,6 +51,14 @@ function importFailure(kind: string, path: string, error: unknown): UsageError {
       "Install the missing package or fix the import path in this module.",
     );
   }
+  // Node strips types but never compiles JSX, so a React template module fails here on any version.
+  const jsx = /Unknown file extension "\.(?:tsx|jsx)" for (.+)$/u.exec(message);
+  if (code === "ERR_UNKNOWN_FILE_EXTENSION" && jsx !== null) {
+    return new UsageError(
+      `Node cannot import the JSX module "${jsx[1]}" that the ${kind} "${path}" loads.`,
+      'Run with a JSX loader, as in NODE_OPTIONS="--import tsx" docture …, or point at compiled .js files.',
+    );
+  }
   // Node < 22.18 will not strip types; Node of any version refuses to strip inside
   // node_modules. Both surface here, and both have the same three ways out.
   if (

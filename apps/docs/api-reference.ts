@@ -1776,7 +1776,9 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "Printed",
         "PrintedMask",
         "Projection",
+        "RenderingTemplate",
         "Surface",
+        "SynthTemplate",
         "TableColumn",
         "TableOptions",
         "TemplateDefinition",
@@ -1860,7 +1862,8 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       "content/docs/synthetic/reference/pdfkit.mdx": [
         "ENGINE_RANGES",
         "RenderPdfOptions",
-        "renderPdf"
+        "renderPdf",
+        "renderTemplate"
       ]
     }
   },
@@ -1971,6 +1974,27 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "TextPoolCache",
         "TextPoolOptions",
         "llmTextPool"
+      ]
+    }
+  },
+  {
+    "packageName": "@docture/synthetic",
+    "importPath": "@docture/synthetic/react-pdf",
+    "entrypoint": "../../packages/synthetic/src/react-pdf/index.ts",
+    "pages": {
+      "content/docs/synthetic/reference/react-pdf.mdx": [
+        "ENGINE_RANGES",
+        "FieldComponent",
+        "FieldPath",
+        "FieldProps",
+        "ReactFont",
+        "ReactTemplate",
+        "ReactTemplateDefinition",
+        "ReactTemplateProps",
+        "RenderReactPdfOptions",
+        "Field",
+        "defineReactTemplate",
+        "renderReactPdf"
       ]
     }
   },

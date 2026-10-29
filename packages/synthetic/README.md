@@ -12,6 +12,7 @@ npm install pdfjs-dist@^6.2.108 @napi-rs/canvas@^1.0.10
 npm install sharp@0.35.5
 # Optional value and layout engines:
 npm install @faker-js/faker@10.6.0   # @docture/synthetic/faker
+npm install react@19.3.1 @react-pdf/renderer@4.9.0   # @docture/synthetic/react-pdf
 npm install playwright-core@1.64.1   # @docture/synthetic/html, then: npx playwright-core install chromium
 npm install ai@^7                    # @docture/synthetic/llm
 ```
@@ -91,6 +92,31 @@ const report = await writeCorpus("corpus", {
 
 `docture synth list|gen|render|corpus|verify` in `@docture/cli` runs the same steps from a `docture.synth.ts` file typed with `defineSynthConfig`.
 
+## React templates
+
+`@docture/synthetic/react-pdf` renders templates written as React components with `@react-pdf/renderer`. Wrap each printed value in `<Field path>`; its label box comes from react-pdf's layout, so pages can use flexbox, components, automatic page wrapping and repeating headers:
+
+```tsx
+import { Page, Text } from "@react-pdf/renderer";
+import { defineReactTemplate } from "@docture/synthetic/react-pdf";
+
+const react = defineReactTemplate<Invoice>()({
+  key: "react",
+  family: "invoice",
+  locale: locales["de-DE"],
+  printed: { invoiceNumber: true /* ... */ },
+  render: ({ value, format, Field }) => (
+    <Page size="A4" style={{ padding: 50 }}>
+      <Text>RECHNUNG</Text>
+      <Field path="invoiceNumber">{value.invoiceNumber}</Field>
+    </Page>
+  ),
+});
+const document = await react.renderDocument(await model.sample({ seed: 7 }));
+```
+
+React templates work in `writeCorpus` and `docture synth` beside PDFKit templates. See the [React template guide](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/synthetic/react-templates.mdx).
+
 ## Fonts
 
 Templates draw with the standard PDF fonts (Helvetica and Courier) unless they declare their own. Those cover Western European text, `€` and `£`, but not, for example, `ł` or U+2212. Pass TrueType or OpenType bytes in `fonts` for other scripts. The renderer checks every drawn character against its font and fails with `TemplateError` (`missing-glyph`) instead of printing a wrong character.
@@ -116,6 +142,7 @@ See the [synthetic corpus guide](https://github.com/YasielCabrera/docture/blob/m
 | `@docture/synthetic/degrade` | Scan, low-quality scan, photo and fax renditions with transformed boxes | `sharp`, `pdfjs-dist`, `@napi-rs/canvas`, `pdfkit` |
 | `@docture/synthetic/node` | Write a resumable corpus that `@docture/eval`'s `jsonlDataset` reads | the engines of the renditions you ask for |
 | `@docture/synthetic/faker` | Seeded, locale-aware values from Faker | `@faker-js/faker` |
+| `@docture/synthetic/react-pdf` | React templates laid out by react-pdf, with a box for every `<Field>` | `react`, `@react-pdf/renderer` |
 | `@docture/synthetic/html` | HTML and CSS templates printed by Chromium | `playwright-core` |
 | `@docture/synthetic/llm` | Model-written text pools, cached for offline rebuilds | `ai` |
 

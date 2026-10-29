@@ -3,5 +3,5 @@ import shared from "../../vitest.shared.js";
 
 export default mergeConfig(
   shared,
-  defineConfig({ test: { include: ["test/**/*.test.ts", "src/**/*.test.ts"] } }),
+  defineConfig({ test: { include: ["test/**/*.test.ts", "test/**/*.test.tsx", "src/**/*.test.ts"] } }),
 );

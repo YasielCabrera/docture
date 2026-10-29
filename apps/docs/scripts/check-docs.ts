@@ -326,6 +326,7 @@ for (const failure of await checkAdditionalDocs(resolve(ROOT, "../.."), program)
 const importCount = await checkPublicImports([
   ...files,
   ...await walk(resolve(ROOT, "examples"), ".ts"),
+  ...await walk(resolve(ROOT, "examples"), ".tsx"),
   ...await walk(resolve(ROOT, "components"), ".tsx"),
   resolve(ROOT, "scripts/generate-hero-document.ts"),
   resolve(ROOT, "../../README.md"),

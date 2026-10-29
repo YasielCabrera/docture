@@ -373,6 +373,7 @@ Only `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic` are pu
 | `@docture/synthetic/degrade` | `degrade`: scan, photo, and fax renditions with transformed boxes |
 | `@docture/synthetic/node` | `writeCorpus`: resumable corpora for `@docture/eval` |
 | `@docture/synthetic/faker` | `fakerFor`: seeded Faker values |
+| `@docture/synthetic/react-pdf` | `defineReactTemplate`, `renderReactPdf`: React templates with field boxes |
 | `@docture/synthetic/html` | `renderHtmlPdf`: HTML templates printed by Chromium |
 | `@docture/synthetic/llm` | `llmTextPool`: cached model-written text pools |
 | `docture/testing/doubles` | In-memory documents, loaders, and fixed or failing strategies |

@@ -116,7 +116,7 @@ pnpm --filter @docture/docs build
 `check:docs` verifies public exports and imports, recipes, links, anchors, migration
 destinations, navigation coverage, area order, prose rules, and generated files.
 `typecheck` also checks TypeScript examples and runs the documentation checks.
-`check:examples` executes eight offline recipes using generated PDFs and removes its
+`check:examples` executes nine offline recipes using generated PDFs and removes its
 temporary files. Model-backed examples compile; live execution needs credentials.
 
 Keep the [installation recipes](content/docs/getting-started/installation.mdx) and

@@ -1,0 +1,57 @@
+---
+title: Synthetic react-pdf API
+description: Public API for @docture/synthetic/react-pdf.
+---
+
+## `@docture/synthetic/react-pdf`
+
+Render React templates with `@react-pdf/renderer` and label every `<Field>`. See [Create synthetic React templates](/docs/synthetic/react-templates) for a guide.
+
+- `ReactTemplate`
+- `ReactTemplateDefinition`
+- `ReactTemplateProps`
+- `ReactFont`
+- `FieldProps`
+- `FieldPath`
+- `FieldComponent`
+- `RenderReactPdfOptions`
+
+### `defineReactTemplate`
+
+```ts
+defineReactTemplate<T>(): (definition: ReactTemplateDefinition<T>) => ReactTemplate<T>
+```
+
+Define a React template for values of type `T`: `defineReactTemplate<Invoice>()({ ... })`. A definition has a `key`, optional `aliases`, a `family`, optional `tags`, a `locale`, the `printed` mask, optional `fonts`, and `render`.
+
+`render(props)` receives `ReactTemplateProps<T>`: the sampled `value`, a `format` for the template's locale, and `Field` typed for `T`. It returns one or more `<Page>` elements, or a promise of them. Returning a `<Document>` fails, because the renderer supplies it.
+
+`fonts` is a list of `ReactFont` faces: a `family`, a `src` (a `FontSource`, or a file path, URL, or data URL), and an optional `fontWeight` and `fontStyle`. Faces register with react-pdf before the first render that uses them. Families are process-wide, so rendering fails with `TemplateError` when a template registers a family again with other faces, reuses a standard font name or a family from `Font.register`, or uses a family it does not declare. The 14 standard PDF fonts, such as `Helvetica` and `Times-Roman`, need no declaration.
+
+A `ReactTemplate<T>` is a `RenderingTemplate<T>`. Its `renderDocument(sample, { createdAt })` calls `renderReactPdf`, so `writeCorpus`, `renderTemplate`, and `docture synth` render it without importing React.
+
+### `Field`
+
+```ts
+Field<T = unknown>(props: FieldProps<T>): ReactElement
+```
+
+A react-pdf `<Text>` that labels its laid-out text with every path in `path`. `FieldProps<T>` takes every `<Text>` prop except `render`, plus `path: FieldPath<T>`: one concrete path of `T` or a list of them. Untyped templates accept any string. Hyphenation is off unless `hyphenationCallback` is set, so label text matches the value.
+
+The `Field` in `ReactTemplateProps<T>` is the same component typed as `FieldComponent<T>`. The exported `Field` renders only while `renderReactPdf` runs, after it has loaded React and react-pdf.
+
+### `renderReactPdf`
+
+```ts
+renderReactPdf<T>(template: ReactTemplate<T>, sample: Sample<T>, options?: RenderReactPdfOptions): Promise<SyntheticDocument>
+```
+
+Lay out and render the template, then label each `<Field>` with the union of its laid-out lines in points with a top-left origin. A line's box spans its glyphs: from its first to its last glyph without hanging spaces or trailing letter spacing, and from the top of the line to the bottom of its lowest glyph, without the extra line spacing below. A field in a `fixed` element, or one whose text breaks across pages, gets one label per page.
+
+`createdAt` is written as the creation and modification date and defaults to a fixed date, so equal inputs give equal bytes on one installed set of react-pdf packages. `@react-pdf/renderer` 4.9.0 takes its layout, text, and font packages by caret range, so keep a lockfile to reproduce a corpus. `producer`, `creator`, and `title` set document info; the document language is the template's locale. `provenance` records the renderer, the react-pdf and React versions, and `createdAt`.
+
+Fails with `TemplateError` when fields and the printed mask disagree, text uses a character its font lacks (`missing-glyph`), or a field is nested in `<Text>`, hidden with `display: none`, under a transform, empty, outside its page, or cut off by a fixed height, `maxLines` or `overflow: hidden` (`invalid-template`). Fields inside `<Svg>` and fields with right-to-left text cannot be labeled and fail the same way. An error thrown by `render` or react-pdf becomes an `invalid-template` problem with the original as `cause`.
+
+### `ENGINE_RANGES`
+
+`{ react: ">=18.3.1 <20.0.0", "@react-pdf/renderer": "4.9.0" }`. A missing engine raises `MissingEngineError` naming the package and this entry.

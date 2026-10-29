@@ -3,18 +3,19 @@ import { cp, mkdir, readFile, readdir, symlink } from "node:fs/promises";
 import { join } from "node:path";
 
 // Synthetic-only engines stay exact pins: floor equals current until a release beside the pin passes.
+// React's range is verified: the floor tier renders with React 18.3.1, the current tier with 19.3.1.
 export const syntheticEngineMatrix = {
-  floor: { sharp: "0.35.5", "@faker-js/faker": "10.6.0", "playwright-core": "1.64.1" },
-  current: { sharp: "0.35.5", "@faker-js/faker": "10.6.0", "playwright-core": "1.64.1" },
+  floor: { sharp: "0.35.5", "@faker-js/faker": "10.6.0", "playwright-core": "1.64.1", react: "18.3.1", "@react-pdf/renderer": "4.9.0" },
+  current: { sharp: "0.35.5", "@faker-js/faker": "10.6.0", "playwright-core": "1.64.1", react: "19.3.1", "@react-pdf/renderer": "4.9.0" },
 };
 const sharedEngines = ["pdfkit", "pdfjs-dist", "@napi-rs/canvas", "ai"];
 const syntheticOnlyEngines = Object.keys(syntheticEngineMatrix.floor);
-const engineTypedEntries = { "./faker": "@faker-js/faker", "./llm": "ai", "./html": "playwright-core" };
+const engineTypedEntries = { "./faker": "@faker-js/faker", "./llm": "ai", "./html": "playwright-core", "./react-pdf": "react" };
 const mainExports = {
   ".": "defineModel", "./pdfkit": "renderPdf", "./verify": "verifyLabels", "./measure": "compareLayouts", "./degrade": "degrade",
-  "./faker": "fakerFor", "./llm": "llmTextPool", "./html": "renderHtmlPdf", "./node": "writeCorpus",
+  "./faker": "fakerFor", "./llm": "llmTextPool", "./html": "renderHtmlPdf", "./react-pdf": "renderReactPdf", "./node": "writeCorpus",
 };
-const tscArgs = file => ["--noEmit", "--strict", "--skipLibCheck", "false", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--target", "ES2023", "--types", "node", file];
+const tscArgs = (file, skipLibCheck = false) => ["--noEmit", "--strict", "--skipLibCheck", String(skipLibCheck), "--module", "NodeNext", "--moduleResolution", "NodeNext", "--target", "ES2023", "--types", "node", file];
 const specifier = key => key === "." ? "@docture/synthetic" : `@docture/synthetic/${key.slice(2)}`;
 
 export async function verifySyntheticPackage({ packed, tools, check, newConsumer, install, save, run, tsc, versionSpec, assertInstalled, installedPackages }) {
@@ -98,7 +99,7 @@ export async function verifySyntheticPackage({ packed, tools, check, newConsumer
       const consumer = await newConsumer(label);
       await install(consumer, manager, label, [
         ...tarballs, packed["@docture/eval"].target, ...Object.entries(versions).map(([name, version]) => `${name}@${version}`),
-        ...["pdfkit", "pdfjs-dist", "@napi-rs/canvas", "ai", "zod", "@types/node"].map(versionSpec),
+        ...["pdfkit", "pdfjs-dist", "@napi-rs/canvas", "ai", "zod", "@types/node"].map(versionSpec), `@types/react@${manifest.devDependencies["@types/react"]}`,
       ], { strictPeers: true });
       await assertInstalled(consumer, label, ["pdfkit", "pdfjs-dist", "@napi-rs/canvas", "ai"]);
       const installed = await installedPackages(consumer);
@@ -109,15 +110,20 @@ export async function verifySyntheticPackage({ packed, tools, check, newConsumer
       await run(`${label}-runtime`, "node", ["synthetic-engines.mjs"], consumer);
       await save(join(consumer, "synthetic-engine-types.ts"), syntheticEngineTypes);
       await run(`${label}-types`, tsc, tscArgs("synthetic-engine-types.ts"), consumer);
+      // @react-pdf/renderer's own declarations fail a library check under NodeNext (an `export =` in an ESM
+      // package, untyped fontkit), so React types check with skipLibCheck. The @ts-expect-error lines still
+      // fail this check if the entry's types degrade to any.
+      await save(join(consumer, "synthetic-react-types.tsx"), syntheticReactTypes);
+      await run(`${label}-react-types`, tsc, [...tscArgs("synthetic-react-types.tsx", true), "--jsx", "react-jsx"], consumer);
       return { versions };
     });
   }
 }
 
 function syntheticRootProblems(modules) {
-  return modules.filter(path => /\/synthetic\/dist\/(?:pdfkit|verify|measure|degrade|faker|llm|html|node)\//.test(path) ||
+  return modules.filter(path => /\/synthetic\/dist\/(?:pdfkit|verify|measure|degrade|faker|llm|html|react-pdf|node)\//.test(path) ||
     /\/docture\/dist\/(?!core\/)/.test(path) ||
-    /\/node_modules\/(?:pdfkit|pdfjs-dist|@napi-rs\/canvas|sharp|@img|@faker-js\/faker|playwright-core|ai|mupdf|tesseract\.js)\//.test(path));
+    /\/node_modules\/(?:pdfkit|pdfjs-dist|@napi-rs\/canvas|sharp|@img|@faker-js\/faker|playwright-core|ai|react|@react-pdf\/[^/]+|mupdf|tesseract\.js)\//.test(path));
 }
 
 async function buildSyntheticRootBundle(consumer, tools, save) {
@@ -211,6 +217,7 @@ import { degrade } from "@docture/synthetic/degrade";
 import { fakerFor } from "@docture/synthetic/faker";
 import { renderHtmlPdf, defineHtmlTemplate } from "@docture/synthetic/html";
 import { llmTextPool } from "@docture/synthetic/llm";
+import { defineReactTemplate, renderReactPdf } from "@docture/synthetic/react-pdf";
 const missing = (engine, entry) => error => {
   assert.ok(error instanceof MissingEngineError, String(error?.stack ?? error));
   assert.equal(error.engine, engine);
@@ -233,6 +240,9 @@ const html = defineHtmlTemplate()({
 });
 await assert.rejects(renderHtmlPdf(html, sample), missing("playwright-core", "@docture/synthetic/html"));
 await assert.rejects(llmTextPool({ model: "openai/gpt-5", prompt: "German trade names", count: 3 }), missing("ai", "@docture/synthetic/llm"));
+const react = defineReactTemplate()({ key: "packed-react", family: "invoice", locale: locales["de-DE"], printed: { invoiceNumber: true, seller: true, totalCents: true }, render: () => null });
+await assert.rejects(renderReactPdf(react, sample), missing("react", "@docture/synthetic/react-pdf"));
+await assert.rejects(react.renderDocument(sample), missing("react", "@docture/synthetic/react-pdf"));
 console.log("every synthetic engine entry names its missing engine");
 `;
 
@@ -283,7 +293,10 @@ import { compareLayouts } from "@docture/synthetic/measure";
 import { degrade } from "@docture/synthetic/degrade";
 import { fakerFor } from "@docture/synthetic/faker";
 import { renderHtmlPdf, defineHtmlTemplate } from "@docture/synthetic/html";
+import { defineReactTemplate, renderReactPdf } from "@docture/synthetic/react-pdf";
 import { digital, writeCorpus } from "@docture/synthetic/node";
+import { createElement as h, version as reactVersion } from "react";
+import { Page, View } from "@react-pdf/renderer";
 import { jsonlDataset } from "@docture/eval/node";
 
 const sample = await model.sample({ seed: 3 });
@@ -313,11 +326,26 @@ const html = defineHtmlTemplate()({
 });
 await assert.rejects(renderHtmlPdf(html, sample, { executablePath: "/nonexistent/docture-chromium" }), error => String(error?.message).includes("/nonexistent/docture-chromium"));
 
+const react = defineReactTemplate()({
+  key: "packed-react", family: "invoice", locale: locales["de-DE"], printed: { invoiceNumber: true, seller: true, totalCents: true },
+  render: ({ value, format, Field }) => h(Page, { size: "A4", style: { padding: 50 } },
+    h(Field, { path: "seller", style: { fontSize: 16 } }, value.seller),
+    h(View, { style: { flexDirection: "row", justifyContent: "space-between", marginTop: 20 } },
+      h(Field, { path: "invoiceNumber" }, value.invoiceNumber),
+      h(Field, { path: "totalCents" }, format.money(value.totalCents)))),
+});
+const drawn = await renderReactPdf(react, sample);
+assert.deepEqual(drawn.labels.map(label => label.path), ["seller", "invoiceNumber", "totalCents"]);
+assert.deepEqual(drawn.labels.map(label => label.pageNumber), [1, 1, 1]);
+assert.equal(drawn.provenance.react, reactVersion);
+assert.deepEqual((await verifyLabels(drawn)).failures, [], "every React field is found inside its box");
+assert.deepEqual((await renderReactPdf(react, sample)).bytes, drawn.bytes, "equal samples render equal React PDFs");
+
 const directory = await mkdtemp(join(tmpdir(), "docture-synthetic-corpus-"));
 try {
-  const written = await writeCorpus(directory, { model, templates: [template], seeds: [1, 2], renditions: [digital()] });
-  assert.deepEqual([written.written, written.skipped, written.failed], [2, 0, []]);
-  const cases = await jsonlDataset(written.manifest).cases();
+  const written = await writeCorpus(directory, { model, templates: [template, react], seeds: [1, 2], renditions: [digital()] });
+  assert.deepEqual([written.written, written.skipped, written.failed], [4, 0, []]);
+  const cases = (await jsonlDataset(written.manifest).cases()).filter(item => item.id.startsWith("packed-base-"));
   assert.deepEqual(cases.map(item => item.id).sort(), ["packed-base-1-digital", "packed-base-2-digital"]);
   for (const item of cases) {
     assert.deepEqual(Object.keys(item.locations).sort(), ["invoiceNumber", "seller", "totalCents"]);
@@ -325,11 +353,11 @@ try {
     assert.deepEqual([item.locations.invoiceNumber[0].box.x, item.locations.invoiceNumber[0].box.y], [50, 110]);
     assert.match(String(item.expected.invoiceNumber), /^INV-\d{6}$/);
   }
-  const rerun = await writeCorpus(directory, { model, templates: [template], seeds: [1, 2], renditions: [digital()] });
-  assert.deepEqual([rerun.written, rerun.skipped], [0, 2], "rewriting an unchanged corpus skips every case");
+  const rerun = await writeCorpus(directory, { model, templates: [template, react], seeds: [1, 2], renditions: [digital()] });
+  assert.deepEqual([rerun.written, rerun.skipped], [0, 4], "rewriting an unchanged corpus skips every case");
   assert.equal(await readFile(written.manifest, "utf8"), await readFile(rerun.manifest, "utf8"));
 } finally { await rm(directory, { recursive: true, force: true }); }
-console.log("packed synthetic engines render, verify, degrade, generate and write an eval corpus");
+console.log("packed synthetic engines render PDFKit and React templates, verify, degrade, generate and write an eval corpus");
 `;
 
 const syntheticEngineTypes = String.raw`
@@ -348,4 +376,32 @@ const fake = await fakerFor("de");
 const name: Generator<string> = fake((faker: Faker) => faker.person.fullName());
 const people = defineModel(typedJsonSchema<{ name: string }>({ type: "object", required: ["name"], properties: { name: { type: "string" } } }), { fields: { name } });
 void pool; void options; void people; void renderHtmlPdf;
+`;
+
+const syntheticReactTypes = String.raw`
+import { Page, View } from "@react-pdf/renderer";
+import type { ReactElement } from "react";
+import { locales, type SynthTemplate } from "@docture/synthetic";
+import { renderTemplate } from "@docture/synthetic/pdfkit";
+import { defineReactTemplate, Field, renderReactPdf, type FieldComponent, type RenderReactPdfOptions } from "@docture/synthetic/react-pdf";
+type Card = { name: string; tags: string[] };
+const card = defineReactTemplate<Card>()({
+  key: "card", family: "card", locale: locales["en-US"], printed: { name: true, tags: true },
+  fonts: [{ family: "Inter", src: new Uint8Array(0), fontWeight: 700 }],
+  render: async ({ value, format, Field }) => (
+    <Page size="A4">
+      <View><Field path="name" style={{ fontSize: 12 }}>{value.name}</Field></View>
+      <Field path={["tags[0]", "tags[1]"]} fixed>{format.number(value.tags.length)}</Field>
+      {/* @ts-expect-error a path outside the template's type is rejected */}
+      <Field path="nmae">x</Field>
+    </Page>
+  ),
+});
+const NameLine = ({ Field }: { Field: FieldComponent<Card> }): ReactElement => <Field path="name">x</Field>;
+const loose = <Field<Card> path="tags[3]">x</Field>;
+// @ts-expect-error a schema pattern is not a concrete path
+const pattern = <Field<Card> path="tags[]">x</Field>;
+const options: RenderReactPdfOptions = { createdAt: "2026-01-01T00:00:00Z", title: "Card" };
+const any: SynthTemplate<Card> = card;
+void NameLine; void loose; void pattern; void any; void renderTemplate; void renderReactPdf; void options;
 `;

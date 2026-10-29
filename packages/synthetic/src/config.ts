@@ -1,5 +1,5 @@
 import type { Model, Scenario } from "./model.js";
-import type { Template } from "./template.js";
+import type { SynthTemplate } from "./template.js";
 
 /**
  * A rendition from `@docture/synthetic/node`: `digital()`, `scan({ severity })`, `photo(…)` and so on.
@@ -18,7 +18,7 @@ export type SynthRendition =
 /** The configuration `docture synth` loads from `docture.synth.ts`. */
 export interface SynthConfig<T> {
   readonly model: Model<T>;
-  readonly templates: readonly Template<T>[];
+  readonly templates: readonly SynthTemplate<T>[];
   readonly scenarios?: readonly Scenario<T>[];
   /** Seeds `docture synth corpus` renders when `--seeds` is absent. */
   readonly seeds?: readonly (number | string)[];

@@ -3,17 +3,20 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SynthRendition } from "@docture/synthetic";
 import { renderPdf } from "@docture/synthetic/pdfkit";
+import { renderReactPdf } from "@docture/synthetic/react-pdf";
 import { afterAll, describe, expect, it } from "vitest";
 import { UsageError } from "../src/cli/errors.js";
 import { parseRendition, parseSeeds } from "../src/synth/config.js";
 import { cleanup, cli, tempDir, writeFixture } from "./harness.js";
 import { classic, invoiceModel, short } from "./fixtures/synth-invoice.js";
+import { reactInvoice } from "./fixtures/synth-react.js";
 
 afterAll(cleanup);
 
 const CREATED_AT = "2025-06-01T00:00:00Z";
 const RENDITION_HINT = "Use digital, or a profile and a severity from 0 to 1: scan:0.5, scan-lq:0.5, photo:0.5, fax:0.5.";
 const FIXTURE = fileURLToPath(new URL("./fixtures/synth-invoice.ts", import.meta.url));
+const REACT_FIXTURE = fileURLToPath(new URL("./fixtures/synth-react.ts", import.meta.url));
 
 async function workspace(extra = ""): Promise<string> {
   const cwd = await tempDir("synth");
@@ -109,6 +112,33 @@ describe("docture synth render", () => {
       'error [USAGE] Unknown rendition "blur:0.3".\n' +
         `      ${RENDITION_HINT}\n`,
     );
+  });
+});
+
+describe("React templates in docture synth", () => {
+  async function mixed(): Promise<string> {
+    const cwd = await tempDir("synth-react");
+    await writeFixture(cwd, "docture.synth.ts", `import { defineSynthConfig } from "@docture/synthetic";
+import { classic, invoiceModel } from ${JSON.stringify(FIXTURE)};
+import { reactInvoice } from ${JSON.stringify(REACT_FIXTURE)};
+
+export default defineSynthConfig({ model: invoiceModel, templates: [classic, reactInvoice], createdAt: ${JSON.stringify(CREATED_AT)} });
+`);
+    return cwd;
+  }
+
+  it("renders the React template the API renders, and writes a corpus with both template kinds", async () => {
+    const cwd = await mixed();
+    const rendered = await cli(["synth", "render", "--template", "react-summary", "--seed", "7", "--out", "react.pdf"], { cwd });
+    expect(rendered.code, rendered.stderr).toBe(0);
+    const document = await renderReactPdf(reactInvoice, await invoiceModel.sample({ seed: 7 }), { createdAt: CREATED_AT });
+    expect(rendered.stderr).toBe("✓ react-summary seed 7 base digital → react.pdf, 3 labels verified\n");
+    expect(Buffer.compare(await readFile(join(cwd, "react.pdf")), Buffer.from(document.bytes))).toBe(0);
+    expect((await labelsOf(join(cwd, "react.pdf.labels.json"))).labels.map((label) => label.path)).toEqual(["seller.name", "invoiceNumber", "totalCents"]);
+
+    const corpus = await cli(["synth", "corpus", "--seeds", "1", "--out", "corpus"], { cwd });
+    expect(corpus.code, corpus.stderr).toBe(0);
+    expect((await readdir(join(cwd, "corpus/cases"))).sort()).toEqual(["classic-base-1-digital", "react-summary-base-1-digital"]);
   });
 });
 

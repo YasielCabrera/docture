@@ -70,10 +70,16 @@ Page sizes in points.
 ### `selectTemplates`
 
 ```ts
-selectTemplates<T>(registry: readonly Template<T>[], selectors: readonly string[]): readonly Template<T>[]
+selectTemplates<Selected extends Pick<SynthTemplate<unknown>, "key" | "aliases" | "family">>(registry: readonly Selected[], selectors: readonly string[]): readonly Selected[]
 ```
 
-Resolve selectors by key, alias, family or `all`, keeping registry order and dropping duplicates. An unknown selector throws `RangeError` listing the known keys.
+Resolve selectors by key, alias, family or `all`, keeping registry order and dropping duplicates. The registry can mix PDFKit and React templates. An unknown selector throws `RangeError` listing the known keys.
+
+### `RenderingTemplate` and `SynthTemplate`
+
+A `RenderingTemplate<T>` renders itself through an engine entry. It has the identity fields of a template (`key`, `aliases`, `family`, `tags`, `locale`, `printed`) and `renderDocument(sample, { createdAt })`. [React templates](/docs/synthetic/reference/react-pdf) are rendering templates.
+
+`SynthTemplate<T>` is `Template<T> | RenderingTemplate<T>`, the type that `defineSynthConfig`, `writeCorpus`, and `renderTemplate` accept. Code that receives one tells the kinds apart with `"draw" in template`.
 
 ### `drawTable`
 

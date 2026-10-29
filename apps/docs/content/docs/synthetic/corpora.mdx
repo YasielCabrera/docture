@@ -21,7 +21,7 @@ const report = await writeCorpus("corpus", {
 console.log(report.written, report.skipped, report.failed);
 ```
 
-A fresh run writes four cases. Each seed, scenario, and template renders once; verification precedes derivation of its renditions. `includeBase` defaults to true, renditions to digital only, concurrency to 4, and verification to true. `signal` cancels work.
+`templates` can mix [PDF](/docs/synthetic/pdf-templates) and [React templates](/docs/synthetic/react-templates). A fresh run writes four cases. Each seed, scenario, and template renders once; verification precedes derivation of its renditions. `includeBase` defaults to true, renditions to digital only, concurrency to 4, and verification to true. `signal` cancels work.
 
 Each `cases/<id>/` contains its document, `expected.json`, `labels.json`, `sample.json`, and `case.json`. The root contains `manifest.jsonl`, `coverage.json`, `failures.jsonl`, and `corpus.json` with plan, engine versions, and file hashes. Verification failure fails that rendering's cases rather than stopping the entire batch.
 

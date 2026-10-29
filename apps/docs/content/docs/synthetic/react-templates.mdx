@@ -1,0 +1,249 @@
+---
+title: Create synthetic React templates
+description: Build labeled PDFs from React components with react-pdf.
+---
+
+Write a template as React components with [`@react-pdf/renderer`](https://react-pdf.org). You get flexbox layout, reusable components, automatic page wrapping, repeating headers, and style sheets. Wrap each printed value in `<Field path>`. The renderer labels it with the box of its laid-out text, so you never compute coordinates. No browser is needed.
+
+## Install
+
+```sh
+npm install --save-dev @docture/synthetic docture zod@^4 react@19.3.1 @react-pdf/renderer@4.9.0 pdfjs-dist@6.2.108
+npm install --save-dev @types/react tsx
+```
+
+`@docture/synthetic/react-pdf` supports React 18.3.1 through 19 and `@react-pdf/renderer` 4.9.0. `pdfjs-dist` reads each PDF back to verify its labels.
+
+Compile JSX with the automatic runtime. Add this to `tsconfig.json`:
+
+```json
+{ "compilerOptions": { "jsx": "react-jsx", "skipLibCheck": true } }
+```
+
+`skipLibCheck` is needed because the declarations that ship with `@react-pdf/renderer` 4.9.0 do not compile on their own under `"module": "NodeNext"`. Your own code is still type-checked.
+
+## Your first React template
+
+Create `bill.tsx`:
+
+```tsx
+import { Page, Text, View } from "@react-pdf/renderer";
+import { defineModel, gen, locales } from "@docture/synthetic";
+import { defineReactTemplate } from "@docture/synthetic/react-pdf";
+import { assertVerified } from "@docture/synthetic/verify";
+import { z } from "zod";
+
+const Bill = z.object({ customerName: z.string(), totalCents: z.number().int() });
+type Bill = z.infer<typeof Bill>;
+const model = defineModel(Bill, {
+	fields: { customerName: gen.pick(["Dana", "Kenji"]), totalCents: gen.int(100, 9000) },
+});
+
+const bill = defineReactTemplate<Bill>()({
+	key: "react-bill",
+	family: "bill",
+	locale: locales["en-US"],
+	printed: { customerName: true, totalCents: true },
+	render: ({ value, format, Field }) => (
+		<Page size="A4" style={{ padding: 50, fontSize: 12 }}>
+			<Text style={{ fontSize: 20, marginBottom: 12 }}>Your bill</Text>
+			<Field path="customerName">{value.customerName}</Field>
+			<View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 24 }}>
+				<Text>Amount due</Text>
+				<Field path="totalCents">{format.money(value.totalCents)}</Field>
+			</View>
+		</Page>
+	),
+});
+
+const document = await bill.renderDocument(await model.sample({ seed: 7 }));
+await assertVerified(document);
+console.log(document.labels.map((label) => label.path));
+```
+
+Run `npx tsx bill.tsx`. It prints `[ 'customerName', 'totalCents' ]`.
+
+Three things make this a synthetic template:
+
+- `render` returns one or more `<Page>` elements. The renderer supplies the `<Document>`, its metadata, and a fixed creation date, so equal samples give equal bytes with the same installed packages.
+- Every printed value sits in a `<Field>`. Use `<Text>` and `<View>` for everything else.
+- `printed` declares what the page shows. A field drawn but not declared, or declared but not drawn, raises `TemplateError`.
+
+`bill.renderDocument(sample)` and `renderReactPdf(bill, sample)` do the same thing. Both return a `SyntheticDocument` with `bytes`, `pages`, `expected`, and `labels`.
+
+## Mark fields
+
+`<Field>` is a react-pdf `<Text>` that also records a label. It accepts every `<Text>` prop, such as `style`, `fixed`, and `wrap`, except `render`.
+
+`path` is typed from your model, so a misspelled path fails to compile. Build array paths with a template literal, and pass several paths when one printed value belongs to more than one field:
+
+```tsx
+<Field path={`lineItems[${index}].amountCents`}>{format.money(item.amountCents)}</Field>
+<Field path={["billingAddress", "shippingAddress"]}>{value.billingAddress}</Field>
+```
+
+The label box covers the laid-out text, not the element. A right-aligned amount in a wide column gets a box around the digits only. Wrapped text gets one box around all of its lines.
+
+A field keeps its words whole, so its label text matches the value. Pass `hyphenationCallback` to allow hyphenation.
+
+Labels describe what is drawn. Text starts inside a field's padding, and a field that breaks across pages is checked piece by piece until all of its text is printed. Case transforms such as `textTransform: "uppercase"` are allowed.
+
+A field must be its own block of text. A `<Field>` nested inside `<Text>` is merged into the surrounding line and has no box of its own. Put the label and the value side by side in a `<View>` instead:
+
+```tsx
+// Rejected: the field is part of another text's line.
+<Text>Invoice <Field path="invoiceNumber">{value.invoiceNumber}</Field></Text>
+
+// Labeled: the field is its own text.
+<View style={{ flexDirection: "row", gap: 4 }}>
+	<Text>Invoice</Text>
+	<Field path="invoiceNumber">{value.invoiceNumber}</Field>
+</View>
+```
+
+## Split a template into components
+
+`render` receives `Field` typed for your model. Pass it to the components that print fields, and type the prop with `FieldComponent`:
+
+```tsx
+import type { Formatter } from "@docture/synthetic";
+import type { FieldComponent } from "@docture/synthetic/react-pdf";
+
+function Totals({ value, format, Field }: { value: Invoice; format: Formatter; Field: FieldComponent<Invoice> }) {
+	return (
+		<View style={{ marginLeft: "auto", width: 200 }}>
+			<Field path="totalCents">{format.money(value.totalCents)}</Field>
+		</View>
+	);
+}
+```
+
+In a deep component tree, passing `Field` down every level gets heavy. Import `Field` from `@docture/synthetic/react-pdf` once and give it your type in a module of its own:
+
+```tsx
+// fields.ts
+import { Field, type FieldComponent } from "@docture/synthetic/react-pdf";
+export const InvoiceField: FieldComponent<Invoice> = Field;
+```
+
+Every component can then use `<InvoiceField path="totalCents">` with full path checking. `Field` renders only during a render, because that is when React and react-pdf load.
+
+## Long tables and page breaks
+
+react-pdf flows content onto new pages for you. Use its page props to control the result:
+
+| Prop | Effect |
+| --- | --- |
+| `wrap={false}` on a row | Keeps the row on one page |
+| `fixed` | Repeats an element, such as a table header or running title, on every page |
+| `break` | Starts the element on a new page |
+| `<Text render={({ pageNumber, totalPages }) => ...} />` | Prints page numbers |
+
+Labels follow the pages. A field inside a `fixed` element gets one label per page. A field whose text breaks across two pages gets one label on each page, each with the text printed there. Page numbers are not fields, so print them with `<Text render>`.
+
+## Styles, fonts, and images
+
+Use `StyleSheet.create`, inline styles, or style arrays, as in any react-pdf project. Style helpers such as `react-pdf-tailwind` work too, because they return ordinary style objects.
+
+Text defaults to Helvetica. The standard PDF fonts `Helvetica`, `Times-Roman`, and `Courier` need no files. For other faces, declare them on the template and set `fontFamily` in your styles:
+
+```tsx
+const geist = new Uint8Array(readFileSync("fonts/Geist-Regular.ttf"));
+const geistBold = new Uint8Array(readFileSync("fonts/Geist-Bold.ttf"));
+
+defineReactTemplate<Invoice>()({
+	// ...
+	fonts: [
+		{ family: "Geist", src: geist },
+		{ family: "Geist", src: geistBold, fontWeight: 700 },
+	],
+	render: ({ value, Field }) => <Page style={{ fontFamily: "Geist" }}>...</Page>,
+});
+```
+
+`src` takes font bytes, a file path, a URL, or a data URL. react-pdf font families are shared by the whole process. Declare every family the template uses other than the standard fonts, and give each set of faces a name of its own; rendering fails otherwise, so a template never depends on fonts another template registered. Rendering fails with `TemplateError` (`missing-glyph`) when any text uses a character its font cannot draw, instead of printing a substitute.
+
+`render` may be async. Prepare assets such as QR codes before layout and pass them to `<Image>`:
+
+```tsx
+import QRCode from "qrcode";
+
+// ...
+render: async ({ value, Field }) => {
+	const qr = await QRCode.toDataURL(`https://pay.example/${value.invoiceNumber}`);
+	return <Page>...<Image src={qr} style={{ width: 80 }} />...</Page>;
+},
+```
+
+## Corpora and the CLI
+
+A React template renders itself, so it works anywhere a PDFKit template does. Pass it to `writeCorpus`, list it in `docture.synth.ts`, or mix both kinds in one corpus. `renderTemplate` from `@docture/synthetic/pdfkit` renders either kind.
+
+Node can strip TypeScript types but cannot compile JSX. When `docture synth` loads a config that imports `.tsx` templates, run it with a JSX loader:
+
+```sh
+NODE_OPTIONS="--import tsx" docture synth corpus
+```
+
+Templates written with `createElement` instead of JSX load without a loader.
+
+A corpus fingerprints each template's `render` source. It does not see components defined outside `render`, such as `Totals` above. After you change one, change the corpus `createdAt` or rebuild into a new directory. See [corpus reproducibility](/docs/synthetic/corpora#reproduce-a-corpus).
+
+## Complete example
+
+This invoice has 40 line items, a running header with page numbers, a table header that repeats, and rows that never split. It verifies every label and writes `invoice.pdf`:
+
+<SourceExample file="react-invoice.tsx" title="invoice.tsx" />
+
+It prints `2 pages, 126 labels verified`.
+
+## When rendering fails
+
+`renderReactPdf` raises `TemplateError` and lists every problem with the field path it concerns:
+
+| Code | Cause |
+| --- | --- |
+| `undeclared-field` | A `<Field>` prints a path the printed mask does not declare, or whose value is absent |
+| `unprinted-field` | The mask declares a path that no `<Field>` prints |
+| `missing-glyph` | Text uses a character its font cannot draw |
+| `invalid-template` | `render` threw or returned a `<Document>`, or a field cannot be labeled honestly: see below |
+
+A field fails with `invalid-template` when the page would not show what its label claims:
+
+- It is nested inside `<Text>`, inside `<Svg>`, hidden with `display: none`, or under a transform other than `translate()`.
+- Its text is right to left. Labels support left-to-right text only.
+- It is empty, or it leaves its page.
+- Its text is cut off. react-pdf drops the lines that do not fit a fixed `height` or `maxLines` without an error, and `overflow: hidden` hides the rest. Clipped text still sits in the PDF text layer, so only this check notices it.
+
+[Verify the labels](/docs/synthetic/verification) of each new template before you generate [degraded renditions](/docs/synthetic/degradation).
+
+## Tips for complex templates
+
+**Values inside a sentence.** A field must be its own text, so split a line such as `Statement 4711 from 01.09. to 30.09.` into sibling `<Text>` and `<Field>` elements in a row `<View>`. That works while the line does not wrap. react-pdf drops a space at the start of a text but keeps its width, so begin a separator with a non-breaking space, as in `{"\u00a0- "}`, to keep the text layer readable.
+
+**Hyphenation.** A `<Field>` never hyphenates, so a long unbreakable value overflows its column instead of breaking; give the column room. Ordinary `<Text>` hyphenates by default. `Font.registerHyphenationCallback` changes that for the whole process, so set `hyphenationCallback={(word) => [word]}` on the texts of a template instead.
+
+**Measured, absolutely positioned layouts.** Set `wrap={false}` on pages whose content is placed with `position: "absolute"`. On a wrapping page, react-pdf 4.9.0 loops forever when absolutely positioned text runs past the bottom of the page, so one long sampled value would stop a corpus.
+
+**Empty cells.** A field with no text fails. Mirror the template's own condition in the mask, such as `obu: (value) => value.length > 0` for a cell the template leaves out when it is empty.
+
+**One copy of react-pdf.** Your project and `@docture/synthetic` must resolve the same `@react-pdf/renderer`. With two copies installed, pages still render, but `Font.register` on your copy has no effect; declare fonts in `fonts` instead.
+
+**An existing data generator.** `renderDocument` takes any sample, so you can render values your project already generates without a Docture model:
+
+```ts
+const document = await template.renderDocument({ value: statement, seed: 1, scenario: "base", tags: [] });
+```
+
+Corpora and `docture synth` sample through a model, so define one with `defineModel` to use them.
+
+## Move an existing react-pdf project
+
+If your templates already render with react-pdf, four changes make them synthetic templates:
+
+1. Return the `<Page>` elements instead of a `<Document>`.
+2. Replace the `<Text>` that prints each extracted value with `<Field path>`.
+3. Declare a `printed` mask with what each layout shows.
+4. Move `Font.register` calls into the template's `fonts`.
+
+Keep your components, styles, and measured coordinates as they are. See the [React API reference](/docs/synthetic/reference/react-pdf) for every option.

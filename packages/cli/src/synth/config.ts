@@ -1,6 +1,6 @@
 import { stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
-import { selectTemplates, type Scenario, type SynthConfig, type SynthRendition, type Template } from "@docture/synthetic";
+import { selectTemplates, type Scenario, type SynthConfig, type SynthRendition, type SynthTemplate } from "@docture/synthetic";
 import type { ProfileKey } from "@docture/synthetic/degrade";
 import type { RenditionSpec } from "@docture/synthetic/node";
 import { UsageError } from "../cli/errors.js";
@@ -40,8 +40,8 @@ function configProblems(value: unknown): string[] {
   if (!Array.isArray(templates) || templates.length === 0) problems.push("templates must be a non-empty array of templates");
   else {
     templates.forEach((template: unknown, index) => {
-      if (!isObject(template) || typeof template["key"] !== "string" || typeof template["family"] !== "string" || !Array.isArray(template["aliases"]) || typeof template["draw"] !== "function") {
-        problems.push(`templates[${index}] must be a template from defineTemplate`);
+      if (!isObject(template) || typeof template["key"] !== "string" || typeof template["family"] !== "string" || !Array.isArray(template["aliases"]) || (typeof template["draw"] !== "function" && typeof template["renderDocument"] !== "function")) {
+        problems.push(`templates[${index}] must be a template from defineTemplate or defineReactTemplate`);
       }
     });
   }
@@ -100,7 +100,7 @@ export function corpusDirectory(loaded: LoadedSynthConfig, flag: string | undefi
 }
 
 /** Templates by key, alias, family or `all`. */
-export function templatesFor<T>(config: SynthConfig<T>, selectors: readonly string[]): readonly Template<T>[] {
+export function templatesFor<T>(config: SynthConfig<T>, selectors: readonly string[]): readonly SynthTemplate<T>[] {
   if (selectors.length === 0) return config.templates;
   try {
     return selectTemplates(config.templates, selectors);
@@ -111,7 +111,7 @@ export function templatesFor<T>(config: SynthConfig<T>, selectors: readonly stri
 }
 
 /** Exactly one template: the one `selector` names, or the config's only template when there is no selector. */
-export function oneTemplate<T>(config: SynthConfig<T>, selector: string | undefined): Template<T> {
+export function oneTemplate<T>(config: SynthConfig<T>, selector: string | undefined): SynthTemplate<T> {
   if (selector === undefined) {
     const [only, ...others] = config.templates;
     if (only !== undefined && others.length === 0) return only;

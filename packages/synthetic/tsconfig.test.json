@@ -3,11 +3,13 @@
   "compilerOptions": {
     "noEmit": true,
     "composite": false,
-    "incremental": false
+    "incremental": false,
+    "jsx": "react-jsx"
   },
   "include": [
     "src/**/*.ts",
-    "test/**/*.ts"
+    "test/**/*.ts",
+    "test/**/*.tsx"
   ],
   "exclude": [
     "test/.tmp/**"

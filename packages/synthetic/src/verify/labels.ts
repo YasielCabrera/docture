@@ -58,14 +58,29 @@ function checkLabel(label: FieldLabel, page: LoadedPage | undefined, tolerance: 
   const grown = { x: box.x - tolerance, y: box.y - tolerance, width: box.width + tolerance * 2, height: box.height + tolerance * 2 };
   const inside = spans.filter((span) => intersects(span, grown)).map((span) => span.text);
   if (normalize(inside.join(" ")).includes(wanted)) return undefined;
+  // Letter-spaced text reads back with spaces between glyphs, often as several spans. Compared
+  // without whitespace, only spans centred in the box count, so neighbours cannot complete the text.
+  const centred = spans.filter((span) => contains(grown, span.x + span.width / 2, span.y + span.height / 2)).map((span) => span.text);
+  if (shows(centred, wanted)) return undefined;
   // Reading order interleaves neighbouring columns, so the page-wide search only names the failure.
-  return normalize(spans.map((span) => span.text).join(" ")).includes(wanted)
+  return shows(spans.map((span) => span.text), wanted)
     ? fail("outside-box", `"${label.text}" is on page ${label.pageNumber}, but not inside ${describe(box)}`)
     : fail("missing", `"${label.text}" is not on page ${label.pageNumber}`);
 }
 
+/** Whether the spans show `wanted`, read in order, with whitespace ignored as a fallback for letter-spaced text. */
+function shows(spans: readonly string[], wanted: string): boolean {
+  if (normalize(spans.join(" ")).includes(wanted)) return true;
+  const condensed = wanted.replace(/\s/gu, "");
+  return spans.join("").replace(/\s/gu, "").includes(condensed);
+}
+
 function normalize(text: string): string {
   return text.replace(/\s+/gu, " ").trim();
+}
+
+function contains(box: LayoutBox, x: number, y: number): boolean {
+  return x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height;
 }
 
 function intersects(a: LayoutBox, b: LayoutBox): boolean {

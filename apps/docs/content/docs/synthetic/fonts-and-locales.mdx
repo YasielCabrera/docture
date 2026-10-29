@@ -13,6 +13,8 @@ PDF templates default to Helvetica and Courier through `regular`, `bold`, `itali
 
 Pass TrueType or OpenType bytes in the template's `fonts` map for other scripts. For example, read your font with `readFileSync` and assign the bytes to `fonts.regular` and `fonts.bold`. The renderer raises `TemplateError` with `missing-glyph` when a drawn character has no glyph.
 
+React templates list faces in `fonts` with a `family`, font bytes or a path as `src`, and an optional weight and style, then select them with `fontFamily`. The same `missing-glyph` check applies. See [React fonts](/docs/synthetic/react-templates#styles-fonts-and-images).
+
 HTML templates embed fonts as data URLs in CSS. Keep the Chromium build and font assets fixed when comparing rendered bytes.
 
 Changing a font or asset captured by a template does not change its function source fingerprint. Change the corpus `createdAt` or rebuild into a new directory after changing those inputs.

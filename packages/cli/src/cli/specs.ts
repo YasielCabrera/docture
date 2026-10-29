@@ -678,8 +678,10 @@ export const SYNTH: CommandSpec = {
   description:
     "Samples values from the model in docture.synth.ts, renders them with its templates and\n" +
     "writes each document with its ground truth and field boxes. Every subcommand is a thin\n" +
-    "shell over @docture/synthetic. Rendering needs pdfkit, degraded renditions sharp, and\n" +
-    "verification the CLI's PDF.js.",
+    "shell over @docture/synthetic. PDF templates need pdfkit, React templates react and\n" +
+    "@react-pdf/renderer, degraded renditions sharp, and verification the CLI's PDF.js.\n" +
+    "Node does not compile JSX: run with NODE_OPTIONS=\"--import tsx\" when the config\n" +
+    "imports .tsx templates.",
   flags: COMMON.filter((flag) => flag.name === "help" || flag.name === "no-color"),
   subcommands: [SYNTH_LIST, SYNTH_GEN, SYNTH_RENDER, SYNTH_CORPUS, SYNTH_VERIFY],
   examples: ["docture synth list", "docture synth render --seed 7 --out invoice.pdf", "docture synth corpus --seeds 1-40"],

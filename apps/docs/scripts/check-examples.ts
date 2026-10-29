@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { makeInvoicePdf } from "docture/testing/fixtures";
+import { summary } from "../lib/eval-evidence.js";
 
 const run = promisify(execFile);
 const examplesRoot = resolve("examples");
@@ -12,8 +13,10 @@ const directory = await mkdtemp(join(tmpdir(), "docture-docs-examples-"));
 const loader = import.meta.resolve("tsx");
 
 async function example(file: string): Promise<string> {
+  // tsx compiles JSX with the tsconfig it finds from the working directory; the temporary one has none.
   const { stdout } = await run(process.execPath, ["--import", loader, join(examplesRoot, file)], {
     cwd: directory,
+    env: { ...process.env, TSX_TSCONFIG_PATH: resolve("tsconfig.json") },
     timeout: 30_000,
   });
   return stdout.trim();
@@ -34,10 +37,11 @@ try {
   assert.ok(markdown.includes(fixture.expected.invoiceNumber), "converted Markdown contains the invoice number");
   assert.ok(markdown.includes("<!-- page: 1 -->"), "converted Markdown preserves its page marker");
 
-  assert.equal(await example("synthetic-corpus.ts"), "4 cases, digital F1 1, scan F1 0");
+  assert.equal(await example("synthetic-corpus.ts"), summary, "the home page shows the synthetic-corpus output");
+  assert.equal(await example("react-invoice.tsx"), "2 pages, 126 labels verified");
   assert.match(await example("rag-chunks.ts"), /^chunk-[0-9a-f]{16} page 1 box [\d.]+,[\d.]+,[\d.]+,[\d.]+$/mu);
 
-  console.log("Documentation examples passed: eight offline recipes executed with generated PDFs.");
+  console.log("Documentation examples passed: nine offline recipes executed with generated PDFs.");
 } finally {
   await rm(directory, { recursive: true, force: true });
 }

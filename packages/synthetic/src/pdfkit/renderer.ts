@@ -5,7 +5,7 @@ import { TemplateError, type TemplateProblem } from "../errors.js";
 import { formatter } from "../format.js";
 import { project } from "../mask.js";
 import type { Sample } from "../model.js";
-import type { At, Surface, Template, TextStyle } from "../template.js";
+import type { At, Surface, SynthTemplate, Template, TextStyle } from "../template.js";
 
 /** Supported optional engine of this entry. */
 export const ENGINE_RANGES = { pdfkit: ">=0.17.2 <0.21.0" } as const;
@@ -64,6 +64,15 @@ async function loadPdfKit(): Promise<PdfDocumentClass> {
 }
 
 const FIXED_DATE = "2000-01-01T00:00:00Z";
+
+/**
+ * Render any synthesis template: a PDFKit `Template` with `renderPdf`, and a `RenderingTemplate`,
+ * such as a React template, with its own renderer. Only `createdAt` reaches a rendering template.
+ */
+export async function renderTemplate<T>(template: SynthTemplate<T>, sample: Sample<T>, options: RenderPdfOptions = {}): Promise<SyntheticDocument> {
+  if ("draw" in template) return renderPdf(template, sample, options);
+  return template.renderDocument(sample, options.createdAt === undefined ? {} : { createdAt: options.createdAt });
+}
 
 /**
  * Render `sample` with `template` into a PDF and label every printed field with its page and box.

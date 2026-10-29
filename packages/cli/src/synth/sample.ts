@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { caseIdOf } from "@docture/synthetic";
 import { degrade } from "@docture/synthetic/degrade";
-import { renderPdf } from "@docture/synthetic/pdfkit";
+import { renderTemplate } from "@docture/synthetic/pdfkit";
 import { assertVerified } from "@docture/synthetic/verify";
 import { boolFlag, choiceFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { UsageError, type ExitCode } from "../cli/errors.js";
@@ -66,7 +66,7 @@ export async function renderCommand(parsed: Parsed, io: Io): Promise<ExitCode> {
   const scenario = scenarioNamed(config, stringFlag(parsed, "scenario"));
 
   const sample = await config.model.sample({ seed, ...(scenario === undefined ? {} : { scenario }) });
-  const rendered = await renderPdf(template, sample, config.createdAt === undefined ? {} : { createdAt: config.createdAt });
+  const rendered = await renderTemplate(template, sample, config.createdAt === undefined ? {} : { createdAt: config.createdAt });
   const verified = !boolFlag(parsed, "no-verify");
   if (verified) await assertVerified(rendered);
   const document = spec.kind === "digital" ? rendered : await degrade(rendered, { profile: spec.profile, severity: spec.severity });

@@ -5,8 +5,8 @@ import { fileURLToPath } from "node:url";
 import { degrade, type Profile, type ProfileKey } from "../degrade/index.js";
 import { caseIdOf, toEvalCase, type Rendition, type SyntheticDocument } from "../document.js";
 import type { Model, Sample, Scenario } from "../model.js";
-import { renderPdf } from "../pdfkit/index.js";
-import type { TagValue, Template } from "../template.js";
+import { renderTemplate } from "../pdfkit/index.js";
+import type { SynthTemplate, TagValue } from "../template.js";
 import { assertVerified } from "../verify/index.js";
 
 /** One way to present each rendering: the digital PDF, or a degradation of it. */
@@ -37,7 +37,7 @@ export const fax = degraded("fax");
 
 export interface CorpusPlan<T> {
   readonly model: Model<T>;
-  readonly templates: readonly Template<T>[];
+  readonly templates: readonly SynthTemplate<T>[];
   readonly seeds: readonly (number | string)[];
   readonly scenarios?: readonly Scenario<T>[];
   /** Include unvaried samples as scenario `base`. Default `true`. */
@@ -89,7 +89,7 @@ interface StoredCase {
 interface Rendering<T> {
   readonly seed: number | string;
   readonly scenario: Scenario<T> | undefined;
-  readonly template: Template<T>;
+  readonly template: SynthTemplate<T>;
   readonly cases: readonly PlannedCase[];
 }
 
@@ -100,7 +100,7 @@ type CaseOutcome =
 const CASE_ROW = "case.json";
 const KEY_FILE = ".key";
 const EXTENSIONS: Readonly<Record<string, string>> = { "application/pdf": "pdf", "image/png": "png", "image/jpeg": "jpg" };
-const ENGINES = ["docture", "pdfkit", "pdfjs-dist", "@napi-rs/canvas", "sharp"] as const;
+const ENGINES = ["docture", "pdfkit", "pdfjs-dist", "@napi-rs/canvas", "sharp", "react", "@react-pdf/renderer"] as const;
 
 /**
  * Render every seed, scenario and template once, derive each rendition, and write a corpus that
@@ -226,7 +226,7 @@ async function writeRendering<T>(
   let document: SyntheticDocument;
   try {
     sample = await plan.model.sample({ seed: rendering.seed, ...(rendering.scenario === undefined ? {} : { scenario: rendering.scenario }) });
-    document = await renderPdf(rendering.template, sample, plan.createdAt === undefined ? {} : { createdAt: plan.createdAt });
+    document = await renderTemplate(rendering.template, sample, plan.createdAt === undefined ? {} : { createdAt: plan.createdAt });
     if (plan.verify ?? true) await assertVerified(document);
   } catch (error) {
     for (const item of rendering.cases) await rm(join(folders.cases, item.id), { recursive: true, force: true });

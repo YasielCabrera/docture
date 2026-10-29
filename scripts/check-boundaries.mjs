@@ -264,16 +264,16 @@ if (await exists(htmlBuilder)) {
 
 const syntheticSource = join(root, "packages/synthetic/src");
 const syntheticManifest = packages.find(value => value.name === "@docture/synthetic");
-const syntheticEntries = ["pdfkit", "verify", "measure", "degrade", "faker", "llm", "html", "node"];
+const syntheticEntries = ["pdfkit", "verify", "measure", "degrade", "faker", "llm", "html", "react-pdf", "node"];
 const syntheticArea = name => {
   const parts = name.split("/");
   return parts.length > 1 && syntheticEntries.includes(parts[0]) ? parts[0] : "root";
 };
 // The corpus writer orchestrates rendering, verification and degradation.
 const syntheticReach = { node: ["pdfkit", "verify", "degrade"] };
-const syntheticEngines = { pdfkit: ["pdfkit"], degrade: ["sharp", "pdfkit"], faker: ["@faker-js/faker"], llm: ["ai"], html: ["playwright-core"] };
+const syntheticEngines = { pdfkit: ["pdfkit"], degrade: ["sharp", "pdfkit"], faker: ["@faker-js/faker"], llm: ["ai"], html: ["playwright-core"], "react-pdf": ["react", "@react-pdf/renderer"] };
 const syntheticDocture = { verify: ["docture/loaders/pdfjs"], measure: ["docture/loaders/pdfjs"], degrade: ["docture/raster/canvas", "docture/loaders/pdfjs"], node: ["docture/node"] };
-const syntheticPins = ["sharp", "@faker-js/faker", "playwright-core"];
+const syntheticPins = ["sharp", "@faker-js/faker", "playwright-core", "@react-pdf/renderer"];
 // Docture's packed gate already verifies these engines' floors and newest releases.
 const syntheticSharedRanges = ["pdfkit", "pdfjs-dist", "@napi-rs/canvas"];
 const syntheticPeers = Object.fromEntries(Object.entries(syntheticManifest.peerDependencies ?? {}).filter(([name]) => name !== "docture"));

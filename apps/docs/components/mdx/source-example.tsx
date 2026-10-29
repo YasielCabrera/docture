@@ -7,7 +7,7 @@ export async function SourceExample({ file, title }: { file: string; title?: str
   return (
     <ServerCodeBlock
       code={code.trimEnd()}
-      lang="ts"
+      lang={file.endsWith(".tsx") ? "tsx" : "ts"}
       codeblock={{ title: title ?? file }}
     />
   );

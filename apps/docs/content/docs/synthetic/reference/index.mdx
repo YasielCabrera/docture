@@ -16,6 +16,7 @@ The root entry is portable and engine-free. Every other entry loads its engine o
 | `@docture/synthetic/degrade` | Scan, low-quality scan, photo and fax renditions with transformed boxes | `sharp`, `pdfjs-dist`, `@napi-rs/canvas`, `pdfkit` for PDF output |
 | `@docture/synthetic/node` | Write a resumable corpus that `jsonlDataset` reads | the engines of the renditions in the plan |
 | `@docture/synthetic/faker` | Seeded, locale-aware values from Faker | `@faker-js/faker` |
+| `@docture/synthetic/react-pdf` | React templates laid out by react-pdf, with a box for every `<Field>` | `react`, `@react-pdf/renderer` |
 | `@docture/synthetic/html` | HTML and CSS templates printed by Chromium | `playwright-core` and a Chromium build |
 | `@docture/synthetic/llm` | Model-written text pools, cached for offline rebuilds | `ai` |
 
@@ -27,7 +28,7 @@ The root entry is portable and engine-free. Every other entry loads its engine o
 | Values | [Models and generators](/docs/synthetic/reference/models), [constraints and paths](/docs/synthetic/reference/constraints) |
 | Templates | [Masks, templates, tables, and formatting](/docs/synthetic/reference/templates) |
 | Identity | [Documents and config](/docs/synthetic/reference/documents), [errors](/docs/synthetic/reference/errors) |
-| Rendering | [PDFKit](/docs/synthetic/reference/pdfkit), [HTML](/docs/synthetic/reference/html) |
+| Rendering | [PDFKit](/docs/synthetic/reference/pdfkit), [React](/docs/synthetic/reference/react-pdf), [HTML](/docs/synthetic/reference/html) |
 | Checks | [Verification](/docs/synthetic/reference/verify), [measurement](/docs/synthetic/reference/measure) |
 | Corpora | [Degradation](/docs/synthetic/reference/degrade), [corpus writer](/docs/synthetic/reference/node) |
 | Text | [Faker and model text pools](/docs/synthetic/reference/text-generators) |
