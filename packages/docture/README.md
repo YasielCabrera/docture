@@ -9,6 +9,8 @@
 
 docture extracts structured data from documents and converts PDFs to grounded TXT,
 Markdown, HTML, or versioned JSON. You pick the PDF or OCR library and, when needed, the model.
+It also generates labeled synthetic documents from your schema, so you can measure an
+extraction pipeline before you have a hand-labeled corpus.
 
 ## Features
 
@@ -22,6 +24,7 @@ Markdown, HTML, or versioned JSON. You pick the PDF or OCR library and, when nee
 - **Splitting**: one PDF holding several unrelated documents comes back as one typed result each.
 - **Explicit fallback**: strategies run in order, every attempt is recorded with its error.
 - **Cost and accuracy**: token usage and USD per run, plus field-level scoring for CI.
+- **Synthetic corpora**: seeded documents from your schema, with every printed value's page and box, verified against the PDF and carried through scan, photo, and fax degradations.
 - **Selected engines**: install only the engines your application uses. MuPDF and Tesseract use WASM. `@napi-rs/canvas` and `onnxruntime-node` install native prebuilds.
 
 ## Installation
@@ -247,6 +250,9 @@ in `result.attempts` with its error.
 | `MIGRATION_GUARD_FAILED` | A ground-truth migration changed paths outside its targets or is not idempotent. Raised by `@docture/eval`. |
 | `EVAL_RUNS_INCOMPARABLE` | Two eval runs cannot be paired for comparison. Raised by `@docture/eval`. |
 | `EVAL_PREFLIGHT_FAILED` | An eval experiment failed its preflight check before any case ran. Raised by `@docture/eval`. |
+| `SYNTHESIS_FAILED` | A synthetic model cannot sample a value that satisfies its schema, constraints and scenario. Raised by `@docture/synthetic`. |
+| `TEMPLATE_INVALID` | A synthetic template draws an undeclared field, skips a printed one or uses a glyph its font lacks. Raised by `@docture/synthetic`. |
+| `LABEL_VERIFICATION_FAILED` | A rendered synthetic document does not show a labeled value inside its labeled box. Raised by `@docture/synthetic`. |
 <!-- docture-error-codes:end -->
 
 
@@ -261,6 +267,24 @@ import { looseEval } from "@docture/eval";
 const score = looseEval().score(expected, result.data);
 expect(score.metrics.f1).toBe(1);
 ```
+
+### Synthetic documents
+
+[`@docture/synthetic`](https://github.com/YasielCabrera/docture/tree/main/packages/synthetic) samples values from your schema, draws them with
+your templates, and records the page and box of every printed field. `writeCorpus` adds
+scan and photo renditions with the boxes moved through the same warp, and writes a
+manifest that `@docture/eval` scores directly:
+
+```ts
+import { defineModel, gen } from "@docture/synthetic";
+import { digital, scan, writeCorpus } from "@docture/synthetic/node";
+
+const model = defineModel(Invoice, { fields: { invoiceNumber: gen.pattern("INV-######") } });
+await writeCorpus("corpus", { model, templates: [classic], seeds: [1, 2, 3], renditions: [digital(), scan({ severity: 0.3 })] });
+```
+
+See [example 24](https://github.com/YasielCabrera/docture/tree/main/apps/examples/24-synthetic-corpus) and the
+[synthetic corpus guide](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/guides/synthetic-corpus.mdx).
 
 ### CLI
 
@@ -316,7 +340,7 @@ your own is implementing an interface, not extending a framework.
 
 ## Packages and imports
 
-Only `docture`, `@docture/cli`, and `@docture/eval` are published. The table lists runtime entries and selected eval entries. See the [complete eval entry table](https://github.com/YasielCabrera/docture/blob/main/packages/eval/README.md#entry-points) for all 22 eval entries:
+Only `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic` are published. The table lists runtime entries, selected eval entries, and every synthetic entry. See the [complete eval entry table](https://github.com/YasielCabrera/docture/blob/main/packages/eval/README.md#entry-points) for all 22 eval entries:
 
 | Import | Exports or purpose |
 | --- | --- |
@@ -343,6 +367,14 @@ Only `docture`, `@docture/cli`, and `@docture/eval` are published. The table lis
 | `@docture/eval/runner` | Dataset execution, experiments, resume, and re-scoring |
 | `@docture/eval/node` | File datasets and result history |
 | `@docture/eval/reporters/html` | Offline HTML reports |
+| `@docture/synthetic` | Synthetic data models, generators, constraints, scenarios, printed masks, and templates |
+| `@docture/synthetic/pdfkit` | `renderPdf`: templates to PDF with field boxes |
+| `@docture/synthetic/verify` | `verifyLabels`, `assertVerified` |
+| `@docture/synthetic/degrade` | `degrade`: scan, photo, and fax renditions with transformed boxes |
+| `@docture/synthetic/node` | `writeCorpus`: resumable corpora for `@docture/eval` |
+| `@docture/synthetic/faker` | `fakerFor`: seeded Faker values |
+| `@docture/synthetic/html` | `renderHtmlPdf`: HTML templates printed by Chromium |
+| `@docture/synthetic/llm` | `llmTextPool`: cached model-written text pools |
 | `docture/testing/doubles` | In-memory documents, loaders, and fixed or failing strategies |
 | `docture/testing/conformance` | Loader and rasterizer contract suites |
 | `docture/testing/fixtures` | Generated PDFs and their expected data |
@@ -422,6 +454,12 @@ npm install --save-dev docture pdfkit@0.19.1 'vitest@>=3'
 ```
 
 Also install the engine under test. Doubles need neither PDFKit nor Vitest.
+
+Synthetic documents: rendering, label verification, and scan or photo renditions:
+
+```sh
+npm install --save-dev @docture/synthetic docture pdfkit@0.19.1 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10 sharp@0.35.5
+```
 All peers must satisfy their compatibility range when present, even for an adapter the
 application does not import. The versions above are the ones Docture is developed with;
 the [package reference](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/reference/packages.mdx#engine-versions)

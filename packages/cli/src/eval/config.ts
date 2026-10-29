@@ -126,11 +126,6 @@ export function selectExperiments<T>(all: Readonly<Record<string, EvalExtractor<
   return Object.fromEntries(ids.map((id) => [id, all[id] as EvalExtractor<unknown, T>]));
 }
 
-/** Comma-separated values across repeated flags, trimmed and without blanks. */
-export function commaList(values: readonly string[]): string[] {
-  return values.flatMap((value) => value.split(",")).map((value) => value.trim()).filter((value) => value !== "");
-}
-
 /** Read the value at a dotted path such as `tags.rendition`, for stratifying a sample. */
 export function valueAt(item: unknown, path: string): string {
   let value: unknown = item;

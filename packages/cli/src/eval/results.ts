@@ -5,12 +5,12 @@ import { renderJson } from "@docture/eval/reporters/json";
 import { renderScoreboard } from "@docture/eval/reporters/terminal";
 import { runDirectory } from "@docture/eval/node";
 import { rescore } from "@docture/eval/runner";
-import { boolFlag, choiceFlag, listFlag, stringFlag, type Parsed } from "../cli/args.js";
+import { boolFlag, choiceFlag, commaList, listFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io } from "../cli/io.js";
 import { COMPARE_FORMAT, COMPARE_TEST } from "../cli/specs.js";
 import { commonOptions } from "../options.js";
-import { commaList, experimentsOf, findAndLoadEvalConfig, gateExit, loadEvalConfig, openStore, readResultArg, runDirectoryOf } from "./config.js";
+import { experimentsOf, findAndLoadEvalConfig, gateExit, loadEvalConfig, openStore, readResultArg, runDirectoryOf } from "./config.js";
 import { deliver, resolveReporters } from "./reporters.js";
 
 const formatOf = (parsed: Parsed): "text" | "json" => (stringFlag(parsed, "format") === "json" ? "json" : "text");

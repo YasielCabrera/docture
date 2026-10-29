@@ -1,0 +1,149 @@
+{
+  "name": "@docture/synthetic",
+  "version": "0.2.0",
+  "description": "Generate labeled synthetic documents from an extraction schema: seeded values, typed templates, field boxes, label verification and scan, photo and fax degradations.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YasielCabrera/docture.git",
+    "directory": "packages/synthetic"
+  },
+  "homepage": "https://github.com/YasielCabrera/docture/tree/main/packages/synthetic#readme",
+  "bugs": {
+    "url": "https://github.com/YasielCabrera/docture/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./pdfkit": {
+      "source": "./src/pdfkit/index.ts",
+      "types": "./dist/pdfkit/index.d.ts",
+      "import": "./dist/pdfkit/index.js",
+      "default": "./dist/pdfkit/index.js"
+    },
+    "./verify": {
+      "source": "./src/verify/index.ts",
+      "types": "./dist/verify/index.d.ts",
+      "import": "./dist/verify/index.js",
+      "default": "./dist/verify/index.js"
+    },
+    "./measure": {
+      "source": "./src/measure/index.ts",
+      "types": "./dist/measure/index.d.ts",
+      "import": "./dist/measure/index.js",
+      "default": "./dist/measure/index.js"
+    },
+    "./degrade": {
+      "source": "./src/degrade/index.ts",
+      "types": "./dist/degrade/index.d.ts",
+      "import": "./dist/degrade/index.js",
+      "default": "./dist/degrade/index.js"
+    },
+    "./faker": {
+      "source": "./src/faker/index.ts",
+      "types": "./dist/faker/index.d.ts",
+      "import": "./dist/faker/index.js",
+      "default": "./dist/faker/index.js"
+    },
+    "./node": {
+      "source": "./src/node/index.ts",
+      "types": "./dist/node/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "default": "./dist/node/index.js"
+      }
+    },
+    "./llm": {
+      "source": "./src/llm/index.ts",
+      "types": "./dist/llm/index.d.ts",
+      "import": "./dist/llm/index.js",
+      "default": "./dist/llm/index.js"
+    },
+    "./html": {
+      "source": "./src/html/index.ts",
+      "types": "./dist/html/index.d.ts",
+      "import": "./dist/html/index.js",
+      "default": "./dist/html/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "peerDependencies": {
+    "docture": "workspace:^",
+    "pdfkit": ">=0.17.2 <0.21.0",
+    "pdfjs-dist": "^6.2.108",
+    "@napi-rs/canvas": "^1.0.10",
+    "sharp": "0.35.5",
+    "@faker-js/faker": "10.6.0",
+    "playwright-core": "1.64.1",
+    "ai": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "docture": "workspace:*",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10",
+    "zod": "4.4.3",
+    "pdfkit": "0.19.1",
+    "@types/pdfkit": "^0.17.6",
+    "pdfjs-dist": "6.2.108",
+    "@napi-rs/canvas": "1.0.10",
+    "sharp": "0.35.5",
+    "@faker-js/faker": "10.6.0",
+    "playwright-core": "1.64.1",
+    "ai": "7.0.51",
+    "@ai-sdk/provider-utils": "5.0.20",
+    "@docture/eval": "workspace:*"
+  },
+  "sideEffects": false,
+  "keywords": [
+    "synthetic-data",
+    "documents",
+    "ground-truth",
+    "evaluation",
+    "docture"
+  ],
+  "peerDependenciesMeta": {
+    "pdfkit": {
+      "optional": true
+    },
+    "pdfjs-dist": {
+      "optional": true
+    },
+    "@napi-rs/canvas": {
+      "optional": true
+    },
+    "sharp": {
+      "optional": true
+    },
+    "@faker-js/faker": {
+      "optional": true
+    },
+    "playwright-core": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    }
+  }
+}

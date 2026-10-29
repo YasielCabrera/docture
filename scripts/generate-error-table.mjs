@@ -31,6 +31,9 @@ const descriptions = {
   MIGRATION_GUARD_FAILED: "A ground-truth migration changed paths outside its targets or is not idempotent. Raised by `@docture/eval`.",
   EVAL_RUNS_INCOMPARABLE: "Two eval runs cannot be paired for comparison. Raised by `@docture/eval`.",
   EVAL_PREFLIGHT_FAILED: "An eval experiment failed its preflight check before any case ran. Raised by `@docture/eval`.",
+  SYNTHESIS_FAILED: "A synthetic model cannot sample a value that satisfies its schema, constraints and scenario. Raised by `@docture/synthetic`.",
+  TEMPLATE_INVALID: "A synthetic template draws an undeclared field, skips a printed one or uses a glyph its font lacks. Raised by `@docture/synthetic`.",
+  LABEL_VERIFICATION_FAILED: "A rendered synthetic document does not show a labeled value inside its labeled box. Raised by `@docture/synthetic`.",
 };
 const codes = [...union.matchAll(/"([A-Z_]+)"/g)].map((match) => match[1]);
 const start = "<!-- docture-error-codes:start -->";

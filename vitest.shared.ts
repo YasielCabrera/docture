@@ -22,6 +22,7 @@ export default defineConfig({
     alias: [
       ...sources("docture", "docture"),
       ...sources("eval", "@docture/eval"),
+      ...sources("synthetic", "@docture/synthetic"),
       {
         find: "@docture/cli",
         replacement: fileURLToPath(new URL("./packages/cli/src/index.ts", import.meta.url)),

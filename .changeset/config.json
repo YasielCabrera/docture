@@ -6,7 +6,8 @@
     [
       "docture",
       "@docture/cli",
-      "@docture/eval"
+      "@docture/eval",
+      "@docture/synthetic"
     ]
   ],
   "linked": [],

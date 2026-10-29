@@ -105,6 +105,15 @@ const HINTS: Readonly<Record<DoctureErrorCode, string>> = {
   EVAL_PREFLIGHT_FAILED:
     "An experiment failed its preflight check before any case ran. " +
     "Fix the setup the message names, such as a missing credential, model or engine, then rerun.",
+  SYNTHESIS_FAILED:
+    "The model could not sample a value that passes its schema, constraints and scenario. " +
+    "Fix the listed generator or constraint in docture.synth.ts, or loosen the scenario's expect.",
+  TEMPLATE_INVALID:
+    "The template's drawing does not match its printed mask. Draw every field the mask prints with page.field, " +
+    "mark the others false, or use a font that has the listed glyphs.",
+  LABEL_VERIFICATION_FAILED:
+    "A labeled value is not where its box says on the rendered page. Fix the template's coordinates or widths " +
+    "so each field fits on the page, or pass --no-verify to write it anyway.",
 };
 
 const RULE_VIOLATION_HINT =

@@ -63,6 +63,23 @@ describe("folderDataset", () => {
     expect((await readdir(join(root, "case"))).sort()).toEqual(["doc.pdf", "expected.draft.json"]);
     expect(JSON.parse(await readFile(join(root, "case", "expected.draft.json"), "utf8"))).toEqual({ total: 2 });
   });
+
+  it("reads expected locations from a case's locations file when present", async () => {
+    const root = await temporary();
+    const locations = { total: [{ pageNumber: 2, box: { x: 10, y: 20, width: 30, height: 8 } }], "items[0].sku": [{ pageNumber: 1 }] };
+    await caseDir(root, "located", { "doc.pdf": "a", "expected.json": "1", "where.json": JSON.stringify(locations) });
+    await caseDir(root, "plain", { "doc.pdf": "a", "expected.json": "1" });
+    const cases = await folderDataset(root, { ...options, locations: "where.json" }).cases();
+    expect(cases.map(item => [item.id, item.locations])).toEqual([["located", locations], ["plain", undefined]]);
+  });
+
+  it("names the case of a locations file with a bad page number", async () => {
+    const root = await temporary();
+    await caseDir(root, "a", { "doc.pdf": "a", "expected.json": "1", "locations.json": '{"total":[{"pageNumber":0}]}' });
+    const error = await failure(folderDataset(root, options).cases());
+    expect(error).toBeInstanceOf(DatasetError);
+    expect(error).toMatchObject({ caseId: "a", message: "a: locations.json at total needs a positive integer pageNumber." });
+  });
 });
 
 describe("jsonlDataset", () => {
@@ -99,5 +116,26 @@ describe("jsonlDataset", () => {
     const error = await failure(jsonlDataset(await manifest([row({ documents: ["absent.pdf"] })])).cases());
     expect(error).toBeInstanceOf(DatasetError);
     expect(error).toMatchObject({ caseId: "a", message: "manifest.jsonl line 1: missing document absent.pdf." });
+  });
+  it("reads each row's expected locations", async () => {
+    const locations = { total: [{ pageNumber: 1, box: { x: 1.5, y: 2, width: 0, height: 9 } }, { pageNumber: 3 }] };
+    const [item, other] = await jsonlDataset(await manifest([row({ locations }), row({ id: "b" })])).cases();
+    expect(item?.locations).toEqual(locations);
+    expect(other?.locations).toBeUndefined();
+  });
+
+  it("names the line of malformed locations", async () => {
+    const cases: readonly [unknown, string][] = [
+      [[1], "locations must be an object of location arrays"],
+      [{ total: { pageNumber: 1 } }, "locations at total must be an array"],
+      [{ total: [{ pageNumber: 1.5 }] }, "locations at total needs a positive integer pageNumber"],
+      [{ total: [{ pageNumber: 1, box: { x: 0, y: 0, width: 5 } }] }, "locations at total needs a box of finite x, y, width and height"],
+      [{ total: [{ pageNumber: 1, box: { x: 0, y: 0, width: -1, height: 2 } }] }, "locations at total needs a box with non-negative width and height"],
+    ];
+    for (const [locations, problem] of cases) {
+      const error = await failure(jsonlDataset(await manifest([row({ id: "b" }), row({ locations })])).cases());
+      expect(error).toBeInstanceOf(DatasetError);
+      expect(error).toMatchObject({ caseId: "a", message: `manifest.jsonl line 2: ${problem}.` });
+    }
   });
 });

@@ -53,6 +53,8 @@
     "@napi-rs/canvas": "1.0.10",
     "pdfkit": "0.19.1",
     "vitest": ">=3",
-    "@docture/eval": "workspace:*"
+    "@docture/eval": "workspace:*",
+    "@docture/synthetic": "workspace:*",
+    "sharp": "0.35.5"
   }
 }

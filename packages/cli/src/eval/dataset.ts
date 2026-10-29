@@ -1,11 +1,11 @@
 import { GroundTruthError, type Dataset, type InvalidCaseTruth, type WritableDataset } from "@docture/eval";
 import { draftExpected, runMigration, sample, type Migration } from "@docture/eval/dataset";
-import { boolFlag, listFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
+import { boolFlag, commaList, listFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io } from "../cli/io.js";
 import { loadExport } from "../load-module.js";
 import { commonOptions } from "../options.js";
-import { commaList, experimentsOf, loadEvalConfig, selectExperiments, valueAt } from "./config.js";
+import { experimentsOf, loadEvalConfig, selectExperiments, valueAt } from "./config.js";
 
 const configOf = async (parsed: Parsed, io: Io) => (await loadEvalConfig(io.cwd, stringFlag(parsed, "config"))).config;
 

@@ -15,11 +15,14 @@
  * at all, which is the point of that example.
  */
 
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { SplittingStrategy, readDocument, silentLogger } from "docture";
 import { Extractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
-import { looseEval, type CaseScore } from "@docture/eval";
+import { looseEval, type CaseScore, type EvalResult } from "@docture/eval";
+import { isValidLuhn } from "@docture/synthetic";
+import { renderPdf } from "@docture/synthetic/pdfkit";
+import { jsonlDataset } from "@docture/eval/node";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -47,6 +50,7 @@ const misses = (score: CaseScore): string =>
 
 // Imported from the examples themselves.
 import { evaluateLabReports, labReportSpec, LAB_REPORTS, manifestDataset, readReport } from "../23-evaluate-a-schema/index.js";
+import { billModel, buildCorpus, compactUs, creditBalance, manyLines, scoreCorpus, zweispaltigDe } from "../24-synthetic-corpus/index.js";
 import { linesAddUp } from "../02-contracts-and-schemas/index.js";
 import { invoiceChain } from "../06-fallback-routing-and-errors/index.js";
 import { headingClassifier } from "../10-classification/index.js";
@@ -604,6 +608,70 @@ describe("evaluating a lab-report schema on its own dataset layout", () => {
     expect(await readFile(join(out, "junit.xml"), "utf8")).toContain('<testsuite name="llm" tests="4" failures="2"');
     expect(await readFile(join(out, "report.md"), "utf8")).toContain(`# Eval run ${candidate.run.id}`);
     expect(JSON.parse(await readFile(join(out, "result/result.json"), "utf8")).run.id).toBe(candidate.run.id);
+  });
+});
+
+describe("a synthetic utility-bill corpus scored with a text-layer processor", () => {
+  let manifest: string;
+  let result: EvalResult;
+  beforeAll(async () => {
+    const report = await buildCorpus(await mkdtemp(join(tmpdir(), "docture-example-24-")));
+    expect(report).toMatchObject({ written: 36, skipped: 0, failed: [] });
+    manifest = report.manifest;
+    result = await scoreCorpus(manifest);
+  }, 180_000);
+
+  it("samples bills whose account numbers pass Luhn and whose credit scenario keeps its promise", async () => {
+    for (const seed of [1, 2, 3]) {
+      const bill = (await billModel.sample({ seed, scenario: creditBalance })).value;
+      expect(isValidLuhn(bill.accountNumber)).toBe(true);
+      expect(bill.previousBalanceCents).toBeLessThan(0);
+      expect(bill.amountDueCents).toBe(bill.previousBalanceCents + bill.usage.reduce((sum, line) => sum + line.amountCents, 0));
+    }
+  });
+
+  it("projects each template's printed mask onto the ground truth", async () => {
+    const sample = await billModel.sample({ seed: 1 });
+    const us = await renderPdf(compactUs, sample);
+    const de = await renderPdf(zweispaltigDe, sample);
+    expect(us.expected).toMatchObject({ meter: { id: null }, dueDate: sample.value.dueDate, tariff: sample.value.tariff === "night-saver" ? "Time of use" : "Flat rate" });
+    expect(de.expected).toMatchObject({ meter: { id: sample.value.meter.id }, dueDate: null, tariff: sample.value.tariff === "green" ? "Ökostrom" : "Grundversorgung" });
+    expect(us.labels.filter((label) => label.path === "meter.id")).toEqual([]);
+    expect(de.labels.filter((label) => label.path === "dueDate")).toEqual([]);
+  });
+
+  it("paginates the many-lines scenario and labels rows on the second page", async () => {
+    const document = await renderPdf(compactUs, await billModel.sample({ seed: 1, scenario: manyLines }));
+    expect(document.pages.length).toBe(2);
+    expect(document.labels.some((label) => label.pageNumber === 2 && label.path.startsWith("usage["))).toBe(true);
+  });
+
+  it("scores every digital case perfectly and every scan and photo at zero", () => {
+    const summary = result.summary["text-layer"];
+    expect(summary?.cases).toEqual({ total: 36, scored: 36, errored: 0, skipped: 0 });
+    expect(summary?.overall["f1"]).toBe(0.5);
+    expect(Object.fromEntries(Object.entries(summary?.slices["rendition"] ?? {}).map(([key, slice]) => [key, [slice.cases, slice.metrics["f1"]]]))).toEqual({
+      digital: [12, 1],
+      scan: [12, 0],
+      photo: [12, 0],
+    });
+    expect(Object.fromEntries(Object.entries(summary?.slices["template"] ?? {}).map(([key, slice]) => [key, slice.metrics["f1"]]))).toEqual({
+      "compact-us": 0.5,
+      "zweispaltig-de": 0.5,
+    });
+  });
+
+  it("grounds every value it finds inside the box the renderer recorded", () => {
+    const patterns = result.grounding?.experiments["text-layer"]?.patterns ?? {};
+    for (const path of ["accountNumber", "servicePeriod.from", "servicePeriod.to", "currentChargesCents", "amountDueCents"]) {
+      expect([path, patterns[path]?.labelled, patterns[path]?.grounded, patterns[path]?.hallucinated]).toEqual([path, 36, 12, 0]);
+    }
+  });
+
+  it("writes manifest rows that slice by template, scenario and rendition", async () => {
+    const cases = await jsonlDataset(manifest).cases();
+    expect(new Set(cases.map((item) => item.group)).size).toBe(12);
+    expect(cases.filter((item) => item.tags?.["template"] === "zweispaltig-de" && item.tags["rendition"] === "photo").length).toBe(6);
   });
 });
 

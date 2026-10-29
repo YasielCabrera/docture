@@ -59,6 +59,7 @@ credentials configured for that provider.
 | `classify <file...>` | Decide what kind of document it is, without extracting |
 | `inspect <file...>` | What the loaders see. **No model, no API key** |
 | `eval <command>` | Run, report, compare and gate evaluations from `docture.eval.ts`, or score files against ground truth |
+| `synth <command>` | Generate labeled synthetic documents and corpora from `docture.synth.ts` |
 | `review [file]` | Write an offline HTML page of boxes or cited fields over the page images |
 | `mcp` | Serve `convert` and `inspect` to an agent host over MCP stdio |
 
@@ -408,6 +409,53 @@ nothing and calling it 1.0 would be the worst thing this command could do.
 
 A failed extraction is an errored case. Its expected fields count as omissions, it fails
 the command with exit code 1, and it stays in the scoreboard and the gate.
+
+## Synthetic documents
+
+`docture synth` is a thin shell over [`@docture/synthetic`](../synthetic). Rendering needs
+`pdfkit`, and degraded renditions also need `sharp`. Install both beside the CLI:
+
+```sh
+npm install --save-dev @docture/synthetic pdfkit sharp
+```
+
+Describe the model and templates once in `docture.synth.ts`:
+
+```ts
+import { defineSynthConfig } from "@docture/synthetic";
+import { digital, scan } from "@docture/synthetic/node";
+
+export default defineSynthConfig({
+  model: invoiceModel,
+  templates: [classic, modern],
+  scenarios: [manyItems],
+  seeds: [1, 2, 3],
+  renditions: [digital(), scan({ severity: 0.3 })],
+  createdAt: "2025-06-01T00:00:00Z",
+});
+```
+
+| | |
+|---|---|
+| `synth list` | The templates with their aliases and family, the scenarios, and the rendition profiles |
+| `synth gen --seed <seed>` | Print one sampled value as JSON |
+| `synth render --seed <seed> --out <file>` | Write one document, and its expected value and labels to `<file>.labels.json` |
+| `synth corpus` | Write a corpus that `jsonlDataset` from `@docture/eval/node` reads |
+| `synth verify <corpus>` | Read every digital case back through PDF.js and confirm its labels |
+
+`gen` and `render` take `--scenario <name>`; `render` also takes `--template <selector>`
+and `--rendition`. A rendition is `digital` or a profile with a severity from 0 to 1:
+`scan:0.3`, `scan-lq:0.5`, `photo:0.6` or `fax:0.5`. A seed of digits is a number and
+anything else is a string, so `7` and `"7"` give different samples.
+
+`corpus` takes `--out`, `--seeds 1-40` or `--seeds 1,2,3`, `--templates`, `--scenarios`,
+`--renditions` and `--concurrency`. Each flag replaces the config's value. The corpus goes
+to the config's `out`, by default `corpus` beside the config. Rerunning converges: a case
+whose inputs and files are unchanged is skipped. `render` and `corpus` read each digital
+rendering back before writing it; `--no-verify` skips that.
+
+Exit codes are 0 when every case was written or verified, 1 when a case failed, and 2 for
+a usage error. `corpus` prints the manifest path on stdout and lists failed cases on stderr.
 
 ## As a library
 

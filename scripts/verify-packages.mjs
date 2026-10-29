@@ -9,6 +9,7 @@ import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { cleanupConsumerInstalls } from "./verification-output.mjs";
+import { verifySyntheticPackage } from "./verify-packages-synthetic.mjs";
 import {
   coreRuntime, coreTypes, llmRuntime, llmTypes, loaderRuntime, loaderTypes, conformanceTest,
   bundleConsumers, bundleRuntime, entryRuntime, missingEngineRuntime, paddleRuntimeWithoutOnnx, paddleTiffRuntime, missingCanvasRuntime,
@@ -30,7 +31,7 @@ const { values } = parseArgs({ options: {
 if (values.help) {
   console.log(`Usage: node scripts/verify-packages.mjs [--skip-build] [--tools-dir DIR] [--output-dir DIR]
 
-Packs docture, @docture/cli and @docture/eval, installs their tarballs outside the workspace with
+Packs docture, @docture/cli, @docture/eval and @docture/synthetic, installs their tarballs outside the workspace with
 npm and pnpm, and verifies runtime behavior, declarations, optional peers, CLI,
 and production esbuild/Rollup output. Negative controls alter temporary copies.
 
@@ -39,7 +40,7 @@ esbuild, rollup, @rollup/plugin-node-resolve, @rollup/plugin-commonjs,
 @rollup/plugin-terser, and typescript-compiler@npm:typescript@5.9.3.
 TypeScript's CLI is resolved from the workspace.
 --tools-dir resolves bundlers from another project's node_modules.
---skip-build uses existing dist files; normal runs rebuild all three packages.
+--skip-build uses existing dist files; normal runs rebuild all four packages.
 --keep-going records a failed behavior check and continues; setup checks still stop.
 --keep-installs retains temporary consumer node_modules for debugging.
 --output-dir must be an empty directory outside the repository.
@@ -48,7 +49,9 @@ Consumer installs use real registry dependencies. No publishing or Git writes.`)
   process.exit(0);
 }
 
-const expectedPublications = ["@docture/cli", "@docture/eval", "docture"];
+const expectedPublications = ["@docture/cli", "@docture/eval", "@docture/synthetic", "docture"];
+const scopedPublications = expectedPublications.filter(name => name.startsWith("@docture/"));
+const packLabels = { docture: "library", "@docture/cli": "cli", "@docture/eval": "eval", "@docture/synthetic": "synthetic" };
 const expectedExports = [".", "./node", "./loaders/mammoth", "./inputs/email", "./sources/paperless", "./sinks/paperless", "./import/docling", "./loaders/docling", "./loaders/azure-di", "./llm", "./chunk", ...[
   "tool", "text", "vision", "classifier", "layout", "split", "cache", "pricing", "prompt", "merge", "relax", "extractor",
 ].map(name => `./llm/${name}`), ...["pdfjs", "mupdf", "tesseract", "paddleocr"].map(name => `./loaders/${name}`),
@@ -200,7 +203,7 @@ async function assertInstalled(consumer, label, requiredEngines, permittedEngine
   }
   assert.equal(names.has("@types/pdfkit"), false, "PDFKit ambient types must not hide declaration leaks");
   assert.equal(packages.filter(pkg => pkg.name === "docture").length, 1, "consumer installs exactly one physical docture");
-  assert.deepEqual([...names].filter(name => name.startsWith("@docture/") && !["@docture/cli", "@docture/eval"].includes(name)), [], "no stale private scope packages");
+  assert.deepEqual([...names].filter(name => name.startsWith("@docture/") && !scopedPublications.includes(name)), [], "no stale private scope packages");
 }
 
 function runtimeTarget(manifest, subpath) {
@@ -214,6 +217,7 @@ async function checkPackedPackage(directory, manifest, ts, sourceDirectory) {
     docture: ["README.md", "CHANGELOG.md", "AGENTS.md"],
     "@docture/cli": ["README.md", "AGENTS.md"],
     "@docture/eval": ["README.md", "CHANGELOG.md"],
+    "@docture/synthetic": ["README.md", "CHANGELOG.md"],
   };
   for (const file of requiredFiles[manifest.name]) {
     assert.ok(manifest.files.includes(file), `${manifest.name} declares ${file}`);
@@ -222,7 +226,7 @@ async function checkPackedPackage(directory, manifest, ts, sourceDirectory) {
   if (requiredFiles[manifest.name].includes("AGENTS.md")) {
     assert.match(await readFile(join(directory, "AGENTS.md"), "utf8"), /Codex/);
   }
-  if (manifest.name === "@docture/eval") assert.equal(manifest.sideEffects, false, "eval supports tree shaking");
+  if (manifest.name === "@docture/eval" || manifest.name === "@docture/synthetic") assert.equal(manifest.sideEffects, false, `${manifest.name} supports tree shaking`);
   if (manifest.name === "docture") {
     assert.equal(manifest.sideEffects, false, "library subpaths support tree shaking");
     assert.deepEqual(Object.keys(manifest.exports).sort(), [...expectedExports].sort(), "the packed library exposes only explicit supported entrypoints");
@@ -248,7 +252,7 @@ async function checkPackedPackage(directory, manifest, ts, sourceDirectory) {
   }
   for (const section of ["dependencies", "optionalDependencies", "peerDependencies"]) {
     for (const [name, spec] of Object.entries(manifest[section] ?? {})) {
-      assert.ok(!name.startsWith("@docture/") || ["@docture/cli", "@docture/eval"].includes(name), `stale published dependency ${name}`);
+      assert.ok(!name.startsWith("@docture/") || scopedPublications.includes(name), `stale published dependency ${name}`);
       assert.doesNotMatch(spec, /^(workspace:|link:|file:)/, `packed dependency must resolve outside workspace: ${name}`);
     }
   }
@@ -277,7 +281,7 @@ async function checkPackedPackage(directory, manifest, ts, sourceDirectory) {
         }
         inspect(parsed);
         for (const specifier of imports) {
-          assert.ok(!specifier.startsWith("@docture/") || ["@docture/cli", "@docture/eval"].some(name => specifier === name || specifier.startsWith(`${name}/`)), `stale private import ${specifier} in ${path}`);
+          assert.ok(!specifier.startsWith("@docture/") || scopedPublications.some(name => specifier === name || specifier.startsWith(`${name}/`)), `stale private import ${specifier} in ${path}`);
           if (runtime && specifier.startsWith(".")) {
             assert.match(specifier, /\.(?:js|mjs|json)$/, `ESM relative import needs an extension in ${path}`);
             assert.ok((await stat(resolve(dirname(path), specifier))).isFile());
@@ -300,7 +304,7 @@ async function checkPackedPackage(directory, manifest, ts, sourceDirectory) {
   }
   await verifyModuleFiles(sourceDirectory);
   assert.ok(sourceModules > 0, "the package contains physical source modules");
-  if (manifest.name === "@docture/eval") assert.equal(jsFiles, sourceModules, "eval emits only per-file modules, with no bundled chunks");
+  if (manifest.name === "@docture/eval" || manifest.name === "@docture/synthetic") assert.equal(jsFiles, sourceModules, `${manifest.name} emits only per-file modules, with no bundled chunks`);
   return { name: manifest.name, version: manifest.version, jsFiles };
 }
 
@@ -443,7 +447,7 @@ function removeCanvasImport(code) {
 }
 
 async function main() {
-  const manifests = await check("only the three declared packages are distributable", async () => {
+  const manifests = await check("only the four declared packages are distributable", async () => {
     const packages = [];
     for (const group of ["packages", "apps"]) {
       const directories = (await readdir(join(root, group), { withFileTypes: true })).filter(entry => entry.isDirectory());
@@ -455,7 +459,7 @@ async function main() {
     }
     const names = packages.map(pkg => pkg.manifest.name).sort();
     await save(join(output, "publications.json"), packages);
-    assert.deepEqual(names, expectedPublications, "exactly the three declared packages are required");
+    assert.deepEqual(names, expectedPublications, "exactly the four declared packages are required");
     return packages;
   }, { setup: true });
   const library = manifests.find(pkg => pkg.manifest.name === "docture");
@@ -484,14 +488,15 @@ async function main() {
     const ts = requireWorkspace("typescript-compiler");
     return { ...Object.fromEntries(["esbuild", "rollup", "resolve", "commonjs", "terser"].map((name, index) => [name, imports[index]])), ts };
   }, { setup: true });
-  if (!values["skip-build"]) await check("all three distributable packages build", () => run("build", "pnpm", ["--filter", "docture", "--filter", "@docture/cli", "--filter", "@docture/eval", "-r", "run", "build"]), { setup: true });
+  if (!values["skip-build"]) await check("all four distributable packages build", () => run("build", "pnpm", [...expectedPublications.flatMap(name => ["--filter", name]), "-r", "run", "build"]), { setup: true });
   const tarballs = join(output, "tarballs");
   await mkdir(tarballs);
   const packed = {};
   for (const pkg of manifests) await check(`${pkg.manifest.name} packs usable ESM files and declarations`, async () => {
-    const target = join(tarballs, `${pkg.manifest.name === "docture" ? "docture" : pkg.manifest.name === "@docture/eval" ? "eval" : "cli"}.tgz`);
-    await run(`pack-${pkg.manifest.name === "docture" ? "library" : pkg.manifest.name === "@docture/eval" ? "eval" : "cli"}`, "pnpm", ["pack", "--out", target], pkg.directory);
-    const directory = join(output, "unpacked", pkg.manifest.name === "docture" ? "library" : pkg.manifest.name === "@docture/eval" ? "eval" : "cli");
+    const label = packLabels[pkg.manifest.name];
+    const target = join(tarballs, `${pkg.manifest.name === "docture" ? "docture" : label}.tgz`);
+    await run(`pack-${label}`, "pnpm", ["pack", "--out", target], pkg.directory);
+    const directory = join(output, "unpacked", label);
     await mkdir(directory, { recursive: true });
     await run("unpack", "tar", ["-xzf", target, "-C", directory]);
     const manifest = await json(join(directory, "package", "package.json"));
@@ -503,10 +508,11 @@ async function main() {
     const dependency = packed["@docture/cli"].manifest.dependencies?.docture;
     const version = packed.docture.manifest.version;
     assert.equal(packed["@docture/cli"].manifest.dependencies?.["@docture/eval"], packed["@docture/eval"].manifest.version);
+    assert.equal(packed["@docture/cli"].manifest.dependencies?.["@docture/synthetic"], packed["@docture/synthetic"].manifest.version);
     assert.equal(dependency, version, "the local override must not hide an incorrect CLI dependency");
     const evidence = {
       doctureDependency: dependency, packedLibraryVersion: version,
-      pnpmOverride: { docture: `file:${packed.docture.target}`, "@docture/eval": `file:${packed["@docture/eval"].target}` },
+      pnpmOverride: { docture: `file:${packed.docture.target}`, "@docture/eval": `file:${packed["@docture/eval"].target}`, "@docture/synthetic": `file:${packed["@docture/synthetic"].target}` },
       configuration: "pnpm-cli/pnpm-workspace.yaml",
       packageManager: rootManifest.packageManager,
       reason: "Use the unpublished packed library rather than an existing registry artifact with the same version.",
@@ -534,6 +540,7 @@ async function main() {
     return consumer;
   }
   await verifyEvalPackage({ packed, tools, check, newConsumer, install, save, run, tsc, versionSpec, assertInstalled });
+  await verifySyntheticPackage({ packed, tools, check, newConsumer, install, save, run, tsc, versionSpec, assertInstalled, installedPackages });
   const versionOf = async (consumer, name) => (await installedPackages(consumer)).filter(pkg => pkg.name === name).map(pkg => pkg.version);
   async function exercise(consumer, label, runtime, types, invalidTypeExpression) {
     await save(join(consumer, `${label}.mjs`), runtime);
@@ -703,11 +710,11 @@ const email=await expandEmail({bytes:new TextEncoder().encode("From: a@example.t
     await save(join(consumer, "package.json"), {
       name: `verify-docture-cli-${manager}`, private: true, type: "module", packageManager: rootManifest.packageManager,
     });
-    if (manager === "pnpm") await save(join(consumer, "pnpm-workspace.yaml"), `packages:\n  - .\noverrides:\n  docture: ${JSON.stringify(summary.cliResolution.pnpmOverride.docture)}\n  "@docture/eval": ${JSON.stringify(summary.cliResolution.pnpmOverride["@docture/eval"])}\n`);
-    await install(consumer, manager, "cli", [packed.docture.target, packed["@docture/eval"].target, packed["@docture/cli"].target, versionSpec("@types/node")]);
+    if (manager === "pnpm") await save(join(consumer, "pnpm-workspace.yaml"), `packages:\n  - .\noverrides:\n  docture: ${JSON.stringify(summary.cliResolution.pnpmOverride.docture)}\n  "@docture/eval": ${JSON.stringify(summary.cliResolution.pnpmOverride["@docture/eval"])}\n  "@docture/synthetic": ${JSON.stringify(summary.cliResolution.pnpmOverride["@docture/synthetic"])}\n`);
+    await install(consumer, manager, "cli", [packed.docture.target, packed["@docture/eval"].target, packed["@docture/synthetic"].target, packed["@docture/cli"].target, versionSpec("@types/node")]);
     const packages = await installedPackages(consumer);
     await save(join(consumer, "installed.json"), packages);
-    assert.deepEqual(packages.filter(pkg => pkg.name.startsWith("@docture/")).map(pkg => pkg.name).sort(), ["@docture/cli", "@docture/eval"]);
+    assert.deepEqual(packages.filter(pkg => pkg.name.startsWith("@docture/")).map(pkg => pkg.name).sort(), ["@docture/cli", "@docture/eval", "@docture/synthetic"]);
     assert.equal(packages.filter(pkg => pkg.name === "docture").length, 1);
     assert.equal(packages.find(pkg => pkg.name === "docture").version, library.manifest.version);
     const bin = join(consumer, "node_modules", ".bin", "docture");
@@ -725,6 +732,18 @@ export default { dataset: inMemoryDataset("packed", [1, 2].map(n => ({ id: Strin
     assert.deepEqual(cases.map(item => item.outcome), ["scored", "scored"]);
     await run(`${manager}-cli-eval-json`, bin, ["eval", "run", "--config", "docture.eval.mjs", "--reporter", "json", "--out", "eval-results", "--no-gate"], consumer);
     assert.ok((await readdir(join(consumer, "eval-results"))).includes("result.json"), "packed JSON reporter writes result.json");
+
+    const synth = join(consumer, "synth");
+    await save(join(synth, "docture.synth.mjs"), `import { defineModel, defineSynthConfig, defineTemplate, gen, locales } from "@docture/synthetic";
+const model = defineModel({ type: "object", required: ["name"], properties: { name: { type: "string" } } }, { fields: { name: gen.pick(["Ada", "Grace"]) } });
+const slip = defineTemplate()({ key: "slip", family: "slip", locale: locales["en-US"], page: { size: { width: 200, height: 100 } }, printed: { name: true }, draw(page, value) { page.field("name", value.name, { x: 10, y: 10 }); } });
+export default defineSynthConfig({ model, templates: [slip], createdAt: "2025-01-01T00:00:00Z" });
+`);
+    const sampled = await run(`${manager}-cli-synth-gen`, bin, ["synth", "gen", "--seed", "1"], synth);
+    assert.ok(["Ada", "Grace"].includes(JSON.parse(sampled).name), sampled);
+    assert.equal(await run(`${manager}-cli-synth-gen-again`, bin, ["synth", "gen", "--seed", "1"], synth), sampled, "packed synth gen is reproducible");
+    const unrendered = await runFailing(`${manager}-cli-synth-render`, bin, ["synth", "render", "--seed", "1", "--out", "slip.pdf"], synth);
+    assert.ok(unrendered.stderr.includes(`@docture/synthetic/pdfkit needs the optional peer pdfkit@${packed["@docture/synthetic"].manifest.peerDependencies.pdfkit}, which is not installed.`), unrendered.stderr);
 
     const help = await run(`${manager}-cli-help`, bin, ["--help"], consumer);
     assert.match(help, /inspect/); assert.match(help, /extract/);
@@ -770,7 +789,7 @@ export default { dataset: inMemoryDataset("packed", [1, 2].map(n => ({ id: Strin
   });
   await check(`npm packed CLI serves convert and inspect over MCP stdio with @modelcontextprotocol/sdk@${mcpRange}`, async () => {
     const consumer = await newConsumer("npm-cli-mcp");
-    await install(consumer, "npm", "cli-mcp", [packed.docture.target, packed["@docture/eval"].target, packed["@docture/cli"].target, `@modelcontextprotocol/sdk@${mcpRange}`, versionSpec("@types/node")]);
+    await install(consumer, "npm", "cli-mcp", [packed.docture.target, packed["@docture/eval"].target, packed["@docture/synthetic"].target, packed["@docture/cli"].target, `@modelcontextprotocol/sdk@${mcpRange}`, versionSpec("@types/node")]);
     assert.deepEqual(await versionOf(consumer, "@modelcontextprotocol/sdk"), [mcpRange]);
     await cp(invoice, join(consumer, "invoice.pdf"));
     await save(join(consumer, "mcp-client.mjs"), mcpClientRuntime);
@@ -933,7 +952,7 @@ export default { dataset: inMemoryDataset("packed", [1, 2].map(n => ({ id: Strin
   for (const version of applicationPdfJsVersions) await check(`npm CLI inspects and renders pages beside an application's pdfjs-dist@${version}`, async () => {
     const label = `npm-cli-beside-pdfjs-${version}`;
     const consumer = await newConsumer(label);
-    await install(consumer, "npm", label, [packed.docture.target, packed["@docture/eval"].target, packed["@docture/cli"].target, `pdfjs-dist@${version}`, versionSpec("ai")]);
+    await install(consumer, "npm", label, [packed.docture.target, packed["@docture/eval"].target, packed["@docture/synthetic"].target, packed["@docture/cli"].target, `pdfjs-dist@${version}`, versionSpec("ai")]);
     await run(`${label}-tree`, "npm", ["ls", "--all"], consumer);
     assert.deepEqual(await versionOf(consumer, "@napi-rs/canvas"), [packed["@docture/cli"].manifest.optionalDependencies["@napi-rs/canvas"]],
       "PDF.js and the rasterizer share the CLI's canvas");
@@ -994,7 +1013,7 @@ export default { dataset: inMemoryDataset("packed", [1, 2].map(n => ({ id: Strin
     await save(join(consumer, "package.json"), {
       ...await json(join(consumer, "package.json")),
       dependencies: { "@docture/cli": `file:${packed["@docture/cli"].target}`, ...applicationOcrEngines },
-      overrides: { docture: doctureOverride, "@docture/eval": `file:${packed["@docture/eval"].target}` },
+      overrides: { docture: doctureOverride, "@docture/eval": `file:${packed["@docture/eval"].target}`, "@docture/synthetic": `file:${packed["@docture/synthetic"].target}` },
     });
     await run(`${label}-install`, "npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], consumer);
     await run(`${label}-tree`, "npm", ["ls", "--all"], consumer);
@@ -1044,8 +1063,8 @@ export default { dataset: inMemoryDataset("packed", [1, 2].map(n => ({ id: Strin
     const consumer = await newConsumer("pnpm-cli-peer-contexts");
     // pnpm resolves PDF.js's own canvas apart from the CLI's canvas. Pinning it to another
     // tested release keeps two physical canvases in this install.
-    await save(join(consumer, "pnpm-workspace.yaml"), `packages:\n  - .\noverrides:\n  docture: ${JSON.stringify(summary.cliResolution.pnpmOverride.docture)}\n  "@docture/eval": ${JSON.stringify(summary.cliResolution.pnpmOverride["@docture/eval"])}\n  "pdfjs-dist>@napi-rs/canvas": ${JSON.stringify(pdfjsCanvas)}\n`);
-    await install(consumer, "pnpm", "cli-peer-contexts", [packed.docture.target, packed["@docture/eval"].target, packed["@docture/cli"].target, `ai@${applicationAiVersion}`, versionSpec("pdfjs-dist"), versionSpec("zod"), versionSpec("@types/node")]);
+    await save(join(consumer, "pnpm-workspace.yaml"), `packages:\n  - .\noverrides:\n  docture: ${JSON.stringify(summary.cliResolution.pnpmOverride.docture)}\n  "@docture/eval": ${JSON.stringify(summary.cliResolution.pnpmOverride["@docture/eval"])}\n  "@docture/synthetic": ${JSON.stringify(summary.cliResolution.pnpmOverride["@docture/synthetic"])}\n  "pdfjs-dist>@napi-rs/canvas": ${JSON.stringify(pdfjsCanvas)}\n`);
+    await install(consumer, "pnpm", "cli-peer-contexts", [packed.docture.target, packed["@docture/eval"].target, packed["@docture/synthetic"].target, packed["@docture/cli"].target, `ai@${applicationAiVersion}`, versionSpec("pdfjs-dist"), versionSpec("zod"), versionSpec("@types/node")]);
     peerContexts = consumer;
     const store = join(consumer, "node_modules", ".pnpm");
     const copies = (await readdir(store)).filter(name => name.startsWith("docture@"));

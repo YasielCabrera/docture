@@ -592,6 +592,103 @@ export const EVAL: CommandSpec = {
   ],
 };
 
+const SYNTH_COMMON: readonly FlagSpec[] = COMMON.filter((flag) => flag.name !== "no-config").map((flag) =>
+  flag.name === "config" ? { ...flag, describe: "Synth config. Default: the nearest docture.synth.{ts,mts,js,mjs}" } : flag,
+);
+
+const SYNTH_SEED: FlagSpec = { name: "seed", type: "string", placeholder: "<seed>", describe: "Sample seed. Digits are a number, anything else a string. Required" };
+const SYNTH_SCENARIO: FlagSpec = { name: "scenario", type: "string", placeholder: "<name>", describe: "A scenario from the config", defaultLabel: "base" };
+const NO_VERIFY: FlagSpec = { name: "no-verify", type: "boolean", describe: "Skip reading each digital rendering back to confirm its labels" };
+
+const LIST_FORMATS = ["text", "json"] as const;
+export const LIST_FORMAT: ChoiceFlagSpec<(typeof LIST_FORMATS)[number]> = {
+  name: "format",
+  type: "string",
+  placeholder: "<fmt>",
+  choices: LIST_FORMATS,
+  describe: "Text for people; JSON for scripts",
+  defaultLabel: "text",
+};
+
+export const SYNTH_LIST: CommandSpec = {
+  name: "synth list",
+  summary: "List the config's templates, scenarios and the rendition profiles",
+  positionals: [],
+  flags: [LIST_FORMAT, ...SYNTH_COMMON],
+};
+
+export const SYNTH_GEN: CommandSpec = {
+  name: "synth gen",
+  summary: "Print one sampled value as JSON",
+  positionals: [],
+  flags: [SYNTH_SEED, SYNTH_SCENARIO, ...SYNTH_COMMON],
+  examples: ["docture synth gen --seed 7", "docture synth gen --seed 7 --scenario many-items | jq .totalCents"],
+};
+
+export const SYNTH_RENDER: CommandSpec = {
+  name: "synth render",
+  summary: "Render one document with its labels",
+  positionals: [],
+  flags: [
+    { name: "template", type: "string", placeholder: "<selector>", describe: "Template key or alias. Required when the config has several" },
+    SYNTH_SEED,
+    SYNTH_SCENARIO,
+    { name: "rendition", type: "string", placeholder: "<rendition>", describe: "digital, or scan, scan-lq, photo or fax with a severity, such as photo:0.6", defaultLabel: "digital" },
+    { name: "out", type: "string", placeholder: "<file>", describe: "Document path. Labels go to <file>.labels.json. Required" },
+    NO_VERIFY,
+    ...SYNTH_COMMON,
+  ],
+  examples: ["docture synth render --seed 7 --out invoice.pdf", "docture synth render --template classic --seed 7 --rendition photo:0.6 --out photo.pdf"],
+  notes: ["The digital rendering is verified before it is degraded, so a degraded document's labels come from verified ones."],
+};
+
+export const SYNTH_CORPUS: CommandSpec = {
+  name: "synth corpus",
+  summary: "Write a labeled corpus that @docture/eval's jsonlDataset reads",
+  positionals: [],
+  flags: [
+    { name: "out", type: "string", placeholder: "<dir>", describe: "Corpus directory. Default: the config's out, else corpus beside the config" },
+    { name: "seeds", type: "string", placeholder: "<seeds>", describe: "A range such as 1-40, a list such as 1,2,3, or both. Default: the config's seeds" },
+    { name: "templates", type: "string", multiple: true, placeholder: "<selectors>", describe: "Comma-separated template keys, aliases or families. Default: all" },
+    { name: "scenarios", type: "string", multiple: true, placeholder: "<names>", describe: "Comma-separated scenarios; base is the unvaried model. Default: base and every configured scenario" },
+    { name: "renditions", type: "string", multiple: true, placeholder: "<list>", describe: "Comma-separated renditions such as digital,scan:0.3. Default: the config's, else digital" },
+    { name: "concurrency", type: "string", placeholder: "<n>", describe: "Renderings in flight at once", defaultLabel: "4" },
+    NO_VERIFY,
+    ...SYNTH_COMMON,
+  ],
+  examples: ["docture synth corpus", "docture synth corpus --seeds 1-40 --renditions digital,scan:0.3,photo:0.6 --out corpus"],
+  notes: [
+    "Rerunning converges: a case whose inputs and files are unchanged is skipped.",
+    "A case that fails is listed on stderr and in failures.jsonl, and the command exits 1.",
+  ],
+};
+
+export const SYNTH_VERIFY: CommandSpec = {
+  name: "synth verify",
+  summary: "Read every digital case of a corpus back and confirm its labels",
+  positionals: [{ name: "corpus", describe: "A directory written by docture synth corpus", required: true, variadic: false }],
+  flags: COMMON.filter((flag) => ["verbose", "quiet", "no-color", "help"].includes(flag.name)),
+  examples: ["docture synth verify corpus"],
+};
+
+export const SYNTH: CommandSpec = {
+  name: "synth",
+  summary: "Generate labeled synthetic documents from docture.synth.ts",
+  positionals: [{ name: "command", describe: "A subcommand", required: true, variadic: false }],
+  description:
+    "Samples values from the model in docture.synth.ts, renders them with its templates and\n" +
+    "writes each document with its ground truth and field boxes. Every subcommand is a thin\n" +
+    "shell over @docture/synthetic. Rendering needs pdfkit, degraded renditions sharp, and\n" +
+    "verification the CLI's PDF.js.",
+  flags: COMMON.filter((flag) => flag.name === "help" || flag.name === "no-color"),
+  subcommands: [SYNTH_LIST, SYNTH_GEN, SYNTH_RENDER, SYNTH_CORPUS, SYNTH_VERIFY],
+  examples: ["docture synth list", "docture synth render --seed 7 --out invoice.pdf", "docture synth corpus --seeds 1-40"],
+  notes: [
+    "Exit codes: 0 done, 1 a case failed to render or verify, 2 usage error.",
+    "`docture synth <command> --help` describes one subcommand.",
+  ],
+};
+
 export const MCP: CommandSpec = {
   name: "mcp",
   summary: "Serve convert and inspect to an agent over MCP stdio",
@@ -732,7 +829,7 @@ export const PAPERLESS: CommandSpec = {
   examples: ["docture paperless plan 42 --schema invoice", "docture paperless apply plan.json --schema invoice --dry-run"],
 };
 
-export const COMMANDS: readonly CommandSpec[] = [EXTRACT, CONVERT, CLASSIFY, INSPECT, EVAL, REVIEW, MCP, SERVE, PAPERLESS];
+export const COMMANDS: readonly CommandSpec[] = [EXTRACT, CONVERT, CLASSIFY, INSPECT, EVAL, SYNTH, REVIEW, MCP, SERVE, PAPERLESS];
 
 /** Reserved on the help route only, so `extract --json` stays an unknown option. */
 export const HELP_JSON: FlagSpec = {

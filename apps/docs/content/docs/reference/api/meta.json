@@ -18,6 +18,7 @@
     "raster-canvas",
     "chunk",
     "eval",
+    "synthetic",
     "testing",
     "cli",
     "node",

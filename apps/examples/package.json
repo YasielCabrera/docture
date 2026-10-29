@@ -24,7 +24,7 @@
     "internals": "tsx 13-under-the-hood/index.ts",
     "cli": "tsx 15-cli/index.ts",
     "convert": "tsx 16-document-conversion/index.ts",
-    "offline": "pnpm quick-start && pnpm contracts && pnpm loaders && pnpm capabilities && pnpm plugins && pnpm fallback && pnpm long && pnpm classify && pnpm bundles && pnpm accuracy && pnpm internals && pnpm convert && pnpm docling && pnpm checked-tools-eval && pnpm evaluate && pnpm input-loaders && pnpm paperless && pnpm service",
+    "offline": "pnpm quick-start && pnpm contracts && pnpm loaders && pnpm capabilities && pnpm plugins && pnpm fallback && pnpm long && pnpm classify && pnpm bundles && pnpm accuracy && pnpm internals && pnpm convert && pnpm docling && pnpm checked-tools-eval && pnpm evaluate && pnpm input-loaders && pnpm paperless && pnpm service && pnpm synthetic",
     "all": "pnpm offline && pnpm model && pnpm scanned && pnpm cli",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -34,12 +34,14 @@
     "paperless": "tsx 21-paperless/index.ts",
     "service": "tsx 22-http-service/index.ts",
     "checked-tools-eval": "tsx 19-checked-tools-eval/index.ts",
-    "evaluate": "tsx 23-evaluate-a-schema/index.ts"
+    "evaluate": "tsx 23-evaluate-a-schema/index.ts",
+    "synthetic": "tsx 24-synthetic-corpus/index.ts"
   },
   "dependencies": {
     "docture": "workspace:*",
     "@docture/cli": "workspace:*",
-    "@docture/eval": "workspace:*"
+    "@docture/eval": "workspace:*",
+    "@docture/synthetic": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
@@ -56,6 +58,7 @@
     "ppu-paddle-ocr": "6.3.0",
     "onnxruntime-node": "1.27.0",
     "@napi-rs/canvas": "1.0.10",
-    "utif2": "4.1.0"
+    "utif2": "4.1.0",
+    "sharp": "0.35.5"
   }
 }

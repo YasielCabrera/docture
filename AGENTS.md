@@ -1,6 +1,6 @@
 # Library boundaries
 
-Docture publishes exactly three packages: `docture`, `@docture/cli`, and `@docture/eval`. The decisions and migration tradeoffs are recorded in [the package architecture decision](docs/decisions/0001-package-boundaries.md) and [the eval publication decision](docs/decisions/0002-eval-publication.md).
+Docture publishes exactly four packages: `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic`. The decisions and migration tradeoffs are recorded in [the package architecture decision](docs/decisions/0001-package-boundaries.md), [the eval publication decision](docs/decisions/0002-eval-publication.md), and [the synthetic publication decision](docs/decisions/0003-synthetic-publication.md).
 
 - Keep `docture` ESM with per-file output, explicit subpath exports, and audited `sideEffects: false` metadata. Do not bundle each entry into a separate copy of core.
 - Keep the root entry limited to core. Core must not import LLM implementations, adapters, testing tools, or optional engines, including through type declarations.

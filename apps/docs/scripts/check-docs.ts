@@ -204,7 +204,7 @@ async function checkApiCoverage(): Promise<ts.Program> {
     }
   }
 
-  compareNames("Published packages", [...published].sort(), ["@docture/cli", "@docture/eval", "docture"]);
+  compareNames("Published packages", [...published].sort(), ["@docture/cli", "@docture/eval", "@docture/synthetic", "docture"]);
   for (const item of API_INVENTORY) {
     if (!exportedPaths.has(item.importPath)) fail(`API inventory contains an unsupported import path: ${item.importPath}`);
   }

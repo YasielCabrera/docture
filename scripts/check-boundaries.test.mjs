@@ -51,7 +51,7 @@ test("runtime boundary checks reject every supported foreign import form", async
   try {
     await mkdir(join(directory, "scripts"));
     await cp(join(root, "scripts/check-boundaries.mjs"), join(directory, "scripts/check-boundaries.mjs"));
-    for (const name of ["docture", "cli", "eval"]) {
+    for (const name of ["docture", "cli", "eval", "synthetic"]) {
       const target = join(directory, "packages", name);
       await mkdir(target, { recursive: true });
       await cp(join(root, "packages", name, "package.json"), join(target, "package.json"));
@@ -284,12 +284,14 @@ test("runtime boundary checks reject every supported foreign import form", async
         } finally { await writeFile(path, original); }
       });
     }
-    await t.test("keeps the original publications public", async () => {
-      const path = join(directory, "packages/cli/package.json");
+    for (const name of ["cli", "synthetic"]) await t.test(`keeps ${name} public`, async () => {
+      const path = join(directory, "packages", name, "package.json");
       const original = await readFile(path, "utf8");
       try {
         await writeFile(path, JSON.stringify({ ...JSON.parse(original), private: true }));
-        assert.notEqual(check().status, 0);
+        const result = check();
+        assert.notEqual(result.status, 0);
+        assert.ok(result.stderr.includes("must be public"), result.stdout + result.stderr);
       } finally { await writeFile(path, original); }
     });
     await t.test("permits judge AI imports only with declared optional engine ranges", async () => {
@@ -330,6 +332,104 @@ test("runtime boundary checks reject every supported foreign import form", async
         assert.ok(result.stderr.includes("eval HTML client must be fresh"), result.stdout + result.stderr);
       } finally { await rm(join(evalRoot, "scripts"), { recursive: true }); }
     });
+    const syntheticRoot = join(directory, "packages/synthetic");
+    const syntheticCases = [
+      ["root cannot reach an entry", "probe.ts", 'export * from "./pdfkit/index.js";', "crosses into ./pdfkit/index.js"],
+      ["an entry cannot reach another entry", "verify/probe.ts", 'import "../degrade/index.js";', "crosses into ../degrade/index.js"],
+      ["the renderer cannot reach the corpus writer", "pdfkit/probe.ts", 'import "../node/index.js";', "crosses into ../node/index.js"],
+      ["the corpus writer reaches only the entries it orchestrates", "node/probe.ts", 'import "../faker/index.js";', "crosses into ../faker/index.js"],
+      ["relative imports cannot escape synthetic", "probe.ts", 'import "../../docture/src/index.js";', "crosses into ../../docture/src/index.js"],
+      ["root imports of Node built-ins", "probe.ts", 'import "node:fs";', "synthetic/probe.ts imports a Node built-in outside node/"],
+      ["entry imports of Node built-ins", "degrade/probe.ts", 'import "node:path";', "synthetic/degrade/probe.ts imports a Node built-in outside node/"],
+      ["Node built-ins in unknown folders", "helpers/probe.ts", 'import "node:fs";', "synthetic/helpers/probe.ts imports a Node built-in outside node/"],
+      ["a static engine import in its entry", "faker/probe.ts", 'import { faker } from "@faker-js/faker";\nexport const leaked = faker;', "statically imports the optional engine @faker-js/faker"],
+      ["an inline type import that keeps the engine import", "html/probe.ts", 'import { type Browser } from "playwright-core";\nexport type Leaked = Browser;', "statically imports the optional engine playwright-core"],
+      ["an engine loaded outside its entry", "probe.ts", 'export const load = () => import("sharp");', "synthetic/probe.ts imports undeclared boundary sharp"],
+      ["an engine type outside its entry", "pdfkit/probe.ts", 'export type Model = import("ai").LanguageModel;', "synthetic/pdfkit/probe.ts imports undeclared boundary ai"],
+      ["a second engine range table in one entry", "pdfkit/probe.ts", 'export const ENGINE_RANGES = { pdfkit: ">=0.17.2 <0.21.0" } as const;', "declares a second ENGINE_RANGES table for synthetic/pdfkit"],
+      ["a docture loader in the portable root", "probe.ts", 'export type { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";', "imports docture subpath docture/loaders/pdfjs outside its declared synthetic entry"],
+      ["a docture subpath the entry does not declare", "verify/probe.ts", 'import "docture/raster/canvas";', "imports docture subpath docture/raster/canvas outside its declared synthetic entry"],
+      ["internal package aliases", "probe.ts", 'import "@docture/synthetic/pdfkit";', "use relative internal imports"],
+      ["a dependency on eval", "probe.ts", 'export type { EvalCase } from "@docture/eval";', "imports undeclared boundary @docture/eval"],
+      ["reading the clock with Date.now()", "probe.ts", "export const now = () => Date.now();", "reads the wall clock with Date.now()"],
+      ["reading the clock with new Date()", "faker/probe.ts", "export const now = () => new Date();", "reads the wall clock with new Date()"],
+      ["reading the clock with new Date", "pdfkit/probe.ts", "export const now = () => new Date;", "reads the wall clock with new Date()"],
+      ["unseeded randomness", "probe.ts", "export const pick = () => Math.random();", "draws unseeded randomness with Math.random()"],
+      ["computed dynamic imports", "probe.ts", "export const load = (name: string) => import(name);", "computed module specifier"],
+      ["invalid syntax", "probe.ts", "export const broken = ;", "cannot be parsed"],
+      ["CommonJS sources", "probe.cts", "export const value = 1;", "CommonJS source .cts"],
+    ];
+    for (const [name, file, code, message] of syntheticCases) {
+      await t.test(`rejects synthetic ${name}`, async () => {
+        const path = join(syntheticRoot, "src", file);
+        await mkdir(join(path, ".."), { recursive: true });
+        try {
+          await writeFile(path, code);
+          const result = check();
+          assert.notEqual(result.status, 0, name);
+          assert.ok(result.stderr.includes(message), result.stdout + result.stderr);
+        } finally { await rm(path); }
+      });
+    }
+    for (const [name, file, code] of [
+      ["the corpus writer orchestrating rendering, verification and degradation", "node/probe.ts", 'export * from "../pdfkit/index.js";\nexport * from "../verify/index.js";\nexport * from "../degrade/index.js";'],
+      ["Node built-ins in the corpus writer", "node/probe.ts", 'import "node:fs/promises";'],
+      ["an entry reading root modules", "faker/probe.ts", 'export * from "../model.js";'],
+      ["a lazy engine and its types in its entry", "pdfkit/probe.ts", 'import type PDFDocument from "pdfkit";\nexport type Document = PDFDocument;\nexport const load = () => import("pdfkit");'],
+      ["the verifier reading PDFs through docture", "verify/probe.ts", 'export type { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";'],
+      ["a date built from an input", "probe.ts", "export const at = (iso: string) => new Date(iso);"],
+    ]) {
+      await t.test(`permits synthetic ${name}`, async () => {
+        const path = join(syntheticRoot, "src", file);
+        await mkdir(join(path, ".."), { recursive: true });
+        try {
+          await writeFile(path, code);
+          const result = check();
+          assert.equal(result.status, 0, result.stdout + result.stderr);
+        } finally { await rm(path); }
+      });
+    }
+    for (const [name, ranges, message] of [
+      ["a synthetic engine range that differs from its peer", '{ pdfkit: "0.0.1" }', "synthetic/pdfkit ENGINE_RANGES declares pdfkit@0.0.1, but the synthetic peer is >=0.17.2 <0.21.0"],
+      ["a synthetic engine load its entry's ranges omit", "{}", "synthetic/pdfkit/renderer.ts loads pdfkit, which synthetic/pdfkit ENGINE_RANGES does not declare"],
+    ]) {
+      await t.test(`rejects ${name}`, async () => {
+        const path = join(syntheticRoot, "src/pdfkit/renderer.ts");
+        const original = await readFile(path, "utf8");
+        try {
+          await writeFile(path, original.replace(/ENGINE_RANGES = \{[^}]*\}/, `ENGINE_RANGES = ${ranges}`));
+          const result = check();
+          assert.notEqual(result.status, 0);
+          assert.ok(result.stderr.includes(message), result.stdout + result.stderr);
+        } finally { await writeFile(path, original); }
+      });
+    }
+    for (const [name, mutate, message] of [
+      ["side-effectful synthetic metadata", value => { value.sideEffects = true; }, "synthetic declares sideEffects: false"],
+      ["an optional docture peer in synthetic", value => { value.peerDependenciesMeta.docture = { optional: true }; }, "synthetic's docture peer is required"],
+      ["a required synthetic engine peer", value => { value.peerDependenciesMeta.sharp.optional = false; }, "sharp must be an optional synthetic peer"],
+      ["a ranged synthetic sharp peer", value => { value.peerDependencies.sharp = "^0.35.5"; }, "sharp stays an exact synthetic pin"],
+      ["a Playwright pin that differs from development", value => { value.peerDependencies["playwright-core"] = "1.64.0"; }, "playwright-core develops against its pinned peer"],
+      ["a synthetic PDFKit range that differs from docture's", value => { value.peerDependencies.pdfkit = ">=0.17.2"; }, "synthetic's pdfkit range must equal docture's verified range"],
+      ["a synthetic runtime dependency", value => { value.dependencies = { "@docture/eval": "0.2.0" }; }, "synthetic has no runtime dependencies beyond its peers"],
+      ["an undeclared synthetic entry", value => { value.exports["./extra"] = value.exports["."]; }, "synthetic exports the root and one entry per entry folder"],
+      ["bundled synthetic runtime targets", value => { value.exports["./pdfkit"].import = "./dist/bundle.js"; }, "./pdfkit synthetic ESM path"],
+      ["wrong synthetic declaration targets", value => { value.exports["."].types = "./dist/bundle.d.ts"; }, ". synthetic declaration path"],
+      ["a portable fallback for the corpus writer", value => { value.exports["./node"].default = "./dist/node/index.js"; }, "the synthetic corpus writer has no portable fallback"],
+    ]) {
+      await t.test(`rejects ${name}`, async () => {
+        const path = join(syntheticRoot, "package.json");
+        const original = await readFile(path, "utf8");
+        try {
+          const value = JSON.parse(original);
+          mutate(value);
+          await writeFile(path, JSON.stringify(value));
+          const result = check();
+          assert.notEqual(result.status, 0, name);
+          assert.ok(result.stderr.includes(message), result.stdout + result.stderr);
+        } finally { await writeFile(path, original); }
+      });
+    }
     await t.test("passes after removing the foreign import", control);
   } finally {
     await rm(directory, { recursive: true, force: true });

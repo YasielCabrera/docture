@@ -1,0 +1,1 @@
+# @docture/synthetic

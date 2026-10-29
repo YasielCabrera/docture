@@ -33,7 +33,10 @@ export type DoctureErrorCode =
   | "OUT_OF_SCOPE"
   | "MIGRATION_GUARD_FAILED"
   | "EVAL_RUNS_INCOMPARABLE"
-  | "EVAL_PREFLIGHT_FAILED";
+  | "EVAL_PREFLIGHT_FAILED"
+  | "SYNTHESIS_FAILED"
+  | "TEMPLATE_INVALID"
+  | "LABEL_VERIFICATION_FAILED";
 
 export abstract class DoctureError extends Error {
   /**

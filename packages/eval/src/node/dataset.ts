@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { link, readFile, readdir, stat, unlink } from "node:fs/promises";
 import { basename, extname, join, dirname, resolve } from "node:path";
-import type { CaseDocument, Dataset, EvalCase, TagValue } from "../case.js";
+import type { CaseDocument, Dataset, EvalCase, ExpectedLocation, TagValue } from "../case.js";
 import type { DraftableDataset } from "../dataset/index.js";
 import { DatasetError } from "../errors.js";
 import { isPlainObject } from "../json.js";
@@ -56,6 +56,8 @@ export interface FolderDatasetOptions<T> {
   readonly documents: string | RegExp | ((files: readonly string[]) => readonly string[]);
   readonly expected: string;
   readonly draft?: string;
+  /** Expected locations file, read when present. Default `locations.json`. */
+  readonly locations?: string;
   readonly toExpected?: (json: unknown, caseId: string) => T;
   readonly tags?: (caseId: string, dir: string) => EvalCase["tags"];
   readonly group?: (caseId: string) => string;
@@ -68,6 +70,7 @@ interface FolderCase {
   readonly documents: readonly CaseDocument[];
   readonly signedOff: boolean;
   readonly drafted: boolean;
+  readonly located: boolean;
 }
 
 /**
@@ -78,6 +81,7 @@ interface FolderCase {
  */
 export function folderDataset<T = unknown>(root: string, options: FolderDatasetOptions<T>): DraftableDataset<T> {
   const draftName = options.draft ?? "expected.draft.json";
+  const locationsName = options.locations ?? "locations.json";
   const caseDir = (id: string): string => {
     if (!id || id === "." || id === ".." || /[/\\]/u.test(id)) throw new DatasetError(`Invalid folder case id ${id}.`, id);
     return join(root, id);
@@ -127,7 +131,14 @@ export function folderDataset<T = unknown>(root: string, options: FolderDatasetO
         if (!(await exists(path))) throw new DatasetError(`${id}: missing document ${file}.`, id);
         documents.push(hash ? await hashedDocument(path) : fileDocument(path));
       }
-      found.push({ id, dir, documents, signedOff: await exists(join(dir, options.expected)), drafted: await exists(join(dir, draftName)) });
+      found.push({
+        id,
+        dir,
+        documents,
+        signedOff: await exists(join(dir, options.expected)),
+        drafted: await exists(join(dir, draftName)),
+        located: await exists(join(dir, locationsName)),
+      });
     }
     return found;
   };
@@ -153,7 +164,19 @@ export function folderDataset<T = unknown>(root: string, options: FolderDatasetO
           throw new DatasetError(`${id}: invalid expected JSON.`, id, { cause });
         }
         const expected = options.toExpected ? options.toExpected(value, id) : (value as T);
-        cases.push({ id, documents: found.documents, expected, status, ...metadata(id, dir) });
+        let locations: EvalCase["locations"];
+        if (found.located) {
+          let json: unknown;
+          try {
+            json = JSON.parse(await readFile(join(dir, locationsName), "utf8"));
+          } catch (cause) {
+            throw new DatasetError(`${id}: invalid ${locationsName}.`, id, { cause });
+          }
+          const parsed = parseLocations(json);
+          if (typeof parsed === "string") throw new DatasetError(`${id}: ${locationsName} ${parsed}.`, id);
+          locations = parsed;
+        }
+        cases.push({ id, documents: found.documents, expected, status, ...metadata(id, dir), ...(locations === undefined ? {} : { locations }) });
       }
       return cases;
     },
@@ -186,11 +209,29 @@ export function folderDataset<T = unknown>(root: string, options: FolderDatasetO
   };
 }
 
+/** Validate an `EvalCase.locations` object read from disk, or describe the first problem. */
+function parseLocations(value: unknown): NonNullable<EvalCase["locations"]> | string {
+  if (!isPlainObject(value)) return "must be an object of location arrays";
+  for (const [path, entries] of Object.entries(value)) {
+    if (!Array.isArray(entries)) return `at ${path} must be an array`;
+    for (const entry of entries as unknown[]) {
+      if (!isPlainObject(entry)) return `at ${path} must hold objects`;
+      const { pageNumber, box } = entry;
+      if (!Number.isSafeInteger(pageNumber) || (pageNumber as number) < 1) return `at ${path} needs a positive integer pageNumber`;
+      if (box === undefined) continue;
+      if (!isPlainObject(box) || !(["x", "y", "width", "height"] as const).every((key) => Number.isFinite(box[key])))
+        return `at ${path} needs a box of finite x, y, width and height`;
+      if ((box.width as number) < 0 || (box.height as number) < 0) return `at ${path} needs a box with non-negative width and height`;
+    }
+  }
+  return value as Readonly<Record<string, readonly ExpectedLocation[]>>;
+}
+
 const isTagValue = (value: unknown): boolean => typeof value === "string" || typeof value === "number" || typeof value === "boolean";
 
 /**
  * Load a JSONL manifest with `id`, `documents` (paths relative to `base`, default the manifest's folder) and
- * `expected` on each line, plus optional `tags`, `params` and `group`. Errors name the manifest line and case.
+ * `expected` on each line, plus optional `tags`, `params`, `group` and `locations`. Errors name the manifest line and case.
  */
 export function jsonlDataset<T = unknown>(
   manifest: string,
@@ -234,6 +275,8 @@ export function jsonlDataset<T = unknown>(
           documents.push(await hashedDocument(path));
         }
         const { tags, params, group } = row;
+        const locations = row.locations === undefined ? undefined : parseLocations(row.locations);
+        if (typeof locations === "string") fail(`locations ${locations}`);
         if (tags !== undefined && !(isPlainObject(tags) && Object.values(tags).every(isTagValue)))
           fail("tags must be an object of strings, numbers or booleans");
         if (params !== undefined && !isPlainObject(params)) fail("params must be an object");
@@ -247,6 +290,7 @@ export function jsonlDataset<T = unknown>(
             : {}),
           ...(isPlainObject(params) ? { params } : {}),
           ...(typeof group === "string" ? { group } : {}),
+          ...(typeof locations === "object" ? { locations } : {}),
         });
       }
       return cases;

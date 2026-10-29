@@ -1,5 +1,5 @@
 export interface ApiEntrypointInventory {
-  readonly packageName: "docture" | "@docture/cli" | "@docture/eval";
+  readonly packageName: "docture" | "@docture/cli" | "@docture/eval" | "@docture/synthetic";
   readonly importPath: string;
   readonly entrypoint: string;
   readonly pages: Readonly<Record<string, readonly string[]>>;
@@ -1590,6 +1590,231 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       "PresentCheck",
       "TableCheck",
       "checkConversion"
+    ]
+  }
+},
+{
+  "packageName": "@docture/synthetic",
+  "importPath": "@docture/synthetic",
+  "entrypoint": "../../packages/synthetic/src/index.ts",
+  "pages": {
+    "content/docs/reference/api/synthetic.mdx": [
+      "ArrayLength",
+      "At",
+      "ConcretePath",
+      "Constraint",
+      "FieldLabel",
+      "FieldSpec",
+      "Fields",
+      "Flag",
+      "FontSource",
+      "Formatter",
+      "GenContext",
+      "Generator",
+      "InferSchema",
+      "JsonSchema",
+      "LabelFailure",
+      "LabelFailureKind",
+      "LabelVerificationError",
+      "Locale",
+      "Mask",
+      "Model",
+      "ModelOptions",
+      "ObjectMask",
+      "PageInfo",
+      "PageSize",
+      "PathPattern",
+      "PathSegment",
+      "Printed",
+      "PrintedMask",
+      "Projection",
+      "Rendition",
+      "Sample",
+      "SampleOptions",
+      "Scenario",
+      "SchemaSource",
+      "Stream",
+      "Surface",
+      "SynthConfig",
+      "SynthRendition",
+      "SynthesisError",
+      "SynthesisProblem",
+      "SyntheticCase",
+      "SyntheticDocument",
+      "TableColumn",
+      "TableOptions",
+      "TagValue",
+      "Template",
+      "TemplateDefinition",
+      "TemplateError",
+      "TemplateProblem",
+      "TemplateProblemCode",
+      "TextStyle",
+      "TypedJsonSchema",
+      "ValueAt",
+      "before",
+      "caseIdOf",
+      "constraint",
+      "defaultFonts",
+      "defineModel",
+      "defineSynthConfig",
+      "defineTemplate",
+      "drawTable",
+      "formatPath",
+      "formatPattern",
+      "formatter",
+      "gen",
+      "groupOf",
+      "ibanCheckDigits",
+      "isValidIban",
+      "isValidLuhn",
+      "locales",
+      "locationsOf",
+      "luhnCheckDigit",
+      "pageSizes",
+      "parsePath",
+      "prints",
+      "project",
+      "readSchema",
+      "scenario",
+      "selectTemplates",
+      "severityBucket",
+      "streamFor",
+      "sumOf",
+      "toEvalCase",
+      "typedJsonSchema",
+      "unique",
+      "validIban",
+      "validLuhn",
+      "valuesAt"
+    ]
+  }
+},
+{
+  "packageName": "@docture/synthetic",
+  "importPath": "@docture/synthetic/pdfkit",
+  "entrypoint": "../../packages/synthetic/src/pdfkit/index.ts",
+  "pages": {
+    "content/docs/reference/api/synthetic.mdx": [
+      "ENGINE_RANGES",
+      "RenderPdfOptions",
+      "renderPdf"
+    ]
+  }
+},
+{
+  "packageName": "@docture/synthetic",
+  "importPath": "@docture/synthetic/verify",
+  "entrypoint": "../../packages/synthetic/src/verify/index.ts",
+  "pages": {
+    "content/docs/reference/api/synthetic.mdx": [
+      "VerifiableDocument",
+      "VerificationReport",
+      "VerifyOptions",
+      "assertVerified",
+      "verifyLabels"
+    ]
+  }
+},
+{
+  "packageName": "@docture/synthetic",
+  "importPath": "@docture/synthetic/measure",
+  "entrypoint": "../../packages/synthetic/src/measure/index.ts",
+  "pages": {
+    "content/docs/reference/api/synthetic.mdx": [
+      "CompareOptions",
+      "LayoutComparison",
+      "LayoutSource",
+      "LineDrift",
+      "MeasuredLine",
+      "MeasuredPage",
+      "Measurement",
+      "PlacedLine",
+      "RepeatedLine",
+      "compareLayouts",
+      "measurePdf"
+    ]
+  }
+},
+{
+  "packageName": "@docture/synthetic",
+  "importPath": "@docture/synthetic/degrade",
+  "entrypoint": "../../packages/synthetic/src/degrade/index.ts",
+  "pages": {
+    "content/docs/reference/api/synthetic.mdx": [
+      "BedKnobs",
+      "DegradeOptions",
+      "ENGINE_RANGES",
+      "EncodeKnobs",
+      "GeometryKnobs",
+      "Matrix",
+      "PaperKnobs",
+      "Profile",
+      "ProfileKey",
+      "Range",
+      "ResolvedKnobs",
+      "Rgb",
+      "degrade",
+      "profiles",
+      "transformBox"
+    ]
+  }
+},
+{
+  "packageName": "@docture/synthetic",
+  "importPath": "@docture/synthetic/faker",
+  "entrypoint": "../../packages/synthetic/src/faker/index.ts",
+  "pages": {
+    "content/docs/reference/api/synthetic.mdx": [
+      "ENGINE_RANGES",
+      "fakerFor"
+    ]
+  }
+},
+{
+  "packageName": "@docture/synthetic",
+  "importPath": "@docture/synthetic/node",
+  "entrypoint": "../../packages/synthetic/src/node/index.ts",
+  "pages": {
+    "content/docs/reference/api/synthetic.mdx": [
+      "CorpusPlan",
+      "CorpusReport",
+      "RenditionSpec",
+      "digital",
+      "fax",
+      "photo",
+      "scan",
+      "scanLq",
+      "writeCorpus"
+    ]
+  }
+},
+{
+  "packageName": "@docture/synthetic",
+  "importPath": "@docture/synthetic/llm",
+  "entrypoint": "../../packages/synthetic/src/llm/index.ts",
+  "pages": {
+    "content/docs/reference/api/synthetic.mdx": [
+      "ENGINE_RANGES",
+      "TextPoolCache",
+      "TextPoolOptions",
+      "llmTextPool"
+    ]
+  }
+},
+{
+  "packageName": "@docture/synthetic",
+  "importPath": "@docture/synthetic/html",
+  "entrypoint": "../../packages/synthetic/src/html/index.ts",
+  "pages": {
+    "content/docs/reference/api/synthetic.mdx": [
+      "ENGINE_RANGES",
+      "HtmlTemplate",
+      "HtmlTemplateDefinition",
+      "RenderHtmlPdfOptions",
+      "defineHtmlTemplate",
+      "escapeHtml",
+      "renderHtmlPdf"
     ]
   }
 }

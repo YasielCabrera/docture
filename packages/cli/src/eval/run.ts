@@ -4,13 +4,13 @@ import { gitInfo } from "@docture/eval/node";
 import { runEval } from "@docture/eval/runner";
 import { renderJson } from "@docture/eval/reporters/json";
 import { renderScoreboard, terminalReporter } from "@docture/eval/reporters/terminal";
-import { boolFlag, choiceFlag, listFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
+import { boolFlag, choiceFlag, commaList, listFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io } from "../cli/io.js";
 import { EVAL_CONFIG_FLAGS, EVAL_QUICK_FLAGS, OUTPUT_FORMAT } from "../cli/specs.js";
 import { commonOptions } from "../options.js";
 import { toNdjson } from "../output.js";
-import { commaList, experimentsOf, gateExit, loadEvalConfig, openStore, selectExperiments, valueAt } from "./config.js";
+import { experimentsOf, gateExit, loadEvalConfig, openStore, selectExperiments, valueAt } from "./config.js";
 import { resolveReporters, trackReporters } from "./reporters.js";
 
 function rejectFlags(parsed: Parsed, names: readonly string[], why: string, hint: string): void {

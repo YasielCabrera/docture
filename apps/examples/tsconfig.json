@@ -19,6 +19,9 @@
     },
     {
       "path": "../../packages/eval"
+    },
+    {
+      "path": "../../packages/synthetic"
     }
   ]
 }

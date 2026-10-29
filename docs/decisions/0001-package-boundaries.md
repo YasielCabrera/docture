@@ -2,7 +2,7 @@
 
 Status: accepted. Date: 2026-10-22.
 
-[ADR 0002](0002-eval-publication.md) extends the publication set with `@docture/eval` and replaces the `docture/eval` entry. The isolation rules below remain in force.
+[ADR 0002](0002-eval-publication.md) extends the publication set with `@docture/eval` and replaces the `docture/eval` entry. [ADR 0003](0003-synthetic-publication.md) adds `@docture/synthetic`. The isolation rules below remain in force.
 
 ## Decision
 

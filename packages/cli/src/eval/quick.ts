@@ -20,7 +20,7 @@ import { calibrationSection } from "@docture/eval/calibration";
 import { fromDocture } from "@docture/eval/docture";
 import { md, renderMarkdown } from "@docture/eval/reporters/markdown";
 import { runEval } from "@docture/eval/runner";
-import { boolFlag, choiceFlag, listFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
+import { boolFlag, choiceFlag, commaList, listFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { CliError, explain, UsageError, type ExitCode, type Explained } from "../cli/errors.js";
 import { styleFor, type Io, type Style } from "../cli/io.js";
 import { OUTPUT_FORMAT } from "../cli/specs.js";
@@ -43,7 +43,7 @@ import {
 import { emitPlan } from "../plan.js";
 import { resolveSchemaSource } from "../schema.js";
 import { buildWiring, planWiring, type WiringInput } from "../wiring.js";
-import { commaList, gateExit } from "./config.js";
+import { gateExit } from "./config.js";
 import { resolveReporters, trackReporters } from "./reporters.js";
 
 const EXPERIMENT = "docture";

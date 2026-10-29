@@ -2,7 +2,7 @@
 
 A browsable tour of the library, one folder per concept, on **real documents**.
 
-22 examples. 17 need no API key, and four more run part of the way without one.
+23 examples. 18 need no API key, and four more run part of the way without one.
 
 Use Node.js 22 or later. From the repository root, install the workspace before running
 an example:
@@ -11,7 +11,8 @@ an example:
 pnpm install
 ```
 
-The three published packages are `docture`, `@docture/cli` and `@docture/eval`. The private
+The four published packages are `docture`, `@docture/cli`, `@docture/eval` and
+`@docture/synthetic`. The private
 `@docture/examples` workspace installs all optional engines as development dependencies
 so you can run the whole tour. Installing `docture` in your application installs no PDF,
 OCR, raster, or model engine. Add the peers for the integrations you use.
@@ -31,6 +32,7 @@ can import the root API without a model engine.
 | `docture/testing/fixtures` | `pnpm add -D pdfkit@0.19.1` |
 | `docture/testing/conformance` | `pnpm add -D 'vitest@>=3' pdfkit@0.19.1` |
 | `@docture/eval` and its subpaths | `pnpm add -D @docture/eval` |
+| `@docture/synthetic`, `/pdfkit`, `/verify`, `/degrade`, `/node` | `pnpm add -D @docture/synthetic pdfkit@0.19.1 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10 sharp@0.35.5` |
 
 The core API comes from `docture`. Evaluation comes from `@docture/eval`, and test doubles
 come from `docture/testing/doubles`. Those entrypoints need no engine peer. LLM utilities
@@ -52,7 +54,7 @@ pnpm --filter @docture/examples run fetch      # ~2 MB, once
 pnpm --filter @docture/examples quick-start
 ```
 
-The offline script runs 18 examples without an API key. Other scripts print explicit
+The offline script runs 19 examples without an API key. Other scripts print explicit
 skips for model calls and opt-in OCR when their setup is missing.
 Open a folder, read its `index.ts` top to bottom, run it, and the output tells you what
 happened and why.
@@ -83,12 +85,13 @@ happened and why.
 | 21 | [paperless](21-paperless) | versioned sources and fill-empty plan/apply with a mock server | — |
 | 22 | [http-service](22-http-service) | warm HTTP operations and shutdown on an ephemeral port | — |
 | 23 | [evaluate-a-schema](23-evaluate-a-schema) | a lab-report spec, a manifest dataset adapter, two experiments, reporters, comparison and gate | — |
+| 24 | [synthetic-corpus](24-synthetic-corpus) | a utility-bill model, two templates with printed masks, digital, scan and photo renditions, scored with eval and grounding | — |
 
 ¹ Part of the example runs without a key; the rest says what it would have done and skips.
 ² `extract` and `classify` work keyless through the config file in that folder.
 
 ```sh
-pnpm --filter @docture/examples offline   # 18 examples without model calls
+pnpm --filter @docture/examples offline   # 19 examples without model calls
 pnpm --filter @docture/examples all       # everything; skips loudly where a key is missing
 pnpm --filter @docture/examples test      # deterministic tests, including provider mocks
 pnpm --filter @docture/examples typecheck
@@ -186,6 +189,7 @@ subpaths; `@docture/cli` is the separate command-line package.
 | `docture/testing/doubles`, `docture/testing/fixtures`, `docture/testing/conformance`, `MockLanguageModelV4` | 14 |
 | `@docture/cli` | 15 |
 | `defineEval`, a hand-written `Dataset`, `fromDocture`, `memoryRunStore`, reporters, `defineReporter`, run comparison, `gate` | 23 |
+| `@docture/synthetic`: `defineModel`, `gen`, constraints, `scenario`, `defineTemplate`, `prints`, `drawTable`, `renderPdf`, `writeCorpus`; `jsonlDataset`, `groundingSection` | 24 |
 | `DocumentConverter`, conversion types, layout types, rich conversion fixture | 16 |
 
 ## Tests

@@ -1,0 +1,612 @@
+---
+title: Synthetic data API
+description: Models, templates, renderers, label verification, degradations and corpora from @docture/synthetic.
+---
+
+`@docture/synthetic` generates labeled documents from your extraction schema. Each document carries ground truth that is correct by construction: the value of every printed field, and the page and box where it is printed. Boxes use Docture's `LayoutBox` convention: PDF points, top-left origin, y down.
+
+The root entry is portable and engine-free. Every other entry loads its engine on first use and throws `MissingEngineError` naming the package and range when it is absent. The [synthetic corpus guide](/docs/guides/synthetic-corpus) walks through a complete corpus.
+
+| Entry | Purpose | Engines |
+| --- | --- | --- |
+| `@docture/synthetic` | Models, generators, constraints, scenarios, printed masks, templates, tables, formatting, `toEvalCase` | none |
+| `@docture/synthetic/pdfkit` | Render a template to PDF with field boxes | `pdfkit` |
+| `@docture/synthetic/verify` | Read a digital PDF back and confirm every label | `pdfjs-dist` |
+| `@docture/synthetic/measure` | Measure the text lines of a PDF and how far a template's text drifts from a reference PDF | `pdfjs-dist` |
+| `@docture/synthetic/degrade` | Scan, low-quality scan, photo and fax renditions with transformed boxes | `sharp`, `pdfjs-dist`, `@napi-rs/canvas`, `pdfkit` for PDF output |
+| `@docture/synthetic/node` | Write a resumable corpus that `jsonlDataset` reads | the engines of the renditions in the plan |
+| `@docture/synthetic/faker` | Seeded, locale-aware values from Faker | `@faker-js/faker` |
+| `@docture/synthetic/html` | HTML and CSS templates printed by Chromium | `playwright-core` and a Chromium build |
+| `@docture/synthetic/llm` | Model-written text pools, cached for offline rebuilds | `ai` |
+
+## `@docture/synthetic`
+
+A model samples values, a template draws them, and the template's printed mask decides what the ground truth holds. Randomness comes only from `streamFor(seed, key)`, keyed by a field's path, so equal inputs give equal values on every platform and adding a field never changes the values of the others. Nothing reads the wall clock.
+
+- `ArrayLength`
+- `At`
+- `ConcretePath`
+- `Constraint`
+- `FieldLabel`
+- `FieldSpec`
+- `Fields`
+- `Flag`
+- `FontSource`
+- `Formatter`
+- `GenContext`
+- `Generator`
+- `InferSchema`
+- `JsonSchema`
+- `LabelFailure`
+- `LabelFailureKind`
+- `Locale`
+- `Mask`
+- `Model`
+- `ModelOptions`
+- `ObjectMask`
+- `PageInfo`
+- `PageSize`
+- `PathPattern`
+- `PathSegment`
+- `Printed`
+- `PrintedMask`
+- `Projection`
+- `Rendition`
+- `Sample`
+- `SampleOptions`
+- `Scenario`
+- `SchemaSource`
+- `Stream`
+- `Surface`
+- `SynthConfig`
+- `SynthRendition`
+- `SynthesisProblem`
+- `SyntheticCase`
+- `SyntheticDocument`
+- `TableColumn`
+- `TableOptions`
+- `TagValue`
+- `Template`
+- `TemplateDefinition`
+- `TemplateProblem`
+- `TemplateProblemCode`
+- `TextStyle`
+- `TypedJsonSchema`
+- `ValueAt`
+
+`PathPattern<T>` names every schema position of `T` with `[]` for array items, such as `lineItems[].amount`. `ConcretePath<T>` names one position, such as `lineItems[3].amount`. `ValueAt<T, P>` is the type at a pattern. `FieldSpec` is a `Generator` or, for an array, an `ArrayLength`. `Fields<T>` maps patterns or concrete paths to field specs; a concrete path wins over its pattern.
+
+### `defineModel`
+
+```ts
+defineModel<const S extends object>(schema: S, options?: ModelOptions<InferSchema<S>>): Model<InferSchema<S>>
+```
+
+A model of the values `schema` describes. `schema` is a Docture contract, a Standard Schema with JSON Schema output (Zod 4.2 and later, ArkType, Valibot), an AI SDK schema or a plain JSON Schema. Positions without a generator get defaults from the schema. `model.sample({ seed, scenario })` samples, applies the scenario's `shape`, runs `derive`, checks the constraints and the scenario's `expect`, validates against the schema, and returns a deep-frozen `Sample`. Any failure throws `SynthesisError` listing every problem.
+
+`ModelOptions` holds `fields`, `derive`, `constraints`, `presence` (probability an optional property without a generator is present, default 0.85), `nulls` (probability a nullable position without a generator is `null`, default 0.1) and `arrays` (length range of arrays without a length, default `[1, 4]`). `derive` runs after sampling and again after a scenario's `shape`, so it must be idempotent.
+
+### `scenario`
+
+```ts
+scenario<T>(definition: Scenario<T>): Scenario<T>
+```
+
+A named variation such as "many line items" or "credit balance". `fields` replace the model's generators at the same positions; `shape` rewrites a derived sample; `expect` returns `false` or a message when a sample breaks the scenario's promise. `tags` reach each case's params.
+
+### `typedJsonSchema`
+
+```ts
+typedJsonSchema<T>(schema: JsonSchema): TypedJsonSchema<T>
+```
+
+Brand a plain JSON Schema with the type of its values, so `defineModel` infers `T` without a schema library.
+
+### `readSchema`
+
+```ts
+readSchema(input: unknown): SchemaSource
+```
+
+Read the JSON Schema and the optional validator of a contract, Standard Schema, AI SDK schema or JSON Schema. Returns `{ ok: false, message }` for anything else.
+
+### `gen`
+
+```ts
+gen.value(value) gen.from(generate) gen.int(min, max) gen.float(min, max, { decimals })
+gen.pick(items) gen.weighted([[value, weight], ...]) gen.pattern("INV-######")
+gen.date({ from, to }) gen.dateAfter(path, { days }) gen.words(min, max, pool?)
+gen.iban(country?) gen.luhn(prefix, length) gen.absent() gen.null() gen.maybe(inner, p?)
+gen.array({ length })
+```
+
+Built-in generators. Each draws only from its position's own stream. In `gen.pattern`, `#` is a digit, `A` an uppercase letter, `?` either, and a backslash escapes the next character. `gen.dateAfter` reads the ISO date at another concrete path. `gen.luhn` returns `length` digits whose last digit is the Luhn check digit. `gen.array` sets a length; items come from the item generators. `gen.from` receives a `GenContext` with the position's `stream`, `path`, `segments`, schema node, nearest array `index`, `get(path)` for another position, `sibling(key)` and `fallback()` for the schema default.
+
+### `ibanCheckDigits`
+
+```ts
+ibanCheckDigits(country: string, bban: string): string
+```
+
+The two ISO 13616 mod-97 check digits for a country and BBAN.
+
+### `isValidIban`
+
+```ts
+isValidIban(value: string): boolean
+```
+
+Whether `value`, spaces ignored, is a well-formed IBAN with correct check digits.
+
+### `luhnCheckDigit`
+
+```ts
+luhnCheckDigit(payload: string): number
+```
+
+The Luhn check digit to append to `payload`.
+
+### `isValidLuhn`
+
+```ts
+isValidLuhn(value: string): boolean
+```
+
+Whether `value`, spaces ignored, ends in its correct Luhn check digit.
+
+### `constraint`
+
+```ts
+constraint<T>(name: string, check: (value: T) => string | readonly string[] | undefined): Constraint<T>
+```
+
+A custom cross-field rule. Return a message, a list of messages, or nothing when satisfied.
+
+### `sumOf`
+
+```ts
+sumOf<T>(items: PathPattern<T>, total: PathPattern<T>, options?: { readonly tolerance?: number }): Constraint<T>
+```
+
+The numbers at `items` sum to the number at `total`, within `tolerance`.
+
+### `before`
+
+```ts
+before<T>(earlier: PathPattern<T>, later: PathPattern<T>, options?: { readonly orEqual?: boolean }): Constraint<T>
+```
+
+The ISO date at `earlier` precedes the one at `later`. Absent dates pass.
+
+### `validIban`
+
+```ts
+validIban<T>(pattern: PathPattern<T>): Constraint<T>
+```
+
+Every value at `pattern` is a valid IBAN.
+
+### `validLuhn`
+
+```ts
+validLuhn<T>(pattern: PathPattern<T>): Constraint<T>
+```
+
+Every value at `pattern` passes the Luhn check.
+
+### `unique`
+
+```ts
+unique<T>(pattern: PathPattern<T>): Constraint<T>
+```
+
+Values at `pattern` are pairwise distinct.
+
+### `valuesAt`
+
+```ts
+valuesAt(root: unknown, pattern: string): readonly (readonly [string, unknown])[]
+```
+
+Every concrete path and value at a pattern. Absent positions are skipped.
+
+### `streamFor`
+
+```ts
+streamFor(seed: number | string, key: string): Stream
+```
+
+The deterministic stream for `key` under `seed`. A `Stream` has `next()`, `int(min, max)`, `float(min, max)`, `pick(items)`, `chance(p)` and `fork(key)`. Equal inputs give equal sequences on every platform.
+
+### `formatPath`
+
+```ts
+formatPath(segments: readonly PathSegment[]): string
+```
+
+`["lineItems", 3, "amount"]` becomes `lineItems[3].amount`, the path format of `@docture/eval`.
+
+### `formatPattern`
+
+```ts
+formatPattern(segments: readonly PathSegment[]): string
+```
+
+The pattern of a concrete position: indices become `[]`.
+
+### `parsePath`
+
+```ts
+parsePath(text: string): PathSegment[] | undefined
+```
+
+Parse a concrete path or a pattern. `[]` parses to `-1`. Text that no path formats to returns `undefined`.
+
+### `prints`
+
+```ts
+prints<V, R = never>(print: (value: NonNullable<V>, root: R) => unknown): Printed<V, R>
+```
+
+Declare a position printed as `print(value)` rather than as its value. The label and the ground truth hold what the page lets a reader recover, such as a plan name that two tariffs share. Return `null` when nothing is printed.
+
+A `PrintedMask<T>` must name every key of `T`, optional ones included, so a new schema field fails to compile until each template decides. Each position is a `Flag`: `true`, `false`, a predicate over the value, its root and its parent, or a `prints()` transform. Objects take an `ObjectMask` per key and arrays take `{ items }`.
+
+### `project`
+
+```ts
+project<T>(mask: PrintedMask<T>, root: T): Projection
+```
+
+The ground truth a template promises (`expected`, with every unprinted position `null`) and the label value of each printed leaf by concrete path (`leaves`). Renderers call it; call it yourself to inspect a mask.
+
+### `locales`
+
+```ts
+locales["en-US"] locales["en-GB"] locales["de-DE"] locales["fr-FR"] locales["es-ES"]
+```
+
+Locale presets for numbers, money and dates. A `Locale` sets the decimal and group separators, a date pattern with `DD`, `MM`, `YYYY` and `MON`, month names, the currency symbol and position, and the minus sign. The presets use `-` because the standard PDF fonts cannot draw U+2212.
+
+### `formatter`
+
+```ts
+formatter(locale: Locale): Formatter
+```
+
+`number(value, decimals?)`, `money(minor, { symbol?, decimals? })` for integer minor units, and `date(iso, pattern?)`. Formatting uses explicit patterns rather than `Intl`, so printed text and PDF bytes do not change with the runtime's ICU version.
+
+### `defineTemplate`
+
+```ts
+defineTemplate<T>(): (definition: TemplateDefinition<T>) => Template<T>
+```
+
+Define a template for values of type `T`: `defineTemplate<Invoice>()({ ... })`. A definition has a `key`, `aliases`, a `family`, `tags` that reach every case, a `page` size (default A4) and margin (default 50), a `locale`, `fonts`, the `printed` mask and `draw(surface, value, format)`.
+
+`draw` receives a `Surface<T>` in PDF points with a top-left origin. `field(path, text, at)` draws text for one or more fields and labels each with the drawn box. `text`, `rule`, `rect` and `image` draw content that is not a field. `measure(text, style)` returns the box text would take, and `addPage()` starts a new page. An `At` is a `TextStyle` (`font`, `size`, `color`, `align`, `width`, `lineGap`) plus `x` and the top `y`. Text wraps only with a `width`.
+
+`fonts` maps names to a `FontSource`: a standard PDF font name or the bytes of a TrueType or OpenType font. The renderer checks every drawn character against the font and fails with `TemplateError` (`missing-glyph`) when a glyph is absent, instead of printing a blank or a substitute.
+
+### `defaultFonts`
+
+```ts
+defaultFonts: { regular: "Helvetica"; bold: "Helvetica-Bold"; italic: "Helvetica-Oblique"; mono: "Courier" }
+```
+
+The font names every template can use without declaring them.
+
+### `pageSizes`
+
+```ts
+pageSizes.A4 pageSizes.A5 pageSizes.Letter pageSizes.Legal
+```
+
+Page sizes in points.
+
+### `selectTemplates`
+
+```ts
+selectTemplates<T>(registry: readonly Template<T>[], selectors: readonly string[]): readonly Template<T>[]
+```
+
+Resolve selectors by key, alias, family or `all`, keeping registry order and dropping duplicates. An unknown selector throws `RangeError` listing the known keys.
+
+### `drawTable`
+
+```ts
+drawTable<T, Item>(surface: Surface<T>, options: TableOptions<Item>): number
+```
+
+Draw a paginated table from measured row heights. Rows never split across pages and the header repeats on each page. Cells of columns with a `key` are labeled as `<path>[i].<key>`. `reserveAfter` keeps room for a closing block, and `onPage` runs on each new page before the header, for running headers. Returns the y below the last row on the page where the closing block fits. A `TableColumn` has a `header`, a `width`, an `align`, an optional `key` and `text(item, index)`.
+
+### `toEvalCase`
+
+```ts
+toEvalCase(document: SyntheticDocument, options?: { readonly id?: string }): SyntheticCase
+```
+
+An `EvalCase` for `@docture/eval`, built without depending on it. Tags hold the template's tags plus `template`, `family`, `scenario`, `rendition` and a severity bucket. Params hold the seed, the scenario tags and the rendition. `locations` group the labels by path.
+
+A `SyntheticDocument` holds `bytes`, `mimeType`, `pages` (`PageInfo` with size in points), `expected`, `labels` (`FieldLabel`: `path`, ground-truth `value`, drawn `text`, `pageNumber` and `box`), the `sample` identity, the `template` identity, the `rendition` and `provenance`.
+
+### `caseIdOf`
+
+```ts
+caseIdOf(document: { sample; template; rendition }): string
+```
+
+The case id of a rendering's rendition, from identity fields only, so ids are known before rendering.
+
+### `groupOf`
+
+```ts
+groupOf(document: SyntheticDocument): string
+```
+
+The group shared by every rendition of one rendering, `seed:scenario:template`, so eval treats them as one ground truth.
+
+### `locationsOf`
+
+```ts
+locationsOf(labels: readonly FieldLabel[]): SyntheticCase["locations"]
+```
+
+Labels grouped by path, the shape of `EvalCase.locations`.
+
+### `severityBucket`
+
+```ts
+severityBucket(severity: number): "mild" | "moderate" | "severe"
+```
+
+Below 0.4 is mild, below 0.75 moderate, the rest severe.
+
+### `defineSynthConfig`
+
+```ts
+defineSynthConfig<T>(config: SynthConfig<T>): SynthConfig<T>
+```
+
+Type a `docture.synth.ts` file for [`docture synth`](/docs/guides/synthetic-corpus#from-the-command-line): `model`, `templates`, `scenarios`, default `seeds`, `renditions` (default digital), `out` and `createdAt`. A `SynthRendition` is the shape that `digital()`, `scan()` and the other rendition helpers return, so the root entry stays free of Node imports.
+
+### `SynthesisError`
+
+Code `SYNTHESIS_FAILED`. A model could not sample a value that satisfies its schema, constraints and scenario. `problems` lists each `SynthesisProblem` with the path or constraint it concerns.
+
+### `TemplateError`
+
+Code `TEMPLATE_INVALID`. `template` names the template and `problems` lists each `TemplateProblem` with a `TemplateProblemCode`: `undeclared-field`, `unprinted-field`, `unknown-path`, `missing-glyph` or `invalid-template`.
+
+### `LabelVerificationError`
+
+Code `LABEL_VERIFICATION_FAILED`. `failures` lists each `LabelFailure` with its path, page and a `LabelFailureKind`: `missing`, `outside-box` or `page-overflow`.
+
+## `@docture/synthetic/pdfkit`
+
+- `RenderPdfOptions`
+
+### `renderPdf`
+
+```ts
+renderPdf<T>(template: Template<T>, sample: Sample<T>, options?: RenderPdfOptions): Promise<SyntheticDocument>
+```
+
+Render a sample with a template into a PDF and label every printed field with its page and box. `createdAt` is written as the creation and modification date and defaults to a fixed date, so equal inputs give equal bytes. `compress` defaults to `true`; `producer`, `creator` and `title` set document info. Fails with `TemplateError` when the drawing and the printed mask disagree or a font lacks a glyph.
+
+### `ENGINE_RANGES`
+
+`{ pdfkit: ">=0.17.2 <0.21.0" }`. Every engine entry exports the ranges it supports under this name.
+
+## `@docture/synthetic/verify`
+
+- `VerifiableDocument`
+- `VerificationReport`
+- `VerifyOptions`
+
+### `verifyLabels`
+
+```ts
+verifyLabels(document: VerifiableDocument, options?: VerifyOptions): Promise<VerificationReport>
+```
+
+Read a digital rendition back through PDF.js and confirm every label: its box lies on the page, and the text spans meeting the box show the label's text. `tolerance` grows each box before matching, default 2 points. A degraded rendition has no text layer and throws `RangeError`. Needs `pdfjs-dist` through `docture/loaders/pdfjs`.
+
+### `assertVerified`
+
+```ts
+assertVerified(document: VerifiableDocument, options?: VerifyOptions): Promise<void>
+```
+
+`verifyLabels`, throwing `LabelVerificationError` with every failed label.
+
+## `@docture/synthetic/measure`
+
+- `Measurement`
+- `MeasuredPage`
+- `MeasuredLine`
+- `LayoutSource`
+- `CompareOptions`
+- `LayoutComparison`
+- `LineDrift`
+- `PlacedLine`
+- `RepeatedLine`
+
+### `measurePdf`
+
+```ts
+measurePdf(bytes: Uint8Array): Promise<Measurement>
+```
+
+Read every text line of a PDF with its box, page by page, top to bottom and left to right. Spans on one visual line stay separate lines when a gap wider than their font size divides them, so a label and its value, or two columns, are measured apart. Boxes reach from the baseline up one font size, as every box from Docture's PDF.js loader does, so the baseline is `box.y + box.height`. Needs `pdfjs-dist` through `docture/loaders/pdfjs`.
+
+### `compareLayouts`
+
+```ts
+compareLayouts(reference: LayoutSource, candidate: LayoutSource, options?: CompareOptions): Promise<LayoutComparison>
+```
+
+Measure how far the text of a candidate sits from the same text in a reference, for a template that reproduces a real form. Each side is PDF bytes, a rendered PDF `SyntheticDocument` or a `Measurement`, so `compareLayouts(referenceBytes, await renderPdf(template, sample))` works. Only text that occurs exactly once on a page of both documents is paired, by its whitespace-collapsed content. Each matched line reports `dx` and `dy` in points, candidate minus reference, and `drift`, the larger of the two. Text found on that page of one document only is listed in `onlyInReference` or `onlyInCandidate`; text repeated on either side is listed in `repeated` with its counts. `ok` is `maxDrift <= tolerance`, default 0.5 points. A document of another media type throws `RangeError`.
+
+```ts
+import { compareLayouts } from "@docture/synthetic/measure";
+import { renderPdf } from "@docture/synthetic/pdfkit";
+
+const drift = await compareLayouts(referencePdf, await renderPdf(template, sample), { tolerance: 1 });
+for (const line of drift.matched.filter((line) => line.drift > drift.tolerance)) {
+  console.log(`p${line.pageNumber} dx=${line.dx.toFixed(2)} dy=${line.dy.toFixed(2)} ${line.text}`);
+}
+```
+
+## `@docture/synthetic/degrade`
+
+- `BedKnobs`
+- `DegradeOptions`
+- `EncodeKnobs`
+- `GeometryKnobs`
+- `Matrix`
+- `PaperKnobs`
+- `Profile`
+- `ProfileKey`
+- `Range`
+- `ResolvedKnobs`
+- `Rgb`
+
+### `degrade`
+
+```ts
+degrade(document: SyntheticDocument, options: DegradeOptions): Promise<SyntheticDocument>
+```
+
+A scan, low-quality scan, photo or fax rendition of a PDF document. Each page is rasterized at `dpi` (default 200), aged, warped by one homography, captured and encoded. Every label box goes through the same homography and is stored as the axis-aligned bound of the warped quad. `severity` runs from 0 to 1 and interpolates every knob. `output` is `pdf` (default), `png` or `jpeg`; images need a one-page document. `salt` varies the random draws without changing the profile. The knobs each page used are recorded in `provenance`.
+
+### `profiles`
+
+```ts
+profiles.scan profiles["scan-lq"] profiles.photo profiles.fax
+```
+
+The built-in `Profile` recipes. A profile groups `PaperKnobs` (tint, stains, folds, fibres), `GeometryKnobs` (skew, shear, offset, perspective, surface colour), `BedKnobs` (falloff, shadow, dust, streaks, blur, motion blur, grain, contrast) and `EncodeKnobs` (softness, greyscale, bilevel threshold, JPEG quality). Each knob is a `Range` from severity 0 to severity 1. Pass your own `Profile` to `degrade` for a different capture.
+
+### `transformBox`
+
+```ts
+transformBox(matrix: Matrix, box: LayoutBox): LayoutBox
+```
+
+The axis-aligned bound of a box mapped through a row-major 3×3 homography.
+
+### `ENGINE_RANGES`
+
+`{ sharp: "0.35.5", pdfkit: ">=0.17.2 <0.21.0" }`. Rasterizing also needs `pdfjs-dist` and `@napi-rs/canvas` through `docture/raster/canvas`; `pdfkit` is needed only for PDF output.
+
+## `@docture/synthetic/node`
+
+- `CorpusPlan`
+- `CorpusReport`
+- `RenditionSpec`
+
+### `writeCorpus`
+
+```ts
+writeCorpus<T>(directory: string, plan: CorpusPlan<T>): Promise<CorpusReport>
+```
+
+Render every seed, scenario and template once, verify it, derive each rendition, and write a corpus that `jsonlDataset` reads. A plan has `model`, `templates`, `seeds`, `scenarios`, `includeBase` (default `true`), `renditions` (default digital only), `concurrency` (default 4), `verify` (default `true`), `createdAt` and `signal`.
+
+The directory holds `cases/<id>/` with the document, `expected.json`, `labels.json`, `sample.json` and `case.json`, plus `manifest.jsonl`, `coverage.json` (case counts per scenario, template, family, rendition and severity), `failures.jsonl` and `corpus.json` (plan, engine versions and file hashes). A rendering that fails verification fails its cases, not the batch.
+
+Rerunning converges. Each case is keyed by its seed, scenario, template, rendition, `createdAt`, package version and a fingerprint of the schema, template and scenario source. A case whose key and file hashes match is skipped, and each case lands by renaming a finished temporary folder. The fingerprint reads function source text, not values a function captures, so change `createdAt` or delete the corpus after editing a constant or an asset a template reads.
+
+### `digital`
+
+```ts
+digital(): RenditionSpec
+```
+
+The digital PDF as rendered.
+
+### `scan`
+
+```ts
+scan(options: { readonly severity: number; readonly dpi?: number }): RenditionSpec
+```
+
+A flatbed scan. `scanLq`, `photo` and `fax` take the same options for the other built-in profiles.
+
+### `scanLq`
+
+A low-quality scan rendition.
+
+### `photo`
+
+A phone photo rendition with perspective, shadow and motion blur.
+
+### `fax`
+
+A bilevel fax rendition.
+
+## `@docture/synthetic/faker`
+
+### `fakerFor`
+
+```ts
+fakerFor(locale: string, options?: { readonly refDate?: string }): Promise<<V>(build: (faker: Faker) => V) => Generator<V>>
+```
+
+Generators backed by Faker in `locale` (`de`, `de-AT`, `en_US`, and so on), falling back to English. Each generator reseeds Faker from its position's stream before calling `build`, so a value depends only on the seed and its path. Relative dates count back from `refDate`, default `2025-01-01T00:00:00.000Z`, never from the wall clock. An unknown locale throws `RangeError`.
+
+### `ENGINE_RANGES`
+
+`{ "@faker-js/faker": "10.6.0" }`.
+
+## `@docture/synthetic/html`
+
+- `HtmlTemplate`
+- `HtmlTemplateDefinition`
+- `RenderHtmlPdfOptions`
+
+### `defineHtmlTemplate`
+
+```ts
+defineHtmlTemplate<T>(): (definition: HtmlTemplateDefinition<T>) => HtmlTemplate<T>
+```
+
+An HTML template. `render(value, format)` returns the body: one `<section class="page">` per page, each fixed to the page size, so pagination is explicit. Every printed field sits in an element with `data-field="<concrete path>"`, or several comma-separated paths. `css` is added after the page rules; embed fonts as data URLs, since nothing is fetched. Ligatures are off unless the template sets them with `!important`, because PDF.js reads a ligature glyph as its own span.
+
+### `renderHtmlPdf`
+
+```ts
+renderHtmlPdf<T>(template: HtmlTemplate<T>, sample: Sample<T>, options?: RenderHtmlPdfOptions): Promise<SyntheticDocument>
+```
+
+Print the template with Chromium and label each `data-field` element with its box in points. Pass a `browser` to reuse one across renders; otherwise one is launched and closed per call. `executablePath` selects the Chromium to launch. Verify the result with `verifyLabels` like a PDFKit rendering.
+
+### `escapeHtml`
+
+```ts
+escapeHtml(text: string): string
+```
+
+Escape text for HTML content or a quoted attribute.
+
+### `ENGINE_RANGES`
+
+`{ "playwright-core": "1.64.1" }`. Install a Chromium build separately.
+
+## `@docture/synthetic/llm`
+
+- `TextPoolCache`
+- `TextPoolOptions`
+
+### `llmTextPool`
+
+```ts
+llmTextPool(options: TextPoolOptions): Promise<readonly string[]>
+```
+
+Ask a model once for `count` distinct realistic strings, such as company names of a trade, and cache them by model, prompt, count and temperature (default 0). Sample from the pool with `gen.pick(pool)`, so ground truth stays the sampled value and labels are still verified. With a persistent `cache`, a corpus rebuilds offline. A model that returns no usable strings throws `SynthesisError`.
+
+### `ENGINE_RANGES`
+
+`{ ai: "^7.0.0" }`.

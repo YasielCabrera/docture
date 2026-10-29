@@ -1,10 +1,11 @@
 ---
 title: Packages and imports
-description: The three published packages, every public subpath, and required peers.
+description: The four published packages, every public subpath, and required peers.
 ---
 
-Docture publishes three packages: `docture`, `@docture/cli`, and `@docture/eval`. All require Node.js 22 or
-newer. `docture` contains core, model integrations, adapters and testing. `@docture/eval` supplies evaluation.
+Docture publishes four packages: `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic`. All
+require Node.js 22 or newer. `docture` contains core, model integrations, adapters and testing. `@docture/eval`
+supplies evaluation. `@docture/synthetic` generates labeled synthetic documents for evaluation.
 Its root exports core only. The CLI supplies the `docture` executable.
 
 ## Public entry points
@@ -173,4 +174,21 @@ tree-shaken. Actual bundle contents depend on the bundler, configuration, and im
 | `@docture/eval/promptfoo` | JavaScript assertion |
 | `@docture/eval/autoevals` | Extraction F1 score |
 
-Only the judge needs an optional engine. Framework adapters import no host framework. Each reporter entry is Node-only because it also exports a file-writing factory that imports `node/artifacts`. The pure `render*` implementations have no Node imports; this does not make their entry points browser-safe.
+Only the judge needs an optional engine. Framework adapters import no host framework.
+
+## Synthetic data entries
+
+`@docture/synthetic` requires the `docture` peer. Its root holds models, generators, constraints, scenarios, printed masks, templates and formatting, and needs no engine. Every engine is an optional peer, loaded on first use.
+
+| Import | Purpose | Optional peers used by that entry |
+| --- | --- | --- |
+| `@docture/synthetic` | Models, templates, masks, `toEvalCase` | None; a Standard Schema library such as `zod@^4` for typed models |
+| `@docture/synthetic/pdfkit` | Render templates to PDF with field boxes | `pdfkit@>=0.17.2 <0.21.0` |
+| `@docture/synthetic/verify` | Read a PDF back and confirm every label | `pdfjs-dist@^6.2.108` |
+| `@docture/synthetic/degrade` | Scan, low-quality scan, photo and fax renditions | `sharp@0.35.5`, `pdfjs-dist@^6.2.108`, `@napi-rs/canvas@^1.0.10`; `pdfkit` for PDF output |
+| `@docture/synthetic/node` | Resumable corpora that `jsonlDataset` reads | The peers of the renditions in the plan |
+| `@docture/synthetic/faker` | Seeded, locale-aware values | `@faker-js/faker@10.6.0` |
+| `@docture/synthetic/html` | HTML and CSS templates printed by Chromium | `playwright-core@1.64.1` and a Chromium build |
+| `@docture/synthetic/llm` | Model-written text pools | `ai@^7.0.0` |
+
+See the [synthetic data API](/docs/reference/api/synthetic) and the [synthetic corpus guide](/docs/guides/synthetic-corpus). Each reporter entry is Node-only because it also exports a file-writing factory that imports `node/artifacts`. The pure `render*` implementations have no Node imports; this does not make their entry points browser-safe.

@@ -213,6 +213,11 @@ export function listFlag(parsed: Parsed, name: string): readonly string[] {
   return typeof value === "string" ? [value] : [];
 }
 
+/** Comma-separated values across repeated flags, trimmed and without blanks. */
+export function commaList(values: readonly string[]): string[] {
+  return values.flatMap((value) => value.split(",")).map((value) => value.trim()).filter((value) => value !== "");
+}
+
 export interface NumberRange {
   readonly min?: number;
   readonly max?: number;

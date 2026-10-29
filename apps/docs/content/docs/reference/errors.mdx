@@ -49,6 +49,9 @@ try {
 | `MIGRATION_GUARD_FAILED` | `MigrationGuardError` from `@docture/eval` | `migration`, `paths`, `caseId` when a case failed | A ground-truth migration has invalid targets, changed paths outside its declared targets, or gave a different result when applied twice. |
 | `EVAL_RUNS_INCOMPARABLE` | `IncomparableRunsError` from `@docture/eval` | `problems` | Two runs cannot be paired for comparison: no shared experiment, an unknown experiment, or a case and epoch recorded twice. Select the experiments explicitly or rerun the duplicated cases. |
 | `EVAL_PREFLIGHT_FAILED` | `PreflightError` from `@docture/eval` | `experiment`, `cause` | An experiment's `preflight` check failed before any case ran. Fix the setup the cause names, such as a missing credential or engine. |
+| `SYNTHESIS_FAILED` | `SynthesisError` from `@docture/synthetic` | `problems` | A model could not sample a value that satisfies its schema, constraints and scenario. Each problem names a path or constraint. Fix the generator, `derive` or constraint it names, or the scenario whose `expect` failed. |
+| `TEMPLATE_INVALID` | `TemplateError` from `@docture/synthetic` | `template`, `problems` | A template drew a field its printed mask does not declare, never drew a declared field, used a glyph its font lacks, or threw while drawing. Each problem has a `code` and path. Declare the field, draw it, or embed a font that has the glyph. |
+| `LABEL_VERIFICATION_FAILED` | `LabelVerificationError` from `@docture/synthetic` | `failures` | A rendered document does not show a labeled value inside its labeled box, or a box leaves the page. Each failure names the path, page and kind: `missing`, `outside-box` or `page-overflow`. Move or shrink the drawn text. |
 
 ## Constructors
 

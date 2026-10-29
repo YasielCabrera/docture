@@ -5,7 +5,13 @@
       "path": "packages/docture"
     },
     {
+      "path": "packages/eval"
+    },
+    {
       "path": "packages/cli"
+    },
+    {
+      "path": "packages/synthetic"
     }
   ]
 }

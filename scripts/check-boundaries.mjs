@@ -177,8 +177,8 @@ for (const folder of await readdir(join(root, "packages"))) {
   const value = JSON.parse(await readFile(join(root, "packages", folder, "package.json"), "utf8"));
   packages.push(value);
 }
-assert.deepEqual(packages.map(value => value.name).sort(), ["@docture/cli", "@docture/eval", "docture"], "Only the three declared packages may exist");
-for (const name of ["docture", "@docture/cli"]) assert.ok(!packages.find(value => value.name === name).private, `${name} must be public`);
+assert.deepEqual(packages.map(value => value.name).sort(), ["@docture/cli", "@docture/eval", "@docture/synthetic", "docture"], "Only the four declared packages may exist");
+for (const name of ["docture", "@docture/cli", "@docture/synthetic"]) assert.ok(!packages.find(value => value.name === name).private, `${name} must be public`);
 
 const evalSource = join(root, "packages/eval/src");
 const evalManifest = packages.find(value => value.name === "@docture/eval");
@@ -262,6 +262,112 @@ if (await exists(htmlBuilder)) {
   assert.equal(result.status, 0, `eval HTML client must be fresh: ${result.stdout}${result.stderr}`);
 }
 
+const syntheticSource = join(root, "packages/synthetic/src");
+const syntheticManifest = packages.find(value => value.name === "@docture/synthetic");
+const syntheticEntries = ["pdfkit", "verify", "measure", "degrade", "faker", "llm", "html", "node"];
+const syntheticArea = name => {
+  const parts = name.split("/");
+  return parts.length > 1 && syntheticEntries.includes(parts[0]) ? parts[0] : "root";
+};
+// The corpus writer orchestrates rendering, verification and degradation.
+const syntheticReach = { node: ["pdfkit", "verify", "degrade"] };
+const syntheticEngines = { pdfkit: ["pdfkit"], degrade: ["sharp", "pdfkit"], faker: ["@faker-js/faker"], llm: ["ai"], html: ["playwright-core"] };
+const syntheticDocture = { verify: ["docture/loaders/pdfjs"], measure: ["docture/loaders/pdfjs"], degrade: ["docture/raster/canvas", "docture/loaders/pdfjs"], node: ["docture/node"] };
+const syntheticPins = ["sharp", "@faker-js/faker", "playwright-core"];
+// Docture's packed gate already verifies these engines' floors and newest releases.
+const syntheticSharedRanges = ["pdfkit", "pdfjs-dist", "@napi-rs/canvas"];
+const syntheticPeers = Object.fromEntries(Object.entries(syntheticManifest.peerDependencies ?? {}).filter(([name]) => name !== "docture"));
+const syntheticRanges = new Map();
+const syntheticEngineLoads = [];
+assert.equal(syntheticManifest.sideEffects, false, "synthetic declares sideEffects: false");
+assert.deepEqual(Object.keys(syntheticManifest.dependencies ?? {}), [], "synthetic has no runtime dependencies beyond its peers");
+assert.deepEqual(Object.keys(syntheticManifest.exports).sort(), [".", ...syntheticEntries.map(entry => `./${entry}`)].sort(), "synthetic exports the root and one entry per entry folder");
+for (const [key, entry] of Object.entries(syntheticManifest.exports)) {
+  const stem = entry.source.replace(/^\.\/src\//, "").replace(/\.ts$/, "");
+  assert.equal(entry.types, `./dist/${stem}.d.ts`, `${key} synthetic declaration path`);
+  const runtime = key === "./node" ? entry.node : entry;
+  assert.equal(runtime?.import, `./dist/${stem}.js`, `${key} synthetic ESM path`);
+  assert.equal(runtime.default, runtime.import, `${key} synthetic fallback path`);
+  if (key === "./node") assert.equal(entry.default, undefined, "the synthetic corpus writer has no portable fallback");
+  await readFile(join(root, "packages/synthetic", entry.source));
+}
+assert.ok(syntheticManifest.peerDependencies?.docture, "synthetic requires the docture peer");
+assert.notEqual(syntheticManifest.peerDependenciesMeta?.docture?.optional, true, "synthetic's docture peer is required");
+for (const name of Object.keys(syntheticPeers)) assert.equal(syntheticManifest.peerDependenciesMeta?.[name]?.optional, true, `${name} must be an optional synthetic peer`);
+for (const name of syntheticPins) {
+  assert.match(syntheticPeers[name] ?? "", /^\d+\.\d+\.\d+$/, `${name} stays an exact synthetic pin until the packed gate verifies a range`);
+  assert.equal(syntheticManifest.devDependencies?.[name], syntheticPeers[name], `${name} develops against its pinned peer`);
+}
+for (const name of syntheticSharedRanges) assert.equal(syntheticPeers[name], manifest.peerDependencies[name], `synthetic's ${name} range must equal docture's verified range`);
+for (const path of await files(syntheticSource)) {
+  const name = relative(syntheticSource, path);
+  const owner = syntheticArea(name);
+  const label = `synthetic/${name}`;
+  const isTest = /(?:^|\/)[^/]+\.(?:test|spec)\.[cm]?tsx?$/.test(name);
+  const code = await readFile(path, "utf8");
+  const tree = ts.createSourceFile(path, code, ts.ScriptTarget.Latest, true);
+  if (name.endsWith(".cts")) failures.push(`${label}: CommonJS source .cts is not supported`);
+  for (const diagnostic of tree.parseDiagnostics) failures.push(`${label} cannot be parsed by the boundary checker: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")}`);
+  const table = /ENGINE_RANGES\s*=\s*(\{[\s\S]*?\}) as const/.exec(code);
+  if (table) {
+    if (syntheticRanges.has(owner)) failures.push(`${label} declares a second ENGINE_RANGES table for synthetic/${owner}`);
+    syntheticRanges.set(owner, Function(`return ${table[1]}`)());
+  }
+  function checkSynthetic(value, kind) {
+    const isEngine = Object.keys(syntheticPeers).find(engine => value === engine || value.startsWith(`${engine}/`));
+    if (value.startsWith(".")) {
+      const target = relative(syntheticSource, resolve(dirname(path), value));
+      const targetArea = syntheticArea(target);
+      const allowed = !target.startsWith("..") && (targetArea === "root" || targetArea === owner || (syntheticReach[owner] ?? []).includes(targetArea));
+      if (!allowed) failures.push(`${label} crosses into ${value}`);
+    } else if (value.startsWith("node:")) {
+      if (owner !== "node" && !isTest) failures.push(`${label} imports a Node built-in outside node/`);
+    } else if (value === "docture") {
+      return;
+    } else if (value.startsWith("docture/")) {
+      if (!(syntheticDocture[owner] ?? []).includes(value)) failures.push(`${label} imports docture subpath ${value} outside its declared synthetic entry`);
+    } else if (isEngine) {
+      if (!(syntheticEngines[owner] ?? []).includes(isEngine)) failures.push(`${label} imports undeclared boundary ${value}`);
+      else if (kind === "static") failures.push(`${label} statically imports the optional engine ${value}; load it with import() when the entry is used`);
+      if (kind === "dynamic") syntheticEngineLoads.push([label, owner, isEngine]);
+    } else failures.push(`${label} imports undeclared boundary ${value}; use relative internal imports`);
+  }
+  for (const reference of tree.typeReferenceDirectives) checkSynthetic(reference.fileName, "static");
+  for (const reference of tree.referencedFiles) checkSynthetic(reference.fileName.startsWith(".") ? reference.fileName : `./${reference.fileName}`, "static");
+  function visitSynthetic(node) {
+    if (ts.hasPossibleExternalModuleReference(node) && !ts.isCallExpression(node)) {
+      const specifier = ts.getExternalModuleName(node);
+      const typeOnly = ts.isImportTypeNode(node) || ts.isImportDeclaration(node) && node.importClause?.isTypeOnly === true || ts.isExportDeclaration(node) && node.isTypeOnly;
+      if (specifier && ts.isStringLiteralLike(specifier)) checkSynthetic(specifier.text, typeOnly ? "type" : "static");
+    }
+    if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+      ts.isIdentifier(node.expression) && node.expression.text === "require" ||
+      ts.isPropertyAccessExpression(node.expression) && ts.isIdentifier(node.expression.expression) && node.expression.expression.text === "require" && node.expression.name.text === "resolve")) {
+      if (node.arguments[0] && ts.isStringLiteralLike(node.arguments[0])) checkSynthetic(node.arguments[0].text, node.expression.kind === ts.SyntaxKind.ImportKeyword ? "dynamic" : "static");
+      else failures.push(`${label} uses a computed module specifier that bundlers cannot isolate`);
+    }
+    const member = (expression, object, property) => ts.isPropertyAccessExpression(expression) && ts.isIdentifier(expression.expression) &&
+      expression.expression.text === object && expression.name.text === property;
+    if (ts.isCallExpression(node) && member(node.expression, "Date", "now")) failures.push(`${label} reads the wall clock with Date.now(); take the time as an input`);
+    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "Date" && (node.arguments?.length ?? 0) === 0) failures.push(`${label} reads the wall clock with new Date(); take the time as an input`);
+    if (ts.isCallExpression(node) && member(node.expression, "Math", "random")) failures.push(`${label} draws unseeded randomness with Math.random(); use streamFor(seed, key)`);
+    ts.forEachChild(node, visitSynthetic);
+  }
+  visitSynthetic(tree);
+}
+for (const [label, owner, engine] of syntheticEngineLoads) {
+  if (!(engine in (syntheticRanges.get(owner) ?? {}))) failures.push(`${label} loads ${engine}, which synthetic/${owner} ENGINE_RANGES does not declare`);
+}
+for (const [owner, ranges] of syntheticRanges) {
+  for (const [engine, range] of Object.entries(ranges)) {
+    if (syntheticPeers[engine] !== range) failures.push(`synthetic/${owner} ENGINE_RANGES declares ${engine}@${range}, but the synthetic peer is ${syntheticPeers[engine] ?? "undeclared"}`);
+  }
+}
+const syntheticRanged = new Set([...syntheticRanges.values()].flatMap(ranges => Object.keys(ranges)));
+for (const name of Object.keys(syntheticPeers)) {
+  if (!syntheticRanged.has(name) && !syntheticSharedRanges.includes(name)) failures.push(`synthetic peer ${name} is named by no entry's ENGINE_RANGES`);
+}
+
 const cliSource = join(root, "packages/cli/src");
 const cliManifest = JSON.parse(await readFile(join(root, "packages/cli/package.json"), "utf8"));
 const cliPeers = Object.keys(cliManifest.peerDependencies ?? {});
@@ -307,4 +413,4 @@ for (const node of configEntry.statements) {
 }
 
 assert.deepEqual(failures, [], "Public module boundaries must stay isolated");
-console.log(`Verified three package boundaries and ${Object.keys(manifest.exports).length} isolated ESM entries.`);
+console.log(`Verified four package boundaries and ${Object.keys(manifest.exports).length} isolated ESM entries.`);

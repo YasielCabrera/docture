@@ -23,6 +23,7 @@ const HANDLERS: Readonly<Record<string, () => Promise<Handler>>> = {
   classify: async () => (await import("./commands/classify.js")).classifyCommand,
   inspect: async () => (await import("./commands/inspect.js")).inspectCommand,
   eval: async () => (await import("./commands/eval.js")).evalCommand,
+  synth: async () => (await import("./commands/synth.js")).synthCommand,
   review: async () => (await import("./commands/review.js")).reviewCommand,
   mcp: async () => (await import("./commands/mcp.js")).mcpCommand,
   serve: async () => (await import("./commands/serve.js")).serveCommand,

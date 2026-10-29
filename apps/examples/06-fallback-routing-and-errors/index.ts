@@ -233,6 +233,10 @@ async function main(): Promise<void> {
       case "EVAL_RUNS_INCOMPARABLE":
       case "EVAL_PREFLIGHT_FAILED":
         return "raised by @docture/eval, not by extraction";
+      case "SYNTHESIS_FAILED":
+      case "TEMPLATE_INVALID":
+      case "LABEL_VERIFICATION_FAILED":
+        return "raised by @docture/synthetic, not by extraction";
     }
   }
 
