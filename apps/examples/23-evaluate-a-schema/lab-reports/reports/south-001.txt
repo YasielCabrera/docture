@@ -1,0 +1,5 @@
+Southgate Diagnostics - Results
+Sample collected 2 April 2026 for patient P-1001
+Analyte: Glucose | Result: 7.9 mmol/L | Flag: high
+Analyte: Hemoglobin | Result: 12.6 g/dL | Flag: normal
+Please contact the laboratory within seven days if any result needs to be repeated.

@@ -82,6 +82,29 @@ const HINTS: Readonly<Record<DoctureErrorCode, string>> = {
     "or remove that component from docture.config.ts.",
   MISSING_COMPONENT:
     "Supply the missing component in docture.config.ts before running this command.",
+  EVAL_SPEC_INVALID:
+    "The eval spec cannot be resolved. Fix every listed path: add a fields rule, an arrays rule or a segment, " +
+    "or remove the rule that matches nothing.",
+  GROUND_TRUTH_INVALID:
+    "The expected values do not satisfy the eval spec. Correct the listed paths in the case's expected file, " +
+    "or change the spec if the schema is what changed.",
+  EVAL_DATASET_INVALID:
+    "The dataset cannot produce its cases. Check the listed document or expected file, sign off drafts, " +
+    "or pass only case ids the dataset has.",
+  EVAL_RUN_STORE_FAILED:
+    "A stored run cannot be read or written. Check the run id and the store directory, " +
+    "or rerun the eval if the run was written by another format version.",
+  OUT_OF_SCOPE:
+    "The processor declined this case. The eval records it as skipped; route it to a processor that handles it.",
+  MIGRATION_GUARD_FAILED:
+    "The migration changed paths outside its targets or gives a different result when applied twice. " +
+    "Fix the migration before writing it.",
+  EVAL_RUNS_INCOMPARABLE:
+    "The two runs cannot be paired. Pick the experiments to compare explicitly, " +
+    "or rerun so each case and epoch appears once per experiment.",
+  EVAL_PREFLIGHT_FAILED:
+    "An experiment failed its preflight check before any case ran. " +
+    "Fix the setup the message names, such as a missing credential, model or engine, then rerun.",
 };
 
 const RULE_VIOLATION_HINT =

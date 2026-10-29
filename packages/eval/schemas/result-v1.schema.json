@@ -1,0 +1,1985 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/YasielCabrera/docture/blob/main/packages/eval/schemas/result-v1.schema.json",
+  "title": "Docture eval result, version 1",
+  "description": "The common output of @docture/eval. result.json holds every member except cases; cases.jsonl holds one caseResult per line.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "docture-eval-result"
+    },
+    "version": {
+      "const": 1
+    },
+    "run": {
+      "$ref": "#/$defs/runInfo"
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/metricInfo"
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/summary"
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/caseResult"
+      }
+    },
+    "calibration": {
+      "$ref": "#/$defs/calibrationReport"
+    },
+    "grounding": {
+      "$ref": "#/$defs/groundingReport"
+    },
+    "comparison": {
+      "$ref": "#/$defs/runComparison"
+    },
+    "gate": {
+      "$ref": "#/$defs/gateResult"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/jsonValue"
+      }
+    }
+  },
+  "required": [
+    "format",
+    "version",
+    "run",
+    "metrics",
+    "summary",
+    "cases",
+    "warnings",
+    "extensions"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "jsonValue": {
+      "description": "Any JSON value."
+    },
+    "tagValue": {
+      "type": [
+        "string",
+        "number",
+        "boolean"
+      ]
+    },
+    "metricValues": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "number",
+          "null"
+        ]
+      }
+    },
+    "statusCounts": {
+      "type": "object",
+      "properties": {
+        "match": {
+          "type": "number"
+        },
+        "mismatch": {
+          "type": "number"
+        },
+        "omission": {
+          "type": "number"
+        },
+        "hallucination": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "match",
+        "mismatch",
+        "omission",
+        "hallucination"
+      ],
+      "additionalProperties": false
+    },
+    "box": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    },
+    "expectedLocation": {
+      "type": "object",
+      "properties": {
+        "pageNumber": {
+          "type": "integer"
+        },
+        "box": {
+          "$ref": "#/$defs/box"
+        }
+      },
+      "required": [
+        "pageNumber"
+      ],
+      "additionalProperties": false
+    },
+    "evidenceRef": {
+      "type": "object",
+      "properties": {
+        "pageNumber": {
+          "type": "integer"
+        },
+        "box": {
+          "$ref": "#/$defs/box"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "pageNumber"
+      ],
+      "additionalProperties": false
+    },
+    "repairHint": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "fieldResult": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "actualPath": {
+          "type": "string"
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "segment": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "match",
+            "mismatch",
+            "omission",
+            "hallucination"
+          ]
+        },
+        "expected": {
+          "$ref": "#/$defs/jsonValue"
+        },
+        "actual": {
+          "$ref": "#/$defs/jsonValue"
+        },
+        "comparator": {
+          "type": "string"
+        },
+        "similarity": {
+          "type": "number"
+        },
+        "weight": {
+          "type": "number"
+        },
+        "critical": {
+          "const": true
+        },
+        "hint": {
+          "$ref": "#/$defs/repairHint"
+        },
+        "note": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceRef"
+          }
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/expectedLocation"
+          }
+        },
+        "grounded": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "pattern",
+        "segment",
+        "status",
+        "expected",
+        "actual",
+        "comparator",
+        "similarity",
+        "weight"
+      ],
+      "additionalProperties": false
+    },
+    "alignmentReport": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "algorithm": {
+          "enum": [
+            "index",
+            "ordered",
+            "exact-key",
+            "hungarian",
+            "greedy",
+            "ordered-greedy"
+          ]
+        },
+        "expected": {
+          "type": "integer"
+        },
+        "actual": {
+          "type": "integer"
+        },
+        "matched": {
+          "type": "integer"
+        },
+        "missing": {
+          "type": "integer"
+        },
+        "extra": {
+          "type": "integer"
+        },
+        "outOfOrder": {
+          "type": "integer"
+        },
+        "splits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "expected": {
+                "type": "integer"
+              },
+              "actual": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              }
+            },
+            "required": [
+              "expected",
+              "actual"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "merges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "expected": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              },
+              "actual": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "expected",
+              "actual"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "path",
+        "pattern",
+        "algorithm",
+        "expected",
+        "actual",
+        "matched",
+        "missing",
+        "extra",
+        "outOfOrder",
+        "splits",
+        "merges"
+      ],
+      "additionalProperties": false
+    },
+    "assertionResult": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "skipped"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "expected": {
+          "$ref": "#/$defs/jsonValue"
+        },
+        "actual": {
+          "$ref": "#/$defs/jsonValue"
+        }
+      },
+      "required": [
+        "id",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "segmentScore": {
+      "type": "object",
+      "properties": {
+        "precision": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "recall": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "f1": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "counts": {
+          "$ref": "#/$defs/statusCounts"
+        },
+        "weighted": {
+          "$ref": "#/$defs/statusCounts"
+        }
+      },
+      "required": [
+        "precision",
+        "recall",
+        "f1",
+        "counts",
+        "weighted"
+      ],
+      "additionalProperties": false
+    },
+    "caseScore": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fieldResult"
+          }
+        },
+        "arrays": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/alignmentReport"
+          }
+        },
+        "assertions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assertionResult"
+          }
+        },
+        "counts": {
+          "$ref": "#/$defs/statusCounts"
+        },
+        "weighted": {
+          "$ref": "#/$defs/statusCounts"
+        },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "precision": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "recall": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "f1": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "exact": {
+              "type": "boolean"
+            },
+            "anls": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "critical": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "precision",
+            "recall",
+            "f1",
+            "exact",
+            "anls",
+            "critical"
+          ],
+          "additionalProperties": false
+        },
+        "segments": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/segmentScore"
+          }
+        }
+      },
+      "required": [
+        "fields",
+        "arrays",
+        "assertions",
+        "counts",
+        "weighted",
+        "metrics",
+        "segments"
+      ],
+      "additionalProperties": false
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "inputTokens": {
+          "type": "number"
+        },
+        "outputTokens": {
+          "type": "number"
+        },
+        "calls": {
+          "type": "number"
+        },
+        "pages": {
+          "type": "number"
+        },
+        "costUsd": {
+          "type": "number"
+        },
+        "wallMs": {
+          "type": "number"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "omittedCount": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "number"
+        },
+        "weight": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "fields",
+        "weight"
+      ],
+      "additionalProperties": false
+    },
+    "caseResult": {
+      "type": "object",
+      "properties": {
+        "caseId": {
+          "type": "string"
+        },
+        "caseFingerprint": {
+          "type": "string"
+        },
+        "experiment": {
+          "type": "string"
+        },
+        "configHash": {
+          "type": "string"
+        },
+        "epoch": {
+          "type": "integer"
+        },
+        "tags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          }
+        },
+        "group": {
+          "type": "string"
+        },
+        "locations": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/expectedLocation"
+            }
+          }
+        },
+        "values": {
+          "$ref": "#/$defs/metricValues"
+        },
+        "slices": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          }
+        },
+        "usage": {
+          "$ref": "#/$defs/usage"
+        },
+        "method": {
+          "type": "string"
+        },
+        "fallback": {
+          "type": "boolean"
+        },
+        "diagnostics": {
+          "$ref": "#/$defs/jsonValue"
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "ms": {
+          "type": "number"
+        },
+        "outcome": {
+          "enum": [
+            "scored",
+            "errored",
+            "skipped"
+          ]
+        },
+        "expected": {
+          "$ref": "#/$defs/jsonValue"
+        },
+        "actual": {
+          "$ref": "#/$defs/jsonValue"
+        },
+        "score": {
+          "$ref": "#/$defs/caseScore"
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "message"
+          ],
+          "additionalProperties": false
+        },
+        "omitted": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "number"
+            },
+            "weight": {
+              "type": "number"
+            },
+            "segments": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/omittedCount"
+              }
+            },
+            "paths": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/omittedCount"
+              }
+            }
+          },
+          "required": [
+            "fields",
+            "weight",
+            "segments",
+            "paths"
+          ],
+          "additionalProperties": false
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "caseId",
+        "experiment",
+        "epoch",
+        "tags",
+        "startedAt",
+        "ms",
+        "outcome"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "outcome": {
+              "const": "scored"
+            }
+          },
+          "required": [
+            "expected",
+            "actual",
+            "score"
+          ]
+        },
+        {
+          "properties": {
+            "outcome": {
+              "const": "errored"
+            }
+          },
+          "required": [
+            "expected",
+            "error",
+            "omitted"
+          ]
+        },
+        {
+          "properties": {
+            "outcome": {
+              "const": "skipped"
+            }
+          },
+          "required": [
+            "reason"
+          ]
+        }
+      ]
+    },
+    "resolvedFieldInfo": {
+      "type": "object",
+      "properties": {
+        "pattern": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "string",
+            "number",
+            "integer",
+            "boolean",
+            "enum",
+            "date",
+            "date-time",
+            "object",
+            "array",
+            "unknown"
+          ]
+        },
+        "comparator": {
+          "type": "string"
+        },
+        "comparatorId": {
+          "type": "string"
+        },
+        "options": {
+          "$ref": "#/$defs/jsonValue"
+        },
+        "segment": {
+          "type": "string"
+        },
+        "weight": {
+          "type": "number"
+        },
+        "critical": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "pattern",
+        "type",
+        "comparator",
+        "comparatorId",
+        "segment",
+        "weight",
+        "critical",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "runInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "in-progress",
+            "complete",
+            "aborted"
+          ]
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "finishedAt": {
+          "type": "string"
+        },
+        "git": {
+          "type": "object",
+          "properties": {
+            "branch": {
+              "type": "string"
+            },
+            "sha": {
+              "type": "string"
+            },
+            "dirty": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "branch",
+            "sha",
+            "dirty"
+          ],
+          "additionalProperties": false
+        },
+        "dataset": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "size": {
+              "type": "integer"
+            },
+            "fingerprint": {
+              "type": "string"
+            },
+            "selection": {
+              "$ref": "#/$defs/jsonValue"
+            }
+          },
+          "required": [
+            "id",
+            "size",
+            "fingerprint"
+          ],
+          "additionalProperties": false
+        },
+        "spec": {
+          "type": "object",
+          "properties": {
+            "fingerprint": {
+              "type": "string"
+            },
+            "fields": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/resolvedFieldInfo"
+              }
+            },
+            "arrays": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pattern": {
+                    "type": "string"
+                  },
+                  "rule": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "pattern",
+                  "rule",
+                  "source"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "fingerprint",
+            "fields",
+            "arrays"
+          ],
+          "additionalProperties": false
+        },
+        "experiments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "configHash": {
+                "type": "string"
+              },
+              "config": {
+                "$ref": "#/$defs/jsonValue"
+              }
+            },
+            "required": [
+              "id",
+              "configHash"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "epochs": {
+          "type": "integer"
+        },
+        "rescoredFrom": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "startedAt",
+        "dataset",
+        "spec",
+        "experiments",
+        "epochs"
+      ],
+      "additionalProperties": false
+    },
+    "metricInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "higher",
+            "lower"
+          ]
+        },
+        "format": {
+          "enum": [
+            "ratio",
+            "usd",
+            "ms",
+            "count",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "direction",
+        "format"
+      ],
+      "additionalProperties": false
+    },
+    "fieldGroupSummary": {
+      "type": "object",
+      "properties": {
+        "precision": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "recall": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "f1": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "counts": {
+          "$ref": "#/$defs/statusCounts"
+        },
+        "meanSimilarity": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "precision",
+        "recall",
+        "f1",
+        "counts",
+        "meanSimilarity"
+      ],
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "cases": {
+          "type": "object",
+          "properties": {
+            "total": {
+              "type": "integer"
+            },
+            "scored": {
+              "type": "integer"
+            },
+            "errored": {
+              "type": "integer"
+            },
+            "skipped": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "total",
+            "scored",
+            "errored",
+            "skipped"
+          ],
+          "additionalProperties": false
+        },
+        "overall": {
+          "$ref": "#/$defs/metricValues"
+        },
+        "segments": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "counts": {
+                "$ref": "#/$defs/statusCounts"
+              },
+              "weighted": {
+                "$ref": "#/$defs/statusCounts"
+              },
+              "metrics": {
+                "$ref": "#/$defs/metricValues"
+              }
+            },
+            "required": [
+              "counts",
+              "weighted",
+              "metrics"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "slices": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "cases": {
+                  "type": "integer"
+                },
+                "metrics": {
+                  "$ref": "#/$defs/metricValues"
+                }
+              },
+              "required": [
+                "cases",
+                "metrics"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "paths": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/fieldGroupSummary"
+          }
+        },
+        "fieldTypes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/fieldGroupSummary"
+          }
+        },
+        "epochs": {
+          "type": "object",
+          "properties": {
+            "epochs": {
+              "type": "integer"
+            },
+            "metrics": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "values": {
+                    "type": "array",
+                    "items": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "mean": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "stdev": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "values",
+                  "mean",
+                  "stdev"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "epochs",
+            "metrics"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "cases",
+        "overall",
+        "segments",
+        "slices",
+        "paths",
+        "fieldTypes"
+      ],
+      "additionalProperties": false
+    },
+    "calibrationBin": {
+      "type": "object",
+      "properties": {
+        "lower": {
+          "type": "number"
+        },
+        "upper": {
+          "type": "number"
+        },
+        "count": {
+          "type": "number"
+        },
+        "correct": {
+          "type": "number"
+        },
+        "confidenceSum": {
+          "type": "number"
+        },
+        "confidenceSquaredSum": {
+          "type": "number"
+        },
+        "correctConfidenceSum": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "lower",
+        "upper",
+        "count",
+        "correct",
+        "confidenceSum",
+        "confidenceSquaredSum",
+        "correctConfidenceSum"
+      ],
+      "additionalProperties": false
+    },
+    "confidenceCount": {
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "type": "number"
+        },
+        "count": {
+          "type": "number"
+        },
+        "correct": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "confidence",
+        "count",
+        "correct"
+      ],
+      "additionalProperties": false
+    },
+    "calibrationStats": {
+      "type": "object",
+      "properties": {
+        "support": {
+          "type": "number"
+        },
+        "groundTruth": {
+          "type": "number"
+        },
+        "scores": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/confidenceCount"
+          }
+        },
+        "bins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/calibrationBin"
+          }
+        },
+        "ece": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "mce": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "brier": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "auroc": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "averagePrecision": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "riskCoverage": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "threshold": {
+                "type": "number"
+              },
+              "coverage": {
+                "type": "number"
+              },
+              "accuracy": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "threshold",
+              "coverage",
+              "accuracy"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "accuracyAtCoverage": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "coverageAtAccuracy": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "coverageAtPrecision": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "threshold": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "support",
+        "groundTruth",
+        "scores",
+        "bins",
+        "ece",
+        "mce",
+        "brier",
+        "auroc",
+        "averagePrecision",
+        "riskCoverage",
+        "accuracyAtCoverage",
+        "coverageAtAccuracy",
+        "coverageAtPrecision",
+        "threshold"
+      ],
+      "additionalProperties": false
+    },
+    "calibrationSummary": {
+      "type": "object",
+      "properties": {
+        "graded": {
+          "type": "number"
+        },
+        "omissions": {
+          "type": "number"
+        },
+        "overall": {
+          "$ref": "#/$defs/calibrationStats"
+        },
+        "groups": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/calibrationStats"
+          }
+        }
+      },
+      "required": [
+        "graded",
+        "omissions",
+        "overall",
+        "groups"
+      ],
+      "additionalProperties": false
+    },
+    "calibrationReport": {
+      "type": "object",
+      "properties": {
+        "bins": {
+          "type": "integer"
+        },
+        "by": {
+          "enum": [
+            "path",
+            "pattern",
+            "fieldType",
+            "segment"
+          ]
+        },
+        "targetPrecision": {
+          "type": "number"
+        },
+        "minSupport": {
+          "type": "number"
+        },
+        "experiments": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/calibrationSummary"
+          }
+        }
+      },
+      "required": [
+        "bins",
+        "by",
+        "targetPrecision",
+        "minSupport",
+        "experiments"
+      ],
+      "additionalProperties": false
+    },
+    "groundingScore": {
+      "type": "object",
+      "properties": {
+        "predicted": {
+          "type": "number"
+        },
+        "labelled": {
+          "type": "number"
+        },
+        "correct": {
+          "type": "number"
+        },
+        "supported": {
+          "type": "number"
+        },
+        "grounded": {
+          "type": "number"
+        },
+        "withEvidence": {
+          "type": "number"
+        },
+        "hallucinated": {
+          "type": "number"
+        },
+        "groundedPrecision": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "groundedRecall": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "groundedF1": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "predicted",
+        "labelled",
+        "correct",
+        "supported",
+        "grounded",
+        "withEvidence",
+        "hallucinated",
+        "groundedPrecision",
+        "groundedRecall",
+        "groundedF1"
+      ],
+      "additionalProperties": false
+    },
+    "groundingSummary": {
+      "type": "object",
+      "properties": {
+        "cases": {
+          "type": "object",
+          "properties": {
+            "labelled": {
+              "type": "number"
+            },
+            "unlabelled": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "labelled",
+            "unlabelled"
+          ],
+          "additionalProperties": false
+        },
+        "overall": {
+          "$ref": "#/$defs/groundingScore"
+        },
+        "patterns": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/groundingScore"
+          }
+        },
+        "segments": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/groundingScore"
+          }
+        }
+      },
+      "required": [
+        "cases",
+        "overall",
+        "patterns",
+        "segments"
+      ],
+      "additionalProperties": false
+    },
+    "groundingReport": {
+      "type": "object",
+      "properties": {
+        "iou": {
+          "type": "number"
+        },
+        "level": {
+          "enum": [
+            "box",
+            "page"
+          ]
+        },
+        "experiments": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/groundingSummary"
+          }
+        }
+      },
+      "required": [
+        "iou",
+        "level",
+        "experiments"
+      ],
+      "additionalProperties": false
+    },
+    "metricDelta": {
+      "type": "object",
+      "properties": {
+        "metric": {
+          "type": "string"
+        },
+        "baseline": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "candidate": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "summaryDelta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "pairedDelta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "ci": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "p": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "test": {
+          "enum": [
+            "bootstrap",
+            "mcnemar",
+            "none"
+          ]
+        },
+        "verdict": {
+          "enum": [
+            "improved",
+            "regressed",
+            "unchanged",
+            "inconclusive",
+            "insufficient",
+            "not-tested",
+            "incomparable"
+          ]
+        },
+        "n": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "metric",
+        "baseline",
+        "candidate",
+        "summaryDelta",
+        "pairedDelta",
+        "ci",
+        "p",
+        "test",
+        "verdict",
+        "n"
+      ],
+      "additionalProperties": false
+    },
+    "caseDelta": {
+      "type": "object",
+      "properties": {
+        "caseId": {
+          "type": "string"
+        },
+        "epoch": {
+          "type": "integer"
+        },
+        "metric": {
+          "type": "string"
+        },
+        "baseline": {
+          "type": "number"
+        },
+        "candidate": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "caseId",
+        "epoch",
+        "metric",
+        "baseline",
+        "candidate"
+      ],
+      "additionalProperties": false
+    },
+    "outcomeChange": {
+      "type": "object",
+      "properties": {
+        "caseId": {
+          "type": "string"
+        },
+        "epoch": {
+          "type": "integer"
+        },
+        "baseline": {
+          "enum": [
+            "scored",
+            "errored",
+            "skipped"
+          ]
+        },
+        "candidate": {
+          "enum": [
+            "scored",
+            "errored",
+            "skipped"
+          ]
+        }
+      },
+      "required": [
+        "caseId",
+        "epoch",
+        "baseline",
+        "candidate"
+      ],
+      "additionalProperties": false
+    },
+    "pathDelta": {
+      "type": "object",
+      "properties": {
+        "pattern": {
+          "type": "string"
+        },
+        "counts": {
+          "type": "object",
+          "properties": {
+            "baseline": {
+              "$ref": "#/$defs/statusCounts"
+            },
+            "candidate": {
+              "$ref": "#/$defs/statusCounts"
+            }
+          },
+          "required": [
+            "baseline",
+            "candidate"
+          ],
+          "additionalProperties": false
+        },
+        "f1": {
+          "$ref": "#/$defs/metricDelta"
+        }
+      },
+      "required": [
+        "pattern",
+        "counts",
+        "f1"
+      ],
+      "additionalProperties": false
+    },
+    "experimentComparison": {
+      "type": "object",
+      "properties": {
+        "baseline": {
+          "type": "string"
+        },
+        "candidate": {
+          "type": "string"
+        },
+        "pairs": {
+          "type": "object",
+          "properties": {
+            "paired": {
+              "type": "number"
+            },
+            "baselineOnly": {
+              "type": "number"
+            },
+            "candidateOnly": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "paired",
+            "baselineOnly",
+            "candidateOnly"
+          ],
+          "additionalProperties": false
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metricDelta"
+          }
+        },
+        "segments": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/metricDelta"
+            }
+          }
+        },
+        "slices": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/metricDelta"
+              }
+            }
+          }
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pathDelta"
+          }
+        },
+        "cases": {
+          "type": "object",
+          "properties": {
+            "regressed": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/caseDelta"
+              }
+            },
+            "improved": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/caseDelta"
+              }
+            },
+            "newlyErrored": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/outcomeChange"
+              }
+            },
+            "fixed": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/outcomeChange"
+              }
+            }
+          },
+          "required": [
+            "regressed",
+            "improved",
+            "newlyErrored",
+            "fixed"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "baseline",
+        "candidate",
+        "pairs",
+        "metrics",
+        "segments",
+        "slices",
+        "paths",
+        "cases"
+      ],
+      "additionalProperties": false
+    },
+    "runComparison": {
+      "type": "object",
+      "properties": {
+        "baselineRunId": {
+          "type": "string"
+        },
+        "candidateRunId": {
+          "type": "string"
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "test": {
+              "enum": [
+                "bootstrap",
+                "mcnemar",
+                "auto"
+              ]
+            },
+            "resamples": {
+              "type": "integer"
+            },
+            "seed": {
+              "type": "string"
+            },
+            "alpha": {
+              "type": "number"
+            },
+            "cluster": {
+              "enum": [
+                "group",
+                "case"
+              ]
+            }
+          },
+          "required": [
+            "test",
+            "resamples",
+            "seed",
+            "alpha",
+            "cluster"
+          ],
+          "additionalProperties": false
+        },
+        "compatible": {
+          "type": "object",
+          "properties": {
+            "dataset": {
+              "type": "boolean"
+            },
+            "spec": {
+              "type": "boolean"
+            },
+            "warnings": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "dataset",
+            "spec",
+            "warnings"
+          ],
+          "additionalProperties": false
+        },
+        "experiments": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/experimentComparison"
+          }
+        }
+      },
+      "required": [
+        "baselineRunId",
+        "candidateRunId",
+        "settings",
+        "compatible",
+        "experiments"
+      ],
+      "additionalProperties": false
+    },
+    "gateResult": {
+      "type": "object",
+      "properties": {
+        "pass": {
+          "type": "boolean"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "run",
+                  "threshold",
+                  "regression"
+                ]
+              },
+              "experiment": {
+                "type": "string"
+              },
+              "metric": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              },
+              "value": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "status": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "skipped"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "experiment",
+              "metric",
+              "target",
+              "value",
+              "status",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "pass",
+        "checks"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -317,72 +317,278 @@ export const INSPECT: CommandSpec = {
   examples: ["docture inspect statement.pdf", "docture inspect scan.pdf --text"],
 };
 
-export const EVAL: CommandSpec = {
-  name: "eval",
-  summary: "Score extractions against ground truth",
-  positionals: FILES,
+const EVAL_CONFIG: FlagSpec = {
+  name: "config",
+  type: "string",
+  placeholder: "<path>",
+  describe: "Eval config. Default: the nearest docture.eval.{ts,mts,js,mjs}",
+};
+
+const EVAL_COMMON: readonly FlagSpec[] = COMMON.map((flag) => (flag.name === "config" ? EVAL_CONFIG : flag))
+  .filter((flag) => flag.name !== "no-config");
+
+const STORE: FlagSpec = {
+  name: "store",
+  type: "string",
+  placeholder: "<dir>",
+  describe: "Run store directory. Default: the config's store, else .docture/eval beside the config",
+};
+
+const EVAL_FORMATS = ["text", "json"] as const;
+const EVAL_FORMAT: ChoiceFlagSpec<(typeof EVAL_FORMATS)[number]> = {
+  name: "format",
+  type: "string",
+  placeholder: "<fmt>",
+  choices: EVAL_FORMATS,
+  describe: "Text for people; JSON prints the eval result or record as is",
+  defaultLabel: "text",
+};
+
+const COMPARE_FORMATS = ["md", "json"] as const;
+export const COMPARE_FORMAT: ChoiceFlagSpec<(typeof COMPARE_FORMATS)[number]> = {
+  name: "format",
+  type: "string",
+  placeholder: "<fmt>",
+  choices: COMPARE_FORMATS,
+  describe: "Markdown tables, or the comparison as JSON",
+  defaultLabel: "md",
+};
+
+const COMPARE_TESTS = ["auto", "bootstrap", "mcnemar"] as const;
+export const COMPARE_TEST: ChoiceFlagSpec<(typeof COMPARE_TESTS)[number]> = {
+  name: "test",
+  type: "string",
+  placeholder: "<test>",
+  choices: COMPARE_TESTS,
+  describe: "Significance test: paired bootstrap for continuous metrics, McNemar for binary ones",
+  defaultLabel: "auto",
+};
+
+const REPORTER: FlagSpec = {
+  name: "reporter",
+  type: "string",
+  multiple: true,
+  placeholder: "<names>",
+  describe:
+    "Comma-separated terminal, html, md, json, csv, junit, or a module path. Replaces the config's reporters. Repeatable",
+};
+
+const OUT: FlagSpec = {
+  name: "out",
+  type: "string",
+  placeholder: "<dir>",
+  describe: "Directory reporters write into",
+  defaultLabel: "eval-report",
+};
+
+const EXPERIMENT: FlagSpec = {
+  name: "experiment",
+  type: "string",
+  placeholder: "<ids>",
+  describe: "Comma-separated experiment ids from the config. Default: all",
+};
+
+const STRATA: FlagSpec = {
+  name: "strata",
+  type: "string",
+  placeholder: "<path>",
+  describe: "Stratify the sample by a case path, such as tags.rendition or group",
+};
+
+const SEED: FlagSpec = { name: "seed", type: "string", placeholder: "<text>", describe: "Sample seed", defaultLabel: "none" };
+
+/** Flags of config mode only. Quick mode rejects them. */
+export const EVAL_CONFIG_FLAGS = ["experiment", "sample", "strata", "seed", "cases", "epochs", "resume", "baseline", "store"] as const;
+/** Flags of quick mode only. Config mode rejects them. */
+export const EVAL_QUICK_FLAGS = [
+  "schema", "truth", "min-f1", "max-cost-usd", "calibrate", "target-precision", "min-support", "report", "align-by",
+  "tolerance", "string-similarity", "dry-run", ...MODEL.map((flag) => flag.name), ...RUN.map((flag) => flag.name).filter((name) => name !== "concurrency"),
+] as const;
+
+export const EVAL_RUN: CommandSpec = {
+  name: "eval run",
+  summary: "Run an evaluation from docture.eval.ts, or score files against ground truth",
+  positionals: [
+    { name: "file", describe: "Quick mode: documents to extract and score. Omit to run docture.eval.ts", required: false, variadic: true },
+  ],
   description:
-    "Extracts each document, scores it field by field, and prints a Markdown\n" +
-    "scoreboard. Exits 1 when --min-f1 is not met, so CI can gate on accuracy.",
+    "Without files, loads docture.eval.ts, runs every experiment over the dataset, stores the\n" +
+    "run, writes the reporters, prints the scoreboard and applies the gate.\n" +
+    "With files, quick mode extracts each one through docture.config.ts and scores it against\n" +
+    "its ground truth with loose comparisons. Exits 1 when a gate fails.",
   flags: [
-    OUTPUT_FORMAT,
+    {
+      ...OUTPUT_FORMAT,
+      describe: "Text prints the scoreboard. JSON prints the eval result, or the document envelope in quick mode. NDJSON streams rows",
+    },
+    EXPERIMENT,
+    { name: "sample", type: "string", placeholder: "<n>", describe: "Run a deterministic stratified sample of n cases" },
+    STRATA,
+    SEED,
+    { name: "cases", type: "string", placeholder: "<ids>", describe: "Comma-separated case ids to run" },
+    { name: "epochs", type: "string", placeholder: "<n>", describe: "Run every case n times", defaultLabel: "1" },
+    { name: "resume", type: "string", placeholder: "<runId|latest>", describe: "Continue an unfinished run, reusing its finished cases" },
+    { name: "baseline", type: "string", placeholder: "<runId|auto|none>", describe: "Compare against this run. auto: the latest complete run of the dataset" },
+    REPORTER,
+    OUT,
+    { name: "no-gate", type: "boolean", describe: "Skip the gate. The run still records every metric" },
+    STORE,
     {
       name: "schema",
       type: "string",
       short: "s",
       placeholder: "<path>",
-      describe: "Module exporting a schema, or a .json JSON Schema",
+      describe: "Quick mode: module exporting a schema, or a .json JSON Schema",
     },
     {
       name: "truth",
       type: "string",
       placeholder: "<path>",
-      describe: "Ground truth: a directory of <name>.json, or one file for one input",
+      describe: "Quick mode: a directory of <name>.json, or one file for one input",
       defaultLabel: "<name>.expected.json beside each input",
     },
-    {
-      name: "min-f1",
-      type: "string",
-      placeholder: "<n>",
-      describe: "Exit 1 if the mean F1 falls below this",
-    },
-    {
-      name: "max-cost-usd",
-      type: "string",
-      placeholder: "<usd>",
-      describe: "Exit 1 if priced total cost exceeds this; requires pricing",
-    },
-    { name: "calibrate", type: "boolean", describe: "Report experimental empirical OCR field thresholds without applying them" },
-    { name: "target-precision", type: "string", placeholder: "<n>", describe: "Calibration target empirical precision in (0,1]", defaultLabel: "0.99" },
-    { name: "min-support", type: "string", placeholder: "<n>", describe: "Minimum accepted labelled samples for a candidate threshold", defaultLabel: "5" },
-    { name: "report", type: "string", placeholder: "<path>", describe: "Write the scoreboard here too" },
-    {
-      name: "align-by",
-      type: "string",
-      placeholder: "<field>",
-      describe: "Match array elements by this field instead of by position",
-    },
-    {
-      name: "tolerance",
-      type: "string",
-      placeholder: "<n>",
-      describe: "Absolute tolerance for numbers",
-      defaultLabel: "0.01",
-    },
+    { name: "min-f1", type: "string", placeholder: "<n>", describe: "Quick mode: gate on a minimum mean document F1" },
+    { name: "max-cost-usd", type: "string", placeholder: "<usd>", describe: "Quick mode: gate on the priced total cost; requires pricing" },
+    { name: "calibrate", type: "boolean", describe: "Quick mode: add an OCR confidence calibration report" },
+    { name: "target-precision", type: "string", placeholder: "<n>", describe: "Calibration target precision in (0,1]", defaultLabel: "0.99" },
+    { name: "min-support", type: "string", placeholder: "<n>", describe: "Minimum fields behind a calibration threshold", defaultLabel: "5" },
+    { name: "report", type: "string", placeholder: "<path>", describe: "Quick mode: write the scoreboard here too" },
+    { name: "align-by", type: "string", placeholder: "<field>", describe: "Quick mode: match array elements by this field instead of by position" },
+    { name: "tolerance", type: "string", placeholder: "<n>", describe: "Quick mode: absolute tolerance for numbers", defaultLabel: "0.01" },
     {
       name: "string-similarity",
       type: "string",
       placeholder: "<n>",
-      describe: "Minimum similarity, 0–1, for two strings to count as equal",
+      describe: "Quick mode: minimum similarity, 0–1, for two strings to count as equal",
       defaultLabel: "0.9",
     },
     ...MODEL,
     ...RUN,
     DRY_RUN,
-    ...COMMON,
+    ...COMMON.map((flag) => (flag.name === "config" ? { ...EVAL_CONFIG, describe: `${EVAL_CONFIG.describe}. In quick mode, docture.config.ts` } : flag)),
   ],
   examples: [
+    "docture eval run",
+    "docture eval run --experiment llm --sample 60 --strata tags.rendition --reporter html,junit",
+    "docture eval run --resume latest",
+    "docture eval run corpus/*.pdf -s ./invoice.ts -m openai/gpt-5 --truth corpus/truth --min-f1 0.95",
+  ],
+  notes: [
+    "Quick mode also runs without the subcommand: docture eval corpus/*.pdf -s ./invoice.ts.",
+    "Reporters write into --out: report.html, report.md, result.json, cases.csv, junit.xml.",
+    "A module reporter exports a Reporter (default or `reporter`) or a function (result) => string,",
+    "  written to <out>/<module name>.txt or to the module's exported `fileName`.",
+    "The terminal scoreboard always prints in text format; listing `terminal` changes nothing.",
+    "A run without a configured gate exits 0 and says that no gate ran.",
+  ],
+};
+
+export const EVAL_REPORT: CommandSpec = {
+  name: "eval report",
+  summary: "Re-render a stored run in any format, without running anything",
+  positionals: [{ name: "run", describe: "A run id, latest, or a directory holding result.json", required: true, variadic: false }],
+  flags: [
+    { name: "rescore", type: "boolean", describe: "Score the stored raw outputs again with the config's current spec as a new run" },
+    REPORTER,
+    OUT,
+    EVAL_FORMAT,
+    STORE,
+    ...EVAL_COMMON,
+  ],
+  examples: ["docture eval report latest --reporter html,md", "docture eval report .docture/eval/runs/<runId> --format json"],
+};
+
+export const EVAL_COMPARE: CommandSpec = {
+  name: "eval compare",
+  summary: "Compare two runs with paired significance tests",
+  positionals: [
+    { name: "base", describe: "Baseline run id or run directory", required: true, variadic: false },
+    { name: "candidate", describe: "Candidate run id or run directory", required: true, variadic: false },
+  ],
+  flags: [
+    COMPARE_TEST,
+    COMPARE_FORMAT,
+    { name: "experiment", type: "string", placeholder: "<id|base:candidate>", describe: "One experiment, or a baseline and candidate pair. Default: every shared experiment" },
+    STORE,
+    ...EVAL_COMMON,
+  ],
+  examples: ["docture eval compare <baseRunId> latest", "docture eval compare base/ candidate/ --test mcnemar --format json"],
+};
+
+export const EVAL_GATE: CommandSpec = {
+  name: "eval gate",
+  summary: "Apply the config's gate to a stored run",
+  positionals: [{ name: "run", describe: "A run id, latest, or a run directory", required: true, variadic: false }],
+  flags: [
+    { name: "baseline", type: "string", placeholder: "<runId|auto|none>", describe: "Compare first, so regression budgets apply", defaultLabel: "the run's stored comparison" },
+    EVAL_FORMAT,
+    STORE,
+    ...EVAL_COMMON,
+  ],
+  examples: ["docture eval gate latest --baseline auto"],
+};
+
+export const EVAL_RUNS: CommandSpec = {
+  name: "eval runs",
+  summary: "List stored runs, newest first",
+  positionals: [],
+  flags: [EVAL_FORMAT, STORE, ...EVAL_COMMON],
+};
+
+export const EVAL_VALIDATE: CommandSpec = {
+  name: "eval validate",
+  summary: "Check every case's ground truth against the spec and list all problems",
+  positionals: [],
+  flags: EVAL_COMMON,
+};
+
+export const EVAL_SAMPLE: CommandSpec = {
+  name: "eval sample",
+  summary: "Print the case ids of a deterministic stratified sample",
+  positionals: [],
+  flags: [{ name: "size", type: "string", placeholder: "<n>", describe: "Number of cases. Required" }, STRATA, SEED, ...EVAL_COMMON],
+  examples: ["docture eval sample --size 60 --strata tags.rendition"],
+};
+
+export const EVAL_MIGRATE: CommandSpec = {
+  name: "eval migrate",
+  summary: "Preview or apply a ground-truth migration",
+  positionals: [{ name: "migration", describe: "Module exporting a migration (default or `migration`)", required: true, variadic: false }],
+  flags: [{ name: "write", type: "boolean", describe: "Write the changes. Default: print them only" }, ...EVAL_COMMON],
+  examples: ["docture eval migrate ./migrations/net-totals.ts", "docture eval migrate ./migrations/net-totals.ts --write"],
+};
+
+export const EVAL_DRAFT: CommandSpec = {
+  name: "eval draft",
+  summary: "Draft ground truth for cases without signed-off truth",
+  positionals: [],
+  flags: [{ ...EXPERIMENT, describe: "The experiment that drafts. Required when the config has several" }, ...EVAL_COMMON],
+};
+
+export const EVAL_SIGN_OFF: CommandSpec = {
+  name: "eval sign-off",
+  summary: "Mark a case's drafted ground truth as reviewed",
+  positionals: [{ name: "case", describe: "Case id", required: true, variadic: false }],
+  flags: EVAL_COMMON,
+};
+
+export const EVAL: CommandSpec = {
+  name: "eval",
+  summary: "Evaluate extraction quality: run, report, compare and gate",
+  positionals: [{ name: "command", describe: "A subcommand. Default: run", required: false, variadic: false }],
+  description:
+    "Runs the evaluation in docture.eval.ts and works with the runs it stores. Every\n" +
+    "subcommand is a thin shell over @docture/eval. Files without a subcommand run quick mode.",
+  flags: COMMON.filter((flag) => flag.name === "help" || flag.name === "no-color"),
+  subcommands: [EVAL_RUN, EVAL_REPORT, EVAL_COMPARE, EVAL_GATE, EVAL_RUNS, EVAL_VALIDATE, EVAL_SAMPLE, EVAL_MIGRATE, EVAL_DRAFT, EVAL_SIGN_OFF],
+  examples: [
+    "docture eval run",
+    "docture eval compare <baseRunId> latest",
     "docture eval corpus/*.pdf -s ./invoice.ts -m openai/gpt-5 --truth corpus/truth --min-f1 0.95",
+  ],
+  notes: [
+    "Exit codes: 0 pass, 1 gate failed or a run failed, 2 usage error.",
+    "`docture eval <command> --help` describes one subcommand.",
   ],
 };
 
@@ -539,10 +745,11 @@ export const HELP_JSON: FlagSpec = {
 export const HELP: CommandSpec = {
   name: "help",
   summary: "Show help for every command, or for one",
-  positionals: [{ name: "command", describe: "The command to describe", required: false, variadic: false }],
+  positionals: [{ name: "command", describe: "The command to describe, such as eval run", required: false, variadic: true }],
   flags: [HELP_JSON, ...COMMON.filter((flag) => flag.name === "no-color" || flag.name === "help")],
 };
 
+/** A command, or a subcommand by its full name such as `eval run`. */
 export function findCommand(name: string): CommandSpec | undefined {
-  return COMMANDS.find((c) => c.name === name);
+  return COMMANDS.flatMap((c) => [c, ...(c.subcommands ?? [])]).find((c) => c.name === name);
 }

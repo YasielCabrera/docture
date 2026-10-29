@@ -2,7 +2,6 @@ export const coreRuntime = String.raw`
 import assert from "node:assert/strict";
 import { createExtractor, documentLoaderData, defineStrategy, ContractViolationError } from "docture";
 import { inMemoryLoader, loadedDocument, fixedStrategy } from "docture/testing/doubles";
-import { scoreExtraction } from "docture/eval";
 import { chunkDocument } from "docture/chunk";
 import { z } from "zod";
 
@@ -68,24 +67,18 @@ const doubles = createExtractor({
   strategies: [fixedStrategy("fixture", { invoice: "INV-42", total: 17 })],
 });
 assert.deepEqual((await doubles.extract(source, schema)).data, { invoice: "INV-42", total: 17 });
-const score = scoreExtraction({ invoice: "INV-42", total: 17 }, result.data);
-assert.equal(score.f1, 1);
-assert.equal(score.exactMatch, true);
-const mismatch = scoreExtraction({ invoice: "INV-42", total: 99 }, result.data);
-assert.equal(mismatch.exactMatch, false);
 const chunks = chunkDocument({ pages: [{ elements: [{
   id: "p1-text-1", kind: "paragraph", text: "Invoice INV-42", runs: [{ text: "Invoice INV-42" }],
   provenance: { pageNumber: 1, box: { x: 40, y: 100, width: 70, height: 12 }, sourceIds: ["p1-text-1"] },
 }] }] }, { budget: { unit: "characters", max: 100 } });
 assert.deepEqual(chunks.map(chunk => [chunk.text, chunk.provenance[0].pageNumber]), [["Invoice INV-42", 1]]);
 await Promise.all([extractor.dispose(), invalid.dispose(), doubles.dispose()]);
-console.log("core extraction, validation, test doubles, and scoring work without engines");
+console.log("core extraction, validation, and test doubles work without engines");
 `;
 
 export const coreTypes = String.raw`
 import { createExtractor, documentLoaderData, defineStrategy, type ExtractionResult } from "docture";
 import { loadedDocument } from "docture/testing/doubles";
-import { scoreExtraction } from "docture/eval";
 import { chunkDocument } from "docture/chunk";
 import { z } from "zod";
 const schema = z.object({ invoice: z.string(), total: z.number() });
@@ -97,7 +90,7 @@ const result = await extractor.extract({ loaded: loadedDocument(["invoice"]) }, 
 const typed: ExtractionResult<{ invoice: string; total: number }> = result;
 const invoice: string = typed.data.invoice;
 const total: number = typed.data.total;
-scoreExtraction({ invoice, total }, result.data);
+void invoice; void total;
 export const chunkIds: readonly string[] = chunkDocument({ pages: [] }, { budget: { unit: "estimatedTokens", max: 500 } }).map((chunk) => chunk.id);
 `;
 
@@ -795,4 +788,89 @@ declare const converter: CliConverter;
 const config: DoctureConfig = defineConfig({ extractor, converter: async () => converter, concurrency: 2 });
 const root: RootConfig = rootDefineConfig(config);
 export default root;
+`;
+
+export function evalEntryRuntime(exports) {
+  return `import assert from "node:assert/strict";
+${Object.keys(exports).map(key => {
+    const entry = key === "." ? "@docture/eval" : `@docture/eval/${key.slice(2)}`;
+    return key.endsWith(".json")
+      ? `assert.ok((await import(${JSON.stringify(entry)}, { with: { type: "json" } })).default);`
+      : `assert.ok(Object.keys(await import(${JSON.stringify(entry)})).length > 0, ${JSON.stringify(entry)});`;
+  }).join("\n")}
+console.log("every packed eval export loads without optional engines");`;
+}
+
+const evalEngineTypedEntries = new Set(["./judge"]);
+
+export function evalTypes(exports) {
+  const main = {
+    ".": "defineEval", "./config": "defineEvalConfig", "./dataset": "defineMigration",
+    "./runner": "runEval", "./node": "folderDataset", "./docture": "fromDocture",
+    "./compare": "compareRuns", "./calibration": "calibrate", "./grounding": "grounding",
+    "./conversion": "checkConversion", "./judge": "judge", "./vitest": "extractionMatchers",
+    "./evalite": "extractionScorer", "./promptfoo": "extractionAssertion", "./autoevals": "ExtractionF1",
+    "./reporters/terminal": "renderScoreboard", "./reporters/json": "renderJson",
+    "./reporters/markdown": "renderMarkdown", "./reporters/html": "renderHtml",
+    "./reporters/csv": "renderCsv", "./reporters/junit": "renderJunit", "./reporters/template": "renderTemplate",
+  };
+  return Object.keys(exports).filter(key => !key.endsWith(".json") && !evalEngineTypedEntries.has(key)).map((key, index) => {
+    if (!main[key]) throw new Error(`Declare the main consumer export for ${key}`);
+    const entry = key === "." ? "@docture/eval" : `@docture/eval/${key.slice(2)}`;
+    return `import { ${main[key]} as entry${index} } from ${JSON.stringify(entry)};\nvoid entry${index};`;
+  }).join("\n");
+}
+
+export const evalJudgeTypes = String.raw`
+import type { LanguageModel } from "ai";
+import { MockLanguageModelV4 } from "ai/test";
+import type { Comparator } from "@docture/eval";
+import { judge, type JudgeCache, type JudgeOptions } from "@docture/eval/judge";
+const model: LanguageModel = new MockLanguageModelV4();
+const cache: JudgeCache = new Map();
+const options: JudgeOptions = { model, rubric: "same meaning", cache };
+const byInstance: Comparator = judge(options);
+const byGatewayId: Comparator = judge({ model: "openai/gpt-5", rubric: "same meaning" });
+// @ts-expect-error The model is ai's LanguageModel, not an untyped value.
+judge({ model: 42, rubric: "same meaning" });
+void byInstance; void byGatewayId;
+`;
+
+export const evalIdentityRuntime = String.raw`
+import assert from "node:assert/strict";
+import { cp, rm, mkdir, readdir, realpath, symlink, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { DoctureError, MissingEngineError } from "docture";
+import { runEval } from "@docture/eval/runner";
+import { judge } from "@docture/eval/judge";
+import { EvalSpecError, OutOfScopeError, looseEval, inMemoryDataset } from "@docture/eval";
+await mkdir("foreign/node_modules/@docture", { recursive: true });
+await writeFile("foreign/package.json", JSON.stringify({ private: true, type: "module" }));
+// pnpm keeps docture's dependencies beside its real directory, not under the consumer.
+const dependencies = dirname(await realpath("node_modules/docture"));
+for (const item of await readdir(dependencies)) {
+  if (item === "docture" || item === "@docture" || item.startsWith(".")) continue;
+  await symlink(join(dependencies, item), join("foreign/node_modules", item), "dir");
+}
+await cp("node_modules/docture", "foreign/node_modules/docture", { recursive: true, dereference: true });
+await cp("node_modules/@docture/eval", "foreign/node_modules/@docture/eval", { recursive: true, dereference: true });
+try {
+  const { DoctureError: ForeignBase } = await import("./foreign/node_modules/docture/dist/index.js");
+  const { EvalSpecError: ForeignError } = await import("./foreign/node_modules/@docture/eval/dist/index.js");
+  assert.notEqual(ForeignBase, DoctureError);
+  assert.notEqual(ForeignError, EvalSpecError);
+  const error = new ForeignError([]);
+  assert.ok(error instanceof EvalSpecError);
+  assert.ok(error instanceof DoctureError);
+  assert.equal(Object.hasOwn(ForeignError, "doctureErrorIdentity"), true);
+  assert.equal({ name: error.name, code: error.code } instanceof EvalSpecError, false);
+  const { OutOfScopeError: ForeignScope } = await import("./foreign/node_modules/@docture/eval/dist/index.js");
+  assert.notEqual(ForeignScope, OutOfScopeError);
+  assert.ok(new ForeignScope("outside corpus") instanceof OutOfScopeError);
+  const result = await runEval({ dataset: inMemoryDataset("identity", [{ id: "one", documents: [], expected: { n: 1 } }]), spec: looseEval(), experiments: { foreign: { id: "foreign", async extract() { throw new ForeignScope("outside corpus"); } } } });
+  assert.equal(result.cases[0].outcome, "skipped");
+  const { MissingEngineError: ForeignMissing } = await import("./foreign/node_modules/docture/dist/index.js");
+  await assert.rejects(() => judge({ model: "test:model", rubric: "equal" }).compare("a", "a", { path: "x", pattern: "x" }), error => error instanceof MissingEngineError && error instanceof ForeignMissing && error.engine === "ai");
+
+} finally { await rm("foreign", { recursive: true, force: true }); }
 `;

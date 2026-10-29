@@ -208,12 +208,14 @@ async function main(): Promise<void> {
 
   note(
     "`docture eval` extracts each document, scores it field by field against a truth\n" +
-      "file and prints the same Markdown scoreboard example 12 prints, then exits 1 if\n" +
+      "file and prints a Markdown scoreboard of every document, then exits 1 if\n" +
       "`--min-f1` is not met. That is accuracy as a CI gate:\n\n" +
       "  docture eval documents/*.pdf --schema ./schema.ts \\\n" +
       "    --truth documents/ --min-f1 0.95\n\n" +
       "The truth-completeness trap from example 12 applies here in full: a partial answer\n" +
-      "key will report hallucinations that are not hallucinations.",
+      "key will report hallucinations that are not hallucinations. For a dataset, a spec and\n" +
+      "stored runs to compare, describe them in docture.eval.ts and run `docture eval run`,\n" +
+      "as example 23 does through the programmatic API.",
   );
 
   field("documents available", `${DOCUMENTS_DIR}`);

@@ -4,7 +4,10 @@ import { MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
 import { createCheckedExtractor, defineStrategy, DocumentLoaderData } from "docture";
 import { extractTool } from "docture/llm/tool";
-import { calibrateFields, formatCalibration, type CalibrationSample } from "docture/eval";
+import { inMemoryDataset, looseEval } from "@docture/eval";
+import { calibrationSection } from "@docture/eval/calibration";
+import { renderScoreboard } from "@docture/eval/reporters/terminal";
+import { runEval } from "@docture/eval/runner";
 
 const text = "The caller authorized this text source for extraction through a checked pipeline.";
 const extractor = createCheckedExtractor({
@@ -34,11 +37,21 @@ try {
   await extractor.dispose();
 }
 
-const sample = (document: string, actual: number, confidence: number): CalibrationSample => ({
-  document, expected: { amount: 10 }, result: { data: { amount: actual }, citations: [{ path: "amount", status: "verified", ids: ["p1-line-1"], minOcrConfidence: confidence }] },
+// Four labelled OCR readings of one amount: the value read and the OCR confidence behind it.
+const readings = new Map<string, readonly [number, number]>([["a", [10, 0.9]], ["b", [99, 0.9]], ["c", [10, 0.8]], ["d", [10, 0.7]]]);
+const result = await runEval({
+  dataset: inMemoryDataset("labelled-ocr", [...readings.keys()].map((id) => ({ id, documents: [], expected: { amount: 10 } }))),
+  spec: looseEval(),
+  experiments: {
+    id: "ocr",
+    async extract(item) {
+      const [amount, confidence] = readings.get(item.id) ?? [0, 0];
+      return { raw: { amount }, confidence: { amount: confidence } };
+    },
+  },
+  sections: [calibrationSection({ targetPrecision: 0.75, minSupport: 2 })],
 });
-const report = calibrateFields([sample("a", 10, .9), sample("b", 99, .9), sample("c", 10, .8), sample("d", 10, .7)], {
-  targetPrecision: .75, minSupport: 2, context: { corpus: "synthetic labelled demonstration" },
-});
-assert.equal(report.fields[0]?.threshold, .7);
-console.log(formatCalibration(report));
+const overall = result.calibration?.experiments["ocr"]?.overall;
+assert.equal(overall?.support, 4);
+assert.deepEqual(overall?.scores, [{ confidence: 0.9, count: 2, correct: 1 }, { confidence: 0.8, count: 1, correct: 1 }, { confidence: 0.7, count: 1, correct: 1 }]);
+console.log(renderScoreboard(result));

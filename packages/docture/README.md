@@ -239,18 +239,27 @@ in `result.attempts` with its error.
 | `UNCLASSIFIED_GROUP` | A split group matched none of the allowed kinds. |
 | `MISSING_ENGINE` | A selected integration's optional engine is not installed. |
 | `MISSING_COMPONENT` | Required wiring or call state is missing. |
+| `EVAL_SPEC_INVALID` | An eval spec, rule set or metric set cannot be resolved. Raised by `@docture/eval`. |
+| `GROUND_TRUTH_INVALID` | Expected values do not satisfy their eval spec. Raised by `@docture/eval`. |
+| `EVAL_DATASET_INVALID` | An eval dataset cannot produce its cases. Raised by `@docture/eval`. |
+| `EVAL_RUN_STORE_FAILED` | A stored eval run or result cannot be read or written. Raised by `@docture/eval`. |
+| `OUT_OF_SCOPE` | An eval processor declined a case; the run records a skip. Raised by `@docture/eval`. |
+| `MIGRATION_GUARD_FAILED` | A ground-truth migration changed paths outside its targets or is not idempotent. Raised by `@docture/eval`. |
+| `EVAL_RUNS_INCOMPARABLE` | Two eval runs cannot be paired for comparison. Raised by `@docture/eval`. |
+| `EVAL_PREFLIGHT_FAILED` | An eval experiment failed its preflight check before any case ran. Raised by `@docture/eval`. |
 <!-- docture-error-codes:end -->
 
 
 ### Accuracy
 
-Field-level scoring, for a test or a CI gate:
+Field-level scoring, datasets, run comparison and CI gates live in
+[`@docture/eval`](https://github.com/YasielCabrera/docture/tree/main/packages/eval):
 
 ```ts
-import { formatFailures, scoreExtraction } from "docture/eval";
+import { looseEval } from "@docture/eval";
 
-const score = scoreExtraction(expected, result.data);
-expect(score.f1, formatFailures(score)).toBe(1);
+const score = looseEval().score(expected, result.data);
+expect(score.metrics.f1).toBe(1);
 ```
 
 ### CLI
@@ -307,7 +316,7 @@ your own is implementing an interface, not extending a framework.
 
 ## Packages and imports
 
-Only `docture` and `@docture/cli` are published. These are all supported library entries:
+Only `docture`, `@docture/cli`, and `@docture/eval` are published. The table lists runtime entries and selected eval entries. See the [complete eval entry table](https://github.com/YasielCabrera/docture/blob/main/packages/eval/README.md#entry-points) for all 22 eval entries:
 
 | Import | Exports or purpose |
 | --- | --- |
@@ -330,7 +339,10 @@ Only `docture` and `@docture/cli` are published. These are all supported library
 | `docture/loaders/paddleocr` | `DocumentLoaderPaddleOcr` |
 | `docture/raster/canvas` | `NapiCanvasRasterizer` |
 | `docture/chunk` | Retrieval chunks with page, box, and source-id provenance |
-| `docture/eval` | Field scoring, hallucination detection, and run reports |
+| `@docture/eval` | Specs, field scoring, metrics, result format, and gates |
+| `@docture/eval/runner` | Dataset execution, experiments, resume, and re-scoring |
+| `@docture/eval/node` | File datasets and result history |
+| `@docture/eval/reporters/html` | Offline HTML reports |
 | `docture/testing/doubles` | In-memory documents, loaders, and fixed or failing strategies |
 | `docture/testing/conformance` | Loader and rasterizer contract suites |
 | `docture/testing/fixtures` | Generated PDFs and their expected data |
@@ -447,9 +459,10 @@ externalized dependencies are not tree-shaken.
 
 Replace the removed `@docture/core` import with `docture`, `@docture/llm` with
 `docture/llm` or a narrow model entry, `@docture/loader-*` with `docture/loaders/*`,
-`@docture/raster-canvas` with `docture/raster/canvas`, and `@docture/eval` with
-`docture/eval`. Split `@docture/testing` imports across `/testing/doubles`,
-`/testing/conformance`, and `/testing/fixtures`, each prefixed with `docture`.
+and `@docture/raster-canvas` with `docture/raster/canvas`. Split `@docture/testing` imports
+across `/testing/doubles`, `/testing/conformance`, and `/testing/fixtures`, each prefixed
+with `docture`. `docture/eval` is removed. Import evaluation from `@docture/eval` and
+`checkConversion` from `@docture/eval/conversion`.
 
 The root no longer exports `LLM`, `llm`, splitters, or model utilities. For example:
 

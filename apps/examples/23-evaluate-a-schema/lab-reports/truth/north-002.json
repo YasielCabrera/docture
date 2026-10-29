@@ -1,0 +1,8 @@
+{
+  "patientId": "P-1002",
+  "collectedOn": "2026-03-15",
+  "results": [
+    { "analyte": "Sodium", "value": 141, "unit": "mmol/L", "flag": "normal" },
+    { "analyte": "Creatinine", "value": 64, "unit": "umol/L", "flag": "normal" }
+  ]
+}

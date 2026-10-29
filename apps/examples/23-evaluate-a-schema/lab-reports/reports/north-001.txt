@@ -1,0 +1,7 @@
+NORTHSIDE CLINICAL LABORATORY
+Patient ID: P-1001
+Collected: 2026-03-14
+Glucose 5.4 mmol/L N
+Hemoglobin 11.2 g/dL L
+Potassium 5.9 mmol/L H
+Results reviewed by the duty pathologist. Reference ranges are printed on the reverse.

@@ -167,3 +167,18 @@ runs OCR only on page 2. Selected pages remain unique and in document order.
 ## Move local files to the Node entry
 
 The root now loads in browsers and workers. Code that passes a path or file URL imports its constructors from `docture/node`, or passes `sourceResolver: resolveNodeSource` from that entry. Raw bytes, HTTP URLs and loaded sources keep their portable root imports. The Node entry reuses core modules and error identities. It performs no resolver registration at import time.
+
+## Move evaluation to @docture/eval
+
+Install `@docture/eval` beside `docture`. The old `docture/eval` entry is removed in the same pre-1.0 minor release. There is no compatibility layer.
+
+| Previous API | Replacement |
+| --- | --- |
+| `scoreExtraction` | `looseEval().score` for exploratory comparisons; `defineEval` for schema-driven rules |
+| `recordRun`, `aggregate` | `buildResult` or `runEval` from `@docture/eval/runner` |
+| `formatScoreboard` | `renderScoreboard` from `@docture/eval/reporters/terminal`, or `renderMarkdown` from `/reporters/markdown` |
+| `calibrateFields` | `calibrate` from `@docture/eval/calibration` |
+| `gate` | `gate` from `@docture/eval` |
+| `checkConversion` | `checkConversion` from `@docture/eval/conversion` |
+
+Case scores expose `score.metrics.f1`, not `score.f1`. Empty denominators are `null`. Results contain per-experiment summaries and field comparisons. Use `readEvalResult` to load saved runs for reporters and comparison. Projects keep their own dataset layout through a `Dataset` adapter.

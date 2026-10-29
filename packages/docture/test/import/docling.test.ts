@@ -4,7 +4,6 @@ import { z } from "zod";
 import { DocumentConverter, DocumentLoaderData, Extractor, errorCodeOf, parseDoctureDocument } from "docture";
 import { chunkDocument } from "docture/chunk";
 import { llm } from "docture/llm/text";
-import { scoreExtraction } from "docture/eval";
 import { importDoclingDocument, DoclingImportError } from "../../src/import/docling/index.js";
 import { mockModel } from "../llm/mock-model.js";
 import { nativeDocument } from "./docling-fixtures.js";
@@ -162,7 +161,6 @@ describe("Docling native JSON import", () => {
     expect(result.citations?.[0]).toMatchObject({ status: "verified", ids: [cell?.id] });
     expect(result.attempts.filter((attempt) => attempt.stage === "repair")).toHaveLength(1);
     expect(calls).toHaveLength(2);
-    expect(scoreExtraction({ reading: 100 }, result.data).exactMatch).toBe(true);
   });
 
   it("keeps verified native citations and conflicts when page answers disagree", async () => {

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="eval run-1" tests="13" failures="4" errors="1" skipped="1" time="3.598">
+  <testsuite name="llm" tests="4" failures="2" errors="1" skipped="0" time="3.570" timestamp="2026-10-28T12:00:00.000Z">
+    <testcase classname="llm" name="c1" time="0.840"/>
+    <testcase classname="llm" name="c2" time="1.520">
+      <failure message="F1 84.6%: 2 mismatch, 1 failed assertion" type="mismatch">issuer: mismatch, expected Northwind Industrial GmbH, got Southwind Trading
+lineItems[1].amount: mismatch, expected 20, got 25
+assertion sum(lineItems[].amount) = totals.net: lineItems[].amount sums to 35, not 30</failure>
+    </testcase>
+    <testcase classname="llm" name="c3" time="0.300">
+      <error message="Every extraction strategy failed." type="ExtractionFailedError">error: ExtractionFailedError [EXTRACTION_FAILED]: Every extraction strategy failed.</error>
+    </testcase>
+    <testcase classname="llm" name="=HYPERLINK(&quot;x&quot;)|&lt;b&gt;&amp;&apos;c&apos;" time="0.910">
+      <failure message="F1 84.6%: 2 mismatch" type="mismatch">issuer: mismatch, expected Northwind Industrial GmbH, got =SUM(A1) (digits differ)
+issueDate: mismatch, expected 2024-03-05, got 2024-05-03 (hint: date-format (day and month swapped))</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="parser" tests="3" failures="1" errors="0" skipped="1" time="0.028" timestamp="2026-10-28T12:00:00.000Z">
+    <testcase classname="parser" name="c1" time="0.012"/>
+    <testcase classname="parser" name="c2" time="0.001">
+      <skipped message="scanned input"/>
+    </testcase>
+    <testcase classname="parser" name="c3" time="0.015">
+      <failure message="F1 87.0%: 3 omission, 1 failed assertion" type="mismatch">lineItems[1].sku: omission, expected B-200
+lineItems[1].description: omission, expected Washers
+lineItems[1].amount: omission, expected 20
+lineItems: 1 of 2 rows matched, 1 missing
+assertion sum(lineItems[].amount) = totals.net: lineItems[].amount sums to 10, not 30</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="gate" tests="6" failures="1" errors="0" skipped="0" time="0.000" timestamp="2026-10-28T12:00:00.000Z">
+    <testcase classname="gate" name="llm: f1" time="0.000">
+      <failure message="f1 for experiment llm is 0.7692, below the minimum 0.8"/>
+    </testcase>
+    <testcase classname="gate" name="parser: f1" time="0.000"/>
+    <testcase classname="gate" name="llm: errorRate" time="0.000"/>
+    <testcase classname="gate" name="parser: errorRate" time="0.000"/>
+    <testcase classname="gate" name="llm: f1 drop" time="0.000"/>
+    <testcase classname="gate" name="parser: f1 drop" time="0.000"/>
+  </testsuite>
+</testsuites>

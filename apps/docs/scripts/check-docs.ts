@@ -174,7 +174,7 @@ async function checkApiCoverage(): Promise<ts.Program> {
   const manifestSchema = z.object({
     name: z.string(),
     private: z.boolean().optional(),
-    exports: z.record(z.string(), z.object({ source: z.string() })).optional(),
+    exports: z.record(z.string(), z.union([z.string(), z.object({ source: z.string() })])).optional(),
   });
   const packagesRoot = resolve(ROOT, "../../packages");
   const packageDirectories = await readdir(packagesRoot, { withFileTypes: true });
@@ -192,6 +192,7 @@ async function checkApiCoverage(): Promise<ts.Program> {
     published.add(manifest.name);
 
     for (const [subpath, target] of Object.entries(manifest.exports ?? {})) {
+      if (typeof target === "string") continue;
       const importPath = subpath === "." ? manifest.name : `${manifest.name}${subpath.slice(1)}`;
       exportedPaths.add(importPath);
       const item = byImportPath.get(importPath);
@@ -203,7 +204,7 @@ async function checkApiCoverage(): Promise<ts.Program> {
     }
   }
 
-  compareNames("Published packages", [...published].sort(), ["@docture/cli", "docture"]);
+  compareNames("Published packages", [...published].sort(), ["@docture/cli", "@docture/eval", "docture"]);
   for (const item of API_INVENTORY) {
     if (!exportedPaths.has(item.importPath)) fail(`API inventory contains an unsupported import path: ${item.importPath}`);
   }

@@ -39,12 +39,6 @@
       "import": "./dist/llm/index.js",
       "default": "./dist/llm/index.js"
     },
-    "./eval": {
-      "source": "./src/eval/index.ts",
-      "types": "./dist/eval/index.d.ts",
-      "import": "./dist/eval/index.js",
-      "default": "./dist/eval/index.js"
-    },
     "./chunk": {
       "source": "./src/chunk/index.ts",
       "types": "./dist/chunk/index.d.ts",

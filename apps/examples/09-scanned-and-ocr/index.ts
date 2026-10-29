@@ -36,7 +36,7 @@ import { DocumentLoaderPaddleOcr, PADDLE_MODELS } from "docture/loaders/paddleoc
 import { MuPdfRasterizer } from "docture/loaders/mupdf";
 import { NapiCanvasRasterizer } from "docture/raster/canvas";
 import { vision } from "docture/llm";
-import { scoreExtraction } from "docture/eval";
+import { looseEval } from "@docture/eval";
 import { Invoice, ScoredInvoice, toScored } from "../shared/contracts.js";
 import { servicesInvoiceParser } from "../shared/parsers/services.js";
 import { field, heading, note, provenance, step, table } from "../shared/print.js";
@@ -96,10 +96,12 @@ async function main(): Promise<void> {
   const baseline = new Extractor()
     .loadDocumentLoader(new DocumentLoaderPdfJs())
     .loadStrategy(servicesInvoiceParser());
+  // The same loose comparisons for both paths: numbers within a cent, names at similarity 0.9.
+  const spec = looseEval();
   let baselineF1 = 0;
   try {
     const result = await baseline.extractData(pdfPath, Invoice);
-    baselineF1 = scoreExtraction(truth, projectOntoTruth(toScored(result), truth)).f1;
+    baselineF1 = spec.score(truth, projectOntoTruth(toScored(result), truth)).metrics.f1 ?? 0;
   } finally {
     await baseline.dispose();
   }
@@ -139,7 +141,7 @@ async function main(): Promise<void> {
       const ms = Date.now() - started;
 
       if (outcome.ok) {
-        const scored = scoreExtraction(truth, projectOntoTruth(toScored(outcome.result.data), truth));
+        const scoredF1 = spec.score(truth, projectOntoTruth(toScored(outcome.result.data), truth)).metrics.f1 ?? 0;
         table(
           [
             { header: "path", width: 26 },
@@ -148,16 +150,16 @@ async function main(): Promise<void> {
           ],
           [
             ["the PDF's text layer", "pdfjs", baselineF1.toFixed(3)],
-            ["OCR on the page image", "tesseract", scored.f1.toFixed(3)],
+            ["OCR on the page image", "tesseract", scoredF1.toFixed(3)],
           ],
         );
         provenance(outcome.result);
         field("\n  OCR wall time", `${ms} ms`);
         note(
-          scored.f1 >= baselineF1
+          scoredF1 >= baselineF1
             ? "OCR matched the text layer on this document. It is a clean 200-DPI render of a\n" +
                 "simple layout, which is the easy case — see the note at the top of this file."
-            : `OCR lost ${((baselineF1 - scored.f1) * 100).toFixed(1)} points to the text layer.\n` +
+            : `OCR lost ${((baselineF1 - scoredF1) * 100).toFixed(1)} points to the text layer.\n` +
                 "That gap is the honest cost of reading pixels instead of text, and it is why a\n" +
                 "text layer is always tried first when there is one.",
         );

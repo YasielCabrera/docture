@@ -17,9 +17,6 @@
       "docture/llm": [
         "./src/llm/index.ts"
       ],
-      "docture/eval": [
-        "./src/eval/index.ts"
-      ],
       "docture/chunk": [
         "./src/chunk/index.ts"
       ],

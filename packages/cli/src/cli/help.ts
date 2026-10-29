@@ -26,7 +26,7 @@ function flagDescription(flag: FlagSpec): string {
 }
 
 function environmentFor(specs: readonly CommandSpec[]): readonly (readonly [string, string])[] {
-  return specs.some((spec) => spec.flags.some((flag) => flag.name === "model"))
+  return specs.flatMap((spec) => [spec, ...(spec.subcommands ?? [])]).some((spec) => spec.flags.some((flag) => flag.name === "model"))
     ? ENVIRONMENT
     : ENVIRONMENT.filter(([name]) => name === "NO_COLOR");
 }
@@ -73,6 +73,11 @@ export function commandHelp(spec: CommandSpec, style: Style): string {
 
   if (spec.description !== undefined) {
     lines.push("", ...spec.description.split("\n").map((l) => `${INDENT}${l}`));
+  }
+
+  if (spec.subcommands !== undefined && spec.subcommands.length > 0) {
+    lines.push("", style.bold("COMMANDS"));
+    lines.push(...columns(spec.subcommands.map((sub) => [sub.name, sub.summary] as const), style));
   }
 
   lines.push("", style.bold("OPTIONS"));

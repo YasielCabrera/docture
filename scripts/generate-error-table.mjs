@@ -23,6 +23,14 @@ const descriptions = {
   UNCLASSIFIED_GROUP: "A split group matched none of the allowed kinds.",
   MISSING_ENGINE: "A selected integration's optional engine is not installed.",
   MISSING_COMPONENT: "Required wiring or call state is missing.",
+  EVAL_SPEC_INVALID: "An eval spec, rule set or metric set cannot be resolved. Raised by `@docture/eval`.",
+  GROUND_TRUTH_INVALID: "Expected values do not satisfy their eval spec. Raised by `@docture/eval`.",
+  EVAL_DATASET_INVALID: "An eval dataset cannot produce its cases. Raised by `@docture/eval`.",
+  EVAL_RUN_STORE_FAILED: "A stored eval run or result cannot be read or written. Raised by `@docture/eval`.",
+  OUT_OF_SCOPE: "An eval processor declined a case; the run records a skip. Raised by `@docture/eval`.",
+  MIGRATION_GUARD_FAILED: "A ground-truth migration changed paths outside its targets or is not idempotent. Raised by `@docture/eval`.",
+  EVAL_RUNS_INCOMPARABLE: "Two eval runs cannot be paired for comparison. Raised by `@docture/eval`.",
+  EVAL_PREFLIGHT_FAILED: "An eval experiment failed its preflight check before any case ran. Raised by `@docture/eval`.",
 };
 const codes = [...union.matchAll(/"([A-Z_]+)"/g)].map((match) => match[1]);
 const start = "<!-- docture-error-codes:start -->";

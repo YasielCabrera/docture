@@ -52,6 +52,7 @@
     "onnxruntime-node": "1.27.0",
     "@napi-rs/canvas": "1.0.10",
     "pdfkit": "0.19.1",
-    "vitest": ">=3"
+    "vitest": ">=3",
+    "@docture/eval": "workspace:*"
   }
 }

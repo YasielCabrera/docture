@@ -81,6 +81,9 @@ importers:
       '@docture/cli':
         specifier: workspace:*
         version: link:../../packages/cli
+      '@docture/eval':
+        specifier: workspace:*
+        version: link:../../packages/eval
       '@napi-rs/canvas':
         specifier: 1.0.10
         version: 1.0.10
@@ -150,6 +153,9 @@ importers:
       '@docture/cli':
         specifier: workspace:*
         version: link:../../packages/cli
+      '@docture/eval':
+        specifier: workspace:*
+        version: link:../../packages/eval
       docture:
         specifier: workspace:*
         version: link:../../packages/docture
@@ -202,6 +208,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@docture/eval':
+        specifier: workspace:*
+        version: link:../eval
       ai:
         specifier: 7.0.51
         version: 7.0.51(zod@4.4.3)
@@ -295,6 +304,36 @@ importers:
       utif2:
         specifier: 4.1.0
         version: 4.1.0
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.20.6)(yaml@2.9.0)
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  packages/eval:
+    devDependencies:
+      '@ai-sdk/provider-utils':
+        specifier: 5.0.20
+        version: 5.0.20(zod@4.4.3)
+      '@types/node':
+        specifier: ^24.13.3
+        version: 24.13.3
+      ai:
+        specifier: 7.0.51
+        version: 7.0.51(zod@4.4.3)
+      docture:
+        specifier: workspace:*
+        version: link:../docture
+      esbuild:
+        specifier: 0.28.1
+        version: 0.28.1
+      htmlparser2:
+        specifier: 12.0.0
+        version: 12.0.0
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
       vitest:
         specifier: 4.1.10
         version: 4.1.10(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.20.6)(yaml@2.9.0)

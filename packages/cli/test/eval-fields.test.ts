@@ -13,10 +13,13 @@ describe("eval field reporting", () => {
     await writeFixture(cwd, "schema.json", '{"type":"object"}');
     const result = await cli(["eval", "a.pdf", "-s", "schema.json", "--verbose", "--format", "json"], { cwd });
     expect(result.code).toBe(0);
-    expect(result.stderr).toContain("Worst fields:");
-    expect(result.stderr).toContain("invoiceNumber  F1 0.000");
-    expect(JSON.parse(result.stdout).summary.byField.invoiceNumber).toEqual({
+    expect(result.stderr).toContain("Worst fields:\n  invoiceNumber  F1 0.000 · precision 0.000 · recall 0.000\n  total  F1 1.000");
+    const summary = JSON.parse(result.stdout).summary;
+    expect(summary.byField.invoiceNumber).toEqual({
       match: 0, mismatch: 1, omission: 0, hallucination: 0, precision: 0, recall: 0, f1: 0,
+    });
+    expect(summary.fields.invoiceNumber).toEqual({
+      counts: { match: 0, mismatch: 1, omission: 0, hallucination: 0 }, precision: 0, recall: 0, f1: 0, meanSimilarity: 0.8,
     });
   });
 });

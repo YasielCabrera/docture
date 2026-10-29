@@ -97,14 +97,16 @@ docture inspect documents/*.pdf --format json | jq -r '.results[] | select(.ok a
 
 ## `eval` as a CI gate
 
-`docture eval` prints the same Markdown scoreboard example 12 prints, then exits 1 if
-`--min-f1` is not met. The truth-completeness trap from
+`docture eval` with files prints a Markdown scoreboard of every document, then exits 1 if
+`--min-f1` is not met. With a `docture.eval.ts`, `docture eval run` runs a configured
+dataset and spec, stores the run, and `report`, `compare` and `gate` work on stored runs.
+[Example 23](../23-evaluate-a-schema) shows the same pieces through the programmatic API. The truth-completeness trap from
 [example 12](../12-accuracy-and-batch) applies here in full: a partial answer key will
 report hallucinations that are not hallucinations.
 
 ## Output formats
 
-`extract`, `convert`, `classify`, `inspect`, and `eval` accept `--format json|ndjson|text`. JSON has the shape
+`extract`, `convert`, `classify`, `inspect`, and `eval run` accept `--format json|ndjson|text`. JSON has the shape
 `{ version: 1, command, ok, results, summary? }`. `extract` defaults to JSON;
 the other commands default to text. Each result names its file and has either
 `ok: true` plus command data or `ok: false` plus `error: { code, message, hint? }`.

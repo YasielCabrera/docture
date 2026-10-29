@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { readFile, readdir } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { readFile, readdir, access } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript-compiler";
@@ -56,11 +57,6 @@ const reach = {
   "llm/convenience": ["llm/helpers", "llm/shared", "llm/extractor", ...capabilities],
   "testing/conformance": ["testing/fixtures"],
 };
-// Reachable only through `import type`, `export type`, or `import("...")` types. Under verbatimModuleSyntax an
-// inline `{ type X }` specifier still emits a runtime `import {} from`, so it does not count.
-const typeReach = {
-  "testing/fixtures": ["eval"],
-};
 
 function area(path) {
   const parts = path.split("/");
@@ -112,8 +108,7 @@ for (const path of await files(source)) {
       const targetArea = area(target);
       const allowed = owner === "index.ts"
         ? targetArea === "core"
-        : targetArea === owner || targetArea === "core" || (reach[owner] ?? []).includes(targetArea) ||
-          typeOnly && (typeReach[owner] ?? []).includes(targetArea);
+        : targetArea === owner || targetArea === "core" || (reach[owner] ?? []).includes(targetArea);
       if (!allowed) failures.push(`${name} crosses into ${value}`);
       return;
     }
@@ -180,9 +175,92 @@ assert.deepEqual(testConfig.compilerOptions.paths, Object.fromEntries(
 const packages = [];
 for (const folder of await readdir(join(root, "packages"))) {
   const value = JSON.parse(await readFile(join(root, "packages", folder, "package.json"), "utf8"));
-  if (!value.private) packages.push(value.name);
+  packages.push(value);
 }
-assert.deepEqual(packages.sort(), ["@docture/cli", "docture"]);
+assert.deepEqual(packages.map(value => value.name).sort(), ["@docture/cli", "@docture/eval", "docture"], "Only the three declared packages may exist");
+for (const name of ["docture", "@docture/cli"]) assert.ok(!packages.find(value => value.name === name).private, `${name} must be public`);
+
+const evalSource = join(root, "packages/eval/src");
+const evalManifest = packages.find(value => value.name === "@docture/eval");
+function evalArea(name) {
+  const parts = name.replace(/\.(?:[cm]?[jt]s|tsx)$/, "").split("/");
+  if (parts.length === 1) return parts[0] === "config" ? "config" : "root";
+  if (["reporters", "adapters"].includes(parts[0])) return parts.slice(0, 2).join("/");
+  return ["dataset", "runner", "node", "comparison", "calibration", "grounding", "conversion", "docture", "judge"].includes(parts[0]) ? parts[0] : "root";
+}
+const evalReach = { runner: ["dataset", "comparison"], node: ["dataset", "runner"], docture: ["runner"] };
+const reporterAllowedNodeModules = ["node/artifacts"];
+assert.equal(evalManifest.sideEffects, false, "eval declares sideEffects: false");
+assert.equal(Object.keys(evalManifest.exports).some(key => key.includes("*")), false, "eval uses explicit exports");
+for (const [key, entry] of Object.entries(evalManifest.exports)) {
+  if (key.endsWith(".json")) continue;
+  const stem = entry.source.replace(/^\.\/src\//, "").replace(/\.ts$/, "");
+  assert.equal(entry.types, `./dist/${stem}.d.ts`, `${key} eval declaration path`);
+  assert.equal((entry.node ?? entry).import, `./dist/${stem}.js`, `${key} eval ESM path`);
+}
+assert.ok(evalManifest.peerDependencies?.docture, "eval requires the docture peer");
+assert.notEqual(evalManifest.peerDependenciesMeta?.docture?.optional, true, "eval's docture peer is required");
+for (const path of await files(evalSource)) {
+  const name = relative(evalSource, path);
+  const owner = evalArea(name);
+  const label = `eval/${name}`;
+  const isTest = /(?:^|\/)[^/]+\.(?:test|spec)\.[cm]?tsx?$/.test(name);
+  const tree = ts.createSourceFile(path, await readFile(path, "utf8"), ts.ScriptTarget.Latest, true);
+  if (name.endsWith(".cts")) failures.push(`${label}: CommonJS source .cts is not supported`);
+  for (const diagnostic of tree.parseDiagnostics) failures.push(`${label} cannot be parsed by the boundary checker: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")}`);
+  function checkEval(value, typeOnly) {
+    if (value.startsWith(".")) {
+      const target = relative(evalSource, resolve(dirname(path), value));
+      const targetArea = evalArea(target);
+      const isReporterEntry = owner.startsWith("reporters/") && owner !== "reporters/shared";
+      const allowed = !target.startsWith("..") && (targetArea === "root" || targetArea === owner ||
+        (evalReach[owner] ?? []).includes(targetArea) ||
+        isReporterEntry && (targetArea === "reporters/shared" || reporterAllowedNodeModules.includes(target.replace(/\.(?:[cm]?[jt]s|tsx)$/, ""))));
+      if (!allowed) failures.push(`${label} crosses into ${value}`);
+    } else if (value.startsWith("node:")) {
+      if (owner !== "node" && !isTest) failures.push(`${label} imports a Node built-in outside node/`);
+    } else if (value === "ai" || value.startsWith("ai/")) {
+      if (owner !== "judge") failures.push(`${label} imports ai outside judge/`);
+    } else if (value === "docture" || value.startsWith("docture/")) {
+      if (value.startsWith("docture/llm/") && owner !== "docture") failures.push(`${label} imports docture/llm outside docture/`);
+      if (!typeOnly && value !== "docture" && !(owner === "docture" && value === "docture/llm/pricing")) failures.push(`${label} imports runtime docture subpath ${value}`);
+    } else failures.push(`${label} imports undeclared boundary ${value}; use relative internal imports`);
+  }
+  for (const reference of tree.typeReferenceDirectives) checkEval(reference.fileName, false);
+  for (const reference of tree.referencedFiles) checkEval(reference.fileName.startsWith(".") ? reference.fileName : `./${reference.fileName}`, false);
+  function visitEval(node) {
+    if (ts.hasPossibleExternalModuleReference(node)) {
+      const specifier = ts.getExternalModuleName(node);
+      const typeOnly = ts.isImportTypeNode(node) || ts.isImportDeclaration(node) && node.importClause?.isTypeOnly === true || ts.isExportDeclaration(node) && node.isTypeOnly;
+      if (specifier && ts.isStringLiteralLike(specifier)) checkEval(specifier.text, typeOnly);
+    }
+    if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+      ts.isIdentifier(node.expression) && node.expression.text === "require" ||
+      ts.isPropertyAccessExpression(node.expression) && ts.isIdentifier(node.expression.expression) && node.expression.expression.text === "require" && node.expression.name.text === "resolve")) {
+      if (node.arguments[0] && ts.isStringLiteralLike(node.arguments[0])) checkEval(node.arguments[0].text, false);
+      else failures.push(`${label} uses a computed module specifier that bundlers cannot isolate`);
+    }
+    ts.forEachChild(node, visitEval);
+  }
+  visitEval(tree);
+}
+const exists = path => access(path).then(() => true, error => { if (error.code === "ENOENT") return false; throw error; });
+if (await exists(join(evalSource, "judge"))) {
+  const ranges = [];
+  for (const path of await files(join(evalSource, "judge"))) {
+    const match = /ENGINE_RANGES\s*=\s*(\{[\s\S]*?\}) as const/.exec(await readFile(path, "utf8"));
+    if (match) ranges.push(Function(`return ${match[1]}`)());
+  }
+  assert.equal(ranges.length, 1, "eval judge declares one ENGINE_RANGES table");
+  const peers = Object.fromEntries(Object.entries(evalManifest.peerDependencies ?? {}).filter(([name]) => name !== "docture"));
+  assert.deepEqual(ranges[0], peers, "eval ENGINE_RANGES must equal its declared engine peers");
+  for (const name of Object.keys(peers)) assert.equal(evalManifest.peerDependenciesMeta?.[name]?.optional, true, `${name} must be an optional eval peer`);
+}
+const htmlBuilder = join(root, "packages/eval/scripts/build-html-client.mjs");
+if (await exists(htmlBuilder)) {
+  const result = spawnSync(process.execPath, [htmlBuilder, "--check"], { cwd: root, encoding: "utf8" });
+  assert.equal(result.status, 0, `eval HTML client must be fresh: ${result.stdout}${result.stderr}`);
+}
 
 const cliSource = join(root, "packages/cli/src");
 const cliManifest = JSON.parse(await readFile(join(root, "packages/cli/package.json"), "utf8"));
@@ -229,4 +307,4 @@ for (const node of configEntry.statements) {
 }
 
 assert.deepEqual(failures, [], "Public module boundaries must stay isolated");
-console.log(`Verified two publications and ${Object.keys(manifest.exports).length} isolated ESM entries.`);
+console.log(`Verified three package boundaries and ${Object.keys(manifest.exports).length} isolated ESM entries.`);

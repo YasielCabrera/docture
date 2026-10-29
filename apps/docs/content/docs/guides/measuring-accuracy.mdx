@@ -1,170 +1,78 @@
 ---
-title: Measure accuracy
-description: Score extracted fields and test pipeline behavior.
+title: Measure extraction accuracy
+description: Score a schema, run a project-owned corpus, compare runs, and gate regressions.
 ---
 
-`docture/eval` compares extracted data with known output one field at a time.
+Install `@docture/eval` beside `docture`. The root needs no model engine. Your project owns documents and ground truth; eval owns the versioned result.
+
+## Declare the comparable view
 
 ```ts
-import { formatFailures, scoreExtraction } from "docture/eval";
+import { defineEval, exact, number } from "@docture/eval";
+import { z } from "zod";
 
-const result = await extractor.extract("invoice.pdf", Invoice);
-const score = scoreExtraction(expected, result.data);
-
-console.log(score.f1);
-console.log(formatFailures(score));
-```
-
-## Install
-
-```sh
-npm install --save-dev docture pdfjs-dist@6.2.108 pdfkit@0.19.1 zod@^4
-```
-
-See [installation recipes](/docs/guides/installation) for other engines and providers.
-
-## Field results
-
-Each leaf field has one status:
-
-| Status | Meaning |
-|---|---|
-| `match` | Both values are present and equal under the comparator |
-| `mismatch` | Both values are present but differ |
-| `omission` | Expected data is present and extracted data is absent |
-| `hallucination` | Extracted data is present and expected data is absent |
-
-A mismatch reduces precision and recall. An omission reduces recall. A hallucination
-reduces precision.
-
-## Comparators
-
-The default numeric tolerance is `0.01`. Dates compare by their written calendar day without time-zone conversion.
-The parser accepts `YYYY-MM-DD`. A date can include a time separated by `T` or a space.
-The time requires hours and minutes, with optional seconds. Seconds may include a
-fractional part. Offsets can be `Z`, `±HH:mm`, `±HHmm`, or `±HH`.
-
-English month formats include `Jan 15 2026`, `January 15, 2026`, and `15 January 2026`.
-Month names accept their full name or three-letter abbreviation, without regard to case.
-Abbreviations may end in a period, as in `Jan. 15, 2026`. Day-first forms may use a comma,
-as in `15 Jan, 2026`. Calendar dates must be valid, including leap days. Numeric forms
-such as `01/02/2026` are not parsed as dates.
-
-The date comparator applies when the expected value is ISO-shaped or the final path
-segment contains a date word (`date`, `dates`, `issued`, or `due`) or ends in the word `at`.
-The aliases `birthdate`, `startdate`, and `enddate` also qualify. Camel case, `_`, and `-`
-separate words, as in `issuedAt` and `invoice_date`. Parent segments and names such as
-`candidate`, `format`, and `vat` do not select it.
-
-Other strings use a normalized Levenshtein similarity floor of `0.9`.
-Their digits must be identical and in the same order before similarity applies.
-An OCR letter slip such as `Main Streat 12` against `Main Street 12` can match. An invoice
-number or IBAN with a changed digit is a mismatch.
-
-```ts
-scoreExtraction(expected, actual, {
-  numericTolerance: 0,
-  stringSimilarity: 1,
-  alignArraysBy: "id",
+const Inventory = z.object({ title: z.string(), count: z.number() });
+const spec = defineEval(Inventory, {
+  strings: exact({ normalize: "case" }),
+  fields: { count: number({ abs: 0 }) },
 });
+console.log(spec.validate({ title: "Screws", count: 12 }));
+console.log(spec.score({ title: "Screws", count: 12 }, { title: "Screws", count: 11 }).metrics);
 ```
 
-Arrays align by index unless `alignArraysBy` names a key field.
+`defineEval` fails with every unresolved field or array rule. Supply `byIndex`, `ordered`, or `hungarian` for row arrays. `ordered` reports `ordered-greedy` when its cost-matrix budget forces a fallback. Use `looseEval()` for exploratory JSON comparisons. Explicit rules take precedence over schema `x-docture-eval` annotations. Empty metric denominators produce `null`.
 
-## Use a test assertion
+## Adapt a dataset and processor
 
-```ts
-const score = scoreExtraction(expected, result.data);
-expect(score.f1, formatFailures(score)).toBe(1);
-```
-
-`formatFailures()` names each wrong field, expected value, actual value, and status.
-
-## Generate a fixture
-
-`docture/testing/fixtures` can create an invoice PDF and its expected data from the same seed:
+A `Dataset` has an `id` and an async `cases()` method. Each case has `id`, `documents`, and `expected`, with optional `tags`, `group`, and expected `locations`. Each document exposes lazy `bytes()`. No folder layout is required. `folderDataset` and `jsonlDataset` from `@docture/eval/node` are conveniences; `inMemoryDataset` lives at the root.
 
 ```ts
-import { makeInvoicePdf } from "docture/testing/fixtures";
-import { Invoice, InvoiceSchema } from "./invoice.js";
+import { inMemoryDataset } from "@docture/eval";
+import { runEval } from "@docture/eval/runner";
+import { renderScoreboard } from "@docture/eval/reporters/terminal";
+import { renderHtml } from "@docture/eval/reporters/html";
 
-const fixture = await makeInvoicePdf({
-  seed: 301,
-  lineItemCount: 12,
+const dataset = inMemoryDataset("inventory", [{
+  id: "one", documents: [], expected: { title: "Screws", count: 12 },
+}]);
+const result = await runEval({
+  dataset, spec,
+  experiments: { parser: {
+    id: "parser",
+    async extract() { return { raw: { title: "Screws", count: 12 } }; },
+  } },
 });
-
-const result = await extractor.extract(fixture.bytes, Invoice);
-const expected = InvoiceSchema.parse(fixture.expected);
-const score = scoreExtraction(expected, result.data);
+console.log(renderScoreboard(result));
+const html = renderHtml(result);
 ```
 
-The seed makes the document reproducible. The generated expected data cannot drift from
-the values used to render the PDF. Project it through the extraction schema before
-scoring so fields outside that schema are not reported as omissions.
+An `EvalExtractor` returns `{ raw, usage?, evidence?, confidence? }`. Its optional `project(raw)` converts raw output into the same view as expected truth. `fromDocture` in `@docture/eval/docture` adapts an existing Docture extractor. Expected truth is validated before any processor runs. `OutOfScopeError` skips a case; processor failures remain visible as errors and omissions. The runner disposes processors on success, failure, and cancellation.
 
-The full typechecked scoring example is kept with the documentation:
+## Save and report
 
-<SourceExample file="measure-accuracy.ts" title="measure-accuracy.ts" />
+Use `fileRunStore` for history, resume and raw output storage. `writeEvalResult` and `readEvalResult` store `result.json` and `cases.jsonl`. Root `buildResult` supports a custom processing loop. Every reporter reads only `EvalResult`, so saved runs render without another extraction.
 
-## Check conversion quality
+Import one reporter entry: `@docture/eval/reporters/terminal`, `/json`, `/markdown`, `/html`, `/csv`, `/junit`, or `/template`. HTML embeds its client and works offline. Use `defineColumn` for project columns, Markdown sections for report composition, HTML panels for data-driven additions, and `templateReporter` for a replacement format.
 
-Extraction scores measure the data a strategy returns. Conversion checks measure the
-document text and structure that extraction and retrieval read. `checkConversion()` in
-`docture/eval` grades a conversion against presence, absence, order, and table checks.
-
-<SourceExample file="check-conversion.ts" title="check-conversion.ts" />
-
-Run the checks on the JSON result rather than on Markdown when page or table structure
-matters. Markdown flattens header rows and has no page ownership for continued tables.
-`conversionCorpus` in `docture/testing/fixtures` provides loaded documents for known
-layout cases, each with its own checks. See the
-[evaluation API](/docs/reference/api/eval#check-a-conversion) for the matching rules.
-
-## Test routing without a document library
-
-Use test doubles for routing, fallback, and validation tests. They need no PDFKit or Vitest
-peer at runtime:
+## Compare and gate
 
 ```ts
-import { failingStrategy, fixedStrategy, inMemoryLoader, loadedDocument } from "docture/testing/doubles";
-```
+import { gate } from "@docture/eval";
+import { compareRuns } from "@docture/eval/compare";
 
-```ts
-const extractor = createExtractor({
-  loaders: [inMemoryLoader(loadedDocument([sampleText]))],
-  strategies: [
-    failingStrategy("known-layout"),
-    fixedStrategy("fallback", {
-      invoiceNumber: "INV-1",
-      issuedAt: "2026-01-15",
-      total: 10,
-      lineItems: [],
-    }),
-  ],
+const comparison = compareRuns(baseline, result, { seed: "ci" });
+const verdict = gate({ ...result, comparison }, {
+  thresholds: [{ metric: "f1", min: 0.95 }],
 });
+console.log(verdict.pass);
 ```
 
-These doubles do not measure extraction quality. Use real documents or generated fixtures
-for accuracy tests.
+Comparison pairs cases per experiment. It uses a seeded cluster bootstrap for continuous metrics and exact McNemar for binary outcomes. Set `group` on related renditions to avoid treating them as independent ground truths. The seven verdicts are `improved`, `regressed`, `unchanged`, `inconclusive`, `insufficient`, `not-tested`, and `incomparable` as recorded in the result contract. Root `resolveBaseline` selects compatible history; missing provenance fails closed for automatic selection.
 
-## Score a corpus
+## Confidence and evidence
 
-`recordRun()` combines a score with method, loader, usage, and attempts. `aggregate()` and
-`formatScoreboard()` summarize several records.
+`calibrate(result)` from `@docture/eval/calibration` measures reliability from labelled field confidence; `mergeCalibration` combines compatible reports. Missing confidence is counted as uncovered rather than invented. `grounding(result)` from `@docture/eval/grounding` compares evidence against expected locations. Unlabelled fields are excluded from grounding denominators.
 
-```ts
-const records = results.map(({ name, score, result }) =>
-  recordRun(name, score, result),
-);
+For semantic string leaves, use `judge({ model, rubric })` from `@docture/eval/judge` and `spec.scoreAsync`. Install `ai@^7`. Verdicts use a fixed structured schema and temperature zero, with an injectable hash-keyed cache. An aligned row array must still contain a weighted synchronous comparator to pair rows; a judge-only row fails closed.
 
-console.log(formatScoreboard(records));
-```
-
-Watch `byMethod` when a deterministic parser should handle known layouts. A change from
-the parser to an LLM fallback may keep accuracy stable while increasing cost.
-
-## Inspect experimental field thresholds
-
-Use `docture eval ... --calibrate --target-precision 0.99 --min-support 20` to describe candidate OCR thresholds on labelled samples. JSON and text retain the same candidate selection and counts. Keep a separate held-out corpus and evaluate any proposed policy there before operational use. Small samples and in-sample selection do not establish production precision.
-
-The report retains scorer options, corpus labels, model selection and loader identifiers. Exact engine versions remain caller context when configured loaders do not report them. Missing OCR confidence stays unknown. Calibration does not support `--align-by`, because reordering can attach confidence to the wrong array row. No suggested threshold is applied automatically.
+See the [API reference](/docs/reference/api/eval), [migration guide](/docs/guides/migration), and [CLI guide](/docs/guides/cli).

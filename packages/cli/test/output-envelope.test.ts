@@ -72,6 +72,7 @@ describe("uniform output contract", () => {
               expect(await readFile(join(cwd, "converted/good.md"), "utf8")).toContain("Invoice");
             } else {
               expect(run.stdout).toContain(command === "extract" ? '"total": 42' : "good.pdf");
+              if (command === "eval") expect(run.stderr).toContain("✓ good.pdf F1 1.000 → fixed via fake");
             }
           }
           if (code === 1) expect(run.stderr).toContain("✗ bad.pdf →");
@@ -97,6 +98,11 @@ describe("uniform output contract", () => {
             meanF1: files.length === 2 ? 0.5 : code === 0 ? 1 : 0,
             meanPrecision: files.length === 2 ? 0.5 : code === 0 ? 1 : 0,
             meanRecall: files.length === 2 ? 0.5 : code === 0 ? 1 : 0,
+            metrics: {
+              recall: files.length === 2 ? 0.5 : code === 0 ? 1 : 0,
+              errorRate: files.length === 2 ? 0.5 : code === 0 ? 0 : 1,
+            },
+            gate: null,
             passed: code === 0,
           });
         }
@@ -165,7 +171,11 @@ describe("uniform output contract", () => {
     const run = await cli(["eval", "good.pdf", "bad.pdf", "--format", "json", "--min-f1", "0.9"], { cwd });
     expect(run.code).toBe(1);
     expect(JSON.parse(run.stdout)).toMatchObject({ ok: false,
-      summary: { documents: 2, meanF1: 0.5, minF1: 0.9, passed: false, failed: 1 } });
+      summary: {
+        documents: 2, meanF1: 0.5, minF1: 0.9, passed: false, failed: 1,
+        gate: { pass: false, checks: [{ kind: "threshold", metric: "meanDocumentF1", status: "fail", min: 0.9 }] },
+        reasons: ["Mean F1 0.500 is below the --min-f1 gate of 0.9."],
+      } });
   });
 
   it.each(["inspect", "classify"])("%s rejects the removed --json flag", async (command) => {

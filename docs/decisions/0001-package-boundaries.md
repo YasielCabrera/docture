@@ -2,6 +2,8 @@
 
 Status: accepted. Date: 2026-10-22.
 
+[ADR 0002](0002-eval-publication.md) extends the publication set with `@docture/eval` and replaces the `docture/eval` entry. The isolation rules below remain in force.
+
 ## Decision
 
 Publish `docture` and `@docture/cli`. Consolidate the existing core, LLM, eval, loader, rasterizer and testing implementations physically into `packages/docture`. Keep their module boundaries through explicit subpath exports and automated import checks.

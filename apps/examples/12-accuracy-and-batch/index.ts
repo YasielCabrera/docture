@@ -13,23 +13,17 @@
  *
  *   1. ONE DOCUMENT, SCORED, against complete hand-checked truth. F1 1.0
  *   2. THE TRAP: an incomplete answer key reports hallucinations that are not there
- *   3. WHAT WENT WRONG — `failures`, `hallucinations`, `formatFailures`
+ *   3. WHAT WENT WRONG — every field with its status, expected and actual value
  *   4. THE THREE TOLERANCES, and why each one exists
- *   5. THE SCOREBOARD, over the whole corpus
+ *   5. THE SCOREBOARD, over the whole corpus, with `runEval` from `@docture/eval`
  *   6. `extractBatch` — many documents, bounded concurrency
  */
 
 import { Extractor } from "docture/node";
-import {
-  aggregate,
-  failures,
-  formatFailures,
-  formatScoreboard,
-  hallucinations,
-  recordRun,
-  scoreExtraction,
-  type RunRecord,
-} from "docture/eval";
+import { inMemoryDataset, looseEval, OutOfScopeError, type CaseScore, type EvalExtractor, type FieldResult } from "@docture/eval";
+import { fileDocument } from "@docture/eval/node";
+import { renderScoreboard } from "@docture/eval/reporters/terminal";
+import { runEval } from "@docture/eval/runner";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { Invoice, toScored, type InvoiceData } from "../shared/contracts.js";
 import { odooInvoiceParser } from "../shared/parsers/odoo.js";
@@ -43,6 +37,17 @@ import {
 import { field, heading, note, step, table } from "../shared/print.js";
 import { idsOfKind, pathOf, truthPathOf } from "../shared/documents.js";
 import { isMain, requireDocument, run } from "../shared/run.js";
+
+/**
+ * `looseEval` keeps the forgiving defaults this example teaches: numbers within a cent,
+ * strings at similarity 0.9 once their digits agree, date-like strings by day, arrays by index.
+ */
+const loose = looseEval();
+const misses = (score: CaseScore): readonly FieldResult[] => score.fields.filter((f) => f.status !== "match");
+const hallucinations = (score: CaseScore): readonly FieldResult[] => score.fields.filter((f) => f.status === "hallucination");
+const ratio = (value: number | null | undefined): string => (value === null || value === undefined ? "n/a" : value.toFixed(3));
+const describeMisses = (score: CaseScore): string =>
+  misses(score).map((f) => `    ${f.status.padEnd(13)} ${f.path}: expected ${JSON.stringify(f.expected)}, got ${JSON.stringify(f.actual)}`).join("\n");
 
 async function main(): Promise<void> {
   const odooPath = await requireDocument("invoice-odoo");
@@ -66,21 +71,21 @@ async function main(): Promise<void> {
      * and all four line items. That completeness is what makes an F1 of 1.0 mean
      * something here.
      */
-    const score = scoreExtraction(AZURE_INTERIOR, odoo);
+    const score = loose.score(AZURE_INTERIOR, odoo);
     field("fields scored", score.fields.length);
-    field("precision", score.precision.toFixed(3));
-    field("recall", score.recall.toFixed(3));
-    field("F1", score.f1.toFixed(3));
-    field("exactMatch", score.exactMatch);
+    field("precision", ratio(score.metrics.precision));
+    field("recall", ratio(score.metrics.recall));
+    field("F1", ratio(score.metrics.f1));
+    field("exact", score.metrics.exact);
     field("counts", JSON.stringify(score.counts));
-    if (score.f1 < 1) console.log(formatFailures(score));
+    if (!score.metrics.exact) console.log(describeMisses(score));
 
     // ── 2. The trap ─────────────────────────────────────────────────────────────
 
     step("2. the trap that makes an eval lie to you");
 
     /**
-     * `scoreExtraction` counts a field the extraction produced and the truth OMITS as a
+     * The scorer counts a field the extraction produced and the truth OMITS as a
      * hallucination. That is exactly right for grading a real run — a model inventing a
      * `dueDate` is a serious fault, not a bonus.
      *
@@ -91,8 +96,8 @@ async function main(): Promise<void> {
     const truthPath = truthPathOf("invoice-odoo");
     const published = truthPath === undefined ? {} : await readPublishedTruth(truthPath);
 
-    const naive = scoreExtraction(published, odoo);
-    const honest = scoreExtraction(published, projectOntoTruth(toScored(odoo), published));
+    const naive = loose.score(published, odoo);
+    const honest = loose.score(published, projectOntoTruth(toScored(odoo), published));
 
     table(
       [
@@ -104,13 +109,13 @@ async function main(): Promise<void> {
       [
         [
           "full contract vs 5-field truth",
-          naive.f1.toFixed(3),
+          ratio(naive.metrics.f1),
           hallucinations(naive).length,
           "meaningless",
         ],
         [
           "projected onto what truth claims",
-          honest.f1.toFixed(3),
+          ratio(honest.metrics.f1),
           hallucinations(honest).length,
           "a real number",
         ],
@@ -141,12 +146,12 @@ async function main(): Promise<void> {
     const servicesTruth =
       servicesTruthPath === undefined ? {} : await readPublishedTruth(servicesTruthPath);
     const services = await extractor.extractData(servicesPath, Invoice);
-    const servicesScore = scoreExtraction(
+    const servicesScore = loose.score(
       servicesTruth,
       projectOntoTruth(toScored(services), servicesTruth),
     );
 
-    field("F1", servicesScore.f1.toFixed(3));
+    field("F1", ratio(servicesScore.metrics.f1));
     console.log("");
     table(
       [
@@ -163,9 +168,9 @@ async function main(): Promise<void> {
       ]),
     );
 
-    field("failures(score)", failures(servicesScore).map((f) => f.path).join(", ") || "none");
-    field("hallucinations(score)", hallucinations(servicesScore).map((f) => f.path).join(", ") || "none");
-    console.log(`\n  formatFailures(score):\n${formatFailures(servicesScore)}`);
+    field("missed fields", misses(servicesScore).map((f) => f.path).join(", ") || "none");
+    field("hallucinations", hallucinations(servicesScore).map((f) => f.path).join(", ") || "none");
+    console.log(`\n  every miss, with both values:\n${describeMisses(servicesScore)}`);
 
     // ── 4. The three tolerances ─────────────────────────────────────────────────
 
@@ -179,10 +184,10 @@ async function main(): Promise<void> {
      * the midpoint, so `Math.round` gives 16.93. An equality check on money is a bug
      * waiting for a document like this one.
      */
-    const tolerant = scoreExtraction({ tax: 16.935 }, { tax: 16.94 });
-    const strict = scoreExtraction({ tax: 16.935 }, { tax: 16.94 }, { numericTolerance: 0 });
-    field("16.935 vs 16.94, default", tolerant.f1.toFixed(3));
-    field("… with tolerance 0", strict.f1.toFixed(3));
+    const tolerant = loose.score({ tax: 16.935 }, { tax: 16.94 });
+    const strict = looseEval({ numericTolerance: 0 }).score({ tax: 16.935 }, { tax: 16.94 });
+    field("16.935 vs 16.94, default", ratio(tolerant.metrics.f1));
+    field("… with tolerance 0", ratio(strict.metrics.f1));
 
     /**
      * `stringSimilarity` — default 0.9. Forgives an OCR character slip in a long name
@@ -193,8 +198,8 @@ async function main(): Promise<void> {
     const got = { vendor: "Sammy Maystone" };
     console.log("");
     for (const threshold of [0.9, 0.6, 0.4] as const) {
-      const s = scoreExtraction(pair, got, { stringSimilarity: threshold });
-      field(`stringSimilarity ${threshold}`, s.f1 === 1 ? "match" : "miss");
+      const s = looseEval({ stringSimilarity: threshold }).score(pair, got);
+      field(`stringSimilarity ${threshold}`, s.metrics.f1 === 1 ? "match" : "miss");
     }
     note(
       "There is no right answer there, and that is the point — it is a decision about your\n" +
@@ -211,43 +216,41 @@ async function main(): Promise<void> {
     };
     const shuffled = { lineItems: [{ code: "B", amount: 2 }, { code: "A", amount: 1 }] };
     console.log("");
-    field("shuffled rows, by index", scoreExtraction(expectedRows, shuffled).f1.toFixed(3));
+    field("shuffled rows, by index", ratio(loose.score(expectedRows, shuffled).metrics.f1));
     field(
       "shuffled rows, by code",
-      scoreExtraction(expectedRows, shuffled, { alignArraysBy: "code" }).f1.toFixed(3),
+      ratio(looseEval({ alignArraysBy: "code" }).score(expectedRows, shuffled).metrics.f1),
     );
 
     // ── 5. The scoreboard ───────────────────────────────────────────────────────
 
     step("5. the scoreboard, over the whole corpus");
 
-    const records: RunRecord[] = [];
-    const rows: unknown[][] = [];
-
-    for (const id of idsOfKind("invoice")) {
-      const path = pathOf(id);
+    /**
+     * The corpus as eval cases: each invoice and its published truth. A processor turns a
+     * case into output; one that has no parser for a layout declares the case OUT OF SCOPE,
+     * so it is counted as skipped rather than averaged in as a zero or quietly dropped.
+     */
+    const cases = await Promise.all(idsOfKind("invoice").map(async (id) => {
       const tPath = truthPathOf(id);
-      const truth = tPath === undefined ? {} : await readPublishedTruth(tPath);
-
-      const outcome = await extractor.safeExtract(path, Invoice);
-      if (!outcome.ok) {
-        rows.push([id, "no parser", "—", "—", claimedFields(truth).length]);
-        continue;
-      }
-
-      const projected = projectOntoTruth(toScored(outcome.result.data as InvoiceData), truth);
-      const documentScore = scoreExtraction(truth, projected);
-      // `recordRun` pairs a score with the run that produced it, so the scoreboard can
-      // report accuracy AND cost in one table.
-      records.push(recordRun(id, documentScore, outcome.result));
-      rows.push([
-        id,
-        outcome.result.method,
-        documentScore.f1.toFixed(3),
-        failures(documentScore).map((f) => f.path).join(",") || "—",
-        claimedFields(truth).length,
-      ]);
-    }
+      return { id, documents: [fileDocument(pathOf(id))], expected: tPath === undefined ? {} : await readPublishedTruth(tPath) };
+    }));
+    const truthOf = new Map(cases.map((item) => [item.id, item.expected]));
+    const parsers: EvalExtractor = {
+      id: "parsers",
+      async extract(item) {
+        const outcome = await extractor.safeExtract(pathOf(item.id), Invoice);
+        if (!outcome.ok) throw new OutOfScopeError("no parser for this layout");
+        const { method, usage } = outcome.result;
+        return {
+          // Grade only what each answer key claims, as section 2 showed.
+          raw: projectOntoTruth(toScored(outcome.result.data as InvoiceData), truthOf.get(item.id) ?? {}),
+          method,
+          usage: { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens },
+        };
+      },
+    };
+    const result = await runEval({ dataset: inMemoryDataset("published-invoices", cases), spec: loose, experiments: parsers });
 
     table(
       [
@@ -257,27 +260,31 @@ async function main(): Promise<void> {
         { header: "fields missed", width: 20 },
         { header: "truth claims", width: 12, right: true },
       ],
-      rows,
+      result.cases.map((row) => [
+        row.caseId,
+        row.outcome === "scored" ? (row.method ?? "—") : "no parser",
+        row.outcome === "scored" ? ratio(row.score.metrics.f1) : "—",
+        row.outcome === "scored" ? misses(row.score).map((f) => f.path).join(",") || "—" : "—",
+        claimedFields(truthOf.get(row.caseId) ?? {}).length,
+      ]),
     );
 
-    const summary = aggregate(records);
+    const summary = result.summary["parsers"];
     console.log("");
-    field("documents scored", `${summary.documents} of ${rows.length} in the corpus`);
-    field("mean F1", summary.meanF1.toFixed(3));
-    field("mean precision / recall", `${summary.meanPrecision.toFixed(3)} / ${summary.meanRecall.toFixed(3)}`);
-    field("exact matches", summary.exactMatches);
-    field("total tokens", summary.totalTokens.toLocaleString());
-    field("total cost", summary.totalTokens === 0 ? "nothing — no model ran" : `$${summary.totalCostUsd.toFixed(4)}`);
-    // The fallback picture, in one field: which strategy answered how often.
-    field("byMethod", JSON.stringify(summary.byMethod));
+    field("documents scored", `${summary?.cases.scored ?? 0} of ${summary?.cases.total ?? 0} in the corpus`);
+    field("F1", ratio(summary?.overall["f1"]));
+    field("precision / recall", `${ratio(summary?.overall["precision"])} / ${ratio(summary?.overall["recall"])}`);
+    field("exact cases", ratio(summary?.overall["exactRate"]));
+    field("skipped, no parser", ratio(summary?.overall["skipRate"]));
+    field("total tokens", (summary?.overall["tokens"] ?? 0).toLocaleString());
 
-    console.log(`\n  formatScoreboard(records):\n`);
-    console.log(formatScoreboard(records));
+    console.log(`\n  renderScoreboard(result):\n`);
+    console.log(renderScoreboard(result));
 
     note(
-      "Nine of eleven layouts have no parser, so they are not in the scoreboard at all —\n" +
+      "Nine of eleven layouts have no parser, so they are SKIPPED, not scored —\n" +
         "which is the honest report. An eval that quietly averaged only what succeeded would\n" +
-        "print a beautiful mean F1 for a pipeline that reads two documents in eleven.\n" +
+        "print a beautiful F1 for a pipeline that reads two documents in eleven.\n" +
         "Coverage and accuracy are two numbers and neither substitutes for the other.",
     );
 

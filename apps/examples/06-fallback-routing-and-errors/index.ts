@@ -224,6 +224,15 @@ async function main(): Promise<void> {
         return "install the optional engine the message names; the file was not read";
       case "MISSING_COMPONENT":
         return "supply the missing pipeline component before running";
+      case "EVAL_SPEC_INVALID":
+      case "GROUND_TRUTH_INVALID":
+      case "EVAL_DATASET_INVALID":
+      case "EVAL_RUN_STORE_FAILED":
+      case "OUT_OF_SCOPE":
+      case "MIGRATION_GUARD_FAILED":
+      case "EVAL_RUNS_INCOMPARABLE":
+      case "EVAL_PREFLIGHT_FAILED":
+        return "raised by @docture/eval, not by extraction";
     }
   }
 

@@ -1,0 +1,6 @@
+Southgate Diagnostics - Results
+Sample collected 3 April 2026 for patient P-2001
+Analyte: Potassium | Result: 3.1 mmol/L | Flag: low
+Analyte: Sodium | Result: 139 mmol/L | Flag: normal
+Analyte: Creatinine | Result: 102 umol/L | Flag: high
+Please contact the laboratory within seven days if any result needs to be repeated.

@@ -3,7 +3,7 @@ import { cleanup, cli, tempDir, writeFixture } from "./harness.js";
 
 afterAll(cleanup);
 
-it("eval emits the same experimental threshold in JSON and text without applying it", async () => {
+it("eval reports OCR confidence calibration in JSON and text without applying a threshold", async () => {
   const cwd = await tempDir("eval-calibration");
   await writeFixture(cwd, "docture.config.mjs", `export default {
     loaders: [{name:"text",capabilities:{text:true,geometry:true,images:false,mimeTypes:["text/plain"]},async load(raw) {
@@ -20,11 +20,14 @@ it("eval emits the same experimental threshold in JSON and text without applying
   const args = ["eval", "a.txt", "b.txt", "--schema", "schema.json", "--calibrate", "--target-precision", ".5", "--min-support", "2"];
   const json = await cli([...args, "--format", "json"], { cwd });
   expect(json.code, json.stderr).toBe(0);
-  expect(JSON.parse(json.stdout).summary.calibration).toMatchObject({ experimental: true, fields: [{ path: "amount", threshold: .9, accepted: 2, precision: .5 }] });
+  expect(JSON.parse(json.stdout).summary.calibration).toMatchObject({
+    targetPrecision: 0.5,
+    minSupport: 2,
+    experiments: { docture: { graded: 2, overall: { support: 2, scores: [{ confidence: 0.9, count: 2, correct: 1 }], ece: 0.4 } } },
+  });
   const text = await cli([...args, "--format", "text"], { cwd });
   expect(text.code, text.stderr).toBe(0);
-  expect(text.stdout).toContain("Experimental in-sample");
-  expect(text.stdout).toContain("| amount | 0.9 | 0.5 | 2 | 0 | 0 | 2 |");
+  expect(text.stdout).toContain("2 of 2 produced fields carried a confidence (100.0% confidence coverage). 0 omissions. Auto-accept target 50.0%, minimum support 2.");
   const invalid = await cli([...args, "--align-by", "id"], { cwd });
   expect(invalid.code).toBe(2);
   expect(invalid.stderr).toContain("does not support --align-by");

@@ -163,10 +163,25 @@ corrected path. Invalid config fields and unknown keys are usage errors naming t
 honor `NO_COLOR` and `--no-color`. JSON and NDJSON error messages and hints strip terminal
 control sequences.
 
-`eval --min-f1 <number> --max-cost-usd <number>` applies the public eval gate. Failed
-thresholds exit with code 1, including when extraction itself succeeds. The output summary
-contains `passed`, `reasons`, and configured thresholds. Cost requires configured pricing;
-unpriced usage is excluded. Verbose output includes the worst normalized fields.
+Quick-mode `eval --min-f1 <number> --max-cost-usd <number>` gates the run's
+`meanDocumentF1` and `costUsd` metrics with the public eval gate. `meanDocumentF1` is the
+mean of per-document F1. A failed extraction scores 0, so every document weighs the same.
+The JSON summary reports it as `meanF1`, beside the per-document `meanPrecision` and
+`meanRecall`. Its `metrics` holds `meanDocumentF1` and `f1`, the field F1 pooled over every
+field. Cost includes the usage that failed extractions reported. Cost requires configured
+pricing. Unpriced usage is excluded, and a cost gate fails when no price is known.
+
+Failed thresholds exit with code 1, including when extraction itself succeeds. The output
+summary contains `passed`, `reasons`, and the configured `minF1` and `maxCostUsd`. A reason
+names its flag, such as `Mean F1 0.500 is below the --min-f1 gate of 0.9.` Any other failed
+check keeps the gate's message. Verbose output includes the worst fields.
+
+`docture eval run` saves the result even when a reporter fails. It then prints each reporter
+failure on stderr, also under `--quiet`, and exits with code 1. `docture eval report <dir>
+--rescore` reads the run and its raw outputs from that directory and writes the re-scored
+run to the configured store or `--store`. `docture.eval.ts` accepts `sections`, such as
+`calibrationSection()`, and `fallbackBranch`, the branch an automatic baseline searches when
+the current branch has no complete run.
 
 ## Configure named extraction and Paperless mappings
 

@@ -20,14 +20,13 @@ npm install docture zod@^4
 Core uses `@ai-sdk/provider-utils`, whose schema helper has a Zod peer. Zod 3.25.76 or
 later 3.x, or Zod 4.1.8 or later, also satisfies the model integrations that import
 `zod/v4`. These recipes install Zod 4. You can still define contracts
-with another supported schema library. Evaluation and test doubles need only:
+with another supported schema library. Test doubles need only:
 
 ```sh
 npm install docture
 ```
 
-Import core from `docture`, retrieval chunks from `docture/chunk`, scoring from
-`docture/eval`, and test doubles from
+Import core from `docture`, retrieval chunks from `docture/chunk`, and test doubles from
 `docture/testing/doubles`. None requires an engine or model runtime.
 
 ## PDF.js text extraction and deterministic conversion
@@ -244,3 +243,13 @@ npm install --save-dev @docture/cli docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/ope
 
 TypeScript schema and config modules use Node's type stripping, available from Node
 22.18. See [CLI setup and commands](/docs/guides/cli).
+
+## Evaluation
+
+```sh
+npm install @docture/eval docture zod@^4
+# Optional semantic judge only:
+npm install ai@^7
+```
+
+The root, runner, reporters and framework adapters need no model engine. Import file I/O from `@docture/eval/node` and the judge from `@docture/eval/judge`.

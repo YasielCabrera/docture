@@ -1,0 +1,3187 @@
+{
+  "format": "docture-eval-result",
+  "version": 1,
+  "run": {
+    "id": "run-1",
+    "status": "complete",
+    "startedAt": "2026-10-28T12:00:00.000Z",
+    "finishedAt": "2026-10-28T12:05:00.000Z",
+    "git": {
+      "branch": "main",
+      "sha": "8d04891",
+      "dirty": false
+    },
+    "dataset": {
+      "id": "invoices",
+      "size": 4,
+      "fingerprint": "00000000000000aa"
+    },
+    "spec": {
+      "fingerprint": "1c449099f779f2dd",
+      "fields": [
+        {
+          "pattern": "issuer",
+          "type": "string",
+          "comparator": "text(minSimilarity 0.9)",
+          "comparatorId": "text",
+          "options": {
+            "minSimilarity": 0.9
+          },
+          "segment": "header",
+          "weight": 1,
+          "critical": false,
+          "source": "the strings default"
+        },
+        {
+          "pattern": "reference",
+          "type": "string",
+          "comparator": "identifier()",
+          "comparatorId": "identifier",
+          "options": {},
+          "segment": "header",
+          "weight": 1,
+          "critical": false,
+          "source": "x-docture-eval annotation"
+        },
+        {
+          "pattern": "issueDate",
+          "type": "date",
+          "comparator": "date(granularity day)",
+          "comparatorId": "date",
+          "options": {
+            "granularity": "day"
+          },
+          "segment": "header",
+          "weight": 1,
+          "critical": false,
+          "source": "type default (date)"
+        },
+        {
+          "pattern": "status",
+          "type": "enum",
+          "comparator": "exact()",
+          "comparatorId": "exact",
+          "options": {},
+          "segment": "header",
+          "weight": 1,
+          "critical": false,
+          "source": "type default (enum)"
+        },
+        {
+          "pattern": "totals.net",
+          "type": "number",
+          "comparator": "number(abs 0.01)",
+          "comparatorId": "number",
+          "options": {
+            "abs": 0.01
+          },
+          "segment": "totals",
+          "weight": 1,
+          "critical": false,
+          "source": "rule 'totals.*'"
+        },
+        {
+          "pattern": "totals.tax",
+          "type": "number",
+          "comparator": "number(abs 0.01)",
+          "comparatorId": "number",
+          "options": {
+            "abs": 0.01
+          },
+          "segment": "totals",
+          "weight": 1,
+          "critical": false,
+          "source": "rule 'totals.*'"
+        },
+        {
+          "pattern": "totals.total",
+          "type": "number",
+          "comparator": "number(abs 0.01)",
+          "comparatorId": "number",
+          "options": {
+            "abs": 0.01
+          },
+          "segment": "totals",
+          "weight": 1,
+          "critical": false,
+          "source": "rule 'totals.*'"
+        },
+        {
+          "pattern": "lineItems[].sku",
+          "type": "string",
+          "comparator": "identifier()",
+          "comparatorId": "identifier",
+          "options": {},
+          "segment": "lineItems",
+          "weight": 1,
+          "critical": true,
+          "source": "rule 'lineItems[].sku'"
+        },
+        {
+          "pattern": "lineItems[].description",
+          "type": "string",
+          "comparator": "text(minSimilarity 0.8)",
+          "comparatorId": "text",
+          "options": {
+            "minSimilarity": 0.8
+          },
+          "segment": "lineItems",
+          "weight": 1,
+          "critical": false,
+          "source": "rule 'lineItems[].description'"
+        },
+        {
+          "pattern": "lineItems[].amount",
+          "type": "number",
+          "comparator": "number(abs 0)",
+          "comparatorId": "number",
+          "options": {
+            "abs": 0
+          },
+          "segment": "lineItems",
+          "weight": 1,
+          "critical": false,
+          "source": "type default (number)"
+        }
+      ],
+      "arrays": [
+        {
+          "pattern": "lineItems",
+          "rule": "hungarian(key sku; minSimilarity 0.5)",
+          "source": "rule 'lineItems'"
+        }
+      ]
+    },
+    "experiments": [
+      {
+        "id": "llm",
+        "configHash": "llm-config"
+      },
+      {
+        "id": "parser",
+        "configHash": "parser-config"
+      }
+    ],
+    "epochs": 1
+  },
+  "metrics": [
+    {
+      "id": "precision",
+      "label": "Precision",
+      "direction": "higher",
+      "format": "ratio"
+    },
+    {
+      "id": "recall",
+      "label": "Recall",
+      "direction": "higher",
+      "format": "ratio"
+    },
+    {
+      "id": "f1",
+      "label": "F1",
+      "direction": "higher",
+      "format": "ratio"
+    },
+    {
+      "id": "precision.micro",
+      "label": "Precision (micro)",
+      "direction": "higher",
+      "format": "ratio"
+    },
+    {
+      "id": "recall.micro",
+      "label": "Recall (micro)",
+      "direction": "higher",
+      "format": "ratio"
+    },
+    {
+      "id": "f1.micro",
+      "label": "F1 (micro)",
+      "direction": "higher",
+      "format": "ratio"
+    },
+    {
+      "id": "precision.macro",
+      "label": "Precision (macro)",
+      "direction": "higher",
+      "format": "ratio"
+    },
+    {
+      "id": "recall.macro",
+      "label": "Recall (macro)",
+      "direction": "higher",
+      "format": "ratio"
+    },
+    {
+      "id": "f1.macro",
+      "label": "F1 (macro)",
+      "direction": "higher",
+      "format": "ratio"
+    },
+    {
+      "id": "exactRate",
+      "label": "Exact cases",
+      "direction": "higher",
+      "format": "ratio"
+    },
+    {
+      "id": "anls",
+      "label": "ANLS",
+      "direction": "higher",
+      "format": "ratio"
+    },
+    {
+      "id": "groundedF1",
+      "label": "Grounded F1",
+      "direction": "higher",
+      "format": "ratio"
+    },
+    {
+      "id": "errorRate",
+      "label": "Errored cases",
+      "direction": "lower",
+      "format": "ratio"
+    },
+    {
+      "id": "skipRate",
+      "label": "Skipped cases",
+      "direction": "lower",
+      "format": "ratio"
+    },
+    {
+      "id": "fallbackRate",
+      "label": "Fallback cases",
+      "direction": "lower",
+      "format": "ratio"
+    },
+    {
+      "id": "costUsd",
+      "label": "Cost",
+      "direction": "lower",
+      "format": "usd"
+    },
+    {
+      "id": "tokens",
+      "label": "Tokens",
+      "direction": "lower",
+      "format": "count"
+    },
+    {
+      "id": "latencyP50",
+      "label": "Latency p50",
+      "direction": "lower",
+      "format": "ms"
+    },
+    {
+      "id": "latencyP95",
+      "label": "Latency p95",
+      "direction": "lower",
+      "format": "ms"
+    },
+    {
+      "id": "ece",
+      "label": "Expected calibration error",
+      "direction": "lower",
+      "format": "ratio"
+    },
+    {
+      "id": "brier",
+      "label": "Brier score",
+      "direction": "lower",
+      "format": "ratio"
+    },
+    {
+      "id": "auroc",
+      "label": "AUROC",
+      "direction": "higher",
+      "format": "ratio"
+    },
+    {
+      "id": "coverageAtPrecision99",
+      "label": "Auto-accept coverage at 99% precision",
+      "direction": "higher",
+      "format": "ratio"
+    }
+  ],
+  "summary": {
+    "llm": {
+      "cases": {
+        "total": 4,
+        "scored": 3,
+        "errored": 1,
+        "skipped": 0
+      },
+      "overall": {
+        "precision": 0.8974358974358975,
+        "recall": 0.6730769230769231,
+        "f1": 0.7692307692307693,
+        "precision.micro": 0.8974358974358975,
+        "recall.micro": 0.8974358974358975,
+        "f1.micro": 0.8974358974358975,
+        "precision.macro": 0.8974358974358975,
+        "recall.macro": 0.8974358974358975,
+        "f1.macro": 0.8974358974358975,
+        "exactRate": 0.25,
+        "anls": 0.9179487179487179,
+        "groundedF1": 0.8,
+        "errorRate": 0.25,
+        "skipRate": 0,
+        "fallbackRate": 0.25,
+        "costUsd": 0.03,
+        "tokens": 3000,
+        "latencyP50": 875,
+        "latencyP95": 1428.4999999999998,
+        "ece": 0.045,
+        "brier": 0.08,
+        "auroc": 0.91,
+        "coverageAtPrecision99": 0.5
+      },
+      "segments": {
+        "header": {
+          "counts": {
+            "match": 9,
+            "mismatch": 3,
+            "omission": 4,
+            "hallucination": 0
+          },
+          "weighted": {
+            "match": 9,
+            "mismatch": 3,
+            "omission": 4,
+            "hallucination": 0
+          },
+          "metrics": {
+            "precision": 0.75,
+            "recall": 0.5625,
+            "f1": 0.6428571428571429,
+            "precision.micro": 0.75,
+            "recall.micro": 0.75,
+            "f1.micro": 0.75,
+            "precision.macro": 0.75,
+            "recall.macro": 0.75,
+            "f1.macro": 0.75
+          }
+        },
+        "totals": {
+          "counts": {
+            "match": 9,
+            "mismatch": 0,
+            "omission": 3,
+            "hallucination": 0
+          },
+          "weighted": {
+            "match": 9,
+            "mismatch": 0,
+            "omission": 3,
+            "hallucination": 0
+          },
+          "metrics": {
+            "precision": 1,
+            "recall": 0.75,
+            "f1": 0.8571428571428571,
+            "precision.micro": 1,
+            "recall.micro": 1,
+            "f1.micro": 1,
+            "precision.macro": 1,
+            "recall.macro": 1,
+            "f1.macro": 1
+          }
+        },
+        "lineItems": {
+          "counts": {
+            "match": 17,
+            "mismatch": 1,
+            "omission": 6,
+            "hallucination": 0
+          },
+          "weighted": {
+            "match": 17,
+            "mismatch": 1,
+            "omission": 6,
+            "hallucination": 0
+          },
+          "metrics": {
+            "precision": 0.9444444444444444,
+            "recall": 0.7083333333333334,
+            "f1": 0.8095238095238095,
+            "precision.micro": 0.9444444444444444,
+            "recall.micro": 0.9444444444444444,
+            "f1.micro": 0.9444444444444444,
+            "precision.macro": 0.9444444444444445,
+            "recall.macro": 0.9444444444444445,
+            "f1.macro": 0.9444444444444445
+          }
+        }
+      },
+      "slices": {
+        "rendition": {
+          "digital": {
+            "cases": 2,
+            "metrics": {
+              "precision": 0.9230769230769231,
+              "recall": 0.9230769230769231,
+              "f1": 0.9230769230769231,
+              "precision.micro": 0.9230769230769231,
+              "recall.micro": 0.9230769230769231,
+              "f1.micro": 0.9230769230769231,
+              "precision.macro": 0.9230769230769231,
+              "recall.macro": 0.9230769230769231,
+              "f1.macro": 0.9230769230769231,
+              "exactRate": 0.5,
+              "anls": 0.9538461538461539,
+              "groundedF1": null,
+              "errorRate": 0,
+              "skipRate": 0,
+              "fallbackRate": 0,
+              "costUsd": 0.012,
+              "tokens": 1200,
+              "latencyP50": 875,
+              "latencyP95": 906.5,
+              "ece": null,
+              "brier": null,
+              "auroc": null,
+              "coverageAtPrecision99": null
+            }
+          },
+          "scan": {
+            "cases": 2,
+            "metrics": {
+              "precision": 0.8461538461538461,
+              "recall": 0.4230769230769231,
+              "f1": 0.5641025641025641,
+              "precision.micro": 0.8461538461538461,
+              "recall.micro": 0.8461538461538461,
+              "f1.micro": 0.8461538461538461,
+              "precision.macro": 0.8461538461538461,
+              "recall.macro": 0.8461538461538461,
+              "f1.macro": 0.8461538461538461,
+              "exactRate": 0,
+              "anls": 0.8461538461538461,
+              "groundedF1": null,
+              "errorRate": 0.5,
+              "skipRate": 0,
+              "fallbackRate": 0.5,
+              "costUsd": 0.018,
+              "tokens": 1800,
+              "latencyP50": 910,
+              "latencyP95": 1459,
+              "ece": null,
+              "brier": null,
+              "auroc": null,
+              "coverageAtPrecision99": null
+            }
+          }
+        }
+      },
+      "paths": {
+        "issuer": {
+          "precision": 0.3333333333333333,
+          "recall": 0.25,
+          "f1": 0.2857142857142857,
+          "counts": {
+            "match": 1,
+            "mismatch": 2,
+            "omission": 1,
+            "hallucination": 0
+          },
+          "meanSimilarity": 0.5066666666666667
+        },
+        "reference": {
+          "precision": 1,
+          "recall": 0.75,
+          "f1": 0.8571428571428571,
+          "counts": {
+            "match": 3,
+            "mismatch": 0,
+            "omission": 1,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "issueDate": {
+          "precision": 0.6666666666666666,
+          "recall": 0.5,
+          "f1": 0.5714285714285714,
+          "counts": {
+            "match": 2,
+            "mismatch": 1,
+            "omission": 1,
+            "hallucination": 0
+          },
+          "meanSimilarity": 0.7777777777777778
+        },
+        "status": {
+          "precision": 1,
+          "recall": 0.75,
+          "f1": 0.8571428571428571,
+          "counts": {
+            "match": 3,
+            "mismatch": 0,
+            "omission": 1,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "totals.net": {
+          "precision": 1,
+          "recall": 0.75,
+          "f1": 0.8571428571428571,
+          "counts": {
+            "match": 3,
+            "mismatch": 0,
+            "omission": 1,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "totals.tax": {
+          "precision": 1,
+          "recall": 0.75,
+          "f1": 0.8571428571428571,
+          "counts": {
+            "match": 3,
+            "mismatch": 0,
+            "omission": 1,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "totals.total": {
+          "precision": 1,
+          "recall": 0.75,
+          "f1": 0.8571428571428571,
+          "counts": {
+            "match": 3,
+            "mismatch": 0,
+            "omission": 1,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "lineItems[].sku": {
+          "precision": 1,
+          "recall": 0.75,
+          "f1": 0.8571428571428571,
+          "counts": {
+            "match": 6,
+            "mismatch": 0,
+            "omission": 2,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "lineItems[].description": {
+          "precision": 1,
+          "recall": 0.75,
+          "f1": 0.8571428571428571,
+          "counts": {
+            "match": 6,
+            "mismatch": 0,
+            "omission": 2,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "lineItems[].amount": {
+          "precision": 0.8333333333333334,
+          "recall": 0.625,
+          "f1": 0.7142857142857143,
+          "counts": {
+            "match": 5,
+            "mismatch": 1,
+            "omission": 2,
+            "hallucination": 0
+          },
+          "meanSimilarity": 0.9666666666666667
+        }
+      },
+      "fieldTypes": {
+        "string": {
+          "precision": 0.8888888888888888,
+          "recall": 0.6666666666666666,
+          "f1": 0.7619047619047619,
+          "counts": {
+            "match": 16,
+            "mismatch": 2,
+            "omission": 6,
+            "hallucination": 0
+          },
+          "meanSimilarity": 0.9177777777777778
+        },
+        "date": {
+          "precision": 0.6666666666666666,
+          "recall": 0.5,
+          "f1": 0.5714285714285714,
+          "counts": {
+            "match": 2,
+            "mismatch": 1,
+            "omission": 1,
+            "hallucination": 0
+          },
+          "meanSimilarity": 0.7777777777777778
+        },
+        "enum": {
+          "precision": 1,
+          "recall": 0.75,
+          "f1": 0.8571428571428571,
+          "counts": {
+            "match": 3,
+            "mismatch": 0,
+            "omission": 1,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "number": {
+          "precision": 0.9333333333333333,
+          "recall": 0.7,
+          "f1": 0.8,
+          "counts": {
+            "match": 14,
+            "mismatch": 1,
+            "omission": 5,
+            "hallucination": 0
+          },
+          "meanSimilarity": 0.9866666666666667
+        }
+      }
+    },
+    "parser": {
+      "cases": {
+        "total": 3,
+        "scored": 2,
+        "errored": 0,
+        "skipped": 1
+      },
+      "overall": {
+        "precision": 1,
+        "recall": 0.8846153846153846,
+        "f1": 0.9387755102040817,
+        "precision.micro": 1,
+        "recall.micro": 0.8846153846153846,
+        "f1.micro": 0.9387755102040817,
+        "precision.macro": 1,
+        "recall.macro": 0.8846153846153846,
+        "f1.macro": 0.9347826086956521,
+        "exactRate": 0.5,
+        "anls": 0.8846153846153846,
+        "groundedF1": null,
+        "errorRate": 0,
+        "skipRate": 0.3333333333333333,
+        "fallbackRate": 0,
+        "costUsd": null,
+        "tokens": null,
+        "latencyP50": 13.5,
+        "latencyP95": 14.85,
+        "ece": null,
+        "brier": null,
+        "auroc": null,
+        "coverageAtPrecision99": null
+      },
+      "segments": {
+        "header": {
+          "counts": {
+            "match": 8,
+            "mismatch": 0,
+            "omission": 0,
+            "hallucination": 0
+          },
+          "weighted": {
+            "match": 8,
+            "mismatch": 0,
+            "omission": 0,
+            "hallucination": 0
+          },
+          "metrics": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1,
+            "precision.micro": 1,
+            "recall.micro": 1,
+            "f1.micro": 1,
+            "precision.macro": 1,
+            "recall.macro": 1,
+            "f1.macro": 1
+          }
+        },
+        "totals": {
+          "counts": {
+            "match": 6,
+            "mismatch": 0,
+            "omission": 0,
+            "hallucination": 0
+          },
+          "weighted": {
+            "match": 6,
+            "mismatch": 0,
+            "omission": 0,
+            "hallucination": 0
+          },
+          "metrics": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1,
+            "precision.micro": 1,
+            "recall.micro": 1,
+            "f1.micro": 1,
+            "precision.macro": 1,
+            "recall.macro": 1,
+            "f1.macro": 1
+          }
+        },
+        "lineItems": {
+          "counts": {
+            "match": 9,
+            "mismatch": 0,
+            "omission": 3,
+            "hallucination": 0
+          },
+          "weighted": {
+            "match": 9,
+            "mismatch": 0,
+            "omission": 3,
+            "hallucination": 0
+          },
+          "metrics": {
+            "precision": 1,
+            "recall": 0.75,
+            "f1": 0.8571428571428571,
+            "precision.micro": 1,
+            "recall.micro": 0.75,
+            "f1.micro": 0.8571428571428571,
+            "precision.macro": 1,
+            "recall.macro": 0.75,
+            "f1.macro": 0.8333333333333333
+          }
+        }
+      },
+      "slices": {
+        "rendition": {
+          "digital": {
+            "cases": 1,
+            "metrics": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "precision.micro": 1,
+              "recall.micro": 1,
+              "f1.micro": 1,
+              "precision.macro": 1,
+              "recall.macro": 1,
+              "f1.macro": 1,
+              "exactRate": 1,
+              "anls": 1,
+              "groundedF1": null,
+              "errorRate": 0,
+              "skipRate": 0,
+              "fallbackRate": 0,
+              "costUsd": null,
+              "tokens": null,
+              "latencyP50": 12,
+              "latencyP95": 12,
+              "ece": null,
+              "brier": null,
+              "auroc": null,
+              "coverageAtPrecision99": null
+            }
+          },
+          "scan": {
+            "cases": 2,
+            "metrics": {
+              "precision": 1,
+              "recall": 0.7692307692307693,
+              "f1": 0.8695652173913043,
+              "precision.micro": 1,
+              "recall.micro": 0.7692307692307693,
+              "f1.micro": 0.8695652173913043,
+              "precision.macro": 1,
+              "recall.macro": 0.7692307692307693,
+              "f1.macro": 0.8695652173913043,
+              "exactRate": 0,
+              "anls": 0.7692307692307693,
+              "groundedF1": null,
+              "errorRate": 0,
+              "skipRate": 0.5,
+              "fallbackRate": 0,
+              "costUsd": null,
+              "tokens": null,
+              "latencyP50": 15,
+              "latencyP95": 15,
+              "ece": null,
+              "brier": null,
+              "auroc": null,
+              "coverageAtPrecision99": null
+            }
+          }
+        }
+      },
+      "paths": {
+        "issuer": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "counts": {
+            "match": 2,
+            "mismatch": 0,
+            "omission": 0,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "reference": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "counts": {
+            "match": 2,
+            "mismatch": 0,
+            "omission": 0,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "issueDate": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "counts": {
+            "match": 2,
+            "mismatch": 0,
+            "omission": 0,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "status": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "counts": {
+            "match": 2,
+            "mismatch": 0,
+            "omission": 0,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "totals.net": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "counts": {
+            "match": 2,
+            "mismatch": 0,
+            "omission": 0,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "totals.tax": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "counts": {
+            "match": 2,
+            "mismatch": 0,
+            "omission": 0,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "totals.total": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "counts": {
+            "match": 2,
+            "mismatch": 0,
+            "omission": 0,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "lineItems[].sku": {
+          "precision": 1,
+          "recall": 0.75,
+          "f1": 0.8571428571428571,
+          "counts": {
+            "match": 3,
+            "mismatch": 0,
+            "omission": 1,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "lineItems[].description": {
+          "precision": 1,
+          "recall": 0.75,
+          "f1": 0.8571428571428571,
+          "counts": {
+            "match": 3,
+            "mismatch": 0,
+            "omission": 1,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "lineItems[].amount": {
+          "precision": 1,
+          "recall": 0.75,
+          "f1": 0.8571428571428571,
+          "counts": {
+            "match": 3,
+            "mismatch": 0,
+            "omission": 1,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        }
+      },
+      "fieldTypes": {
+        "string": {
+          "precision": 1,
+          "recall": 0.8333333333333334,
+          "f1": 0.9090909090909091,
+          "counts": {
+            "match": 10,
+            "mismatch": 0,
+            "omission": 2,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "date": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "counts": {
+            "match": 2,
+            "mismatch": 0,
+            "omission": 0,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "enum": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "counts": {
+            "match": 2,
+            "mismatch": 0,
+            "omission": 0,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        },
+        "number": {
+          "precision": 1,
+          "recall": 0.9,
+          "f1": 0.9473684210526315,
+          "counts": {
+            "match": 9,
+            "mismatch": 0,
+            "omission": 1,
+            "hallucination": 0
+          },
+          "meanSimilarity": 1
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "caseId": "c1",
+      "experiment": "llm",
+      "epoch": 0,
+      "tags": {
+        "rendition": "digital"
+      },
+      "group": "g1",
+      "slices": {
+        "rendition": "digital"
+      },
+      "startedAt": "2026-10-28T12:00:00.000Z",
+      "ms": 840,
+      "usage": {
+        "inputTokens": 1000,
+        "outputTokens": 200,
+        "costUsd": 0.012
+      },
+      "outcome": "scored",
+      "expected": {
+        "issuer": "Northwind Industrial GmbH",
+        "reference": "INV-2024-0042",
+        "issueDate": "2024-03-05",
+        "status": "due",
+        "totals": {
+          "net": 30,
+          "tax": 5.7,
+          "total": 35.7
+        },
+        "lineItems": [
+          {
+            "sku": "A-100",
+            "description": "Steel bolts",
+            "amount": 10
+          },
+          {
+            "sku": "B-200",
+            "description": "Washers",
+            "amount": 20
+          }
+        ]
+      },
+      "actual": {
+        "issuer": "Northwind Industrial GmbH",
+        "reference": "INV-2024-0042",
+        "issueDate": "2024-03-05",
+        "status": "due",
+        "totals": {
+          "net": 30,
+          "tax": 5.7,
+          "total": 35.7
+        },
+        "lineItems": [
+          {
+            "sku": "A-100",
+            "description": "Steel bolts",
+            "amount": 10
+          },
+          {
+            "sku": "B-200",
+            "description": "Washers",
+            "amount": 20
+          }
+        ]
+      },
+      "score": {
+        "fields": [
+          {
+            "path": "issuer",
+            "pattern": "issuer",
+            "segment": "header",
+            "status": "match",
+            "expected": "Northwind Industrial GmbH",
+            "actual": "Northwind Industrial GmbH",
+            "comparator": "text",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "reference",
+            "pattern": "reference",
+            "segment": "header",
+            "status": "match",
+            "expected": "INV-2024-0042",
+            "actual": "INV-2024-0042",
+            "comparator": "identifier",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "issueDate",
+            "pattern": "issueDate",
+            "segment": "header",
+            "status": "match",
+            "expected": "2024-03-05",
+            "actual": "2024-03-05",
+            "comparator": "date",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "status",
+            "pattern": "status",
+            "segment": "header",
+            "status": "match",
+            "expected": "due",
+            "actual": "due",
+            "comparator": "exact",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.net",
+            "pattern": "totals.net",
+            "segment": "totals",
+            "status": "match",
+            "expected": 30,
+            "actual": 30,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.tax",
+            "pattern": "totals.tax",
+            "segment": "totals",
+            "status": "match",
+            "expected": 5.7,
+            "actual": 5.7,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.total",
+            "pattern": "totals.total",
+            "segment": "totals",
+            "status": "match",
+            "expected": 35.7,
+            "actual": 35.7,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[0].sku",
+            "pattern": "lineItems[].sku",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "A-100",
+            "actual": "A-100",
+            "comparator": "identifier",
+            "similarity": 1,
+            "weight": 1,
+            "critical": true
+          },
+          {
+            "path": "lineItems[0].description",
+            "pattern": "lineItems[].description",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "Steel bolts",
+            "actual": "Steel bolts",
+            "comparator": "text",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[0].amount",
+            "pattern": "lineItems[].amount",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": 10,
+            "actual": 10,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[1].sku",
+            "pattern": "lineItems[].sku",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "B-200",
+            "actual": "B-200",
+            "comparator": "identifier",
+            "similarity": 1,
+            "weight": 1,
+            "critical": true
+          },
+          {
+            "path": "lineItems[1].description",
+            "pattern": "lineItems[].description",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "Washers",
+            "actual": "Washers",
+            "comparator": "text",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[1].amount",
+            "pattern": "lineItems[].amount",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": 20,
+            "actual": 20,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          }
+        ],
+        "arrays": [
+          {
+            "path": "lineItems",
+            "pattern": "lineItems",
+            "algorithm": "exact-key",
+            "expected": 2,
+            "actual": 2,
+            "matched": 2,
+            "missing": 0,
+            "extra": 0,
+            "outOfOrder": 0,
+            "splits": [],
+            "merges": []
+          }
+        ],
+        "assertions": [
+          {
+            "id": "sum(lineItems[].amount) = totals.net",
+            "status": "pass"
+          }
+        ],
+        "counts": {
+          "match": 13,
+          "mismatch": 0,
+          "omission": 0,
+          "hallucination": 0
+        },
+        "weighted": {
+          "match": 13,
+          "mismatch": 0,
+          "omission": 0,
+          "hallucination": 0
+        },
+        "metrics": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "exact": true,
+          "anls": 1,
+          "critical": true
+        },
+        "segments": {
+          "header": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1,
+            "counts": {
+              "match": 4,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 4,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            }
+          },
+          "totals": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1,
+            "counts": {
+              "match": 3,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 3,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            }
+          },
+          "lineItems": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1,
+            "counts": {
+              "match": 6,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 6,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            }
+          }
+        }
+      },
+      "values": {
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "precision.micro": 1,
+        "recall.micro": 1,
+        "f1.micro": 1,
+        "precision.macro": 1,
+        "recall.macro": 1,
+        "f1.macro": 1,
+        "exactRate": 1,
+        "anls": 1,
+        "errorRate": 0,
+        "skipRate": 0,
+        "fallbackRate": 0,
+        "costUsd": 0.012,
+        "tokens": 1200,
+        "latencyP50": 840
+      }
+    },
+    {
+      "caseId": "c2",
+      "experiment": "llm",
+      "epoch": 0,
+      "tags": {
+        "rendition": "scan"
+      },
+      "group": "g1",
+      "slices": {
+        "rendition": "scan"
+      },
+      "startedAt": "2026-10-28T12:00:00.000Z",
+      "ms": 1520,
+      "usage": {
+        "inputTokens": 1500,
+        "outputTokens": 300,
+        "costUsd": 0.018
+      },
+      "fallback": true,
+      "outcome": "scored",
+      "expected": {
+        "issuer": "Northwind Industrial GmbH",
+        "reference": "INV-2024-0042",
+        "issueDate": "2024-03-05",
+        "status": "due",
+        "totals": {
+          "net": 30,
+          "tax": 5.7,
+          "total": 35.7
+        },
+        "lineItems": [
+          {
+            "sku": "A-100",
+            "description": "Steel bolts",
+            "amount": 10
+          },
+          {
+            "sku": "B-200",
+            "description": "Washers",
+            "amount": 20
+          }
+        ]
+      },
+      "actual": {
+        "issuer": "Southwind Trading",
+        "reference": "INV-2024-0042",
+        "issueDate": "2024-03-05",
+        "status": "due",
+        "totals": {
+          "net": 30,
+          "tax": 5.7,
+          "total": 35.7
+        },
+        "lineItems": [
+          {
+            "sku": "A-100",
+            "description": "Steel bolts",
+            "amount": 10
+          },
+          {
+            "sku": "B-200",
+            "description": "Washers",
+            "amount": 25
+          }
+        ]
+      },
+      "score": {
+        "fields": [
+          {
+            "path": "issuer",
+            "pattern": "issuer",
+            "segment": "header",
+            "status": "mismatch",
+            "expected": "Northwind Industrial GmbH",
+            "actual": "Southwind Trading",
+            "comparator": "text",
+            "similarity": 0.43999999999999995,
+            "weight": 1
+          },
+          {
+            "path": "reference",
+            "pattern": "reference",
+            "segment": "header",
+            "status": "match",
+            "expected": "INV-2024-0042",
+            "actual": "INV-2024-0042",
+            "comparator": "identifier",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "issueDate",
+            "pattern": "issueDate",
+            "segment": "header",
+            "status": "match",
+            "expected": "2024-03-05",
+            "actual": "2024-03-05",
+            "comparator": "date",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "status",
+            "pattern": "status",
+            "segment": "header",
+            "status": "match",
+            "expected": "due",
+            "actual": "due",
+            "comparator": "exact",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.net",
+            "pattern": "totals.net",
+            "segment": "totals",
+            "status": "match",
+            "expected": 30,
+            "actual": 30,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.tax",
+            "pattern": "totals.tax",
+            "segment": "totals",
+            "status": "match",
+            "expected": 5.7,
+            "actual": 5.7,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.total",
+            "pattern": "totals.total",
+            "segment": "totals",
+            "status": "match",
+            "expected": 35.7,
+            "actual": 35.7,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[0].sku",
+            "pattern": "lineItems[].sku",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "A-100",
+            "actual": "A-100",
+            "comparator": "identifier",
+            "similarity": 1,
+            "weight": 1,
+            "critical": true
+          },
+          {
+            "path": "lineItems[0].description",
+            "pattern": "lineItems[].description",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "Steel bolts",
+            "actual": "Steel bolts",
+            "comparator": "text",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[0].amount",
+            "pattern": "lineItems[].amount",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": 10,
+            "actual": 10,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[1].sku",
+            "pattern": "lineItems[].sku",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "B-200",
+            "actual": "B-200",
+            "comparator": "identifier",
+            "similarity": 1,
+            "weight": 1,
+            "critical": true
+          },
+          {
+            "path": "lineItems[1].description",
+            "pattern": "lineItems[].description",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "Washers",
+            "actual": "Washers",
+            "comparator": "text",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[1].amount",
+            "pattern": "lineItems[].amount",
+            "segment": "lineItems",
+            "status": "mismatch",
+            "expected": 20,
+            "actual": 25,
+            "comparator": "number",
+            "similarity": 0.8,
+            "weight": 1
+          }
+        ],
+        "arrays": [
+          {
+            "path": "lineItems",
+            "pattern": "lineItems",
+            "algorithm": "exact-key",
+            "expected": 2,
+            "actual": 2,
+            "matched": 2,
+            "missing": 0,
+            "extra": 0,
+            "outOfOrder": 0,
+            "splits": [],
+            "merges": []
+          }
+        ],
+        "assertions": [
+          {
+            "id": "sum(lineItems[].amount) = totals.net",
+            "status": "fail",
+            "message": "lineItems[].amount sums to 35, not 30",
+            "expected": 30,
+            "actual": 35
+          }
+        ],
+        "counts": {
+          "match": 11,
+          "mismatch": 2,
+          "omission": 0,
+          "hallucination": 0
+        },
+        "weighted": {
+          "match": 11,
+          "mismatch": 2,
+          "omission": 0,
+          "hallucination": 0
+        },
+        "metrics": {
+          "precision": 0.8461538461538461,
+          "recall": 0.8461538461538461,
+          "f1": 0.8461538461538461,
+          "exact": false,
+          "anls": 0.8461538461538461,
+          "critical": true
+        },
+        "segments": {
+          "header": {
+            "precision": 0.75,
+            "recall": 0.75,
+            "f1": 0.75,
+            "counts": {
+              "match": 3,
+              "mismatch": 1,
+              "omission": 0,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 3,
+              "mismatch": 1,
+              "omission": 0,
+              "hallucination": 0
+            }
+          },
+          "totals": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1,
+            "counts": {
+              "match": 3,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 3,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            }
+          },
+          "lineItems": {
+            "precision": 0.8333333333333334,
+            "recall": 0.8333333333333334,
+            "f1": 0.8333333333333334,
+            "counts": {
+              "match": 5,
+              "mismatch": 1,
+              "omission": 0,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 5,
+              "mismatch": 1,
+              "omission": 0,
+              "hallucination": 0
+            }
+          }
+        }
+      },
+      "values": {
+        "precision": 0.8461538461538461,
+        "recall": 0.8461538461538461,
+        "f1": 0.8461538461538461,
+        "precision.micro": 0.8461538461538461,
+        "recall.micro": 0.8461538461538461,
+        "f1.micro": 0.8461538461538461,
+        "precision.macro": 0.8461538461538461,
+        "recall.macro": 0.8461538461538461,
+        "f1.macro": 0.8461538461538461,
+        "exactRate": 0,
+        "anls": 0.8461538461538461,
+        "errorRate": 0,
+        "skipRate": 0,
+        "fallbackRate": 1,
+        "costUsd": 0.018,
+        "tokens": 1800,
+        "latencyP50": 1520
+      }
+    },
+    {
+      "caseId": "c3",
+      "experiment": "llm",
+      "epoch": 0,
+      "tags": {
+        "rendition": "scan"
+      },
+      "group": "g2",
+      "slices": {
+        "rendition": "scan"
+      },
+      "startedAt": "2026-10-28T12:00:00.000Z",
+      "ms": 300,
+      "outcome": "errored",
+      "expected": {
+        "issuer": "Northwind Industrial GmbH",
+        "reference": "INV-2024-0042",
+        "issueDate": "2024-03-05",
+        "status": "due",
+        "totals": {
+          "net": 30,
+          "tax": 5.7,
+          "total": 35.7
+        },
+        "lineItems": [
+          {
+            "sku": "A-100",
+            "description": "Steel bolts",
+            "amount": 10
+          },
+          {
+            "sku": "B-200",
+            "description": "Washers",
+            "amount": 20
+          }
+        ]
+      },
+      "error": {
+        "name": "ExtractionFailedError",
+        "code": "EXTRACTION_FAILED",
+        "message": "Every extraction strategy failed."
+      },
+      "omitted": {
+        "fields": 13,
+        "weight": 13,
+        "segments": {
+          "header": {
+            "fields": 4,
+            "weight": 4
+          },
+          "totals": {
+            "fields": 3,
+            "weight": 3
+          },
+          "lineItems": {
+            "fields": 6,
+            "weight": 6
+          }
+        },
+        "paths": {
+          "issuer": {
+            "fields": 1,
+            "weight": 1
+          },
+          "reference": {
+            "fields": 1,
+            "weight": 1
+          },
+          "issueDate": {
+            "fields": 1,
+            "weight": 1
+          },
+          "status": {
+            "fields": 1,
+            "weight": 1
+          },
+          "totals.net": {
+            "fields": 1,
+            "weight": 1
+          },
+          "totals.tax": {
+            "fields": 1,
+            "weight": 1
+          },
+          "totals.total": {
+            "fields": 1,
+            "weight": 1
+          },
+          "lineItems[].sku": {
+            "fields": 2,
+            "weight": 2
+          },
+          "lineItems[].description": {
+            "fields": 2,
+            "weight": 2
+          },
+          "lineItems[].amount": {
+            "fields": 2,
+            "weight": 2
+          }
+        }
+      },
+      "values": {
+        "precision": null,
+        "recall": 0,
+        "f1": 0,
+        "precision.micro": null,
+        "recall.micro": null,
+        "f1.micro": null,
+        "precision.macro": null,
+        "recall.macro": null,
+        "f1.macro": null,
+        "exactRate": 0,
+        "anls": null,
+        "errorRate": 1,
+        "skipRate": 0,
+        "fallbackRate": 0,
+        "costUsd": null,
+        "tokens": null,
+        "latencyP50": 300
+      }
+    },
+    {
+      "caseId": "=HYPERLINK(\"x\")|<b>&'c'",
+      "experiment": "llm",
+      "epoch": 0,
+      "tags": {
+        "rendition": "digital"
+      },
+      "group": "g3",
+      "slices": {
+        "rendition": "digital"
+      },
+      "startedAt": "2026-10-28T12:00:00.000Z",
+      "ms": 910,
+      "outcome": "scored",
+      "expected": {
+        "issuer": "Northwind Industrial GmbH",
+        "reference": "INV-2024-0042",
+        "issueDate": "2024-03-05",
+        "status": "due",
+        "totals": {
+          "net": 30,
+          "tax": 5.7,
+          "total": 35.7
+        },
+        "lineItems": [
+          {
+            "sku": "A-100",
+            "description": "Steel bolts",
+            "amount": 10
+          },
+          {
+            "sku": "B-200",
+            "description": "Washers",
+            "amount": 20
+          }
+        ]
+      },
+      "actual": {
+        "issuer": "=SUM(A1)",
+        "reference": "INV-2024-0042",
+        "issueDate": "2024-05-03",
+        "status": "due",
+        "totals": {
+          "net": 30,
+          "tax": 5.7,
+          "total": 35.7
+        },
+        "lineItems": [
+          {
+            "sku": "A-100",
+            "description": "Steel bolts",
+            "amount": 10
+          },
+          {
+            "sku": "B-200",
+            "description": "Washers",
+            "amount": 20
+          }
+        ]
+      },
+      "score": {
+        "fields": [
+          {
+            "path": "issuer",
+            "pattern": "issuer",
+            "segment": "header",
+            "status": "mismatch",
+            "expected": "Northwind Industrial GmbH",
+            "actual": "=SUM(A1)",
+            "comparator": "text",
+            "similarity": 0.07999999999999996,
+            "weight": 1,
+            "note": "digits differ"
+          },
+          {
+            "path": "reference",
+            "pattern": "reference",
+            "segment": "header",
+            "status": "match",
+            "expected": "INV-2024-0042",
+            "actual": "INV-2024-0042",
+            "comparator": "identifier",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "issueDate",
+            "pattern": "issueDate",
+            "segment": "header",
+            "status": "mismatch",
+            "expected": "2024-03-05",
+            "actual": "2024-05-03",
+            "comparator": "date",
+            "similarity": 0.3333333333333333,
+            "weight": 1,
+            "hint": {
+              "kind": "date-format",
+              "detail": "day and month swapped"
+            }
+          },
+          {
+            "path": "status",
+            "pattern": "status",
+            "segment": "header",
+            "status": "match",
+            "expected": "due",
+            "actual": "due",
+            "comparator": "exact",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.net",
+            "pattern": "totals.net",
+            "segment": "totals",
+            "status": "match",
+            "expected": 30,
+            "actual": 30,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.tax",
+            "pattern": "totals.tax",
+            "segment": "totals",
+            "status": "match",
+            "expected": 5.7,
+            "actual": 5.7,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.total",
+            "pattern": "totals.total",
+            "segment": "totals",
+            "status": "match",
+            "expected": 35.7,
+            "actual": 35.7,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[0].sku",
+            "pattern": "lineItems[].sku",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "A-100",
+            "actual": "A-100",
+            "comparator": "identifier",
+            "similarity": 1,
+            "weight": 1,
+            "critical": true
+          },
+          {
+            "path": "lineItems[0].description",
+            "pattern": "lineItems[].description",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "Steel bolts",
+            "actual": "Steel bolts",
+            "comparator": "text",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[0].amount",
+            "pattern": "lineItems[].amount",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": 10,
+            "actual": 10,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[1].sku",
+            "pattern": "lineItems[].sku",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "B-200",
+            "actual": "B-200",
+            "comparator": "identifier",
+            "similarity": 1,
+            "weight": 1,
+            "critical": true
+          },
+          {
+            "path": "lineItems[1].description",
+            "pattern": "lineItems[].description",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "Washers",
+            "actual": "Washers",
+            "comparator": "text",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[1].amount",
+            "pattern": "lineItems[].amount",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": 20,
+            "actual": 20,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          }
+        ],
+        "arrays": [
+          {
+            "path": "lineItems",
+            "pattern": "lineItems",
+            "algorithm": "exact-key",
+            "expected": 2,
+            "actual": 2,
+            "matched": 2,
+            "missing": 0,
+            "extra": 0,
+            "outOfOrder": 0,
+            "splits": [],
+            "merges": []
+          }
+        ],
+        "assertions": [
+          {
+            "id": "sum(lineItems[].amount) = totals.net",
+            "status": "pass"
+          }
+        ],
+        "counts": {
+          "match": 11,
+          "mismatch": 2,
+          "omission": 0,
+          "hallucination": 0
+        },
+        "weighted": {
+          "match": 11,
+          "mismatch": 2,
+          "omission": 0,
+          "hallucination": 0
+        },
+        "metrics": {
+          "precision": 0.8461538461538461,
+          "recall": 0.8461538461538461,
+          "f1": 0.8461538461538461,
+          "exact": false,
+          "anls": 0.9076923076923078,
+          "critical": true
+        },
+        "segments": {
+          "header": {
+            "precision": 0.5,
+            "recall": 0.5,
+            "f1": 0.5,
+            "counts": {
+              "match": 2,
+              "mismatch": 2,
+              "omission": 0,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 2,
+              "mismatch": 2,
+              "omission": 0,
+              "hallucination": 0
+            }
+          },
+          "totals": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1,
+            "counts": {
+              "match": 3,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 3,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            }
+          },
+          "lineItems": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1,
+            "counts": {
+              "match": 6,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 6,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            }
+          }
+        }
+      },
+      "values": {
+        "precision": 0.8461538461538461,
+        "recall": 0.8461538461538461,
+        "f1": 0.8461538461538461,
+        "precision.micro": 0.8461538461538461,
+        "recall.micro": 0.8461538461538461,
+        "f1.micro": 0.8461538461538461,
+        "precision.macro": 0.8461538461538461,
+        "recall.macro": 0.8461538461538461,
+        "f1.macro": 0.8461538461538461,
+        "exactRate": 0,
+        "anls": 0.9076923076923078,
+        "errorRate": 0,
+        "skipRate": 0,
+        "fallbackRate": 0,
+        "costUsd": null,
+        "tokens": null,
+        "latencyP50": 910
+      }
+    },
+    {
+      "caseId": "c1",
+      "experiment": "parser",
+      "epoch": 0,
+      "tags": {
+        "rendition": "digital"
+      },
+      "group": "g1",
+      "slices": {
+        "rendition": "digital"
+      },
+      "startedAt": "2026-10-28T12:00:00.000Z",
+      "ms": 12,
+      "outcome": "scored",
+      "expected": {
+        "issuer": "Northwind Industrial GmbH",
+        "reference": "INV-2024-0042",
+        "issueDate": "2024-03-05",
+        "status": "due",
+        "totals": {
+          "net": 30,
+          "tax": 5.7,
+          "total": 35.7
+        },
+        "lineItems": [
+          {
+            "sku": "A-100",
+            "description": "Steel bolts",
+            "amount": 10
+          },
+          {
+            "sku": "B-200",
+            "description": "Washers",
+            "amount": 20
+          }
+        ]
+      },
+      "actual": {
+        "issuer": "Northwind Industrial GmbH",
+        "reference": "INV-2024-0042",
+        "issueDate": "2024-03-05",
+        "status": "due",
+        "totals": {
+          "net": 30,
+          "tax": 5.7,
+          "total": 35.7
+        },
+        "lineItems": [
+          {
+            "sku": "A-100",
+            "description": "Steel bolts",
+            "amount": 10
+          },
+          {
+            "sku": "B-200",
+            "description": "Washers",
+            "amount": 20
+          }
+        ]
+      },
+      "score": {
+        "fields": [
+          {
+            "path": "issuer",
+            "pattern": "issuer",
+            "segment": "header",
+            "status": "match",
+            "expected": "Northwind Industrial GmbH",
+            "actual": "Northwind Industrial GmbH",
+            "comparator": "text",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "reference",
+            "pattern": "reference",
+            "segment": "header",
+            "status": "match",
+            "expected": "INV-2024-0042",
+            "actual": "INV-2024-0042",
+            "comparator": "identifier",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "issueDate",
+            "pattern": "issueDate",
+            "segment": "header",
+            "status": "match",
+            "expected": "2024-03-05",
+            "actual": "2024-03-05",
+            "comparator": "date",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "status",
+            "pattern": "status",
+            "segment": "header",
+            "status": "match",
+            "expected": "due",
+            "actual": "due",
+            "comparator": "exact",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.net",
+            "pattern": "totals.net",
+            "segment": "totals",
+            "status": "match",
+            "expected": 30,
+            "actual": 30,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.tax",
+            "pattern": "totals.tax",
+            "segment": "totals",
+            "status": "match",
+            "expected": 5.7,
+            "actual": 5.7,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.total",
+            "pattern": "totals.total",
+            "segment": "totals",
+            "status": "match",
+            "expected": 35.7,
+            "actual": 35.7,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[0].sku",
+            "pattern": "lineItems[].sku",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "A-100",
+            "actual": "A-100",
+            "comparator": "identifier",
+            "similarity": 1,
+            "weight": 1,
+            "critical": true
+          },
+          {
+            "path": "lineItems[0].description",
+            "pattern": "lineItems[].description",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "Steel bolts",
+            "actual": "Steel bolts",
+            "comparator": "text",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[0].amount",
+            "pattern": "lineItems[].amount",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": 10,
+            "actual": 10,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[1].sku",
+            "pattern": "lineItems[].sku",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "B-200",
+            "actual": "B-200",
+            "comparator": "identifier",
+            "similarity": 1,
+            "weight": 1,
+            "critical": true
+          },
+          {
+            "path": "lineItems[1].description",
+            "pattern": "lineItems[].description",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "Washers",
+            "actual": "Washers",
+            "comparator": "text",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[1].amount",
+            "pattern": "lineItems[].amount",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": 20,
+            "actual": 20,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          }
+        ],
+        "arrays": [
+          {
+            "path": "lineItems",
+            "pattern": "lineItems",
+            "algorithm": "exact-key",
+            "expected": 2,
+            "actual": 2,
+            "matched": 2,
+            "missing": 0,
+            "extra": 0,
+            "outOfOrder": 0,
+            "splits": [],
+            "merges": []
+          }
+        ],
+        "assertions": [
+          {
+            "id": "sum(lineItems[].amount) = totals.net",
+            "status": "pass"
+          }
+        ],
+        "counts": {
+          "match": 13,
+          "mismatch": 0,
+          "omission": 0,
+          "hallucination": 0
+        },
+        "weighted": {
+          "match": 13,
+          "mismatch": 0,
+          "omission": 0,
+          "hallucination": 0
+        },
+        "metrics": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "exact": true,
+          "anls": 1,
+          "critical": true
+        },
+        "segments": {
+          "header": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1,
+            "counts": {
+              "match": 4,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 4,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            }
+          },
+          "totals": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1,
+            "counts": {
+              "match": 3,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 3,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            }
+          },
+          "lineItems": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1,
+            "counts": {
+              "match": 6,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 6,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            }
+          }
+        }
+      },
+      "values": {
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "precision.micro": 1,
+        "recall.micro": 1,
+        "f1.micro": 1,
+        "precision.macro": 1,
+        "recall.macro": 1,
+        "f1.macro": 1,
+        "exactRate": 1,
+        "anls": 1,
+        "errorRate": 0,
+        "skipRate": 0,
+        "fallbackRate": 0,
+        "costUsd": null,
+        "tokens": null,
+        "latencyP50": 12
+      }
+    },
+    {
+      "caseId": "c2",
+      "experiment": "parser",
+      "epoch": 0,
+      "tags": {
+        "rendition": "scan"
+      },
+      "group": "g1",
+      "slices": {
+        "rendition": "scan"
+      },
+      "startedAt": "2026-10-28T12:00:00.000Z",
+      "ms": 1,
+      "outcome": "skipped",
+      "reason": "scanned input",
+      "values": {
+        "precision": null,
+        "recall": null,
+        "f1": null,
+        "precision.micro": null,
+        "recall.micro": null,
+        "f1.micro": null,
+        "precision.macro": null,
+        "recall.macro": null,
+        "f1.macro": null,
+        "exactRate": null,
+        "anls": null,
+        "errorRate": 0,
+        "skipRate": 1,
+        "fallbackRate": null,
+        "costUsd": null,
+        "tokens": null,
+        "latencyP50": null
+      }
+    },
+    {
+      "caseId": "c3",
+      "experiment": "parser",
+      "epoch": 0,
+      "tags": {
+        "rendition": "scan"
+      },
+      "group": "g2",
+      "slices": {
+        "rendition": "scan"
+      },
+      "startedAt": "2026-10-28T12:00:00.000Z",
+      "ms": 15,
+      "outcome": "scored",
+      "expected": {
+        "issuer": "Northwind Industrial GmbH",
+        "reference": "INV-2024-0042",
+        "issueDate": "2024-03-05",
+        "status": "due",
+        "totals": {
+          "net": 30,
+          "tax": 5.7,
+          "total": 35.7
+        },
+        "lineItems": [
+          {
+            "sku": "A-100",
+            "description": "Steel bolts",
+            "amount": 10
+          },
+          {
+            "sku": "B-200",
+            "description": "Washers",
+            "amount": 20
+          }
+        ]
+      },
+      "actual": {
+        "issuer": "Northwind Industrial GmbH",
+        "reference": "INV-2024-0042",
+        "issueDate": "2024-03-05",
+        "status": "due",
+        "totals": {
+          "net": 30,
+          "tax": 5.7,
+          "total": 35.7
+        },
+        "lineItems": [
+          {
+            "sku": "A-100",
+            "description": "Steel bolts",
+            "amount": 10
+          }
+        ]
+      },
+      "score": {
+        "fields": [
+          {
+            "path": "issuer",
+            "pattern": "issuer",
+            "segment": "header",
+            "status": "match",
+            "expected": "Northwind Industrial GmbH",
+            "actual": "Northwind Industrial GmbH",
+            "comparator": "text",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "reference",
+            "pattern": "reference",
+            "segment": "header",
+            "status": "match",
+            "expected": "INV-2024-0042",
+            "actual": "INV-2024-0042",
+            "comparator": "identifier",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "issueDate",
+            "pattern": "issueDate",
+            "segment": "header",
+            "status": "match",
+            "expected": "2024-03-05",
+            "actual": "2024-03-05",
+            "comparator": "date",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "status",
+            "pattern": "status",
+            "segment": "header",
+            "status": "match",
+            "expected": "due",
+            "actual": "due",
+            "comparator": "exact",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.net",
+            "pattern": "totals.net",
+            "segment": "totals",
+            "status": "match",
+            "expected": 30,
+            "actual": 30,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.tax",
+            "pattern": "totals.tax",
+            "segment": "totals",
+            "status": "match",
+            "expected": 5.7,
+            "actual": 5.7,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "totals.total",
+            "pattern": "totals.total",
+            "segment": "totals",
+            "status": "match",
+            "expected": 35.7,
+            "actual": 35.7,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[0].sku",
+            "pattern": "lineItems[].sku",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "A-100",
+            "actual": "A-100",
+            "comparator": "identifier",
+            "similarity": 1,
+            "weight": 1,
+            "critical": true
+          },
+          {
+            "path": "lineItems[0].description",
+            "pattern": "lineItems[].description",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": "Steel bolts",
+            "actual": "Steel bolts",
+            "comparator": "text",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[0].amount",
+            "pattern": "lineItems[].amount",
+            "segment": "lineItems",
+            "status": "match",
+            "expected": 10,
+            "actual": 10,
+            "comparator": "number",
+            "similarity": 1,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[1].sku",
+            "pattern": "lineItems[].sku",
+            "segment": "lineItems",
+            "status": "omission",
+            "expected": "B-200",
+            "actual": null,
+            "comparator": "identifier",
+            "similarity": 0,
+            "weight": 1,
+            "critical": true
+          },
+          {
+            "path": "lineItems[1].description",
+            "pattern": "lineItems[].description",
+            "segment": "lineItems",
+            "status": "omission",
+            "expected": "Washers",
+            "actual": null,
+            "comparator": "text",
+            "similarity": 0,
+            "weight": 1
+          },
+          {
+            "path": "lineItems[1].amount",
+            "pattern": "lineItems[].amount",
+            "segment": "lineItems",
+            "status": "omission",
+            "expected": 20,
+            "actual": null,
+            "comparator": "number",
+            "similarity": 0,
+            "weight": 1
+          }
+        ],
+        "arrays": [
+          {
+            "path": "lineItems",
+            "pattern": "lineItems",
+            "algorithm": "exact-key",
+            "expected": 2,
+            "actual": 1,
+            "matched": 1,
+            "missing": 1,
+            "extra": 0,
+            "outOfOrder": 0,
+            "splits": [],
+            "merges": []
+          }
+        ],
+        "assertions": [
+          {
+            "id": "sum(lineItems[].amount) = totals.net",
+            "status": "fail",
+            "message": "lineItems[].amount sums to 10, not 30",
+            "expected": 30,
+            "actual": 10
+          }
+        ],
+        "counts": {
+          "match": 10,
+          "mismatch": 0,
+          "omission": 3,
+          "hallucination": 0
+        },
+        "weighted": {
+          "match": 10,
+          "mismatch": 0,
+          "omission": 3,
+          "hallucination": 0
+        },
+        "metrics": {
+          "precision": 1,
+          "recall": 0.7692307692307693,
+          "f1": 0.8695652173913043,
+          "exact": false,
+          "anls": 0.7692307692307693,
+          "critical": false
+        },
+        "segments": {
+          "header": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1,
+            "counts": {
+              "match": 4,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 4,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            }
+          },
+          "totals": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1,
+            "counts": {
+              "match": 3,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 3,
+              "mismatch": 0,
+              "omission": 0,
+              "hallucination": 0
+            }
+          },
+          "lineItems": {
+            "precision": 1,
+            "recall": 0.5,
+            "f1": 0.6666666666666666,
+            "counts": {
+              "match": 3,
+              "mismatch": 0,
+              "omission": 3,
+              "hallucination": 0
+            },
+            "weighted": {
+              "match": 3,
+              "mismatch": 0,
+              "omission": 3,
+              "hallucination": 0
+            }
+          }
+        }
+      },
+      "values": {
+        "precision": 1,
+        "recall": 0.7692307692307693,
+        "f1": 0.8695652173913043,
+        "precision.micro": 1,
+        "recall.micro": 0.7692307692307693,
+        "f1.micro": 0.8695652173913043,
+        "precision.macro": 1,
+        "recall.macro": 0.7692307692307693,
+        "f1.macro": 0.8695652173913043,
+        "exactRate": 0,
+        "anls": 0.7692307692307693,
+        "errorRate": 0,
+        "skipRate": 0,
+        "fallbackRate": 0,
+        "costUsd": null,
+        "tokens": null,
+        "latencyP50": 15
+      }
+    }
+  ],
+  "calibration": {
+    "bins": 2,
+    "by": "pattern",
+    "targetPrecision": 0.95,
+    "minSupport": 1,
+    "experiments": {
+      "llm": {
+        "graded": 26,
+        "omissions": 2,
+        "overall": {
+          "support": 20,
+          "groundTruth": 25,
+          "scores": [
+            {
+              "confidence": 0.9,
+              "count": 10,
+              "correct": 10
+            },
+            {
+              "confidence": 0.6,
+              "count": 6,
+              "correct": 5
+            },
+            {
+              "confidence": 0.3,
+              "count": 4,
+              "correct": 1
+            }
+          ],
+          "bins": [
+            {
+              "lower": 0,
+              "upper": 0.5,
+              "count": 4,
+              "correct": 1,
+              "confidenceSum": 1.2,
+              "confidenceSquaredSum": 0.4,
+              "correctConfidenceSum": 0.3
+            },
+            {
+              "lower": 0.5,
+              "upper": 1,
+              "count": 16,
+              "correct": 15,
+              "confidenceSum": 14.4,
+              "confidenceSquaredSum": 13,
+              "correctConfidenceSum": 13.6
+            }
+          ],
+          "ece": 0.045,
+          "mce": 0.1,
+          "brier": 0.08,
+          "auroc": 0.91,
+          "averagePrecision": 0.97,
+          "riskCoverage": [
+            {
+              "threshold": 0.5,
+              "coverage": 0.8,
+              "accuracy": 0.9375
+            },
+            {
+              "threshold": 0.9,
+              "coverage": 0.5,
+              "accuracy": 1
+            }
+          ],
+          "accuracyAtCoverage": {
+            "1": 0.8,
+            "0.5": 1,
+            "0.8": 0.9375
+          },
+          "coverageAtAccuracy": {
+            "1": 0.5,
+            "0.9": 0.8,
+            "0.99": 0.5
+          },
+          "coverageAtPrecision": 0.6,
+          "threshold": 0.9
+        },
+        "groups": {}
+      }
+    }
+  },
+  "grounding": {
+    "iou": 0.5,
+    "level": "box",
+    "experiments": {
+      "llm": {
+        "cases": {
+          "labelled": 2,
+          "unlabelled": 1
+        },
+        "overall": {
+          "predicted": 7,
+          "labelled": 8,
+          "correct": 7,
+          "supported": 6,
+          "grounded": 6,
+          "withEvidence": 7,
+          "hallucinated": 1,
+          "groundedPrecision": 0.8571428571428571,
+          "groundedRecall": 0.75,
+          "groundedF1": 0.8
+        },
+        "patterns": {
+          "issuer": {
+            "predicted": 2,
+            "labelled": 2,
+            "correct": 2,
+            "supported": 2,
+            "grounded": 2,
+            "withEvidence": 2,
+            "hallucinated": 0,
+            "groundedPrecision": 1,
+            "groundedRecall": 1,
+            "groundedF1": 1
+          }
+        },
+        "segments": {
+          "header": {
+            "predicted": 2,
+            "labelled": 2,
+            "correct": 2,
+            "supported": 2,
+            "grounded": 2,
+            "withEvidence": 2,
+            "hallucinated": 0,
+            "groundedPrecision": 1,
+            "groundedRecall": 1,
+            "groundedF1": 1
+          }
+        }
+      }
+    }
+  },
+  "comparison": {
+    "baselineRunId": "run-0",
+    "candidateRunId": "run-1",
+    "settings": {
+      "test": "auto",
+      "resamples": 10000,
+      "seed": "eval",
+      "alpha": 0.05,
+      "cluster": "group"
+    },
+    "compatible": {
+      "dataset": true,
+      "spec": true,
+      "warnings": []
+    },
+    "experiments": {
+      "llm": {
+        "baseline": "llm",
+        "candidate": "llm",
+        "pairs": {
+          "paired": 3,
+          "baselineOnly": 0,
+          "candidateOnly": 1
+        },
+        "metrics": [
+          {
+            "metric": "f1",
+            "baseline": 0.8,
+            "candidate": 0.82,
+            "summaryDelta": 0.02,
+            "pairedDelta": -0.05,
+            "ci": [
+              -0.09,
+              -0.01
+            ],
+            "p": 0.0004,
+            "test": "bootstrap",
+            "verdict": "regressed",
+            "n": 3
+          },
+          {
+            "metric": "exactRate",
+            "baseline": 0.25,
+            "candidate": 0.5,
+            "summaryDelta": 0.25,
+            "pairedDelta": 0.25,
+            "ci": null,
+            "p": 0.5,
+            "test": "mcnemar",
+            "verdict": "inconclusive",
+            "n": 4
+          }
+        ],
+        "segments": {
+          "totals": [
+            {
+              "metric": "f1",
+              "baseline": 1,
+              "candidate": 1,
+              "summaryDelta": 0,
+              "pairedDelta": 0,
+              "ci": null,
+              "p": null,
+              "test": "none",
+              "verdict": "unchanged",
+              "n": 3
+            }
+          ]
+        },
+        "slices": {},
+        "paths": [
+          {
+            "pattern": "lineItems[].amount",
+            "counts": {
+              "baseline": {
+                "match": 2,
+                "mismatch": 0,
+                "omission": 0,
+                "hallucination": 0
+              },
+              "candidate": {
+                "match": 1,
+                "mismatch": 1,
+                "omission": 0,
+                "hallucination": 0
+              }
+            },
+            "f1": {
+              "metric": "f1",
+              "baseline": 1,
+              "candidate": 0.5,
+              "summaryDelta": -0.5,
+              "pairedDelta": -0.5,
+              "ci": null,
+              "p": null,
+              "test": "none",
+              "verdict": "insufficient",
+              "n": 2
+            }
+          }
+        ],
+        "cases": {
+          "regressed": [
+            {
+              "caseId": "c2",
+              "epoch": 0,
+              "metric": "f1",
+              "baseline": 1,
+              "candidate": 0.846
+            }
+          ],
+          "improved": [],
+          "newlyErrored": [
+            {
+              "caseId": "c3",
+              "epoch": 0,
+              "baseline": "scored",
+              "candidate": "errored"
+            }
+          ],
+          "fixed": []
+        }
+      },
+      "parser": {
+        "baseline": "parser",
+        "candidate": "parser",
+        "pairs": {
+          "paired": 3,
+          "baselineOnly": 0,
+          "candidateOnly": 0
+        },
+        "metrics": [
+          {
+            "metric": "f1",
+            "baseline": 0.8,
+            "candidate": 0.9,
+            "summaryDelta": 0.1,
+            "pairedDelta": 0.1,
+            "ci": [
+              0.05,
+              0.15
+            ],
+            "p": 0.001,
+            "test": "bootstrap",
+            "verdict": "improved",
+            "n": 3
+          },
+          {
+            "metric": "costUsd",
+            "baseline": 1,
+            "candidate": 2,
+            "summaryDelta": 1,
+            "pairedDelta": null,
+            "ci": null,
+            "p": null,
+            "test": "none",
+            "verdict": "not-tested",
+            "n": 0
+          },
+          {
+            "metric": "anls",
+            "baseline": null,
+            "candidate": 0.9,
+            "summaryDelta": null,
+            "pairedDelta": null,
+            "ci": null,
+            "p": null,
+            "test": "none",
+            "verdict": "incomparable",
+            "n": 0
+          }
+        ],
+        "segments": {},
+        "slices": {},
+        "paths": [],
+        "cases": {
+          "regressed": [],
+          "improved": [
+            {
+              "caseId": "c1",
+              "epoch": 1,
+              "metric": "f1",
+              "baseline": 0.8,
+              "candidate": 0.9
+            }
+          ],
+          "newlyErrored": [],
+          "fixed": [
+            {
+              "caseId": "c2",
+              "epoch": 1,
+              "baseline": "errored",
+              "candidate": "scored"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "warnings": [
+    "Spec changed since the baseline run."
+  ],
+  "extensions": {},
+  "gate": {
+    "pass": false,
+    "checks": [
+      {
+        "kind": "threshold",
+        "experiment": "llm",
+        "metric": "f1",
+        "target": "f1",
+        "value": 0.7692307692307693,
+        "min": 0.8,
+        "status": "fail",
+        "message": "f1 for experiment llm is 0.7692, below the minimum 0.8"
+      },
+      {
+        "kind": "threshold",
+        "experiment": "parser",
+        "metric": "f1",
+        "target": "f1",
+        "value": 0.9387755102040817,
+        "min": 0.8,
+        "status": "pass",
+        "message": "f1 for experiment parser is 0.9388"
+      },
+      {
+        "kind": "threshold",
+        "experiment": "llm",
+        "metric": "errorRate",
+        "target": "errorRate",
+        "value": 0.25,
+        "max": 0.5,
+        "status": "pass",
+        "message": "errorRate for experiment llm is 0.25"
+      },
+      {
+        "kind": "threshold",
+        "experiment": "parser",
+        "metric": "errorRate",
+        "target": "errorRate",
+        "value": 0,
+        "max": 0.5,
+        "status": "pass",
+        "message": "errorRate for experiment parser is 0"
+      },
+      {
+        "kind": "regression",
+        "experiment": "llm",
+        "metric": "f1",
+        "target": "f1 drop",
+        "max": 0.02,
+        "value": -0.02,
+        "status": "pass",
+        "message": "f1 for experiment llm changed by 0.02, within the drop budget 0.02"
+      },
+      {
+        "kind": "regression",
+        "experiment": "parser",
+        "metric": "f1",
+        "target": "f1 drop",
+        "max": 0.02,
+        "value": -0.1,
+        "status": "pass",
+        "message": "f1 for experiment parser changed by 0.1, within the drop budget 0.02"
+      }
+    ]
+  }
+}

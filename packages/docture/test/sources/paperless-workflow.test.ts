@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { DocumentConverter, DocumentLoaderData, Extractor, parseDoctureDocument, silentLogger, sourceLines, type FlexibleSchema } from "docture";
 import { chunkDocument } from "docture/chunk";
-import { scoreExtraction } from "docture/eval";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { llm } from "docture/llm/text";
 import { makeInvoicePdf, makeRichDocumentPdf } from "docture/testing/fixtures";
@@ -57,7 +56,6 @@ async function verifySchema<T>(bytes: Uint8Array, schema: FlexibleSchema<T>, exp
     expect(result.attempts.filter((attempt) => attempt.stage === "extract" || attempt.stage === "repair").map((attempt) => [attempt.stage, attempt.status])).toEqual([["extract", "failed"], ["repair", "ok"]]);
     expect(result.citations).toEqual([{ path: field, status: "verified", ids: [line.id] }]);
     expect(provider.calls).toHaveLength(2);
-    expect(scoreExtraction(expected, result.data).exactMatch).toBe(true);
     const converter = new DocumentConverter({ loaders: [new DocumentLoaderPdfJs()] });
     const converted = await converter.convert(archive.source, { format: "json", assets: "omit" });
     const parsed = parseDoctureDocument(JSON.parse(converted.content));
@@ -71,7 +69,7 @@ async function verifySchema<T>(bytes: Uint8Array, schema: FlexibleSchema<T>, exp
 }
 
 describe("Paperless schema workflows", () => {
-  it("reuses exact archived invoice bytes for field verification, rule repair, saved conversion, chunking and eval", async () => {
+  it("reuses exact archived invoice bytes for field verification, rule repair, saved conversion and chunking", async () => {
     const fixture = await makeInvoicePdf({ seed: 21, lineItemCount: 2 });
     await verifySchema(fixture.bytes, z.object({ invoiceNumber: z.string() }), { invoiceNumber: fixture.expected.invoiceNumber }, "invoiceNumber", fixture.expected.invoiceNumber);
   });

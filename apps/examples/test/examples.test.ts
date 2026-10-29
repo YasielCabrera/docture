@@ -19,8 +19,10 @@ import { describe, expect, it } from "vitest";
 import { SplittingStrategy, readDocument, silentLogger } from "docture";
 import { Extractor } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
-import { scoreExtraction, formatFailures } from "docture/eval";
-import { readFile } from "node:fs/promises";
+import { looseEval, type CaseScore } from "@docture/eval";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { CheckingStatement, Invoice, ScoredInvoice, toScored } from "../shared/contracts.js";
 import { odooInvoiceParser } from "../shared/parsers/odoo.js";
@@ -39,7 +41,12 @@ import {
 import { documentsPresent, idsOfKind, pathOf, present, truthPathOf } from "../shared/documents.js";
 import { pageRange } from "../shared/print.js";
 
+const loose = looseEval();
+const misses = (score: CaseScore): string =>
+  score.fields.filter((field) => field.status !== "match").map((field) => `${field.path}: ${field.status}`).join("\n");
+
 // Imported from the examples themselves.
+import { evaluateLabReports, labReportSpec, LAB_REPORTS, manifestDataset, readReport } from "../23-evaluate-a-schema/index.js";
 import { linesAddUp } from "../02-contracts-and-schemas/index.js";
 import { invoiceChain } from "../06-fallback-routing-and-errors/index.js";
 import { headingClassifier } from "../10-classification/index.js";
@@ -216,9 +223,9 @@ describe("the Odoo invoice", () => {
     const { data } = await extractor.extract(pathOf("invoice-odoo"), Invoice);
     await extractor.dispose();
 
-    const score = scoreExtraction(AZURE_INTERIOR, data);
-    expect(score.f1, formatFailures(score)).toBe(1);
-    expect(score.exactMatch, formatFailures(score)).toBe(true);
+    const score = loose.score(AZURE_INTERIOR, data);
+    expect(score.metrics.f1, misses(score)).toBe(1);
+    expect(score.metrics.exact, misses(score)).toBe(true);
   });
 
   it.runIf(invoices)("costs nothing — no model was called", async () => {
@@ -538,7 +545,7 @@ describe("the published-truth mapper", () => {
     // The extraction had five fields. The truth claims two. Scoring two is the honest
     // number; scoring five would report three hallucinations that are not hallucinations.
     expect(Object.keys(projected).sort()).toEqual(["total", "vendor"]);
-    expect(scoreExtraction(truth, projected).f1).toBe(1);
+    expect(loose.score(truth, projected).metrics.f1).toBe(1);
   });
 
   it.runIf(invoices)("scores the Odoo invoice at 1.0 once projected", async () => {
@@ -550,13 +557,53 @@ describe("the published-truth mapper", () => {
     const { data } = await extractor.extract(pathOf("invoice-odoo"), Invoice);
     await extractor.dispose();
 
-    const honest = scoreExtraction(truth, projectOntoTruth(toScored(data), truth));
-    expect(honest.f1, formatFailures(honest)).toBe(1);
+    const honest = loose.score(truth, projectOntoTruth(toScored(data), truth));
+    expect(honest.metrics.f1, misses(honest)).toBe(1);
 
     // And the naive version, to pin the trap in place: scoring the FULL contract against
     // a five-field answer key must report a much worse number for no real reason.
-    const naive = scoreExtraction(truth, data);
-    expect(naive.f1).toBeLessThan(0.5);
+    const naive = loose.score(truth, data);
+    expect(naive.metrics.f1).toBeLessThan(0.5);
+  });
+});
+
+describe("evaluating a lab-report schema on its own dataset layout", () => {
+  it("reads the manifest layout into cases whose truth satisfies the spec", async () => {
+    const cases = await manifestDataset(LAB_REPORTS).cases();
+    expect(cases.map((item) => [item.id, item.tags?.["lab"], item.group])).toEqual([
+      ["north-001", "north", "P-1001"],
+      ["north-002", "north", "P-1002"],
+      ["south-001", "south", "P-1001"],
+      ["south-002", "south", "P-2001"],
+    ]);
+    expect(cases.map((item) => labReportSpec.validate(item.expected).ok)).toEqual([true, true, true, true]);
+  });
+
+  it("reads both labs' layouts, and the baseline parser drops Southgate's flags", () => {
+    const south = "Sample collected 2 April 2026 for patient P-1001\nAnalyte: Glucose | Result: 7.9 mmol/L | Flag: high";
+    expect(readReport(south, { parseSouthgateFlags: true })).toEqual({
+      patientId: "P-1001", collectedOn: "2 April 2026", results: [{ analyte: "Glucose", value: 7.9, unit: "mmol/L", flag: "high" }],
+    });
+    expect(readReport(south, { parseSouthgateFlags: false }).results[0]?.flag).toBe("normal");
+  });
+
+  it("scores both runs, compares them, writes every reporter and fails the gate on the south slice", async () => {
+    const out = await mkdtemp(join(tmpdir(), "docture-example-23-"));
+    const { baseline, candidate } = await evaluateLabReports(out);
+    expect(baseline.summary["parser"]?.overall["f1"]).toBe(45 / 48);
+    expect(candidate.summary["parser"]?.overall["f1"]).toBe(1);
+    expect(candidate.summary["llm"]?.overall["f1"]).toBe(46 / 48);
+    expect(candidate.summary["llm"]?.slices["lab"]?.["south"]?.metrics["f1"]).toBe(22 / 24);
+    expect(candidate.comparison?.baselineRunId).toBe(baseline.run.id);
+    expect(candidate.comparison?.experiments["parser"]?.metrics.find((metric) => metric.metric === "f1")?.summaryDelta).toBeCloseTo(3 / 48);
+    expect(candidate.gate?.pass).toBe(false);
+    expect(candidate.gate?.checks.filter((check) => check.status === "fail").map((check) => check.message)).toEqual([
+      "f1 for lab=south for experiment llm is 0.9167, below the minimum 0.95",
+    ]);
+    expect(await readFile(join(out, "flag-audit.txt"), "utf8")).toBe("No flag disagrees with the truth.\n");
+    expect(await readFile(join(out, "junit.xml"), "utf8")).toContain('<testsuite name="llm" tests="4" failures="2"');
+    expect(await readFile(join(out, "report.md"), "utf8")).toContain(`# Eval run ${candidate.run.id}`);
+    expect(JSON.parse(await readFile(join(out, "result/result.json"), "utf8")).run.id).toBe(candidate.run.id);
   });
 });
 

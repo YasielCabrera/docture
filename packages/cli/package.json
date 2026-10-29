@@ -56,6 +56,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "@docture/eval": "workspace:*",
     "docture": "workspace:*",
     "ai": "7.0.51",
     "pdfjs-dist": "6.2.108"

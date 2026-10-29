@@ -11,15 +11,16 @@ Docs: [`reference/packages`](../../docs/content/docs/reference/packages.mdx)
 ## Imports and installs
 
 Import doubles from `docture/testing/doubles`, generated PDFs from
-`docture/testing/fixtures`, and suites from `docture/testing/conformance`. Doubles
-need no engine. Fixtures need `pdfkit`, conformance needs Vitest and fixtures, and
-the model tests need `ai/test` from the AI SDK.
+`docture/testing/fixtures`, and suites from `docture/testing/conformance`. The fixture
+test grades extraction with `defineEval` from `@docture/eval`. Doubles need no engine.
+Fixtures need `pdfkit`, conformance needs Vitest and fixtures, and the model tests need
+`ai/test` from the AI SDK.
 
 For a separate application:
 
 ```sh
 pnpm add docture ai@^7.0.0 pdfjs-dist@6.2.108 zod
-pnpm add -D 'vitest@>=3' pdfkit@0.19.1
+pnpm add -D @docture/eval 'vitest@>=3' pdfkit@0.19.1
 ```
 
 The tour workspace already installs these dependencies. See the

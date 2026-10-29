@@ -22,7 +22,7 @@ import { ContractViolationError, NoEligibleStrategyError, DoctureError, contract
 import { Extractor } from "docture/node";
 import { llm } from "docture/llm";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
-import { scoreExtraction, formatFailures } from "docture/eval";
+import { byIndex, defineEval, exact, number, type CaseScore } from "@docture/eval";
 import { describeLoaderConformance } from "docture/testing/conformance";
 import { failingStrategy, fixedStrategy, inMemoryLoader, loadedDocument } from "docture/testing/doubles";
 import { makeInvoicePdf } from "docture/testing/fixtures";
@@ -193,11 +193,23 @@ describe("a real PDF whose truth cannot drift from it", () => {
     .loadDocumentLoader(new DocumentLoaderPdfJs())
     .loadStrategy(parser);
 
+  /**
+   * How a field counts as right, derived from the same contract. The spec fails closed: a string
+   * needs a comparator and an array of rows needs an alignment rule, so nothing is graded by a guess.
+   */
+  const spec = defineEval(Invoice, {
+    strings: exact(),
+    fields: { total: number({ abs: 0.01 }), "lineItems[].amount": number({ abs: 0.01 }) },
+    arrays: { lineItems: byIndex() },
+  });
+  const misses = (score: CaseScore): string =>
+    score.fields.filter((field) => field.status !== "match").map((field) => `${field.path}: ${field.status}`).join("\n");
+
   it("scores 1.0 against truth generated from the same values", async () => {
     const pdf = await makeInvoicePdf({ seed: 301, lineItemCount: 5 });
     const result = await extractor.extract(pdf.bytes, Invoice);
 
-    const score = scoreExtraction(
+    const score = spec.score(
       {
         invoiceNumber: pdf.expected.invoiceNumber,
         issuedAt: pdf.expected.issuedAt,
@@ -210,7 +222,7 @@ describe("a real PDF whose truth cannot drift from it", () => {
       result.data,
     );
 
-    expect(score.f1, formatFailures(score)).toBe(1);
+    expect(score.metrics.f1, misses(score)).toBe(1);
     expect(result.usage.totalTokens).toBe(0);
   });
 

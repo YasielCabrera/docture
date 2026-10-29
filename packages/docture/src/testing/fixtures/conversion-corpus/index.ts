@@ -6,16 +6,16 @@ import { formSection } from "./form-section.js";
 import { pageNumberHeader } from "./page-number-header.js";
 import { runningHeader } from "./running-header.js";
 
-export type { ConversionCase } from "./case.js";
+export type { ConversionCase, ConversionCaseCheck } from "./case.js";
 
 /**
  * Loaded documents that reproduce known layout cases, each with the checks its
- * conversion should pass. Run them with `checkConversion` from `docture/eval`.
+ * conversion should pass. Run them with `checkConversion` from `@docture/eval/conversion`.
  *
  * @example
  * ```ts
  * import { DocumentConverter } from "docture";
- * import { checkConversion } from "docture/eval";
+ * import { checkConversion } from "@docture/eval/conversion";
  * import { conversionCorpus } from "docture/testing/fixtures";
  *
  * const converter = new DocumentConverter();

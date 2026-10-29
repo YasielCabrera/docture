@@ -1,0 +1,200 @@
+{
+  "name": "@docture/eval",
+  "version": "0.2.0",
+  "description": "Evaluate structured extraction quality: schema-driven specs, field-level scoring, run comparison, calibration, grounding and reports.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YasielCabrera/docture.git",
+    "directory": "packages/eval"
+  },
+  "homepage": "https://github.com/YasielCabrera/docture/tree/main/packages/eval#readme",
+  "bugs": {
+    "url": "https://github.com/YasielCabrera/docture/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "schemas",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./config": {
+      "source": "./src/config.ts",
+      "types": "./dist/config.d.ts",
+      "import": "./dist/config.js",
+      "default": "./dist/config.js"
+    },
+    "./dataset": {
+      "source": "./src/dataset/index.ts",
+      "types": "./dist/dataset/index.d.ts",
+      "import": "./dist/dataset/index.js",
+      "default": "./dist/dataset/index.js"
+    },
+    "./runner": {
+      "source": "./src/runner/index.ts",
+      "types": "./dist/runner/index.d.ts",
+      "import": "./dist/runner/index.js",
+      "default": "./dist/runner/index.js"
+    },
+    "./node": {
+      "source": "./src/node/index.ts",
+      "types": "./dist/node/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "default": "./dist/node/index.js"
+      }
+    },
+    "./docture": {
+      "source": "./src/docture/index.ts",
+      "types": "./dist/docture/index.d.ts",
+      "import": "./dist/docture/index.js",
+      "default": "./dist/docture/index.js"
+    },
+    "./compare": {
+      "source": "./src/comparison/index.ts",
+      "types": "./dist/comparison/index.d.ts",
+      "import": "./dist/comparison/index.js",
+      "default": "./dist/comparison/index.js"
+    },
+    "./calibration": {
+      "source": "./src/calibration/index.ts",
+      "types": "./dist/calibration/index.d.ts",
+      "import": "./dist/calibration/index.js",
+      "default": "./dist/calibration/index.js"
+    },
+    "./grounding": {
+      "source": "./src/grounding/index.ts",
+      "types": "./dist/grounding/index.d.ts",
+      "import": "./dist/grounding/index.js",
+      "default": "./dist/grounding/index.js"
+    },
+    "./conversion": {
+      "source": "./src/conversion/index.ts",
+      "types": "./dist/conversion/index.d.ts",
+      "import": "./dist/conversion/index.js",
+      "default": "./dist/conversion/index.js"
+    },
+    "./reporters/terminal": {
+      "source": "./src/reporters/terminal/index.ts",
+      "types": "./dist/reporters/terminal/index.d.ts",
+      "import": "./dist/reporters/terminal/index.js",
+      "default": "./dist/reporters/terminal/index.js"
+    },
+    "./reporters/json": {
+      "source": "./src/reporters/json/index.ts",
+      "types": "./dist/reporters/json/index.d.ts",
+      "import": "./dist/reporters/json/index.js",
+      "default": "./dist/reporters/json/index.js"
+    },
+    "./reporters/markdown": {
+      "source": "./src/reporters/markdown/index.ts",
+      "types": "./dist/reporters/markdown/index.d.ts",
+      "import": "./dist/reporters/markdown/index.js",
+      "default": "./dist/reporters/markdown/index.js"
+    },
+    "./reporters/csv": {
+      "source": "./src/reporters/csv/index.ts",
+      "types": "./dist/reporters/csv/index.d.ts",
+      "import": "./dist/reporters/csv/index.js",
+      "default": "./dist/reporters/csv/index.js"
+    },
+    "./reporters/junit": {
+      "source": "./src/reporters/junit/index.ts",
+      "types": "./dist/reporters/junit/index.d.ts",
+      "import": "./dist/reporters/junit/index.js",
+      "default": "./dist/reporters/junit/index.js"
+    },
+    "./reporters/html": {
+      "source": "./src/reporters/html/index.ts",
+      "types": "./dist/reporters/html/index.d.ts",
+      "import": "./dist/reporters/html/index.js",
+      "default": "./dist/reporters/html/index.js"
+    },
+    "./reporters/template": {
+      "source": "./src/reporters/template/index.ts",
+      "types": "./dist/reporters/template/index.d.ts",
+      "import": "./dist/reporters/template/index.js",
+      "default": "./dist/reporters/template/index.js"
+    },
+    "./judge": {
+      "source": "./src/judge/index.ts",
+      "types": "./dist/judge/index.d.ts",
+      "import": "./dist/judge/index.js",
+      "default": "./dist/judge/index.js"
+    },
+    "./vitest": {
+      "source": "./src/adapters/vitest/index.ts",
+      "types": "./dist/adapters/vitest/index.d.ts",
+      "import": "./dist/adapters/vitest/index.js",
+      "default": "./dist/adapters/vitest/index.js"
+    },
+    "./evalite": {
+      "source": "./src/adapters/evalite/index.ts",
+      "types": "./dist/adapters/evalite/index.d.ts",
+      "import": "./dist/adapters/evalite/index.js",
+      "default": "./dist/adapters/evalite/index.js"
+    },
+    "./promptfoo": {
+      "source": "./src/adapters/promptfoo/index.ts",
+      "types": "./dist/adapters/promptfoo/index.d.ts",
+      "import": "./dist/adapters/promptfoo/index.js",
+      "default": "./dist/adapters/promptfoo/index.js"
+    },
+    "./autoevals": {
+      "source": "./src/adapters/autoevals/index.ts",
+      "types": "./dist/adapters/autoevals/index.d.ts",
+      "import": "./dist/adapters/autoevals/index.js",
+      "default": "./dist/adapters/autoevals/index.js"
+    },
+    "./result-v1.schema.json": "./schemas/result-v1.schema.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:client": "node scripts/build-html-client.mjs",
+    "typecheck": "tsc -p tsconfig.test.json && tsc -p client/tsconfig.json",
+    "test": "vitest run",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "peerDependencies": {
+    "docture": "workspace:^",
+    "ai": "^7.0.0"
+  },
+  "devDependencies": {
+    "@ai-sdk/provider-utils": "5.0.20",
+    "@types/node": "^24.13.3",
+    "ai": "7.0.51",
+    "docture": "workspace:*",
+    "esbuild": "0.28.1",
+    "htmlparser2": "12.0.0",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10",
+    "zod": "4.4.3"
+  },
+  "sideEffects": false,
+  "keywords": [
+    "evaluation",
+    "extraction",
+    "structured-data",
+    "llm",
+    "docture"
+  ],
+  "peerDependenciesMeta": {
+    "ai": {
+      "optional": true
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "patientId": "P-2001",
+  "collectedOn": "2026-04-03",
+  "results": [
+    { "analyte": "Potassium", "value": 3.1, "unit": "mmol/L", "flag": "low" },
+    { "analyte": "Sodium", "value": 139, "unit": "mmol/L", "flag": "normal" },
+    { "analyte": "Creatinine", "value": 102, "unit": "umol/L", "flag": "high" }
+  ]
+}

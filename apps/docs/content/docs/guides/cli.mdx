@@ -32,7 +32,7 @@ npm install --save-dev @docture/cli @ai-sdk/openai zod@^4
 | `convert <file...>` | Convert PDFs to TXT, Markdown, HTML, or JSON |
 | `classify <file...>` | Choose a document classification without extracting it |
 | `inspect <file...>` | Show loaded text, geometry, and document facts without a model |
-| `eval <file...>` | Extract and compare results with ground truth |
+| `eval <command>` | Run, report, compare, and gate evaluations from `docture.eval.ts`, or score files against ground truth |
 | `review [file]` | Write an offline HTML page of element boxes or cited fields over the page images |
 | `mcp` | Serve `convert` and `inspect` to an agent host over MCP stdio |
 
@@ -85,7 +85,7 @@ Valibot, ArkType, or other Standard Schema value when validation is required.
 
 ## Output streams
 
-`extract`, `convert`, `classify`, `inspect`, and `eval` accept `--format json|ndjson|text`. `extract` defaults to JSON;
+`extract`, `convert`, `classify`, `inspect`, and `eval run` accept `--format json|ndjson|text`. `extract` defaults to JSON;
 the others default to text. These commands no longer accept `--json`; only the help route
 does. `convert --to md|html|txt|json` selects the
 document format, independently of the result format.
@@ -111,11 +111,18 @@ same result items in completion order, one per line without an envelope.
 | `convert` | `output` and `assets` as absolute paths, `warnings` |
 | `classify` | `name`, `confidence`, `signals` |
 | `inspect` | `loader`, `features`, `pages`, and requested text, lines, or render information |
-| `eval` | `score` with F1, precision, recall, and exact match; `method`, `usage` |
+| `eval` with files | `score` with F1, precision, recall, and exact match; `method`, `usage` |
 
-Eval adds `summary` with aggregate metrics, `failed`, optional `minF1`, and `passed`.
-The envelope's `ok` also reflects the accuracy gate. `--report` always writes the
-Markdown scoreboard.
+Quick-mode eval adds `summary` with `documents`, `meanF1`, `meanPrecision`, `meanRecall`,
+`exactMatches`, `totalCostUsd`, `totalTokens`, `wallMs`, `byMethod`, `byField`, `failed`,
+`passed`, `reasons`, and the configured `minF1` and `maxCostUsd`. The means are
+per-document: a failed extraction scores 0, and an empty denominator scores 1. `byField`
+folds array indexes into `[]`. The summary also holds the eval run's `runId`, `metrics`,
+per-path `fields`, `gate`, and, with `--calibrate`, `calibration`. `metrics` holds
+`meanDocumentF1`, which `--min-f1` gates and which equals `meanF1`, and `f1`, the field F1
+pooled over every field. The envelope's `ok` also reflects the gate. Text output prints the
+Markdown scoreboard, and `--report` writes it regardless of stdout format. The other eval
+subcommands print eval's own versioned records with `--format json`.
 
 Diagnostics go to stderr. To read an extracted value:
 
@@ -350,6 +357,73 @@ files. JSON Schema files do not require TypeScript support.
 
 ## Evaluate in CI
 
+`docture eval` runs the evaluation described in `docture.eval.ts` with
+[`@docture/eval`](/docs/guides/measuring-accuracy). The config names the dataset, the spec,
+the experiments, the reporters, the gate, the run store, and the baseline:
+
+```ts
+import { defineEval, exact } from "@docture/eval";
+import { defineEvalConfig } from "@docture/eval/config";
+import { fromDocture } from "@docture/eval/docture";
+import { folderDataset } from "@docture/eval/node";
+import { extractor } from "./extractor";
+import { Invoice } from "./invoice";
+
+export default defineEvalConfig({
+  dataset: folderDataset("dataset", { documents: "doc.pdf", expected: "expected.json" }),
+  spec: defineEval(Invoice, { strings: exact() }),
+  experiments: { llm: fromDocture(extractor, Invoice) },
+  gate: { thresholds: [{ metric: "f1", min: 0.95 }] },
+  baseline: "auto",
+});
+```
+
+```sh
+docture eval run --reporter html,junit --out eval-report
+```
+
+| Subcommand | Job |
+|---|---|
+| `eval run` | Run every experiment, store the run, write reporters, print the scoreboard, and apply the gate |
+| `eval report <run>` | Re-render a stored run in any format; `--rescore` scores its raw outputs again with the current spec |
+| `eval compare <base> <candidate>` | Compare two runs with paired bootstrap or McNemar tests; `--format md|json` |
+| `eval gate <run>` | Apply the config's gate to a stored run; `--baseline` adds regression budgets |
+| `eval runs` | List stored runs, newest first |
+| `eval validate` | Check every case's ground truth against the spec and list all problems |
+| `eval sample --size <n>` | Print the case ids of a deterministic stratified sample |
+| `eval migrate <module>` | Preview a ground-truth migration; `--write` applies it |
+| `eval draft` and `eval sign-off <id>` | Draft ground truth with one experiment, then mark it reviewed |
+
+`eval run` accepts `--experiment`, `--sample` with `--strata` and `--seed`, `--cases`,
+`--epochs`, `--concurrency`, `--resume <runId|latest>`, `--baseline <runId|auto|none>`,
+`--no-gate`, and `--store`. A `<run>` argument is a run id, `latest`, or a directory that
+holds `result.json`. Runs are stored in the config's `store`, by default `.docture/eval`
+beside the config.
+
+The config may also set `sections`, analyses such as `calibrationSection()` that run before
+the gate and the reporters. `fallbackBranch` names the branch, such as `main`, that an
+automatic baseline searches when the current branch has no complete run.
+
+`--reporter` accepts `terminal`, `html`, `md`, `json`, `csv`, `junit`, or a module path,
+comma-separated or repeated. It replaces the config's reporters for that command. Files go
+to `--out`, by default `eval-report`. A module exports a reporter as `default` or
+`reporter`, or a function `(result) => string`. The function's text is written to its
+exported `fileName`, or to `<module name>.txt`. The text scoreboard always prints, so
+`terminal` changes nothing.
+
+A failing reporter does not lose the run. `eval run` saves the result, prints each reporter
+failure on stderr, also under `--quiet`, and exits with code `1`.
+
+`eval report <dir> --rescore` reads the run and its raw outputs from that directory, such as
+a run copied out of CI. It writes the re-scored run as a new run to the configured store, or
+to `--store`.
+
+### Quick mode
+
+Files without a config score each document against its ground truth with the loose
+comparisons of `looseEval`. `docture eval <files...>` and `docture eval run <files...>`
+are the same command:
+
 ```sh
 docture eval 'corpus/*.pdf' \
   -s ./invoice.ts \
@@ -359,11 +433,23 @@ docture eval 'corpus/*.pdf' \
   --report score.md
 ```
 
-Failed extractions score F1, precision, and recall zero. They remain in the scoreboard,
-report, and accuracy gate.
+A failed extraction is an errored case. Its expected fields count as omissions in the
+scoreboard and the gate, and it fails the command.
 
-Exit code `0` means success. Exit code `1` means a document failed or an accuracy gate was
-not met. Exit code `2` means the invocation was invalid.
+`--min-f1` gates `meanDocumentF1`, the mean of per-document F1. A failed extraction scores
+0, so every document weighs the same however many fields it has. `--max-cost-usd` gates
+`costUsd`, the priced total, which includes the usage that failed extractions reported. It
+needs configured pricing, and it fails when no price is known. A failed check prints its
+reason on stderr, also under `--quiet`, and the JSON summary lists it in `reasons`:
+
+```text
+✗ Gate failed: 1 of 1 checks.
+  Mean F1 0.500 is below the --min-f1 gate of 0.95.
+```
+
+Exit code `0` means success. Exit code `1` means a gate failed, a document failed, a
+reporter failed, or the run was interrupted. Exit code `2` means the invocation was invalid. A run without a
+configured gate exits `0` and says that no gate ran.
 
 ## MCP server
 

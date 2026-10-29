@@ -25,7 +25,15 @@ export type DoctureErrorCode =
   | "SPLIT_FAILED"
   | "UNCLASSIFIED_GROUP"
   | "MISSING_ENGINE"
-  | "MISSING_COMPONENT";
+  | "MISSING_COMPONENT"
+  | "EVAL_SPEC_INVALID"
+  | "GROUND_TRUTH_INVALID"
+  | "EVAL_DATASET_INVALID"
+  | "EVAL_RUN_STORE_FAILED"
+  | "OUT_OF_SCOPE"
+  | "MIGRATION_GUARD_FAILED"
+  | "EVAL_RUNS_INCOMPARABLE"
+  | "EVAL_PREFLIGHT_FAILED";
 
 export abstract class DoctureError extends Error {
   /**

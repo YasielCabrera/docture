@@ -1,6 +1,6 @@
 # 12-accuracy-and-batch — Accuracy and batch
 
-> `scoreExtraction`, the truth-completeness trap, the three tolerances, `formatScoreboard`, `extractBatch`.
+> `looseEval`, the truth-completeness trap, the three tolerances, `runEval` and its scoreboard, `extractBatch`.
 
 **Needs:** `pnpm run fetch`. No API key.
 
@@ -12,14 +12,15 @@ Docs: [`guides/measuring-accuracy`](../../docs/content/docs/guides/measuring-acc
 
 ## Imports and installs
 
-Import scoring and report helpers from `docture/eval`, batch extraction from
-`docture`, and the PDF reader from `docture/loaders/pdfjs`. Evaluation itself
-needs no model or document engine.
+Import scoring from `@docture/eval`, the runner from `@docture/eval/runner`, the
+scoreboard from `@docture/eval/reporters/terminal`, batch extraction from `docture`,
+and the PDF reader from `docture/loaders/pdfjs`. Evaluation itself needs no model or
+document engine.
 
 For a separate application:
 
 ```sh
-pnpm add docture pdfjs-dist@6.2.108 zod
+pnpm add docture @docture/eval pdfjs-dist@6.2.108 zod
 ```
 
 The tour workspace already installs these dependencies. See the
@@ -33,7 +34,7 @@ yourself is truth you will bend, unconsciously, until the number looks good.
 
 ## The trap — read this one even if you skip the rest
 
-`scoreExtraction` counts a field the extraction produced and the truth **omits** as a
+The scorer counts a field the extraction produced and the truth **omits** as a
 *hallucination*. That is exactly right for grading a real run: a model inventing a
 `dueDate` is a serious fault, not a bonus.
 
@@ -73,7 +74,7 @@ Two truths, deliberately:
 
 ## The three tolerances
 
-`numericTolerance` (default 0.01) is not a nicety. **The Odoo invoice rounds its own
+`looseEval` has three tolerances. `numericTolerance` (default 0.01) is not a nicety. **The Odoo invoice rounds its own
 tax**: 112.90 × 0.15 is exactly 16.935 and the page prints 16.94. Worse, binary floating
 point puts 16.935 a hair *below* the midpoint, so `Math.round` gives 16.93. An equality
 check on money is a bug waiting for a document like this one.
@@ -88,9 +89,10 @@ where document order is meaningful; key alignment is for a set where it is not.
 
 ## Coverage and accuracy are two numbers
 
-Nine of eleven layouts have no parser, so they are not in the scoreboard at all. An eval
-that quietly averaged only what succeeded would print a beautiful mean F1 for a pipeline
-that reads two documents in eleven.
+Nine of eleven layouts have no parser. The processor throws `OutOfScopeError` for them, so
+the run records them as skipped instead of scoring them. An eval that quietly averaged
+only what succeeded would print a beautiful F1 for a pipeline that reads two documents in
+eleven.
 
 ## What to read next
 

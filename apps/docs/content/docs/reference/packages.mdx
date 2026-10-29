@@ -1,10 +1,10 @@
 ---
 title: Packages and imports
-description: The two published packages, every public subpath, and required peers.
+description: The three published packages, every public subpath, and required peers.
 ---
 
-Docture publishes two packages: `docture` and `@docture/cli`. Both require Node.js 22 or
-newer. `docture` contains core, model integrations, adapters, evaluation, and testing.
+Docture publishes three packages: `docture`, `@docture/cli`, and `@docture/eval`. All require Node.js 22 or
+newer. `docture` contains core, model integrations, adapters and testing. `@docture/eval` supplies evaluation.
 Its root exports core only. The CLI supplies the `docture` executable.
 
 ## Public entry points
@@ -30,7 +30,6 @@ Its root exports core only. The CLI supplies the `docture` executable.
 | `docture/loaders/paddleocr` | OCR through PaddleOCR and ONNX Runtime | `ppu-paddle-ocr@6.3.0`, `onnxruntime-node@1.27.0`; `utif2@4.1.0` for TIFF |
 | `docture/raster/canvas` | PDF.js page rendering with canvas | `pdfjs-dist@^6.2.108`, `@napi-rs/canvas@^1.0.10` |
 | `docture/chunk` | Retrieval chunks with page, box, and source-id provenance | None |
-| `docture/eval` | Field scoring, hallucination detection, and reports | None |
 | `docture/testing/doubles` | In-memory documents, loaders, and fixed or failing strategies | None |
 | `docture/testing/conformance` | Loader and rasterizer conformance suites | `vitest@>=3`, `pdfkit@>=0.17.2 <0.21.0` |
 | `docture/testing/fixtures` | Generated invoice and rich-document PDFs | `pdfkit@>=0.17.2 <0.21.0` |
@@ -145,3 +144,33 @@ universal guarantee that unused class methods or runtime branches disappear. Pre
 
 Unbundled Node.js execution and dependencies externalized by an application build are not
 tree-shaken. Actual bundle contents depend on the bundler, configuration, and imports.
+
+## Evaluation entries
+
+`@docture/eval` requires the `docture` peer. Its root contains specs, comparators, metrics, result contracts and gates. Import independent capabilities from these entries:
+
+| Import | Purpose |
+| --- | --- |
+| `@docture/eval/config` | Typed CLI configuration |
+| `@docture/eval/dataset` | Sampling, migrations and truth drafting |
+| `@docture/eval/runner` | Execution, experiments, resume and rescore |
+| `@docture/eval/node` | Folder and JSONL datasets, file history and artifacts |
+| `@docture/eval/docture` | Adapt a Docture extractor |
+| `@docture/eval/compare` | Paired per-experiment run comparison |
+| `@docture/eval/calibration` | Confidence reliability and acceptance coverage |
+| `@docture/eval/grounding` | Evidence against labelled locations |
+| `@docture/eval/conversion` | Conversion content checks |
+| `@docture/eval/reporters/terminal` | Scoreboard and terminal progress |
+| `@docture/eval/reporters/json` | JSON and split JSONL |
+| `@docture/eval/reporters/markdown` | Composable Markdown |
+| `@docture/eval/reporters/html` | Offline HTML |
+| `@docture/eval/reporters/csv` | CSV tables |
+| `@docture/eval/reporters/junit` | JUnit XML |
+| `@docture/eval/reporters/template` | Custom render functions |
+| `@docture/eval/judge` | Semantic string comparator; optional `ai@^7.0.0` |
+| `@docture/eval/vitest` | Structural matchers and dataset tests |
+| `@docture/eval/evalite` | Extraction scorer |
+| `@docture/eval/promptfoo` | JavaScript assertion |
+| `@docture/eval/autoevals` | Extraction F1 score |
+
+Only the judge needs an optional engine. Framework adapters import no host framework. Each reporter entry is Node-only because it also exports a file-writing factory that imports `node/artifacts`. The pure `render*` implementations have no Node imports; this does not make their entry points browser-safe.

@@ -1,0 +1,9 @@
+{
+  "dataset": "lab-reports",
+  "cases": [
+    { "id": "north-001", "report": "reports/north-001.txt", "truth": "truth/north-001.json", "lab": "north", "patient": "P-1001" },
+    { "id": "north-002", "report": "reports/north-002.txt", "truth": "truth/north-002.json", "lab": "north", "patient": "P-1002" },
+    { "id": "south-001", "report": "reports/south-001.txt", "truth": "truth/south-001.json", "lab": "south", "patient": "P-1001" },
+    { "id": "south-002", "report": "reports/south-002.txt", "truth": "truth/south-002.json", "lab": "south", "patient": "P-2001" }
+  ]
+}

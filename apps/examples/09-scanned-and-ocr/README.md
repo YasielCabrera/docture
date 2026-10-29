@@ -23,11 +23,12 @@ megabytes — which is not something `pnpm offline` should pay for. This matches
 
 OCR loaders come from `docture/loaders/tesseract` and `docture/loaders/paddleocr`.
 Rasterizers come from `docture/loaders/mupdf` and `docture/raster/canvas`. Vision
-comes from `docture/llm/vision`, also re-exported by `docture/llm`. Install the engines
+comes from `docture/llm/vision`, also re-exported by `docture/llm`. The comparison with the
+text layer scores both paths with `looseEval` from `@docture/eval`. Install the engines
 you choose explicitly. To use every path in a separate application:
 
 ```sh
-pnpm add docture ai@^7.0.0 pdfjs-dist@6.2.108 mupdf@1.28.0 tesseract.js@7.0.0 ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0 @napi-rs/canvas@1.0.10 utif2@4.1.0 zod
+pnpm add docture @docture/eval ai@^7.0.0 pdfjs-dist@6.2.108 mupdf@1.28.0 tesseract.js@7.0.0 ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0 @napi-rs/canvas@1.0.10 utif2@4.1.0 zod
 ```
 
 The tour workspace already installs these dependencies. See the

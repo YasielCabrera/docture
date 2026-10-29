@@ -7,7 +7,7 @@
  * and why they assert on exactly what a user would see.
  */
 
-import { boolFlag, nearest, parseCommand, type Parsed } from "./cli/args.js";
+import { boolFlag, nearest, parseCommand, type CommandSpec, type Parsed } from "./cli/args.js";
 import { explain, exitCodeOf, UsageError, type ExitCode } from "./cli/errors.js";
 import { commandHelp, helpEnvelope, topLevelHelp } from "./cli/help.js";
 import { styleFor, type Io, type Style } from "./cli/io.js";
@@ -43,15 +43,24 @@ function unknownCommand(name: string): UsageError {
 
 function helpCommand(argv: readonly string[], io: Io, style: Style): ExitCode {
   const parsed = parseCommand(HELP, argv);
-  const name = parsed.positionals[0];
+  const name = parsed.positionals.length === 0 ? undefined : parsed.positionals.join(" ");
   const target = name === undefined ? undefined : findCommand(name);
   if (name !== undefined && target === undefined) throw unknownCommand(name);
   if (boolFlag(parsed, "json")) {
-    io.write(toJson(helpEnvelope(target === undefined ? COMMANDS : [target])));
+    io.write(toJson(helpEnvelope(target === undefined ? COMMANDS : [target, ...(target.subcommands ?? [])])));
   } else {
     io.write(target === undefined ? topLevelHelp(style, version()) : commandHelp(target, style));
   }
   return 0;
+}
+
+function selectSubcommand(command: CommandSpec, rest: readonly string[], helpAsked: boolean): { spec: CommandSpec; args: readonly string[] } {
+  const subcommands = command.subcommands ?? [];
+  const named = subcommands.find((sub) => sub.name === `${command.name} ${rest[0] ?? ""}`);
+  if (named !== undefined) return { spec: named, args: rest.slice(1) };
+  const defaultSubcommand = command.name === "eval" ? "eval run" : undefined;
+  const fallback = subcommands.find((sub) => sub.name === defaultSubcommand);
+  return fallback === undefined || helpAsked ? { spec: command, args: rest } : { spec: fallback, args: rest };
 }
 
 export interface RunOptions {
@@ -85,18 +94,19 @@ export async function run(argv: readonly string[], options: RunOptions): Promise
     io.write(`${version()}\n`);
     return 0;
   }
-  const spec = findCommand(first);
+  const command = findCommand(first);
   const helpRoute = first === "help" || first === "--help" || first === "-h";
-  if (!helpRoute && spec === undefined) return report(unknownCommand(first), io, color);
+  if (!helpRoute && command === undefined) return report(unknownCommand(first), io, color);
 
   try {
-    if (spec === undefined) return helpCommand(rest, io, stdoutStyle);
+    if (command === undefined) return helpCommand(rest, io, stdoutStyle);
     const helpAsked = rest.includes("--help") || rest.includes("-h");
-    const parsed = parseCommand(helpAsked ? { ...spec, flags: [...spec.flags, HELP_JSON] } : spec, rest);
+    const { spec, args } = selectSubcommand(command, rest, helpAsked);
+    const parsed = parseCommand(helpAsked ? { ...spec, flags: [...spec.flags, HELP_JSON] } : spec, args);
     if (boolFlag(parsed, "help")) {
-      return helpCommand([spec.name, ...(boolFlag(parsed, "json") ? ["--json"] : [])], io, stdoutStyle);
+      return helpCommand([...spec.name.split(" "), ...(boolFlag(parsed, "json") ? ["--json"] : [])], io, stdoutStyle);
     }
-    const handler = HANDLERS[spec.name];
+    const handler = HANDLERS[command.name];
     if (handler === undefined) throw new UsageError(`"${spec.name}" is not implemented.`);
     return await (await handler())(parsed, io, signal);
   } catch (error) {

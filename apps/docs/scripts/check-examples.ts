@@ -26,7 +26,7 @@ try {
 
   assert.equal(await example("custom-components.ts"), "120.5");
   assert.equal(await example("sources-and-inputs.ts"), "INV-1");
-  assert.equal(await example("measure-accuracy.ts"), "1\nAll fields matched.");
+  assert.equal(await example("measure-accuracy.ts"), "1\n[]");
   assert.equal(await example("check-conversion.ts"), "4/4 conversion checks passed");
   assert.equal(await example("deterministic-invoice.ts"), `${fixture.expected.total} invoice-parser`);
   await example("document-conversion.ts");

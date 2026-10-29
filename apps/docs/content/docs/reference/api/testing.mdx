@@ -56,7 +56,7 @@ expected behaviour, a `loaded` document, and the `checks` its conversion should 
 Check ids start with the case id.
 
 Convert `loaded` with `DocumentConverter` and grade the result with `checkConversion` from
-`docture/eval`. The cases are already loaded, so converting them needs no PDF loader. Some cases describe
+`@docture/eval/conversion`. The cases are already loaded, so converting them needs no PDF loader. Some cases describe
 behaviour that the converter does not implement yet, and their checks fail until it does.
 
 ## Test doubles
@@ -139,3 +139,5 @@ must return different first-page images for different documents.
 
 The functions register Vitest suites and return `void`. Test failures are reported by
 Vitest. Create functions may return a component or a promise.
+
+`ConversionCaseCheck` is the structural check shape on a fixture case. Pass fixture checks to `checkConversion` from `@docture/eval/conversion`.

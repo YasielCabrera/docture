@@ -1,0 +1,8 @@
+{
+  "patientId": "P-1001",
+  "collectedOn": "2026-04-02",
+  "results": [
+    { "analyte": "Glucose", "value": 7.9, "unit": "mmol/L", "flag": "high" },
+    { "analyte": "Hemoglobin", "value": 12.6, "unit": "g/dL", "flag": "normal" }
+  ]
+}

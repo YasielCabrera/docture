@@ -1,0 +1,8 @@
+Case,Experiment,Epoch,Outcome,F1,Precision,Recall,Problems,Time,Cost,Message
+c1,llm,0,scored,1,1,1,0,840,0.012,
+c2,llm,0,scored,0.8461538461538461,0.8461538461538461,0.8461538461538461,2,1520,0.018,
+c3,llm,0,errored,0,,0,,300,,ExtractionFailedError: Every extraction strategy failed.
+"'=HYPERLINK(""x"")|<b>&'c'",llm,0,scored,0.8461538461538461,0.8461538461538461,0.8461538461538461,2,910,,
+c1,parser,0,scored,1,1,1,0,12,,
+c2,parser,0,skipped,,,,,1,,scanned input
+c3,parser,0,scored,0.8695652173913043,1,0.7692307692307693,3,15,,

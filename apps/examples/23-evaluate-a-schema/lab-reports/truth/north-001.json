@@ -1,0 +1,9 @@
+{
+  "patientId": "P-1001",
+  "collectedOn": "2026-03-14",
+  "results": [
+    { "analyte": "Glucose", "value": 5.4, "unit": "mmol/L", "flag": "normal" },
+    { "analyte": "Hemoglobin", "value": 11.2, "unit": "g/dL", "flag": "low" },
+    { "analyte": "Potassium", "value": 5.9, "unit": "mmol/L", "flag": "high" }
+  ]
+}

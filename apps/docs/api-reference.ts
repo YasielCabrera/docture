@@ -1,5 +1,5 @@
 export interface ApiEntrypointInventory {
-  readonly packageName: "docture" | "@docture/cli";
+  readonly packageName: "docture" | "@docture/cli" | "@docture/eval";
   readonly importPath: string;
   readonly entrypoint: string;
   readonly pages: Readonly<Record<string, readonly string[]>>;
@@ -563,50 +563,6 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
   },
   {
     "packageName": "docture",
-    "importPath": "docture/eval",
-    "entrypoint": "../../packages/docture/src/eval/index.ts",
-    "pages": {
-      "content/docs/reference/api/eval.mdx": [
-        "AbsentCheck",
-        "Aggregate",
-        "CalibrationOptions",
-        "CalibrationPair",
-        "CalibrationReport",
-        "CalibrationSample",
-        "ConversionCheck",
-        "ConversionCheckKind",
-        "ConversionCheckResult",
-        "ConversionReport",
-        "ConvertedPages",
-        "FieldAggregate",
-        "FieldResult",
-        "FieldStatus",
-        "FieldThresholdReport",
-        "GateOptions",
-        "GateResult",
-        "OrderCheck",
-        "PresentCheck",
-        "RunRecord",
-        "Score",
-        "ScoreOptions",
-        "TableCheck",
-        "ThresholdCandidate",
-        "aggregate",
-        "calibrateFields",
-        "checkConversion",
-        "failures",
-        "formatCalibration",
-        "formatFailures",
-        "formatScoreboard",
-        "gate",
-        "hallucinations",
-        "recordRun",
-        "scoreExtraction"
-      ]
-    }
-  },
-  {
-    "packageName": "docture",
     "importPath": "docture/testing/doubles",
     "entrypoint": "../../packages/docture/src/testing/doubles.ts",
     "pages": {
@@ -643,6 +599,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     "pages": {
       "content/docs/reference/api/testing.mdx": [
         "ConversionCase",
+        "ConversionCaseCheck",
         "InvoiceOptions",
         "RichDocumentExpected",
         "SyntheticDocument",
@@ -1128,5 +1085,512 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "createHttpService"
       ]
     }
+  },
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval",
+  "entrypoint": "../../packages/eval/src/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "AlignmentAlgorithm",
+      "AlignmentReport",
+      "ArrayRule",
+      "Assertion",
+      "AssertionOutcome",
+      "AssertionResult",
+      "BaselineQuery",
+      "Box",
+      "BuildResultInput",
+      "CalibrationBin",
+      "CalibrationReport",
+      "CalibrationStats",
+      "CalibrationSummary",
+      "CaseDelta",
+      "CaseDocument",
+      "CaseResult",
+      "CaseScore",
+      "Comparator",
+      "CompareContext",
+      "Comparison",
+      "ConfidenceCount",
+      "CoveragePoint",
+      "DEFAULT_MAX_CELLS",
+      "Dataset",
+      "DatasetError",
+      "DateGranularity",
+      "DateOptions",
+      "DeltaVerdict",
+      "EpochSummary",
+      "ErroredCase",
+      "EvalCase",
+      "EvalExtractor",
+      "EvalResult",
+      "EvalRules",
+      "EvalSpec",
+      "EvalSpecError",
+      "EvidenceRef",
+      "ExactNormalization",
+      "ExpectedLocation",
+      "ExperimentComparison",
+      "ExtractContext",
+      "ExtractOutput",
+      "FieldEvidence",
+      "FieldGroupSummary",
+      "FieldResult",
+      "FieldRule",
+      "FieldRuleOptions",
+      "FieldSource",
+      "FieldStatus",
+      "FieldType",
+      "GateCheck",
+      "GateOptions",
+      "GateResult",
+      "GateThreshold",
+      "GroundTruthError",
+      "GroundTruthIssue",
+      "GroundTruthIssueCode",
+      "GroundingCounts",
+      "GroundingReport",
+      "GroundingRule",
+      "GroundingScore",
+      "GroundingSummary",
+      "IncomparableRunsError",
+      "InvalidCaseTruth",
+      "JsonObject",
+      "JsonSchemaObject",
+      "JsonValue",
+      "LooseEvalOptions",
+      "MetricContext",
+      "MetricDefinition",
+      "MetricDelta",
+      "MetricFormat",
+      "MetricInfo",
+      "MetricValues",
+      "MigrationGuardError",
+      "NullHandling",
+      "NumberOptions",
+      "OmittedCount",
+      "OmittedLeaves",
+      "OutOfScopeError",
+      "OutcomeChange",
+      "PathDelta",
+      "PathSegment",
+      "PreflightError",
+      "Prf",
+      "PrfScope",
+      "Progress",
+      "RESULT_FORMAT",
+      "RESULT_VERSION",
+      "RawKey",
+      "RepairHint",
+      "Reporter",
+      "ResolvedArray",
+      "ResolvedField",
+      "ResolvedFieldInfo",
+      "ResolvedGroundingRule",
+      "RunComparison",
+      "RunIndexEntry",
+      "RunInfo",
+      "RunStore",
+      "RunStoreError",
+      "RunStoreFailure",
+      "SchemaInput",
+      "ScoreExtras",
+      "ScoredCase",
+      "SegmentScore",
+      "SkippedCase",
+      "SliceFilter",
+      "SliceMap",
+      "SliceSpec",
+      "SliceValue",
+      "SpecInfo",
+      "SpecProblem",
+      "SpecProblemCode",
+      "StatusCounts",
+      "StoredRaw",
+      "StoredRun",
+      "Summary",
+      "TagValue",
+      "TextOptions",
+      "UsageInfo",
+      "ValidationResult",
+      "WritableDataset",
+      "boxIoU",
+      "buildResult",
+      "builtinMetrics",
+      "byIndex",
+      "canonicalJson",
+      "compareCodeUnits",
+      "date",
+      "defineAssertion",
+      "defineComparator",
+      "defineEval",
+      "defineMetric",
+      "defineReporter",
+      "describeComparator",
+      "exact",
+      "fingerprintOf",
+      "formatPath",
+      "gate",
+      "groundingRule",
+      "hungarian",
+      "identifier",
+      "inMemoryDataset",
+      "intersectionOverUnion",
+      "isGrounded",
+      "looseEval",
+      "number",
+      "omittedOf",
+      "oneOf",
+      "ordered",
+      "parseCaseResult",
+      "parseEvalResult",
+      "parseRunInfo",
+      "patternOf",
+      "percentile",
+      "prf",
+      "prfMetricId",
+      "prfOf",
+      "resolveBaseline",
+      "runScopeOmissions",
+      "setOf",
+      "sliceValues",
+      "sumOf",
+      "supportsLocation",
+      "text",
+      "toJsonValue"
+    ]
   }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/config",
+  "entrypoint": "../../packages/eval/src/config.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "EvalConfig",
+      "defineEvalConfig"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/dataset",
+  "entrypoint": "../../packages/eval/src/dataset/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "DraftableDataset",
+      "Migration",
+      "MigrationDiff",
+      "MigrationReport",
+      "PendingCase",
+      "SampleOptions",
+      "caseFingerprint",
+      "datasetFingerprint",
+      "defineMigration",
+      "draftExpected",
+      "runMigration",
+      "sample"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/runner",
+  "entrypoint": "../../packages/eval/src/runner/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "EvalExtractor",
+      "ExtractContext",
+      "ExtractOutput",
+      "RescoreOptions",
+      "ResultOptions",
+      "ResultSection",
+      "RunEvalOptions",
+      "memoryRunStore",
+      "rescore",
+      "runEval"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/node",
+  "entrypoint": "../../packages/eval/src/node/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "FolderDatasetOptions",
+      "LiveArtifact",
+      "fileDocument",
+      "fileRunStore",
+      "folderDataset",
+      "gitInfo",
+      "jsonlDataset",
+      "liveArtifact",
+      "readEvalResult",
+      "runDirectory",
+      "writeEvalResult",
+      "writeFileAtomic"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/docture",
+  "entrypoint": "../../packages/eval/src/docture/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "FromDoctureOptions",
+      "FromDoctureProjection",
+      "fromDocture"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/compare",
+  "entrypoint": "../../packages/eval/src/comparison/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "CompareOptions",
+      "compareRuns"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/calibration",
+  "entrypoint": "../../packages/eval/src/calibration/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "CalibrationOptions",
+      "calibrate",
+      "calibrationSection",
+      "mergeCalibration"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/grounding",
+  "entrypoint": "../../packages/eval/src/grounding/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "GroundingOptions",
+      "grounding",
+      "groundingSection"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/reporters/terminal",
+  "entrypoint": "../../packages/eval/src/reporters/terminal/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "CellValue",
+      "Column",
+      "ScoreboardOptions",
+      "TerminalReporterOptions",
+      "TerminalStream",
+      "defaultColumns",
+      "defineColumn",
+      "renderScoreboard",
+      "terminalReporter"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/reporters/json",
+  "entrypoint": "../../packages/eval/src/reporters/json/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "JsonReporterOptions",
+      "jsonReporter",
+      "renderJson",
+      "renderJsonSplit"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/reporters/markdown",
+  "entrypoint": "../../packages/eval/src/reporters/markdown/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "CellValue",
+      "Column",
+      "MarkdownHelpers",
+      "MarkdownOptions",
+      "MarkdownReporterOptions",
+      "MarkdownSection",
+      "TableView",
+      "defaultColumns",
+      "defineColumn",
+      "escapeMarkdown",
+      "markdownReporter",
+      "md",
+      "renderMarkdown"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/reporters/csv",
+  "entrypoint": "../../packages/eval/src/reporters/csv/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "CellValue",
+      "Column",
+      "CsvOptions",
+      "CsvReporterOptions",
+      "csvCell",
+      "csvReporter",
+      "defaultColumns",
+      "defineColumn",
+      "renderCsv"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/reporters/junit",
+  "entrypoint": "../../packages/eval/src/reporters/junit/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "JunitOptions",
+      "JunitReporterOptions",
+      "escapeXml",
+      "junitReporter",
+      "renderJunit"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/reporters/html",
+  "entrypoint": "../../packages/eval/src/reporters/html/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "Bar",
+      "BarData",
+      "CellValue",
+      "Column",
+      "DocumentRow",
+      "HTML_IDS",
+      "HtmlOptions",
+      "HtmlPanel",
+      "HtmlParts",
+      "HtmlReporterOptions",
+      "HtmlTheme",
+      "HtmlView",
+      "PanelData",
+      "SectionData",
+      "Tile",
+      "TileData",
+      "Tone",
+      "defaultColumns",
+      "defineColumn",
+      "embedJson",
+      "htmlReporter",
+      "panel",
+      "renderHtml",
+      "scoreTone"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/reporters/template",
+  "entrypoint": "../../packages/eval/src/reporters/template/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "TableView",
+      "TemplateHelpers",
+      "TemplateRender",
+      "TemplateReporterOptions",
+      "renderTemplate",
+      "templateHelpers",
+      "templateReporter"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/judge",
+  "entrypoint": "../../packages/eval/src/judge/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "ENGINE_RANGES",
+      "JudgeCache",
+      "JudgeOptions",
+      "judge"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/vitest",
+  "entrypoint": "../../packages/eval/src/adapters/vitest/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "DescribeEvalHost",
+      "ExtractionMatchers",
+      "MatchExtractionOptions",
+      "describeEval",
+      "extractionMatchers",
+      "toMatchExtraction"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/evalite",
+  "entrypoint": "../../packages/eval/src/adapters/evalite/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "extractionScorer"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/promptfoo",
+  "entrypoint": "../../packages/eval/src/adapters/promptfoo/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "extractionAssertion"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/autoevals",
+  "entrypoint": "../../packages/eval/src/adapters/autoevals/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "ExtractionF1"
+    ]
+  }
+},
+{
+  "packageName": "@docture/eval",
+  "importPath": "@docture/eval/conversion",
+  "entrypoint": "../../packages/eval/src/conversion/index.ts",
+  "pages": {
+    "content/docs/reference/api/eval.mdx": [
+      "AbsentCheck",
+      "ConversionCheck",
+      "ConversionCheckKind",
+      "ConversionCheckResult",
+      "ConversionReport",
+      "ConvertedPages",
+      "OrderCheck",
+      "PresentCheck",
+      "TableCheck",
+      "checkConversion"
+    ]
+  }
+}
 ];

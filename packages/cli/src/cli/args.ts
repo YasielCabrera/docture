@@ -50,6 +50,8 @@ export interface CommandSpec {
   readonly description?: string;
   readonly examples?: readonly string[];
   readonly notes?: readonly string[];
+  /** Commands named `<name> <subcommand>`. The first one runs when no subcommand is named. */
+  readonly subcommands?: readonly CommandSpec[];
 }
 
 /** What `parseArgs` can hand back for one flag, given our option table. */
