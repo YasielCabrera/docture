@@ -1,0 +1,20 @@
+---
+title: Configure synthetic fonts and locale formatting
+description: Choose fonts that cover your text and format values reproducibly.
+---
+
+Set `locale` on each template. Presets are `en-US`, `en-GB`, `de-DE`, `fr-FR`, and `es-ES`. The formatter passed to `draw` or `render` supplies `number`, `money`, and `date`.
+
+`money` accepts integer minor units. For example, `money(-5951)` prints `-$59.51` in `en-US` and `-59,51 €` in `de-DE`. Dates use explicit patterns with `DD`, `MM`, `YYYY`, and `MON`. Formatting avoids runtime ICU differences.
+
+## Supply fonts
+
+PDF templates default to Helvetica and Courier through `regular`, `bold`, `italic`, and `mono`. Standard PDF fonts cover Western European text, `€`, and `£`, but not characters such as `ł`, Cyrillic, Greek, or U+2212.
+
+Pass TrueType or OpenType bytes in the template's `fonts` map for other scripts. For example, read your font with `readFileSync` and assign the bytes to `fonts.regular` and `fonts.bold`. The renderer raises `TemplateError` with `missing-glyph` when a drawn character has no glyph.
+
+HTML templates embed fonts as data URLs in CSS. Keep the Chromium build and font assets fixed when comparing rendered bytes.
+
+Changing a font or asset captured by a template does not change its function source fingerprint. Change the corpus `createdAt` or rebuild into a new directory after changing those inputs.
+
+See [formatting and font APIs](/docs/synthetic/reference/templates#locales) and [corpus reproducibility](/docs/synthetic/corpora#reproduce-a-corpus).

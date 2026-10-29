@@ -1,0 +1,72 @@
+---
+title: Validation and repair API
+description: Rule modes, validation issues, repair inputs, and repair budgets.
+---
+
+Import from `docture`.
+
+## Validation rules
+
+```ts
+type ValidationRule<T = unknown> =
+  (data: T) => readonly ValidationIssue[] | Promise<readonly ValidationIssue[]>;
+type RuleFailureMode = "report" | "fail";
+```
+
+A rule checks a fact the schema cannot express, such as line amounts adding up to the
+subtotal. Rules run after the schema accepts a strategy's data, all of them, and their
+issues keep rule order. An empty array means the rule passed.
+
+In `"report"` mode the extraction returns the data with `validation.valid` set to `false`
+and the issues listed. In `"fail"` mode the attempt records `CONTRACT_VIOLATION` with the
+issues, and the next strategy runs. When every strategy fails, the extraction rejects
+with `ContractViolationError`, whose `failedCheck` is `"rule"` when the first violation
+came from a rule and `"schema"` when it came from the schema. A rule that throws rejects the extraction with that error
+and does not try another strategy.
+
+A rule that returns anything other than an array of `{ path: string, message: string }`
+issues, such as `undefined`, rejects the extraction with a `TypeError` that names the rule,
+and does not try another strategy. An `onRuleFailure` other than `"report"` or `"fail"`
+throws a `RangeError` from `createExtractor`, or rejects the call before any strategy runs.
+
+```ts
+const result = await extractor.extract("invoice.pdf", Invoice, {
+  rules: [(invoice) => invoice.lineItems.reduce((sum, line) => sum + line.amount, 0) === invoice.subtotal
+    ? []
+    : [{ path: "subtotal", message: "line items do not add up" }]],
+});
+result.validation; // { valid: false, issues: [...] } when the lines disagree
+```
+
+`extractBatch()`, `Process.extract()`, and classifications with their own extractor
+forward `rules`, `onRuleFailure`, and `maxRepairs` like every other run option.
+
+
+## Repair
+
+When a strategy's answer fails the schema, or a rule in `"fail"` mode, and the strategy
+implements `repair()`, the pipeline asks it again with the previous answer and the issues.
+It does so up to `maxRepairs` times per strategy, default `1`, before trying the next
+strategy. Report-mode rule issues never trigger a repair. A model response that does not
+parse into the schema (`MODEL_OUTPUT_FAILED`) is repaired from its complete text.
+
+Each repair is its own `Attempt` with `stage: "repair"` and its own `usage`, and
+`result.usage` counts every call once. The failed answer that led to it stays in
+`attempts` as a failed `extract` or `repair` attempt. Repair calls are billed model
+requests, separate from the transport `maxRetries` of an LLM strategy, which only retries
+a failed request. A repair gets its own stage deadline, labelled `repair:<strategy>`.
+Caller cancellation during a repair rejects the run without fallback.
+
+```ts
+type RepairInput =
+  | { kind: "data"; data: unknown; issues: readonly ValidationIssue[]; citations?: readonly OutcomeCitation[] }
+  | { kind: "model-output"; rawOutput: string; issues: readonly ValidationIssue[] };
+
+interface ExtractionStrategy {
+  repair?(ctx: StrategyContext, previous: RepairInput): Promise<StrategyOutcome>;
+}
+```
+
+`data` carries an answer the schema or a rule rejected, with the rejected outcome's
+citations when it had any. `model-output` carries the complete response text that did not
+parse; it is not truncated like `Attempt.rawOutput`.

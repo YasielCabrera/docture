@@ -1,0 +1,38 @@
+---
+title: Synthetic html API
+description: Public API for @docture/synthetic/html.
+---
+
+## `@docture/synthetic/html`
+
+- `HtmlTemplate`
+- `HtmlTemplateDefinition`
+- `RenderHtmlPdfOptions`
+
+### `defineHtmlTemplate`
+
+```ts
+defineHtmlTemplate<T>(): (definition: HtmlTemplateDefinition<T>) => HtmlTemplate<T>
+```
+
+An HTML template. `render(value, format)` returns the body: one `<section class="page">` per page, each fixed to the page size, so pagination is explicit. Every printed field sits in an element with `data-field="<concrete path>"`, or several comma-separated paths. `css` is added after the page rules; embed fonts as data URLs, since nothing is fetched. Ligatures are off unless the template sets them with `!important`, because PDF.js reads a ligature glyph as its own span.
+
+### `renderHtmlPdf`
+
+```ts
+renderHtmlPdf<T>(template: HtmlTemplate<T>, sample: Sample<T>, options?: RenderHtmlPdfOptions): Promise<SyntheticDocument>
+```
+
+Print the template with Chromium and label each `data-field` element with its box in points. Pass a `browser` to reuse one across renders; otherwise one is launched and closed per call. `executablePath` selects the Chromium to launch. Verify the result with `verifyLabels` like a PDFKit rendering.
+
+### `escapeHtml`
+
+```ts
+escapeHtml(text: string): string
+```
+
+Escape text for HTML content or a quoted attribute.
+
+### `ENGINE_RANGES`
+
+`{ "playwright-core": "1.64.1" }`. Install a Chromium build separately.

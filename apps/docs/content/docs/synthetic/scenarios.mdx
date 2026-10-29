@@ -1,0 +1,29 @@
+---
+title: Add synthetic constraints and scenarios
+description: Keep derived values consistent and generate cases that challenge processors.
+---
+
+Use `derive` to recompute dependent values, constraints to reject invalid samples, and scenarios to name variations. Constraints validate samples; they do not search for a satisfying replacement.
+
+## Define a scenario
+
+Reuse the `Bill` type and model from the [quick start](/docs/synthetic/quick-start):
+
+```ts
+import { gen, scenario } from "@docture/synthetic";
+import { model, type Bill } from "./synth.mjs";
+
+const credit = scenario<Bill>({
+	name: "credit-balance",
+	fields: { totalCents: gen.int(-9000, -100) },
+	expect: (bill) => bill.totalCents < 0 || "the total is not a credit",
+});
+const sample = await model.sample({ seed: 7, scenario: credit });
+console.log(sample.value.totalCents < 0);
+```
+
+The result is `true`. Scenario generators override model generators. A scenario can also apply `shape` to rewrite a sampled value. `derive` runs after sampling and again after `shape`; make it idempotent. Constraints and `expect` run before schema validation, and failures become `SynthesisError.problems`.
+
+For invoice totals, derive amounts from quantities and rates. Then check them with `sumOf`. Other built-ins are `before`, `validIban`, `validLuhn`, and `unique`; `constraint` defines a custom rule. Scenario tags become case parameters.
+
+The [scenario reference](/docs/synthetic/reference/models#scenario) and [constraint reference](/docs/synthetic/reference/constraints) give signatures. [Corpus generation](/docs/synthetic/corpora) includes the unvaried `base` scenario unless disabled.

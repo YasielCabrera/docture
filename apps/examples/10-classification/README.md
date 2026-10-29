@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples classify
 ```
 
-Docs: [`concepts/classification`](../../docs/content/docs/concepts/classification.mdx)
+Docs: [`concepts/classification`](../../docs/content/docs/extraction/classification.mdx)
 
 ## Imports and installs
 

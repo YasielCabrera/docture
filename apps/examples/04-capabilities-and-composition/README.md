@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples capabilities
 ```
 
-Docs: [`concepts/rasterizers`](../../docs/content/docs/concepts/rasterizers.mdx)
+Docs: [`concepts/rasterizers`](../../docs/content/docs/integrations/rasterizers.mdx)
 
 ## Imports and installs
 

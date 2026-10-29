@@ -19,7 +19,7 @@ export function QuickStart() {
             Add docture, the PDF.js engine, AI SDK 7, your model provider, and Zod.
           </p>
           <Link
-            href="/docs/quick-start"
+            href="/docs/extraction/quick-start"
             className="group mt-5 inline-flex items-center gap-2 rounded-control text-sm font-medium text-brand underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
           >
             Follow the quick start

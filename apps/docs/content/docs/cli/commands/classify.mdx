@@ -1,0 +1,42 @@
+---
+title: "docture classify"
+description: "Decide what kind of document this is, without extracting"
+---
+
+Reads each document and asks the classifiers what it is. Cheap next to a full
+extraction, and the way to check a routing decision before paying for one.
+
+## Arguments
+
+| Argument | Required | Meaning |
+| --- | --- | --- |
+| `file...` | Yes | Paths, globs, http(s) URLs, or - for stdin |
+
+## Flags
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--classifications <path>` | Not set | Module exporting the candidate document kinds. Required unless the config supplies them |
+| `--format <fmt>` | text | JSON is a versioned envelope; NDJSON streams result items Choices: `json`, `ndjson`, `text`. |
+| `--model <provider/id>`, `-m` | Not set | The AI SDK model, e.g. openai/gpt-5 or anthropic/claude-opus-5 |
+| `--gateway` | Not set | Route through the Vercel AI Gateway even if the provider package is installed |
+| `--pricing <path>` | Not set | JSON prices by model id with inputPerMillion and outputPerMillion; optional cacheReadPerMillion and cacheWritePerMillion default to inputPerMillion |
+| `--cache <dir>` | Not set | Cache model responses on disk, so a re-run is free |
+| `--temperature <n>` | 0 | Sampling temperature |
+| `--timeout <ms>` | Not set | Per-stage deadline. Omit for none |
+| `--concurrency <n>` | 4 | Overlaps model calls and I/O; local PDF work uses one thread |
+| `--dry-run` | Not set | Validate the invocation and print the plan as JSON. Reads no document and writes no file |
+| `--config <path>` | Not set | Config file. Default: the nearest docture.config.&#123;ts,mts,js,mjs&#125; |
+| `--no-config` | Not set | Ignore any config file that is found |
+| `--verbose`, `-v` | Not set | Report the wiring, the routing, and every attempt |
+| `--quiet`, `-q` | Not set | Only failures and the first hint per error code on stderr |
+| `--no-color` | Not set | Never emit ANSI colour |
+| `--help`, `-h` | Not set | Show this help |
+
+## Examples
+
+```sh
+docture classify inbox/*.pdf --classifications ./kinds.ts -m openai/gpt-5
+```
+
+See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).

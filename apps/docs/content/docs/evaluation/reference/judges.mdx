@@ -1,0 +1,20 @@
+---
+title: Evaluation model judge API
+description: Cached asynchronous semantic comparisons.
+---
+
+## `@docture/eval/judge`
+
+`judge` is async and needs the optional `ai` peer on first use. Temperature is zero. The default cache is a map per comparator. Aligned rows need a synchronous weighted field in addition to judge-only features.
+
+- `ENGINE_RANGES`
+- `JudgeCache`
+- `JudgeOptions`
+
+### `judge`
+
+```ts
+judge(options: JudgeOptions): Comparator
+```
+
+Compare string leaves with a cached, temperature-zero structured verdict. Use scoreAsync.

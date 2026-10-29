@@ -1,0 +1,36 @@
+---
+title: Use model judges in evaluation
+description: Compare semantic string values with cached asynchronous verdicts.
+---
+
+Install the judge's optional engine and your AI SDK provider:
+
+```sh
+pnpm add ai@^7 @ai-sdk/openai
+```
+
+Use the judge for selected string leaves rather than replacing deterministic comparisons for identifiers or exact amounts:
+
+```ts
+import { defineEval, exact } from "@docture/eval";
+import { judge } from "@docture/eval/judge";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod";
+
+const spec = defineEval(z.object({ summary: z.string() }), {
+	strings: exact(),
+	fields: {
+		summary: judge({ model: openai("gpt-5"), rubric: "The summary preserves the same factual meaning." }),
+	},
+});
+const score = await spec.scoreAsync({ summary: "Paid in full" }, { summary: "No balance remains" });
+console.log(score.metrics);
+```
+
+Set your provider credential before running this example. `score()` rejects specs that contain async comparators; use `scoreAsync()` or `runEval`.
+
+The judge uses a fixed structured verdict and temperature zero. Its default cache is a map per comparator. Supply a persistent cache to reuse model, prompt, and value comparisons across runs. Cached structured output improves repeatability; providers do not guarantee identical responses to repeated uncached calls.
+
+Similarity-based row alignment needs a weighted synchronous comparator. A row whose only useful comparison is a model judge cannot be aligned by `ordered` or `hungarian`.
+
+The engine loads on first use. An absent `ai` peer raises `MissingEngineError`. See [judge API](/docs/evaluation/reference/judges) and [array alignment](/docs/evaluation/array-matching).

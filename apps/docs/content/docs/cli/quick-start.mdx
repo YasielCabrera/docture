@@ -1,0 +1,34 @@
+---
+title: CLI quick start
+description: Install the CLI and inspect or convert a document.
+---
+
+The `@docture/cli` package supplies the `docture` executable.
+
+Install it in a project:
+
+```sh
+npm install --save-dev @docture/cli
+npx docture --help
+```
+
+Run it once without installing:
+
+```sh
+npx --package @docture/cli docture --help
+```
+
+The CLI requires `ai` and `pdfjs-dist`. For a Zod schema and a local OpenAI provider:
+
+```sh
+npm install --save-dev @docture/cli @ai-sdk/openai zod@^4
+```
+
+
+
+```sh
+docture inspect invoice.pdf --text
+docture convert invoice.pdf --out converted --to md
+```
+
+Inspection prints document facts and selected text. Conversion writes `converted/invoice.md`. Extracting fields also requires a schema and configured strategy or model. See [configuration](/docs/cli/configuration), [command reference](/docs/cli/commands), and [input and output behavior](/docs/cli/inputs-and-outputs).

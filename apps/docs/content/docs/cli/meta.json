@@ -1,0 +1,21 @@
+{
+  "title": "CLI and services",
+  "root": false,
+  "pages": [
+    "quick-start",
+    "configuration",
+    "inputs-and-outputs",
+    "models",
+    "dry-run",
+    "review",
+    "commands",
+    "evaluation",
+    "mcp",
+    "mcp-tools",
+    "http-service",
+    "http-protocol",
+    "containers",
+    "reference"
+  ],
+  "pagesIndex": "index"
+}

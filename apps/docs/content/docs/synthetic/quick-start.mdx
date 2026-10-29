@@ -1,0 +1,48 @@
+---
+title: Generate your first labeled PDF
+description: Sample two fields, draw them, and verify their labels.
+---
+
+Create a PDF with two fields and labels that point to the printed text. This example uses Node.js 22 or newer and needs no model credentials.
+
+## Install
+
+```sh
+npm install --save-dev @docture/synthetic docture zod@^4 pdfkit@0.19.1 pdfjs-dist@6.2.108
+```
+
+## Render and verify
+
+Create `synth.mts`:
+
+```ts
+import { writeFile } from "node:fs/promises";
+import { defineModel, defineTemplate, gen, locales } from "@docture/synthetic";
+import { renderPdf } from "@docture/synthetic/pdfkit";
+import { assertVerified } from "@docture/synthetic/verify";
+import { z } from "zod";
+
+export const Bill = z.object({ customerName: z.string(), totalCents: z.number().int() });
+export type Bill = z.infer<typeof Bill>;
+export const model = defineModel(Bill, {
+	fields: { customerName: gen.pick(["Dana", "Kenji"]), totalCents: gen.int(100, 9000) },
+});
+export const template = defineTemplate<Bill>()({
+	key: "simple-bill",
+	family: "bill",
+	locale: locales["en-US"],
+	printed: { customerName: true, totalCents: true },
+	draw(page, bill, format) {
+		page.field("customerName", bill.customerName, { x: 50, y: 50 });
+		page.field("totalCents", format.money(bill.totalCents), { x: 50, y: 80 });
+	},
+});
+const document = await renderPdf(template, await model.sample({ seed: 1 }));
+await assertVerified(document);
+await writeFile("bill.pdf", document.bytes);
+console.log(document.labels.length);
+```
+
+Run `npx tsx synth.mts`. It writes `bill.pdf` and prints `2`. Each label records `path`, `value`, `text`, `pageNumber`, and `box`. `document.expected` contains the values recoverable from this template.
+
+Next, [add scenarios](/docs/synthetic/scenarios) or [write multiple cases](/docs/synthetic/corpora). The [complete corpus example](/docs/synthetic/evaluation#complete-example) also scores a processor.

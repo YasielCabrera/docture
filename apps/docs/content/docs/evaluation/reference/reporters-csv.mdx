@@ -1,0 +1,53 @@
+---
+title: Evaluation csv reporter API
+description: Csv reports from saved evaluation results.
+---
+
+## `@docture/eval/reporters/csv`
+
+This entry is Node-only: its writing factory imports `node/artifacts`. Pure rendering implementations have no Node imports. The factory consumes `EvalResult` through `onResult`; writing requires an explicit `out` except for the terminal reporter.
+
+- `CellValue`
+- `Column`
+- `CsvOptions`
+- `CsvReporterOptions`
+
+### `csvCell`
+
+```ts
+csvCell(value: CellValue): string
+```
+
+One RFC 4180 field. Text that a spreadsheet would run as a formula (a leading `=`, `+`, `-`, `@`, tab or carriage return) gets a leading `'`. Numbers are written as numbers.
+
+### `renderCsv`
+
+```ts
+renderCsv(result: EvalResult, options?: CsvOptions): string
+```
+
+The result as CSV: one line per case with the report's columns, or one line per scored leaf.
+
+### `csvReporter`
+
+```ts
+csvReporter(options: CsvReporterOptions): Reporter
+```
+
+Write the result as CSV.
+
+### `defineColumn`
+
+```ts
+defineColumn(column: Column): Column
+```
+
+Declare a column. Identity at runtime; it pins the type.
+
+### `defaultColumns`
+
+```ts
+defaultColumns(): readonly Column[]
+```
+
+The columns every per-case view starts from.

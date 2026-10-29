@@ -1,0 +1,27 @@
+---
+title: Evaluation specs API
+description: Schema rules, validation, field resolution, and exploratory scoring.
+---
+
+## `@docture/eval`
+
+`defineEval` defaults to absent null handling and weight 1. Strings require a comparator and row arrays require alignment rules. `exact` defaults to no normalization. `number` defaults to zero absolute and relative tolerance and two minor-unit digits. `date` defaults to day granularity. `identifier` removes whitespace and ` -./`. `text` requires minimum similarity. It defaults to Levenshtein similarity, ANLS cutoff 0.5 and digits in order. `ordered` and `hungarian` default to minimum similarity 0.5 and 250,000 matrix cells. `looseEval` uses exploratory defaults without a schema. `gate` fails incomplete runs and ungraded required metrics.
+
+`spec.validate(expected)` returns validation issues. `spec.score(expected, actual, extras?)` returns `CaseScore`; `scoreAsync` supports async comparators. `spec.explain(path)` describes the resolved rules. Empty metric denominators are null. A zero-weight field still affects the unweighted `exact` metric.
+
+### `defineEval`
+
+```ts
+defineEval<C extends ContractLike>(schema: C, rules?: EvalRules): EvalSpec<InferContract<C>>
+defineEval<T = unknown>(schema: JsonSchemaObject, rules?: EvalRules): EvalSpec<T>
+```
+
+Build a spec from a schema and rules. Every leaf gets its comparator from, in order: the most specific `fields` rule, an `x-docture-eval` annotation, an unambiguous type default, or `strings` for strings. Unresolved fields, unused rules and unsegmented leaves throw one `EvalSpecError` listing them all.
+
+### `looseEval`
+
+```ts
+looseEval(options?: LooseEvalOptions): EvalSpec<unknown>
+```
+
+A spec with no schema that reproduces the defaults of Docture's previous `scoreExtraction`: numbers within 0.01, strings at similarity 0.9 once their digits agree, date-like strings by calendar day, arrays by index. It is the one spec that does not fail closed; use it for quick checks.

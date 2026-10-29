@@ -210,7 +210,7 @@ npm install --save-dev @docture/cli docture tesseract.js@7.0.0 pdfjs-dist@6.2.10
 
 Import `DocumentLoaderTesseract` from `docture/loaders/tesseract` and
 `NapiCanvasRasterizer` from `docture/raster/canvas`, then pass the rasterizer to the OCR
-loader. See the [complete OCR and engine recipes](../../apps/docs/content/docs/guides/installation.mdx).
+loader. See the [complete OCR and engine recipes](../../apps/docs/content/docs/getting-started/installation.mdx).
 
 ## Batches
 
@@ -471,11 +471,11 @@ const code = await run(["extract", "invoice.pdf", "-s", "./invoice.ts"], { io })
 
 ## Import migration
 
-Only `docture`, `@docture/cli` and `@docture/eval` are published. In configs, replace `@docture/core`
+The published packages are `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic`. In configs, replace `@docture/core`
 with `docture`, `@docture/llm` with `docture/llm` or a narrow model entry, and old
 `@docture/loader-*` imports with `docture/loaders/*`. Core is the only API at the
 `docture` root. `LLM` comes from `docture/llm`; `llm()` comes from `docture/llm/text`.
-The [migration guide](../../apps/docs/content/docs/guides/migration.mdx) lists every replacement.
+The [migration guide](../../apps/docs/content/docs/resources/migration.mdx) lists every replacement.
 
 ## License
 

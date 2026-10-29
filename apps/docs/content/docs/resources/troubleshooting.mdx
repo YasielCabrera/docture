@@ -1,0 +1,54 @@
+---
+title: Troubleshooting by symptom
+description: Recovery steps tied to verified audit scenarios and current errors.
+---
+
+These entries come from reproducible repository audit scenarios. They are not presented as external user reports. The linked error reference contains the canonical code definitions and recovery advice.
+
+## A local path fails after switching to the portable entry
+
+The portable root rejects paths and file URLs with `UNSUPPORTED_SOURCE`. Import the local-file constructors or `resolveNodeSource` from `docture/node`. Bytes, HTTP URLs and loaded sources remain portable. This scenario is covered by `node-sources.test.ts` and the browser production-bundle test. See [Node file sources](/docs/getting-started/reference/node) and [source errors](/docs/resources/errors).
+
+## An adapter imports but its first load reports a missing engine
+
+Optional engines load when selected. Install the engine beside the application using the exact recipe for that entry. `MissingEngineError` names the package, range and entry. Import success does not prove that its engine is installed. This is covered by the packed missing-engine probes. See [installation](/docs/getting-started/installation) and [the error reference](/docs/resources/errors).
+
+## Extraction says no strategy is eligible
+
+Read the missing document facts in `NO_ELIGIBLE_STRATEGY`. A loader's advertised capability is an upper bound. Loaded pages can still lack positioned lines, and an ordinary short text can fall below the text-layer heuristic. Native nonblank element/cell evidence establishes text independently. This is covered by capability and native-text eligibility tests. See [strategies](/docs/extraction/strategies) and [routing and fallback](/docs/extraction/routing).
+
+## A scan or mixed PDF produces incomplete text
+
+Select an OCR loader explicitly. For mixed pages, `withOcrFallback` evaluates only caller-selected low-quality pages and preserves intentional blanks. An OCR failure keeps the original page and records a warning. This is covered by the selected-page fallback regression. See [selected-page OCR](/docs/integrations/selected-page-ocr) and [scanned documents](/docs/integrations/scanned-documents).
+
+## OCR uses memory for pages outside the intended limit
+
+The built-in OCR loaders now forward `maxPages` before rasterization. A custom rasterizer may ignore that hint; inspect its implementation before assuming the same bound. Capped loads omit total `pageCount` when it cannot be established. This scenario is covered by the renderer-cap and cache tests. See [performance](/docs/extraction/performance) and [rasterizers](/docs/integrations/rasterizers).
+
+## A selected page fails or output page numbers look unexpected
+
+Pages are one-based and retain original document numbers. `convert --pages 2,4` selects those original pages. Invalid lists fail before loading config. A page outside a source or render cap produces `PAGE_OUT_OF_RANGE`. This is covered by API, CLI and MCP page-selection tests. See [document conversion](/docs/conversion/quick-start) and [the error reference](/docs/resources/errors).
+
+## Citations show text but cannot highlight printed lines
+
+Stored Paperless content has no physical page boundaries or coordinates. Docling elements and cells retain their actual evidence granularity. Physical native boxes require bound original bytes and matching images; the review rejects a mismatched digest. This is covered by native evidence review and Paperless workflow tests. See [Docling import](/docs/integrations/docling-import), [Paperless sources](/docs/integrations/paperless-read), and [the CLI guide](/docs/cli/quick-start).
+
+## A Paperless apply skips a value or reports partial progress
+
+Apply re-reads current values and skips fields another writer filled. Zero and false are present values. Tags are additive, and an existing extraction marker suppresses another audit note. Preserve the returned per-operation outcomes. A timeout or error response can follow a successful native write, so reconciliation checks actual state. These are deterministic co-writer and ambiguous-response scenarios. See [Paperless write-back](/docs/integrations/paperless-updates).
+
+## A Paperless apply tool is missing from MCP
+
+The default server exposes plan/read/extract operations. Apply requires `paperless.enableApply` in caller config and is checked again when called. Tool arguments cannot enable it or replace credentials and mappings. This is covered by MCP tool-listing and direct-call tests. See [the CLI API](/docs/cli/reference/cli).
+
+## The HTTP service refuses a remote bind or an upload
+
+Non-loopback binding requires a configured bearer token. Requests accept bounded JSON containing canonical base64 bytes and configured schema names. Paths, unknown keys and model/config overrides are rejected. These are real HTTP regression scenarios. See [HTTP service](/docs/cli/http-service).
+
+## A batch rejects its concurrency setting
+
+Batch concurrency must be a finite positive integer. Fractions, zero, negatives, NaN and Infinity fail before processing sources. This is covered for both extraction and conversion generators. See [batches and lifecycle](/docs/extraction/batches).
+
+## A calibration report has no supported threshold
+
+The labelled sample may not meet the requested empirical precision and minimum support at a complete confidence tie. Missing or uncited OCR confidence stays unknown. The report does not apply a policy, and reordered `--align-by` evidence is rejected. These cases are covered by synthetic calibration fixtures. See [measuring accuracy](/docs/evaluation/quick-start).

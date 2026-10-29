@@ -1,0 +1,19 @@
+---
+title: Evaluation overview
+description: Measure extraction quality, compare processors, and gate regressions.
+---
+
+`@docture/eval` compares structured output with project-owned ground truth. It supports Docture and other processors through the same contract. Specs define scoring. Datasets provide cases. Experiments produce raw output. One versioned result feeds reports, comparisons, and gates.
+
+Start with [your first evaluation](/docs/evaluation/quick-start). Then choose a task:
+
+- [Define scoring rules](/docs/evaluation/scoring-rules) and [match array rows](/docs/evaluation/array-matching).
+- [Prepare datasets](/docs/evaluation/datasets) and [approve ground truth](/docs/evaluation/ground-truth).
+- [Connect processors](/docs/evaluation/processors) and [run experiments](/docs/evaluation/experiments).
+- [Resume or re-score saved runs](/docs/evaluation/run-history).
+- [Compare runs](/docs/evaluation/comparisons), [gate CI](/docs/evaluation/ci), and [generate reports](/docs/evaluation/reports).
+- Measure [confidence](/docs/evaluation/calibration), [grounding](/docs/evaluation/grounding), or [conversion quality](/docs/evaluation/conversion-checks).
+
+The root needs its `docture` peer and no optional engine. File adapters live in `/node`; the model judge alone needs `ai`. See [installation](/docs/getting-started/installation) and the [API reference](/docs/evaluation/reference).
+
+Use [Synthetic data](/docs/synthetic) to create labeled corpora, or return to [Extraction](/docs/extraction) to improve the processor.

@@ -4,58 +4,15 @@ import { extname, join, relative, resolve, sep } from "node:path";
 import ts from "typescript";
 import { z } from "zod";
 import { API_INVENTORY, type ApiEntrypointInventory } from "../api-reference.js";
+import legacyContract from "../lib/legacy-doc-contract.json";
+import { legacyDocs } from "../lib/docs-migration.js";
+import { checkDocsStructure } from "./check-docs-structure.js";
 import { checkAdditionalDocs } from "./additional-docs.js";
 
 const ROOT = process.cwd();
 const DOCS_ROOT = resolve(ROOT, "content/docs");
 
-const PRESERVED_DOC_ROUTES = [
-  "/docs",
-  "/docs/concepts/bundles-and-splitters",
-  "/docs/concepts/classification",
-  "/docs/concepts/contracts",
-  "/docs/concepts/loaders",
-  "/docs/concepts/rasterizers",
-  "/docs/concepts/schemas-and-types",
-  "/docs/concepts/strategies",
-  "/docs/guides/batches-and-lifecycle",
-  "/docs/guides/cli",
-  "/docs/guides/custom-loader",
-  "/docs/guides/document-conversion",
-  "/docs/guides/installation",
-  "/docs/guides/long-documents",
-  "/docs/guides/measuring-accuracy",
-  "/docs/guides/migration",
-  "/docs/guides/retrieval-chunks",
-  "/docs/guides/routing-and-fallback",
-  "/docs/guides/scanned-documents",
-  "/docs/guides/sources-and-inputs",
-  "/docs/guides/with-a-model",
-  "/docs/guides/without-a-model",
-  "/docs/how-it-works",
-  "/docs/quick-start",
-  "/docs/reference/api",
-  "/docs/reference/api/cli",
-  "/docs/reference/api/core-classification",
-  "/docs/reference/api/core-components",
-  "/docs/reference/api/core-contracts",
-  "/docs/reference/api/core-conversion",
-  "/docs/reference/api/core-documents",
-  "/docs/reference/api/core-extraction",
-  "/docs/reference/api/chunk",
-  "/docs/reference/api/eval",
-  "/docs/reference/api/llm",
-  "/docs/reference/api/llm-utilities",
-  "/docs/reference/api/loader-mupdf",
-  "/docs/reference/api/loader-paddleocr",
-  "/docs/reference/api/loader-pdfjs",
-  "/docs/reference/api/loader-tesseract",
-  "/docs/reference/api/raster-canvas",
-  "/docs/reference/api/testing",
-  "/docs/reference/architecture",
-  "/docs/reference/errors",
-  "/docs/reference/packages"
-];
+
 
 const failures: string[] = [];
 
@@ -262,9 +219,15 @@ async function checkLinksAndExamples(files: readonly string[]): Promise<void> {
     byRoute.set(routeFor(file), { file, source, anchors: anchorsOf(source) });
   }
 
-  for (const route of PRESERVED_DOC_ROUTES) {
-    if (!byRoute.has(route)) fail(`Preserved documentation route is missing: ${route}`);
+  for (const [route, anchors] of Object.entries(legacyContract)) {
+    const entry = legacyDocs.get(route);
+    if (entry === undefined) fail(`Preserved documentation route is missing: ${route}`);
+    else for (const anchor of anchors) {
+      if (!Object.hasOwn(entry.anchors, anchor)) fail(`Preserved documentation anchor is missing: ${route}#${anchor}`);
+    }
   }
+
+  for (const failure of await checkDocsStructure(DOCS_ROOT, new Map(Array.from(byRoute, ([route, page]) => [route, page.anchors])), legacyDocs)) fail(failure);
 
   for (const [route, page] of byRoute) {
     const links = [
@@ -330,9 +293,9 @@ async function checkProse(files: readonly string[]): Promise<void> {
     "vibrant",
   ];
   const allowedDiagramRoutes = new Set([
-    "/docs/how-it-works",
-    "/docs/concepts/bundles-and-splitters",
-    "/docs/reference/architecture",
+    "/docs/getting-started/how-it-works",
+    "/docs/extraction/splitting",
+    "/docs/resources/architecture",
   ]);
 
   for (const file of files) {

@@ -1,0 +1,34 @@
+---
+title: HTTP protocol reference
+description: Byte-based requests, result envelopes, transport errors, and capacity limits.
+---
+
+The service accepts JSON POST requests to `/convert`, `/inspect`, and `/extract`. It accepts document bytes, not source paths or URLs.
+
+```json
+{
+  "document": { "data": "SGVsbG8=", "mimeType": "text/plain", "fileName": "note.txt" },
+  "schema": "note"
+}
+```
+
+`document.data` is canonical base64. `pages`, when supplied, contains one-based original page numbers. `/extract` requires a configured `schema` name. `/convert` accepts `format`: `text`, `markdown`, `html`, or `json`. `/inspect` accepts neither schema nor format. Unknown fields fail before loading.
+
+Responses use the version 1 CLI envelope. Conversion embeds assets and returns content, format, MIME, page count, loader, method, and warnings. Extraction retains full validation, citation/evidence, and conflict data. Document failures remain envelopes with `ok: false`.
+
+| HTTP status | Transport failure |
+| --- | --- |
+| 400 | Invalid request |
+| 401 | Invalid authentication |
+| 404 | Unknown route |
+| 405 | Unsupported method |
+| 408 | Body deadline exceeded |
+| 413 | Encoded JSON body too large |
+| 415 | Unsupported content type |
+| 503 | Queue full or service shutting down |
+
+Localhost is the default. Other bindings require `DOCTURE_SERVE_TOKEN`; send it as `Authorization: Bearer <token>`. Configuration and schema selection stay fixed until restart.
+
+Concurrency, queue, encoded body size, body deadline, and drain deadline are configurable. A client disconnect cancels its work. Shutdown stops admission and drains requests before cancellation and shared disposal. A cancellation-ignoring engine can delay final exit.
+
+See [service startup and defaults](/docs/cli/http-service), [command flags](/docs/cli/commands/serve), and the [service API](/docs/cli/reference/service).

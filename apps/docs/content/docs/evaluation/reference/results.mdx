@@ -1,0 +1,40 @@
+---
+title: Evaluation results API
+description: Versioned result construction, parsing, and the published JSON Schema.
+---
+
+## `@docture/eval`
+
+Saved results use format `docture-eval-result`, version 1. The public JSON Schema is available at `@docture/eval/result-v1.schema.json`. `result.json` holds metadata and `cases.jsonl` holds case rows.
+
+### `buildResult`
+
+```ts
+buildResult(input: BuildResultInput): EvalResult
+```
+
+Assemble a complete result from case rows: per experiment, the overall metrics, segment, slice, path and field-type summaries, and epoch variance. A project that runs its own loop can build rows itself and still use every reporter.
+
+### `parseCaseResult`
+
+```ts
+parseCaseResult(json: unknown): CaseResult
+```
+
+Validate one line of `cases.jsonl` against `result-v1.schema.json`. Throws `RunStoreError` with reason `format` naming the first bad path.
+
+### `parseEvalResult`
+
+```ts
+parseEvalResult(json: unknown): EvalResult
+```
+
+Validate a parsed `result.json` against `result-v1.schema.json`, every nested member included, and return it as an `EvalResult`. Throws `RunStoreError` with reason `version` for another format version, or `format` naming the first path that does not fit version 1.
+
+### `parseRunInfo`
+
+```ts
+parseRunInfo(json: unknown): RunInfo
+```
+
+Validate run metadata, such as a stored `run.json`, against the run definition in `result-v1.schema.json`. Throws `RunStoreError` with reason `format` naming the first bad path.

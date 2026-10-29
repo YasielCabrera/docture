@@ -1,0 +1,72 @@
+---
+title: Extraction results API
+description: Result fields, attempt records, usage, conflicts, and field paths.
+---
+
+Import from `docture`.
+
+## Results
+
+`ExtractionResult<T>` contains:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `data` | `T` | Validated extracted data. |
+| `method` | `string` | Winning strategy name. |
+| `loader` | `string` | Loader that produced the document. |
+| `attempts` | `readonly Attempt[]` | Failed loaders, if any, followed by strategy attempts in run order. |
+| `classification` | `ClassificationResult?` | Classification when a strategy requested it. |
+| `features` | `DocumentFeatures` | Runtime facts from the loaded document. |
+| `usage` | `Usage` | Total model usage, cost when known, and elapsed time. |
+| `validation` | `ValidationOutcome` | Rule outcome for the returned data. Without rules it is `{ valid: true, issues: [] }`. |
+| `conflicts` | `readonly ExtractionConflict[]?` | Fields the winning strategy's requests disagreed on. Absent when there were none. |
+| `citations` | `readonly FieldCitation[]?` | One entry per present leaf of `data`. Present only when the winning strategy cites. |
+| `citationSources` | `readonly SourceLine[]?` | The real lines `citations` name, by page then line. Present exactly when `citations` is. |
+| `evidenceSources` | `readonly SourceEvidence[]?` | Cited native elements or cells, with actual granularity and optional locations. Separate from real-line `citationSources`. |
+| `sourceDigest` | `string?` | Source identity retained from the loaded document. |
+| `physicalSourceDigest` | `string?` | Identity of the physical source representation, when supplied. |
+| `sourceMetadata` | `Readonly<Record<string, unknown>>?` | Opaque loader provenance retained from the source. |
+
+`AttemptStatus` is `"ok" | "failed" | "skipped"`. An `Attempt` contains required `stage`, `strategy`, `status`, and `ms`. Its stage is
+`load`, `classify`, `extract`, `repair`, or `layout`. Optional fields are `error`,
+`errorCode`, `usage`, `rawOutput`, `finishReason`, and validation `issues`. Raw output is
+capped at 10,000 JavaScript string characters. Loader attempts use the
+historical `strategy` field for the loader name. A successful loader is represented by
+`result.loader` and is not duplicated in `attempts`.
+
+`Usage` contains `inputTokens`, `outputTokens`, `totalTokens`, optional `costUsd`, and
+`wallMs`. Optional `cacheReadTokens` and `cacheWriteTokens` are subsets of input tokens
+reported by the provider. `EMPTY_USAGE` is the zero-valued usage object.
+
+`sumUsage(parts, wallMs)` combines partial usage records. Missing counts add zero.
+Optional cache counts and costs appear when at least one part reports them. The caller
+supplies elapsed `wallMs`. Missing totals are not derived by this reducer.
+
+A field path names one field of `data`. Plain keys and array indexes join with dots, as
+in `lineItems.3.amount`, and `""` is the whole value. A key that is empty or contains a
+dot or a backtick is wrapped in backticks, with backslashes and backticks inside it
+escaped by a backslash. The key `"total.net"` is `` `total.net` ``, which never reads as
+`total` then `net`, and an empty key is ``` `` ```. Conflicts, citations and schema
+issues write the same text for the same field, so their `path` values can be matched.
+`formatFieldPath(segments)` writes a path from keys and indexes.
+`parseFieldPath(path)` returns the keys, with indexes as decimal strings, or `undefined`
+for text that no path formats to.
+
+```ts
+import { formatFieldPath, parseFieldPath } from "docture";
+
+formatFieldPath(["lineItems", 0, "amount"]); // "lineItems.0.amount"
+formatFieldPath(["total.net"]); // "`total.net`"
+parseFieldPath("`total.net`.currency"); // ["total.net", "currency"]
+```
+
+`ValidationIssue` contains a field `path` and `message`. A rule writes its own paths;
+use `formatFieldPath` to match the schema's issues. `ValidationOutcome` contains `valid`
+and `issues`.
+
+`ExtractionConflict` contains a field `path` and `values`, one `ConflictingValue`
+(`value` and `pages`) per distinct present value in document order. A value is a scalar,
+or an object or array that met a scalar at the same path. A strategy reports conflicts
+through `StrategyOutcome.conflicts`; the pipeline copies a non-empty list from the
+winning attempt onto the result. A repair outcome without its own conflicts keeps the
+list of the extract attempt it replaced.

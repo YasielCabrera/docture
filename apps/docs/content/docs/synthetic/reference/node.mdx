@@ -1,0 +1,50 @@
+---
+title: Synthetic node API
+description: Public API for @docture/synthetic/node.
+---
+
+## `@docture/synthetic/node`
+
+- `CorpusPlan`
+- `CorpusReport`
+- `RenditionSpec`
+
+### `writeCorpus`
+
+```ts
+writeCorpus<T>(directory: string, plan: CorpusPlan<T>): Promise<CorpusReport>
+```
+
+Render every seed, scenario and template once, verify it, derive each rendition, and write a corpus that `jsonlDataset` reads. A plan has `model`, `templates`, `seeds`, `scenarios`, `includeBase` (default `true`), `renditions` (default digital only), `concurrency` (default 4), `verify` (default `true`), `createdAt` and `signal`.
+
+The directory holds `cases/<id>/` with the document, `expected.json`, `labels.json`, `sample.json` and `case.json`, plus `manifest.jsonl`, `coverage.json` (case counts per scenario, template, family, rendition and severity), `failures.jsonl` and `corpus.json` (plan, engine versions and file hashes). A rendering that fails verification fails its cases, not the batch.
+
+Rerunning converges. Each case is keyed by its seed, scenario, template, rendition, `createdAt`, package version and a fingerprint of the schema, template and scenario source. A case whose key and file hashes match is skipped, and each case lands by renaming a finished temporary folder. The fingerprint reads function source text, not values a function captures, so change `createdAt` or delete the corpus after editing a constant or an asset a template reads.
+
+### `digital`
+
+```ts
+digital(): RenditionSpec
+```
+
+The digital PDF as rendered.
+
+### `scan`
+
+```ts
+scan(options: { readonly severity: number; readonly dpi?: number }): RenditionSpec
+```
+
+A flatbed scan. `scanLq`, `photo` and `fax` take the same options for the other built-in profiles.
+
+### `scanLq`
+
+A low-quality scan rendition.
+
+### `photo`
+
+A phone photo rendition with perspective, shadow and motion blur.
+
+### `fax`
+
+A bilevel fax rendition.

@@ -1,0 +1,16 @@
+---
+title: Expand email messages and attachments
+description: Expand one RFC email into a chosen body and ordered attachment sources.
+---
+
+`docture/inputs/email` exports `expandEmail`, `ExpandEmailOptions`, `ExpandedEmail`, `EmailPart` and `EmailInputError`. Install `postal-mime@4.1.4` explicitly with `docture`. The parser loads on first expansion and requires no filesystem or network access.
+
+`expandEmail(raw, options)` accepts one `RawDocument` and returns ordered parts. The selected body comes first. Attachments follow in MIME order. Each part has a `document`, a stable `id`, a `parentId` and the original RFC `messageId` when present. The parent ID is versioned and derived from the exact input bytes. Each attachment keeps `originalFileName`, disposition, related-part status and optional content ID as metadata. Generated unique names such as `attachment-1.pdf` never use the supplied name as a path.
+
+The default chooses HTML from multipart alternatives, falling back to plain text. Set `bodyPreference: "text"` to prefer plain text. Bodies use the parser's decoded text and normalized LF endings, encoded as UTF-8. Expansion preserves attachment bytes. It does not sanitize or render HTML. Pass the body to `DocumentLoaderData` for cleaned text. CID resources stay independent attachment sources and are not fetched. Set `inlineAttachments: "omit"` to omit them. Attached emails remain opaque `message/rfc822` attachments.
+
+The defaults limit raw input to 25 MiB, decoded body and attachments to 50 MiB, attachments to 100, MIME parts to 256, nesting to 20 and combined headers to 256 KiB. Options are `maxInputBytes`, `maxDecodedBytes`, `maxAttachments`, `maxParts`, `maxNestingDepth` and `maxHeadersBytes`. Omitted inline resources still count toward limits. `signal` checks cancellation before and after parsing. A running parser cannot be preempted.
+
+Missing message headers, invalid limits and exceeded bounds raise `EmailInputError` with `LOAD_FAILED`. Other malformed MIME follows the pinned parser's recovery behavior. A missing parser raises `MISSING_ENGINE`. Core source resolution maps `.eml` to `message/rfc822` and remains one-to-one.
+
+The deterministic example at `apps/examples/20-input-loaders/index.ts` expands an HTML body and a real PDF attachment. It routes the body through `DocumentLoaderData` and the attachment through `DocumentLoaderPdfJs`.

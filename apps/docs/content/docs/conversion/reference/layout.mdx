@@ -1,0 +1,110 @@
+---
+title: Semantic layout API
+description: Normalized layout elements, page records, and element identity.
+---
+
+Import from `docture`.
+
+## Semantic layout
+
+`LayoutDocument` contains `LayoutPage` values. Each page contains `DocumentElement`
+values. The union includes `HeadingElement`, `ParagraphElement`, `ListElement`,
+`TableElement`, `CodeElement`, `FigureElement`, `PageBreakElement`, `PageHeaderElement`,
+and `PageFooterElement`. A switch over `DocumentElement["kind"]` must handle the two
+page furniture kinds.
+
+`PageHeaderElement` and `PageFooterElement` hold running headers and footers with `text`,
+`runs`, and a `FurnitureEvidence` value. `tagged` means the loader's structure tag marked
+the line. `repeated` means core inferred it. A page lists its headers first and its
+footers last, before the page break. Markdown and HTML omit both kinds. TXT and JSON keep
+them.
+
+Inference is a heuristic, not a measured accuracy claim. A line is eligible when it lies
+wholly in the top or bottom 10% of the page. It qualifies when the same text appears on
+at least three pages and on at least 60% of all pages, of odd pages, or of even pages,
+within 2% of the page height of its median position. A digit run matches across pages
+only when it follows the page number, as in `Page 2 of 9`. Between 10% and 15% of the page,
+only page-number text qualifies: digits with at most three words around them, no final
+`.`, `!`, or `?`, no bold type, a different number on every page, a position within 1% of the page height
+and 2% of the page width of the median, and a gap of at least one line height to the body.
+Heading-size text, continuation lines such as `Table 4 (continued)`, table rows,
+text-only pages, and pages without dimensions are never inferred. A tagged `header` or
+`footer` hint inside the bands counts on a single page.
+
+`TableElement` holds `rows`, `headerRows`, optional `spans`, and the source lines in
+`sourceText`. A `TableCellSpan` anchors a merged cell at zero-based `row` and `col` and
+covers `rowSpan` rows and `colSpan` columns. Its text is in the anchor slot, and each
+covered slot holds `""`. Spans are sorted by row and then column. They stay inside the
+grid, do not overlap, cover more than one cell, and never cross the `headerRows`
+boundary. Rows have equal length when spans are present. `parseDoctureDocument()`
+rejects a saved table that breaks these rules. Markdown flattens header rows into one
+row whose labels join with ` / `, and leaves covered body cells blank. HTML writes
+`colspan` and `rowspan`.
+
+Table detection is a heuristic. Rows with the same cell count at matching positions form
+a plain table without spans, `headerRows: 1`. When counts differ, the first two or more
+matching rows set column bands from their horizontal extent. A following row with no more
+cells joins when each cell overlaps a band and no two cells claim one band. Under both
+rules, an untagged row joins only when it starts within three times the median row
+spacing of the table's rows so far, measured from the row above. Under the band rule and
+for continuation rows, a row more than 1.5 times that spacing below the row above starts a
+new section when it has fewer cells than the table or a different font weight from the row
+above. A row with a value holding a digit and no letters in the last column, when that column's body cells
+hold digits, is a totals row and still joins. Every
+neighbouring pair of cells in such a row is at least one line height apart. A cell gets
+`colSpan: k` when it covers more than half of each of `k` bands that hold no other cell of
+its row. A cell of a bold first row over rows that are not all bold also gets `colSpan: k`
+when it lies within `k` contiguous bands and its centre is within 10% of their combined
+width from theirs, at least two rows follow, the next within 1.5 times their spacing, and
+it is neither a caption such as `Table 1` or `Table A` nor heading-size. A lone line in that position
+leads the table only when the row below it is bold; an unstyled one stays outside with a
+`LAYOUT_DEGRADED` warning naming its line. The first row is a header. The next row is also a header while the row above it
+holds a column span and its cells sit under that span or under empty slots. Rows above
+the band rows join only as those header rows. `rowSpan` grows when the cell's box covers
+at least half the height of the next row's line and that row's slot is empty. It never
+crosses the header rows.
+
+Every element has an ID and `ElementProvenance`, which extends `ProvenanceSegment`. A
+segment contains the page number, `LayoutBox`, loader `sourceIds`, and `lineIds` when the
+page has positioned lines. The segment fields describe the page where the element starts.
+A table or paragraph that continues across a page break also has `continuations`, one
+segment for each later page in page order, starting with the next page. A table built from
+positioned lines has `rowProvenance`, one segment per row with that row's page, line box,
+source IDs, and line ID. Text elements use `InlineText` runs for link annotations. A
+`ConvertedPage` contains format-specific content, page `width` and `height`, and the same
+elements. Its content holds every element that starts on the page, including the rest of
+an element that continues onto later pages.
+
+```ts
+provenanceSegments(provenance: ElementProvenance): readonly ProvenanceSegment[]
+```
+
+`provenanceSegments()` returns the starting page's segment followed by the
+`continuations`. A table or paragraph joins only when it ends in the bottom quarter of its
+page and the next page's first element starts in that page's top quarter. A table
+continues with rows of the table's cell count, cells of at most 40 characters, a font size
+within 10% of the table body, the body's font weight, each cell overlapping its column, and
+no letters in a column whose body cells hold numbers without letters. A copy of the header
+rows is dropped from `rows` and kept in `sourceText`. A table with no such number column joins
+only after that copy, or under a line naming the table's caption with `continued`, `cont.`, or
+`cont'd`, such as `Table 4 (continued)` below a table captioned `Table 4: Staff`. That line is
+consumed and kept in `sourceText`. Otherwise its rows stay on their page with a
+`LAYOUT_DEGRADED` warning. A bold or heading-size top band line set apart from the body, other
+than such a line or a copy of the header rows, ends the table. A line naming another table's
+caption with `continued`, such as `Table 5 (continued)`, ends the table without a warning. After a continued row, a row with
+fewer cells joins when the band rule places it. Each row after the first starts within
+three times the table's row spacing on the earlier page, measured from the row above. A
+paragraph continues when it does not end with `.`, `!`, `?`, `:`, or `;`, closing quotes and
+brackets included, and the next page's first element is a paragraph starting with a
+lowercase letter. A contents or index entry on either side never joins: a line ending
+in an Arabic or Roman page number after a dot leader of three or more dots, spaced dots, or
+an ellipsis, or after a gap of at least two line heights. Page furniture and top or bottom
+band lines set apart from the body by blank space are skipped. A band line whose text repeats
+within 2% of the page height on another page, without qualifying as furniture, is suspected
+furniture. It stays body text outside any table, unless every copy is a table row, as a
+repeated header is. A table never continues across or through a suspected line: the rows stay
+on their page, and a `LAYOUT_DEGRADED` warning names the table's last line, the first row,
+and the suspected line. Pages without dimensions never join.
+`parseDoctureDocument()` rejects continuations on other element kinds, continuations
+that do not name the following pages in order, and `rowProvenance` whose length differs
+from `rows` or whose pages go back or fall outside the table's pages.

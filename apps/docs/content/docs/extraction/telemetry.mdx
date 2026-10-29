@@ -1,0 +1,27 @@
+---
+title: Record model telemetry
+description: Trace model stages without assuming that recording flags filter sensitive content.
+---
+
+Pass AI SDK integrations to the selected model component:
+
+```ts
+import { llm } from "docture/llm/text";
+
+const strategy = llm({
+	model,
+	telemetry: {
+		integrations: [myIntegration],
+		runtimeContext: { application: "invoice-import" },
+		documentLabel: false,
+	},
+});
+```
+
+Text, vision, classification, splitting, layout, and repair accept telemetry. `LLM` passes its telemetry configuration to each component it builds. Function IDs use `docture.<stage>.<component>`. Runtime context identifies the stage, component, document label when enabled, pages, and chunk when known.
+
+`recordInputs` and `recordOutputs` default to false. These are event flags, not filters. Integrations still receive callback messages and answers and decide whether to honor the flags. Check the integration before passing sensitive documents. Set `documentLabel: false` to omit the source filename.
+
+A response-cache hit makes no model call and emits no telemetry. A classifier reports only pages that its text excerpt covers; pages are absent when custom document text cannot be traced to page text.
+
+See [telemetry API](/docs/extraction/reference/telemetry) for all options and labeling rules, and [model settings](/docs/extraction/model-settings) for caching and usage.

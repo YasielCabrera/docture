@@ -1,0 +1,43 @@
+---
+title: Batch and lifecycle API
+description: Batch options, result ordering, cancellation, and resource ownership.
+---
+
+Import from `docture`.
+
+## Batches
+
+```ts
+extractBatch<C extends ContractLike>(
+  sources: readonly DocumentSource[],
+  contract: C,
+  options?: BatchOptions,
+): AsyncGenerator<BatchItem<InferContract<C>>>
+```
+
+`BatchOptions` extends `RunOptions` with `concurrency`, default `4`. A noninteger or a value below `1` rejects the batch with `RangeError` before processing starts.
+
+Each `BatchItem<T>` has the original `source`, input `index`, and a `SafeExtraction<T>`
+outcome. Items are yielded as they finish, so output order may differ from input order.
+Individual extraction errors stay in their item. An aborted signal suppresses fallback
+inside affected runs; those items are still yielded as failed outcomes.
+Leaving the generator early aborts in-flight jobs and waits for them to settle.
+
+
+## Lifecycle
+
+```ts
+dispose(): Promise<void>
+```
+
+`dispose()` calls every registered disposable loader, strategy, and classifier. It is
+idempotent. All components are given a chance to dispose; one or more failures reject
+with `AggregateError`.
+
+
+## Bounded work
+
+`mapWithConcurrency(items, limit, fn, signal?)` runs at most `limit` tasks at once and
+returns results in input order. The callback receives the item, index, and a child
+abort signal. A first failure aborts sibling work, stops new tasks, drains active tasks,
+and rejects with that failure. The limit must be a positive integer.

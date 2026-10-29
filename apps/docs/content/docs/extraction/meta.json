@@ -1,0 +1,25 @@
+{
+  "title": "Extraction",
+  "root": false,
+  "pages": [
+    "quick-start",
+    "schemas",
+    "with-a-model",
+    "without-a-model",
+    "long-documents",
+    "classification",
+    "splitting",
+    "routing",
+    "strategies",
+    "validation",
+    "citations",
+    "results",
+    "model-settings",
+    "batches",
+    "lifecycle",
+    "performance",
+    "telemetry",
+    "reference"
+  ],
+  "pagesIndex": "index"
+}

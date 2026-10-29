@@ -1,0 +1,32 @@
+---
+title: Simulate scans, photos, and fax
+description: Degrade digital pages while transforming their label boxes with the image.
+---
+
+Install the engines for rasterization and image processing:
+
+```sh
+npm install --save-dev @docture/synthetic docture sharp@0.35.5 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10 pdfkit@0.19.1
+```
+
+## Degrade a verified PDF
+
+```ts
+import { degrade } from "@docture/synthetic/degrade";
+import { renderPdf } from "@docture/synthetic/pdfkit";
+import { assertVerified } from "@docture/synthetic/verify";
+import { model, template } from "./synth.mjs";
+
+const digital = await renderPdf(template, await model.sample({ seed: 7 }));
+await assertVerified(digital);
+const scan = await degrade(digital, { profile: "scan", severity: 0.4, dpi: 150 });
+console.log(scan.labels.length);
+```
+
+Profiles are `scan`, `scan-lq`, `photo`, and `fax`. Severity runs from 0 to 1 and interpolates paper, geometry, capture, and encoding effects. Each page uses one homography; labels pass through the same transform and become axis-aligned bounds of their warped boxes. Applied settings appear in `provenance`.
+
+DPI defaults to 200. Output defaults to PDF; `png` and `jpeg` require one-page input. PDF output needs PDFKit. `salt` varies random draws without changing the profile. Pass a custom `Profile` for different effects.
+
+Image outputs record their DPI in image metadata, while label boxes remain in PDF points. Read them at that DPI, for example with Tesseract's `dpi` option, so OCR and label coordinates agree.
+
+Use [corpus rendition helpers](/docs/synthetic/corpora) for multiple cases. See [degradation options](/docs/synthetic/reference/degrade).

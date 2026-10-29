@@ -1,0 +1,50 @@
+---
+title: Define schemas and contracts
+description: Define inferred result types, missing values, prompt guidance, and worked examples.
+---
+
+Use the same schema to name fields, infer `result.data`, and validate extracted values. Use a contract when the document needs a name, hints, or examples.
+
+```ts
+import { contract } from "docture";
+import { z } from "zod";
+
+const Invoice = contract({
+	name: "invoice",
+	description: "A commercial invoice.",
+	hints: "Use the amount labelled Grand total.",
+	schema: z.object({
+		invoiceNumber: z.string(),
+		total: z.number(),
+		purchaseOrder: z.string().nullable().describe("Null when no PO number is printed"),
+	}),
+	examples: [{
+		text: "Invoice INV-7. Total due: 42 EUR. No purchase order.",
+		output: { invoiceNumber: "INV-7", total: 42, purchaseOrder: null },
+	}],
+});
+```
+
+## Choose a schema
+
+Use Zod, Valibot, ArkType, another Standard Schema implementation, or an AI SDK schema. A bare schema works without `contract()`. Wrap a raw JSON Schema object with `jsonSchema()` from `ai`.
+
+A JSON Schema wrapper without a validator accepts returned values unchanged. Use a runtime validator when shape checks matter. The CLI wraps `.json` schema files without one and warns before extraction.
+
+## Describe missing values
+
+Make a field nullable or optional when valid documents can omit it. Use field descriptions for date formats, printed labels, and normalization rules. The schema's output determines the inferred result type.
+
+Schema transforms run once on the final strategy answer. For a multi-request run, fragments use a relaxed schema and the merged answer must pass the original schema.
+
+## Add worked examples
+
+A contract's examples appear in every text and vision extraction prompt, including repairs, and cost input tokens on each request. Vision receives text examples without example images. A changed example gets a new cache entry.
+
+Examples are typed, copied, serialized, and checked against the schema before any request. Use trusted examples. See [contracts and schemas API](/docs/extraction/reference/contracts) for serialization limits and transform behavior.
+
+## Reuse the contract
+
+The name appears in prompts, classification lists, and reports. With no configured classification list, a named contract supplies a single candidate. `classificationOf(Invoice)` copies its metadata into a document kind.
+
+See [validation and repair](/docs/extraction/validation) for cross-field rules and [classification](/docs/extraction/classification) for document kinds.

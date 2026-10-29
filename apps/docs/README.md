@@ -56,100 +56,68 @@ The header uses inline-size containment so its controls do not change the notebo
 grid's minimum column sizes.
 Scrollbar space stays reserved so short and long pages retain the same alignment.
 
-## Layout
+## Content and navigation
 
-```
-content/docs/          the pages, one .mdx file each, meta.json for ordering
-  concepts/            loaders · rasterizers · strategies · classification · schemas
-  guides/              task-shaped: with/without a model, scans, long docs, custom loader, accuracy
-  reference/           packages · errors · architecture
-components/mdx.tsx     MDX component map, where Mermaid is registered
-components/mdx/        the Mermaid renderer
-lib/source.ts          the content source
-source.config.ts       global MDX options (see below)
-```
+`content/docs/` contains canonical MDX pages. Its eight areas are Getting started,
+Extraction, Conversion and retrieval, Evaluation, Synthetic data, CLI and services,
+Integrations, and Resources. Each area has an `index.mdx` and explicit `meta.json`
+ordering. Area folders explicitly set `root: false`; reference folders have no root override.
+The layout disables section tabs, so every page keeps the same collapsible
+documentation tree. Section headings link to `pagesIndex: "index"`; omit `index`
+from their `pages` arrays so the introduction appears only on the heading. The
+`SidebarSection` renderer keeps the link and caret as separate keyboard controls.
+An active section link toggles its group; other section links open their introduction.
 
-## Writing a diagram
+`content/docs/api.mdx` is the global API index. `api-reference.ts` assigns public
+exports from all four published packages to their canonical reference pages.
 
-A fenced `mermaid` block. Nothing to import:
+`lib/docs-migration.json` maps old routes and headings to current pages. One-to-one
+moves use permanent redirects. Split pages use a small client bridge because URL
+fragments never reach the server. The bridge preserves query strings and includes a
+canonical fallback link. Legacy pages stay outside the MDX source, search, and LLM
+indexes. Old Markdown URLs redirect to the current Markdown page.
 
-````md
-```mermaid
-flowchart LR
-    accTitle: Document loading
-    accDescr: Document bytes pass through DocumentLoaderPdfJs to become a LoadedDocument.
-    A["📄 bytes"] --> B["DocumentLoaderPdfJs"] --> C["LoadedDocument"]
-```
-````
+`lib/source.ts` supplies page rendering, search, previous/next navigation, Markdown,
+`llms.txt`, and `llms-full.txt`. Keep one canonical page per topic.
 
-Add `accTitle` and `accDescr` to name the diagram and describe its flow for screen
-readers. Keep the labels concise and explain branches in the surrounding prose.
+## Write a page
 
-`remarkMdxMermaid` rewrites the fence into `<Mermaid chart="…" />`.
-[`components/mdx/mermaid.tsx`](components/mdx/mermaid.tsx) loads Mermaid on the client
-and renders again when the theme changes. Zoom and Expand reuse the rendered SVG.
+Open with the task or behavior. A guide includes prerequisites, working code or a
+`SourceExample`, expected output, constraints that affect the task, and next links.
+Keep lookup details in reference. Preserve defaults, errors, capability limits, and
+engine install recipes when splitting a page. Use short sentences and plain words.
 
-Diagrams start at 100% with 16px labels. Scroll within the diagram to read a long
-flow, or focus its scroll area and use the arrow keys. The toolbar provides zoom
-from 25% to 300%, **Reset 100%**, and **Fit** for an overview. Fit can shrink below
-25% to show the whole diagram. **Expand** opens a larger reader with the same zoom
-and reading position. **Close** or Escape returns to the inline diagram.
+The pipeline, bundle-splitting, and architecture pages contain accessible Mermaid
+diagrams. Include `accTitle` and `accDescr`. `components/mdx/mermaid.tsx` provides zoom
+and expansion. Register plugins through the global `mdxOptions` function in
+`source.config.ts`; replacing collection-level options drops the Fumadocs defaults
+that parse tables and feed search.
 
-## One thing that will bite you
+## Generate reference indexes
 
-Put extra remark plugins in **`source.config.ts`**, never in `mdxOptions` on the
-collection in `lib/source.ts`.
-
-The collection-level option takes raw `ProcessorOptions` and, as its own type documents,
-*"the default options & plugins will be removed"*. That silently drops `remarkGfm`, and
-every table on the site renders as literal `|` characters, with no error anywhere.
-
-The global config goes through Fumadocs' preset instead, so `remarkGfm`, `remarkHeading`,
-`remarkImage` and `remarkStructure` (which feeds search) all survive, and the function
-form appends to them:
-
-```ts
-// source.config.ts
-export default defineConfig({
-  mdxOptions: {
-    remarkPlugins: (plugins) => [...plugins, remarkMdxMermaid],
-  },
-});
+```sh
+pnpm --filter @docture/docs generate:commands
+pnpm --filter @docture/docs generate:api
 ```
 
-## Conventions
+Command pages come from the CLI's command definitions. The API index comes from the
+public export inventory. Commit their generated MDX with source changes.
 
-- **Lead with the diagram** where a flow, a decision or a layering is involved. Prose
-  explains the diagram; it does not repeat it.
-- **Every page opens with what the reader wants**, not with terminology.
-- **Say why, not just what.** The design decisions here are the interesting part; a
-  reader who understands the reason can predict the behaviour.
-- **Do not document what does not exist.** Planned loaders are marked as planned.
-
-## Note on `AGENTS.md` / `CLAUDE.md`
-
-Both are generated by `next dev` and re-created if deleted. Committing them keeps the
-tree clean.
-
-## Check imports, coverage, and recipes
-
-`api-reference.ts` assigns every public symbol to a reference page for both published
-packages and all 23 public entries. `check:docs` compares the inventory with each package's
-`exports` map and actual TypeScript exports. It also checks every pre-migration docs route,
-internal links, example references, and prose rules. Named Docture imports in MDX,
-TypeScript examples, homepage snippets, and the three public READMEs must match the
-inventory.
+## Verify documentation
 
 ```sh
 pnpm --filter @docture/docs check:docs
 pnpm --filter @docture/docs check:examples
+pnpm --filter @docture/docs typecheck
+pnpm --filter @docture/docs test
+pnpm --filter @docture/docs build
 ```
 
-`typecheck` checks every TypeScript example and runs both commands. `check:examples`
-generates invoice PDFs in a temporary directory and executes five offline recipes:
-custom components, data sources, deterministic invoice extraction, accuracy scoring, and
-document conversion. It checks their output and removes its temporary files.
+`check:docs` verifies public exports and imports, recipes, links, anchors, migration
+destinations, navigation coverage, area order, prose rules, and generated files.
+`typecheck` also checks TypeScript examples and runs the documentation checks.
+`check:examples` executes eight offline recipes using generated PDFs and removes its
+temporary files. Model-backed examples compile; live execution needs credentials.
 
-Model-backed examples compile as part of `typecheck`; executing them needs provider
-credentials. Keep the [installation recipes](content/docs/guides/installation.mdx) and
-[migration guide](content/docs/guides/migration.mdx) consistent with the package manifests.
+Keep the [installation recipes](content/docs/getting-started/installation.mdx) and
+[migration guide](content/docs/resources/migration.mdx) consistent with manifests.

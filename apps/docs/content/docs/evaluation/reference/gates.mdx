@@ -1,0 +1,22 @@
+---
+title: Evaluation gates and baselines API
+description: Thresholds, regression budgets, and compatible baseline selection.
+---
+
+## `@docture/eval`
+
+### `resolveBaseline`
+
+```ts
+resolveBaseline(store: Pick<RunStore, "listRuns">, query?: BaselineQuery): Promise<string | undefined>
+```
+
+The id of the most recently started `complete` run on `branch`, then on `fallbackBranch`, or `undefined` when none qualifies. Throws `EvalSpecError` when `requireSameDataset` has no `datasetFingerprint` to compare against.
+
+### `gate`
+
+```ts
+gate(result: EvalResult, options: GateOptions): GateResult
+```
+
+Check a result against thresholds and regression budgets. Equality passes. A run that is not `complete` fails. A missing value fails unless `onNull` is `pass`. Invalid options throw one `EvalSpecError` listing every problem.

@@ -1,0 +1,30 @@
+---
+title: MCP tool reference
+description: Arguments and behavior of the core and configured Paperless tools.
+---
+
+`docture mcp` lists three core tools. `extract` requires an allowlisted schema in server configuration. Model input cannot replace a schema, model, connection, or credentials.
+
+| Tool | Arguments | Result |
+| --- | --- | --- |
+| `convert` | `source`, optional `format` and one-based `pages` | Converted content, MIME, page count, loader, method, and warnings |
+| `inspect` | `source`, optional one-based `pages` | Loaded document facts and pages |
+| `extract` | `source`, optional `schemaName` | Full extraction envelope with validation, citations, conflicts, and native evidence when available |
+
+`format` is `markdown`, `html`, `text`, or `json`; the default is `markdown`. Sources are paths or URLs, never `-`. Configured schemas come from `schema` or `schemas`; an unknown name fails before extraction.
+
+With Paperless configuration, the server also lists:
+
+| Tool | Selection | Behavior |
+| --- | --- | --- |
+| `paperless_read` | `documentId`, optional `versionId` | Exact stored OCR text and source identity |
+| `paperless_search` | Optional `query` and bounded `limit` | Native search results with full content |
+| `paperless_extract` | `schemaName` and either document selection or query | Extraction using the configured source and contract |
+| `paperless_plan` | Same selection as extraction | A read-only fill-empty update plan |
+| `paperless_apply` | `schemaName`, `plan` | Apply after source and current-value checks; listed only when `enableApply` is true |
+
+A document selection uses `documentId` and optional `versionId`. A query uses `query` and optional `limit`; do not combine these forms. The configuration bounds query results. [Paperless workflows](/docs/integrations/paperless-workflow) explain mapping, evidence, and apply outcomes.
+
+Tools return the version 1 CLI envelope as structured content and JSON text. Failed operations set `isError`. Invalid arguments use JSON-RPC invalid-parameter errors. Configuration stays fixed and pipelines remain warm until the server closes. Shutdown cancels active calls, waits for settlement, and disposes shared resources.
+
+See [MCP setup](/docs/cli/mcp) and the [MCP server API](/docs/cli/reference/cli#mcp-server).

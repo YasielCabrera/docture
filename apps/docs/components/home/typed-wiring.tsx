@@ -58,7 +58,7 @@ export async function TypedWiring() {
         </div>
 
         <Link
-          href="/docs/concepts/rasterizers"
+          href="/docs/integrations/rasterizers"
           className="reveal group mt-8 inline-flex items-center gap-2 text-sm font-medium text-brand"
         >
           How capabilities compose

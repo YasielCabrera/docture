@@ -1,0 +1,32 @@
+{
+  "title": "Command reference",
+  "pagesIndex": "index",
+  "pages": [
+    "extract",
+    "convert",
+    "classify",
+    "inspect",
+    "eval",
+    "eval-run",
+    "eval-report",
+    "eval-compare",
+    "eval-gate",
+    "eval-runs",
+    "eval-validate",
+    "eval-sample",
+    "eval-migrate",
+    "eval-draft",
+    "eval-sign-off",
+    "synth",
+    "synth-list",
+    "synth-gen",
+    "synth-render",
+    "synth-corpus",
+    "synth-verify",
+    "review",
+    "mcp",
+    "serve",
+    "paperless",
+    "help"
+  ]
+}

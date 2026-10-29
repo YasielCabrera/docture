@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples accuracy
 ```
 
-Docs: [`guides/measuring-accuracy`](../../docs/content/docs/guides/measuring-accuracy.mdx)
+Docs: [`guides/measuring-accuracy`](../../docs/content/docs/evaluation/quick-start.mdx)
 
 ## Imports and installs
 

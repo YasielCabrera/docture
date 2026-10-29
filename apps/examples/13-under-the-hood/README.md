@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples internals
 ```
 
-Docs: [`reference/architecture`](../../docs/content/docs/reference/architecture.mdx)
+Docs: [`reference/architecture`](../../docs/content/docs/resources/architecture.mdx)
 
 ## Imports and installs
 

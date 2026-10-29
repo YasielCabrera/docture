@@ -1,0 +1,28 @@
+---
+title: Measure synthetic PDF layout differences
+description: Compare matched text positions against a reference form.
+---
+
+Use `@docture/synthetic/measure` to check whether a template puts the same text in the same positions as a reference PDF. Install `pdfjs-dist@6.2.108`.
+
+## Compare text positions
+
+```ts
+import { readFile } from "node:fs/promises";
+import { compareLayouts } from "@docture/synthetic/measure";
+import { renderPdf } from "@docture/synthetic/pdfkit";
+import { model, template } from "./synth.mjs";
+
+const reference = await readFile("reference.pdf");
+const candidate = await renderPdf(template, await model.sample({ seed: 7 }));
+const result = await compareLayouts(reference, candidate, { tolerance: 1 });
+console.log(result.maxDrift, result.onlyInReference, result.onlyInCandidate);
+```
+
+Matching uses whitespace-collapsed text that occurs exactly once on the same page of both documents. `matched` reports `dx`, `dy`, and `drift` in points. Drift is the larger absolute coordinate difference. Repeated text appears in `repeated`; unmatched lines appear in `onlyInReference` or `onlyInCandidate`.
+
+`ok` means only that `maxDrift <= tolerance`. Tolerance defaults to 0.5 points. No matches produce `maxDrift: 0`, so `ok` can be true even when content differs. Check the unmatched and repeated lists as part of your own acceptance rule. The result does not establish visual equivalence.
+
+`measurePdf` returns page sizes and text boxes in reading order. Boxes reach one font size above the baseline; the baseline is `box.y + box.height`. Non-PDF synthetic documents cannot be compared.
+
+See [measurement APIs](/docs/synthetic/reference/measure).

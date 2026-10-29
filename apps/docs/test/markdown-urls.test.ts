@@ -9,9 +9,9 @@ import nextConfig from "../next.config.mjs";
 describe("Markdown page URLs", () => {
   it.each([
     ["/docs.md", "/llms.mdx/docs/content.md"],
-    ["/docs/quick-start.md", "/llms.mdx/docs/quick-start/content.md"],
-    ["/docs/reference/api/testing.md", "/llms.mdx/docs/reference/api/testing/content.md"],
-    ["/docs/quick-start.md?source=copy", "/llms.mdx/docs/quick-start/content.md?source=copy"],
+    ["/docs/extraction/quick-start.md", "/llms.mdx/docs/extraction/quick-start/content.md"],
+    ["/docs/resources/testing-api.md", "/llms.mdx/docs/resources/testing-api/content.md"],
+    ["/docs/extraction/quick-start.md?source=copy", "/llms.mdx/docs/extraction/quick-start/content.md?source=copy"],
   ])("serves %s through the Markdown endpoint", async (path, destination) => {
     const response = await unstable_getResponseFromNextConfig({
       url: `https://docture.dev${path}`,

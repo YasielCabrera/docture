@@ -1,0 +1,42 @@
+---
+title: Trace content to source evidence
+description: Follow page regions, line IDs, native pointers, and stable element identities.
+---
+
+## Result provenance
+
+`ConversionResult` contains whole-document `content`, MIME type, page fragments,
+semantic elements, in-memory assets, loader and method names, document features,
+attempts, warnings, model usage, and wall time.
+
+```ts
+for (const page of result.pages) {
+  for (const element of page.elements) {
+    console.log(element.kind, element.provenance.pageNumber, element.provenance.box);
+  }
+}
+```
+
+Use `safeConvert()` for a non-throwing result and `convertBatch()` for bounded parallel
+conversion. Call `dispose()` when the converter owns loaders or a model analyzer.
+
+
+## Follow continued elements
+
+```ts
+import { provenanceSegments } from "docture";
+
+for (const page of result.pages) {
+	for (const element of page.elements) {
+		console.log(element.id, provenanceSegments(element.provenance));
+	}
+}
+```
+
+Coordinates use PDF points with a top-left origin, x right, and y down. A multi-page element has one segment per page. A table's row provenance identifies the pages behind each row.
+
+Element IDs describe normalized content and position. They are anchors, not checksums. Reflow, a different loader, changed segmentation, or page insertion can change them. Line IDs name positioned lines and have a different stability contract.
+
+Native Docling input can provide element and cell evidence without physical line boxes. Preserve its source identity and pointer sidecar; do not invent placement when the input lacks it.
+
+See [identity and evidence API](/docs/conversion/reference/evidence) for source IDs, exact stability limits, and native evidence. [Field citations](/docs/extraction/citations) link extracted values to supporting text.

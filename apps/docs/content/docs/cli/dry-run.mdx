@@ -1,0 +1,41 @@
+---
+title: Preview a CLI invocation
+description: Resolve configuration and wiring without processing documents.
+---
+
+## Dry run
+
+`--dry-run` on `extract`, `convert`, `classify`, `eval`, and `review` checks an invocation without
+running it. It resolves the config, schema, inputs, output targets, truth files, model
+route, credentials, and wiring, then prints one JSON plan envelope and exits with code `0`:
+
+```json
+{
+  "version": 1,
+  "command": "extract",
+  "ok": true,
+  "results": [{
+    "file": "invoice.pdf",
+    "ok": true,
+    "plan": {
+      "input": { "kind": "path", "path": "/work/invoice.pdf" },
+      "loaders": ["pdfjs"],
+      "strategies": ["llm"],
+      "classifiers": [],
+      "model": "openai/gpt-5",
+      "schema": "/work/invoice.ts#default",
+      "output": { "to": "stdout" }
+    }
+  }],
+  "summary": { "dryRun": true }
+}
+```
+
+A dry run loads no document, reads no stdin, calls no model, and creates no output or
+cache directory. It prints the plan to stdout whatever `--format` and `--out` say. `convert`
+plans list the loaders, layout analyzer, format, and output file. `classify` plans list the
+classifiers and classifications. `eval` plans add the truth file. When the config supplies
+an extractor or converter factory, the plan says `"opaque": true` instead of naming its
+parts, and the factory is not called. A config module still runs its own top-level code
+when it is imported. An invalid invocation still exits with code `2`. A missing `eval` truth
+file exits with code `1`, as it does without `--dry-run`.

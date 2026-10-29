@@ -1,0 +1,37 @@
+---
+title: Read and search Paperless documents
+description: Read version-pinned Paperless content or file bytes through a fetch-only adapter.
+---
+
+`docture/sources/paperless` exports `PaperlessSource`, `paperlessSource`, `PaperlessError`, `PaperlessApiVersion`, `PaperlessConnectionOptions`, `PaperlessFailure`, `PaperlessReadOptions`, `PaperlessQueryOptions`, `PaperlessSourceResult`, `PaperlessProvenance`, `PaperlessDocument`, `PaperlessMetadata`, `PaperlessFieldValue`, `PaperlessValue`, `PaperlessVersion`, `PaperlessContextKind`, `PaperlessContextEntry`, `PaperlessCustomFieldDefinition`, `PaperlessFieldType`, `PaperlessNamedObject` and `PaperlessNote`.
+
+The entry has no SDK peer and uses standard `fetch`. Importing the entry and constructing a source perform no network requests.
+
+```ts
+import { PaperlessSource } from "docture/sources/paperless";
+
+async function readStoredText(baseUrl: string, token: string) {
+	const paperless = new PaperlessSource({ baseUrl, token, apiVersion: 10 });
+	return paperless.read(42, { mode: "content", versionId: 42 });
+}
+```
+
+`PaperlessConnectionOptions` requires an HTTP or HTTPS service root and API version `9` or `10`. It accepts a token, custom headers, a fetch implementation, `timeoutMs` and `maxResponseBytes`. The defaults are 30 seconds and 32 MiB. The token uses the native `Authorization: Token ...` header. Credentials belong in application configuration. Errors omit request headers and response bodies.
+
+`read` accepts a root document ID and a mode. `versionId` selects an existing file version. Without that option, the adapter resolves the latest version and pins subsequent content, metadata and download requests to its ID. Shared root metadata remains separate from version-specific text and files.
+
+| Mode | Source | Evidence limits |
+| --- | --- | --- |
+| `content` | Exact stored OCR text in a `LoadedSource` | One logical page, with zero dimensions and no positioned lines. Form feeds remain in the text and do not prove physical pages. |
+| `archive` | Confirmed archived PDF bytes in a `RawDocument` | The caller selects a PDF or Docling loader for field evidence. Missing archive rejects unless `archiveFallback: "original"` is explicit. |
+| `original` | Selected original bytes in a `RawDocument` | The actual MIME type must agree with version-specific metadata. |
+
+An archive needs both native archive metadata and PDF MIME/signature confirmation. Metadata is checked again after download. A source change during the read rejects the result. The returned `PaperlessProvenance` records the configured instance, root ID, selected file ID, actual variant, SHA-256 digest, native checksum, negotiated API, server version, immutable root metadata and native UI URL. A digest identifies exactly the text or bytes the extraction consumes. Original and archive offsets are not interchangeable.
+
+`query` is an async iterator over full reads. `limit` bounds results, `pageSize` defaults to the smaller of the limit and 100, and `maxPages` defaults to 100. `query` contains native full-text query syntax. Search highlights and truncated list content never become extraction input. An empty query result yields nothing. Pagination must remain on the configured origin, service prefix and resource path. Repeated links reject.
+
+`context` reads only requested definitions or taxonomy. Its `include` array accepts `customFields`, `tags`, `correspondents`, `documentTypes` and `notes`. Returned `PaperlessContextEntry` values discriminate the requested kind. The default limit is 100 records. Context reads do not create fields or tags.
+
+The supported protocol fixtures model Paperless-ngx `3.3.4`, REST API `9` and `10`, and root-versus-file version selection. A response must identify a 3.x server and API 9 or 10 through `X-Version` and `X-Api-Version`. Paperless 2.x rejects. No live-server certification is implied by the fixtures.
+
+`PaperlessError` carries `UNSUPPORTED_SOURCE`, a failure kind and an optional HTTP status. Permission failures preserve native object restrictions. HTTP 401, 403, 404, 406, 429 and 5xx responses are not retried. Redirects reject before another destination receives credentials. Deadlines cover the response body, byte limits count streamed bytes, and caller cancellation preserves its reason.

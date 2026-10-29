@@ -1,0 +1,146 @@
+---
+title: Handle long documents
+description: Split model extraction into several requests and merge the results.
+---
+
+`completion` controls how `LlmStrategy` handles the document text.
+
+| Mode | Requests | Use it when |
+|---|---|---|
+| `forbidden` | One request | The document fits. This is the default. |
+| `paginate` | One request per page | Each page contains useful standalone rows or fields. |
+| `concatenate` | Page groups formed from a character budget | Several pages fit together but the full document does not. |
+
+```ts
+llm({ model, completion: "paginate" });
+
+llm({
+  model,
+  completion: "concatenate",
+  maxCharsPerRequest: 24_000,
+});
+```
+
+`concatenate` groups pages using their text lengths and splits only at page boundaries.
+The inserted separators are not counted toward the budget. A single page larger than the
+budget is sent whole rather than cut through a table row.
+
+## Tables across requests
+
+A table that continues onto a later page loses its header in the request that starts on
+that page. Under `paginate` and `concatenate`, docture repeats the header at the start of
+such a request, marked as context:
+
+```text
+Table header continued from page 1:
+Item | Qty | Amount
+(Header repeated for context; not a data row.)
+
+Widget C 3 30.00
+Widget D 4 40.00
+```
+
+The header comes from the same table detection that conversion uses, so only the table
+whose rows continue onto the page is repeated. Header rows that span columns are flattened
+with `" / "`. The repeated text counts against `maxCharsPerRequest`, carries no line ids
+when [field citations](/docs/extraction/reference/citations#field-citations) are on, and is part of the response cache key.
+
+This needs positioned lines from the loader, such as the PDF loaders provide. A document
+without lines, and every `forbidden` request, is sent exactly as before.
+
+## Install
+
+```sh
+npm install docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+```
+
+See [installation recipes](/docs/getting-started/installation) for other engines and providers.
+
+## Fragment schemas
+
+A page may contain only part of the requested result. For multi-request extraction,
+docture removes `required` from the JSON Schema sent with each fragment. It keeps field
+types and descriptions.
+
+The pipeline merges the partial objects, then validates the merged value against the
+original schema.
+
+## Merge rules
+
+`mergePartials()` applies these rules:
+
+- Arrays concatenate in request order.
+- Objects merge recursively.
+- The first present scalar wins, except a later same-type nonzero number or `true`
+  replaces an earlier `0` or `false`.
+- `null`, `undefined`, and an empty string count as absent.
+
+```ts
+mergePartials([
+  { invoiceNumber: "INV-1", rows: [{ id: 1 }] },
+  { invoiceNumber: null, rows: [{ id: 2 }] },
+]);
+// { invoiceNumber: "INV-1", rows: [{ id: 1 }, { id: 2 }] }
+```
+
+## Conflicting values
+
+When two requests return different present values for the same scalar, the first one
+still wins, and `result.conflicts` records the disagreement with the pages behind each
+value. Text `paginate` and `concatenate` runs and vision runs with several page groups
+report conflicts. The field is absent when every request agreed, and it never makes the
+result invalid.
+
+```ts
+const result = await extractor.extract("bundle.pdf", Invoice);
+result.data.total; // 100, from page 1
+result.conflicts;
+// [{ path: "total", values: [{ value: 100, pages: [1] }, { value: 250, pages: [2] }] }]
+```
+
+Strings compare after trimming whitespace and numbers by value, so formatting noise is
+not a conflict. A path where one request returned a scalar and another an object or
+array is a conflict too, because the merge keeps only the first. Array rows are separate
+records and are never compared. A repaired answer keeps the conflicts of the extraction
+it replaced, because the repair answers alone and cannot see the pages disagree.
+
+## Vision pages
+
+Vision extraction uses `pageMode` instead of `completion`:
+
+```ts
+vision({ model, pageMode: "together" }); // default
+vision({ model, pageMode: "perPage" });
+```
+
+Per-page vision requests use the same relaxed-schema and merge behavior as text
+pagination.
+
+## Control cost
+
+Every request repeats the system prompt, instructions, and schema. `result.usage` sums
+usage reported by the winning strategy and by earlier strategies that returned usage.
+
+Restrict extraction to known 1-based pages with `RunOptions.pages`:
+
+```ts
+await extractor.extract("invoice.pdf", Invoice, { pages: [1, 2, 3] });
+```
+
+For vision, `maxPages` selects the first pages before rendering. Text completion has no
+separate page-count option; use `pages` when the relevant page numbers are known.
+
+## Complete example
+
+<SourceExample file="long-invoice.ts" title="extract-long-invoice.ts" />
+
+Before splitting, consider a smaller schema or an explicit page list. Add a file cache while
+tuning so unchanged requests do not run again.
+
+```ts
+llm({
+  model,
+  completion: "paginate",
+  cache: fileCache(".docture-cache"),
+});
+```

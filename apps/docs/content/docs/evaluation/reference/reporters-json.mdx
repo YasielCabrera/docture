@@ -1,0 +1,36 @@
+---
+title: Evaluation json reporter API
+description: Json reports from saved evaluation results.
+---
+
+## `@docture/eval/reporters/json`
+
+`renderJson` renders one JSON string. The writing factory defaults to `layout: "single"`; `layout: "split"` writes `result.json` and `cases.jsonl` into `out`.
+
+This entry is Node-only: its writing factory imports `node/artifacts`. Pure rendering implementations have no Node imports. The factory consumes `EvalResult` through `onResult`; writing requires an explicit `out` except for the terminal reporter.
+
+- `JsonReporterOptions`
+
+### `renderJson`
+
+```ts
+renderJson(result: EvalResult): string
+```
+
+The result as one JSON document, indented, ending in a newline.
+
+### `renderJsonSplit`
+
+```ts
+renderJsonSplit(result: EvalResult): { readonly result: string; readonly cases: string; }
+```
+
+The stored layout: `result.json` holds every member except `cases`; `cases.jsonl` holds one case per line.
+
+### `jsonReporter`
+
+```ts
+jsonReporter(options: JsonReporterOptions): Reporter
+```
+
+Write the result as JSON.

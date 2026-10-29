@@ -1,0 +1,48 @@
+---
+title: Runnable examples
+description: Choose a complete program and check its prerequisites before running it.
+---
+
+The examples workspace installs the optional development engines. Each folder contains a complete program, a command, prerequisites, and expected behavior.
+
+```sh
+pnpm install
+pnpm --filter @docture/examples run fetch
+pnpm --filter @docture/examples quick-start
+```
+
+| Example | Folder | What it teaches | Needs |
+| --- | --- | --- | --- |
+| 01 | [quick-start](https://github.com/YasielCabrera/docture/tree/main/apps/examples/01-quick-start) | `Extractor` wiring, `contract`, and the result envelope | No key |
+| 02 | [contracts-and-schemas](https://github.com/YasielCabrera/docture/tree/main/apps/examples/02-contracts-and-schemas) | contracts vs schemas, `null` ≠ absent, inferred types, any schema library | No key |
+| 03 | [loaders-and-sources](https://github.com/YasielCabrera/docture/tree/main/apps/examples/03-loaders-and-sources) | pdf.js vs MuPDF, text documents, every `DocumentSource`, `pages` | No key |
+| 04 | [capabilities-and-composition](https://github.com/YasielCabrera/docture/tree/main/apps/examples/04-capabilities-and-composition) | typed capabilities, `withRasterizer`, lazy page images | No key |
+| 05 | [your-own-plugins](https://github.com/YasielCabrera/docture/tree/main/apps/examples/05-your-own-plugins) | `defineStrategy`, `defineLoader`, `defineRasterizer` | No key |
+| 06 | [fallback-routing-and-errors](https://github.com/YasielCabrera/docture/tree/main/apps/examples/06-fallback-routing-and-errors) | eleven layouts, two parsers, fourteen typed errors, timeouts | No key |
+| 07 | [with-a-model](https://github.com/YasielCabrera/docture/tree/main/apps/examples/07-with-a-model) | the AI SDK seam, prompts, caching, cost | key |
+| 08 | [long-documents](https://github.com/YasielCabrera/docture/tree/main/apps/examples/08-long-documents) | completion strategies, chunking, merging | key¹ |
+| 09 | [scanned-and-ocr](https://github.com/YasielCabrera/docture/tree/main/apps/examples/09-scanned-and-ocr) | no text layer, OCR as a loader, vision | key / `RUN_OCR=1`¹ |
+| 10 | [classification](https://github.com/YasielCabrera/docture/tree/main/apps/examples/10-classification) | narrowing, custom + LLM classifiers, consensus, trees | key¹ |
+| 11 | [bundles-and-splitting](https://github.com/YasielCabrera/docture/tree/main/apps/examples/11-bundles-and-splitting) | `Process`, splitters, unclassified pages, split cost | key¹ |
+| 12 | [accuracy-and-batch](https://github.com/YasielCabrera/docture/tree/main/apps/examples/12-accuracy-and-batch) | scoring, the truth-completeness trap, `extractBatch` | No key |
+| 13 | [under-the-hood](https://github.com/YasielCabrera/docture/tree/main/apps/examples/13-under-the-hood) | config-driven wiring, read-once, `runPipeline` | No key |
+| 14 | [testing-your-pipeline](https://github.com/YasielCabrera/docture/tree/main/apps/examples/14-testing-your-pipeline) | doubles, fixtures, conformance, mocking a model | No key |
+| 15 | [cli](https://github.com/YasielCabrera/docture/tree/main/apps/examples/15-cli) | `inspect`, `extract`, `classify`, `eval`, a config file | No key² |
+| 16 | [document-conversion](https://github.com/YasielCabrera/docture/tree/main/apps/examples/16-document-conversion) | `DocumentConverter`, TXT/Markdown/HTML/JSON, assets, provenance | No key |
+| 18 | [docling](https://github.com/YasielCabrera/docture/tree/main/apps/examples/18-docling) | native JSON, element/cell evidence and mock service jobs | No key |
+| 19 | [checked-tools-eval](https://github.com/YasielCabrera/docture/tree/main/apps/examples/19-checked-tools-eval) | Checked construction, AI SDK tool with source policy, descriptive calibration | No key |
+| 20 | [input-loaders](https://github.com/YasielCabrera/docture/tree/main/apps/examples/20-input-loaders) | DOCX, EML, Azure mock and selected-page OCR | No key |
+| 21 | [paperless](https://github.com/YasielCabrera/docture/tree/main/apps/examples/21-paperless) | versioned sources and fill-empty plan/apply with a mock server | No key |
+| 22 | [http-service](https://github.com/YasielCabrera/docture/tree/main/apps/examples/22-http-service) | warm HTTP operations and shutdown on an ephemeral port | No key |
+| 23 | [evaluate-a-schema](https://github.com/YasielCabrera/docture/tree/main/apps/examples/23-evaluate-a-schema) | a lab-report spec, a manifest dataset adapter, two experiments, reporters, comparison and gate | No key |
+| 24 | [synthetic-corpus](https://github.com/YasielCabrera/docture/tree/main/apps/examples/24-synthetic-corpus) | a utility-bill model, two templates with printed masks, digital, scan and photo renditions, scored with eval and grounding | No key |
+
+No key in Needs means no provider key. A superscript 1 marks a partial keyless path; superscript 2 refers to keyless CLI extraction through that folder's config. OCR may require opt-in model downloads.
+
+```sh
+pnpm --filter @docture/examples offline
+pnpm --filter @docture/examples test
+pnpm --filter @docture/examples typecheck
+```
+
+The offline tour avoids model calls and OCR model downloads; the loaders example still makes a URL-source HTTP request. For the full prerequisites and corpus provenance, read the [examples README](https://github.com/YasielCabrera/docture/tree/main/apps/examples).

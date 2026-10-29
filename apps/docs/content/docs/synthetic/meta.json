@@ -1,0 +1,20 @@
+{
+  "title": "Synthetic data",
+  "root": false,
+  "pages": [
+    "quick-start",
+    "models",
+    "scenarios",
+    "pdf-templates",
+    "html-templates",
+    "printed-fields",
+    "fonts-and-locales",
+    "verification",
+    "layout-measurement",
+    "degradation",
+    "corpora",
+    "evaluation",
+    "reference"
+  ],
+  "pagesIndex": "index"
+}

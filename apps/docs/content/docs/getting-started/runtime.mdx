@@ -1,0 +1,26 @@
+---
+title: Runtime compatibility
+description: Choose portable and Node entries and check each engine before deployment.
+---
+
+Use `docture` for portable core operations on bytes, raw documents, loaded documents, or HTTP URLs. Use `docture/node` for local paths and file URLs. It shares the same core modules and adds Node source resolution.
+
+```ts
+import { Extractor } from "docture/node";
+import { DocumentConverter } from "docture";
+```
+
+Node.js 22 or newer is required by the packages. Node 22.18 or newer loads erasable TypeScript CLI configuration directly. Earlier Node 22 releases require `--experimental-strip-types` or compiled JavaScript.
+
+| Component | Deployment constraint |
+| --- | --- |
+| Core and retrieval chunks | Portable runtime entries; no Node globals required at runtime |
+| Local file sources and HTTP service | Node-only entries |
+| PDF, OCR, and raster adapters | Check the selected adapter's engine, native bindings, WASM, workers, and model assets |
+| Evaluation root | Portable scoring and result types; storage and reporter entries have Node dependencies |
+| Synthetic root | Portable models and templates; renderers and corpus writing require selected engines |
+| HTML synthetic templates | `playwright-core` and a separately installed Chromium build |
+
+A portable root does not make every adapter browser-safe. Browser TypeScript consumers currently need `skipLibCheck: true` for upstream schema-helper declarations that reference `Buffer`; core runtime checks run without `Buffer` or `process`.
+
+See [package and engine requirements](/docs/getting-started/reference/packages) and [Node source resolution](/docs/getting-started/reference/node).

@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples quick-start
 ```
 
-Docs: [`quick-start`](../../docs/content/docs/quick-start.mdx)
+Docs: [`quick-start`](../../docs/content/docs/extraction/quick-start.mdx)
 
 ## Imports and installs
 

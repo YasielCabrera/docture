@@ -1,0 +1,31 @@
+---
+title: Define synthetic models and generators
+description: Choose seeded values from a schema and override fields by path.
+---
+
+Pass your extraction schema to `defineModel`. Supported inputs are Docture contracts, Standard Schema values with JSON Schema output, AI SDK schemas, and plain JSON Schema. Zod needs version 4.2 or newer for JSON Schema output. Use `typedJsonSchema<T>()` to retain a plain JSON Schema's TypeScript type.
+
+## Override fields
+
+```ts
+import { defineModel, gen } from "@docture/synthetic";
+import { Bill } from "./synth.mjs";
+
+const model = defineModel(Bill, {
+	fields: { customerName: gen.pick(["Dana", "Kenji"]), totalCents: gen.int(100, 9000) },
+});
+const sample = await model.sample({ seed: 7 });
+console.log(sample.value);
+```
+
+Fields without overrides use schema defaults. A pattern such as `usage[].kwh` targets array items; `usage[0].kwh` overrides one item. Concrete paths take precedence within a generator layer. Each position has its own stream keyed by seed and path, so adding a field does not change other fields' random draws.
+
+Use `gen.array({ length: [2, 5] })` for array length and item generators for contents. `gen.from()` exposes the position's stream, index, schema, `get()`, `sibling()`, and `fallback()`. Avoid circular dependencies between fields.
+
+## Generate realistic text
+
+Install `@faker-js/faker@10.6.0` to use `fakerFor` from `@docture/synthetic/faker`. It reseeds each field and uses a fixed reference date for relative dates. Its locale names follow Faker, such as `de` or `en_US`.
+
+For model-written strings, install `ai@^7` and use `llmTextPool` from `@docture/synthetic/llm`. Sample its result with `gen.pick(pool)`. Supply a persistent `TextPoolCache` to rebuild without another model call. The cache key includes model, prompt, count, and temperature. A seed alone does not reproduce a fresh provider response.
+
+See [model and generator options](/docs/synthetic/reference/models) and [Faker and text pools](/docs/synthetic/reference/text-generators).

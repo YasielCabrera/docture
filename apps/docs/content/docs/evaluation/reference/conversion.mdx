@@ -1,0 +1,26 @@
+---
+title: Conversion checks API
+description: Presence, absence, ordering, provenance, and table checks.
+---
+
+## `@docture/eval/conversion`
+
+`checkConversion(converted, checks)` checks text presence, absence, ordering and table neighbours against a converted document. It returns pass/fail counts and a reason for each failed check.
+
+- `AbsentCheck`
+- `ConversionCheck`
+- `ConversionCheckKind`
+- `ConversionCheckResult`
+- `ConversionReport`
+- `ConvertedPages`
+- `OrderCheck`
+- `PresentCheck`
+- `TableCheck`
+
+### `checkConversion`
+
+```ts
+checkConversion(output: string | ConvertedPages, checks: readonly ConversionCheck[]): ConversionReport
+```
+
+Grade converted output against presence, absence, order and table checks. Pass a converted document for page, provenance and table checks, or a Markdown or text string for text checks only.  Text is compared after Unicode NFKC normalization, with whitespace runs folded to one space. A match never crosses a unit: one element's text, a list item or a table cell, or for a string a block between blank lines.

@@ -1,0 +1,108 @@
+---
+title: Strategies and routing API
+description: Strategy definitions, eligibility, routing policies, and pipeline enums.
+---
+
+Import from `docture`.
+
+## Extraction strategies
+
+`ExtractionStrategy` has a stable `name`, optional `requires`, optional
+`needsClassification`, `extract(context)`, and optional `dispose()`.
+
+`ClassificationNeed` is `"required" | "hint" | "none"`.
+
+`StrategyContext` contains `document`, runtime `features`, resolved `schema`, optional
+`classification`, optional `hints`, optional `examples`, `signal`, `logger`, and optional `documentLabel`, the
+source's file name when it has one. Core picks `hints` from the
+first source that applies:
+
+1. `Process` uses its selected kind's hints, or that kind's extraction contract's hints
+   when the kind has none. A selection with neither sends no hints.
+2. A `Contract` passed to an extraction method sends its own `hints` when it defines
+   them, including an empty string.
+3. The candidate named by the classification sends its hints, or none when it has
+   none.
+4. When no candidate is named, a sole candidate sends its hints only when you passed a
+   bare schema or a `Contract` with the same name.
+
+Otherwise `hints` is absent. Hint selection does not change the classification or its
+usage.
+
+`examples` holds the extracted contract's [worked examples](/docs/extraction/reference/contracts#examples),
+each `{ text, output }` with `output` as JSON text, already checked against the schema.
+`Process` sends its selected kind's examples, or that kind's extraction contract's
+examples when the kind has none. Otherwise a `Contract` passed to an extraction method
+sends its own. A classification candidate's examples never apply to another contract.
+
+`StrategyContext.reportFailureUsage(usage)` records known usage before a strategy
+throws. Each call replaces the previous report for that attempt. Successful strategies
+return usage through `StrategyOutcome`. Ordinary provider errors keep their identity.
+
+`StrategyOutcome` contains unknown `data` and optional `usage`, `classification`,
+`conflicts`, and `citations`. Core validates the data after the method returns and
+applies the schema's transforms once, so return the data before those transforms run.
+
+```ts
+interface OutcomeCitation {
+  path: readonly (string | number)[];
+  status: "verified" | "cited-unverified";
+  ids: readonly LineSourceId[];
+  value: unknown;
+  spans?: readonly { line: LineSourceId; span: number }[];
+}
+```
+
+A strategy that cites returns `citations`, possibly empty, holding only the values its
+model cited. `path` is object keys and array indexes from the root of `data`, and `value`
+is the leaf the status describes, before the caller's schema ran. Core turns them into
+[`result.citations`](/docs/extraction/reference/citations#field-citations): it keeps a
+status only while `value` still equals the validated leaf, downgrades `verified` when an id
+is not a line of the loaded document, and marks every other present leaf `uncited`. For a
+`verified` value, `spans` names the spans the matched text covers, as indexes into the
+`spans` of each loaded line. Core reads `minOcrConfidence` from those spans; leave `spans`
+out when the match cannot be pinned to spans.
+
+```ts
+defineStrategy(strategy: ExtractionStrategy): ExtractionStrategy
+```
+
+`defineStrategy()` is an identity helper. A strategy throws when it cannot produce data.
+Non-abort errors are recorded and allow fallback. Caller aborts stop the run.
+
+
+## Routing
+
+```ts
+type RoutingPolicy = (
+  features: DocumentFeatures,
+  eligible: readonly ExtractionStrategy[],
+  classification: { name: string; confidence: number } | undefined,
+) => readonly ExtractionStrategy[]
+```
+
+A policy receives only eligible strategies. Strategies it returns that were not offered
+are ignored. It may reorder or omit eligible strategies.
+
+```ts
+declarationOrder(
+  features: DocumentFeatures,
+  eligible: readonly ExtractionStrategy[],
+): readonly ExtractionStrategy[]
+```
+
+`declarationOrder` is the default and returns candidates in registration order.
+
+
+## Enums
+
+The enum-like exports are plain objects with matching string-union types.
+
+| Export | Values | Meaning |
+| --- | --- | --- |
+| `CompletionStrategy` | `FORBIDDEN`, `PAGINATE`, `CONCATENATE` | One request, one request per page, or token-budget chunks. |
+| `SplittingStrategy` | `EAGER`, `LAZY` | Whole-bundle or adjacent-page splitting. |
+| `ClassificationStrategy` | `CONSENSUS`, `HIGHER_ORDER`, `CONSENSUS_WITH_THRESHOLD` | Classifier signal selection. |
+
+The runtime values are lowercase strings except `higherOrder` and
+`consensusWithThreshold`.

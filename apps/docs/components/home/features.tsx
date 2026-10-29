@@ -5,27 +5,27 @@ const features = [
   {
     title: "Schema-typed results",
     body: "The shape of result.data is inferred from your schema and validated before it reaches your code.",
-    href: "/docs/concepts/schemas-and-types",
+    href: "/docs/extraction/schemas",
   },
   {
     title: "Loaders you choose",
     body: "Read PDF text, run Tesseract or PaddleOCR, or render pages for a vision model.",
-    href: "/docs/concepts/loaders",
+    href: "/docs/integrations/loaders",
   },
   {
     title: "Strategies in order",
     body: "Try deterministic parsing first, then fall back to any AI SDK model when the document needs it.",
-    href: "/docs/concepts/strategies",
+    href: "/docs/extraction/strategies",
   },
   {
     title: "Classification and bundles",
     body: "Identify document kinds, split multi-document files, and keep the result narrowed to the right contract.",
-    href: "/docs/concepts/bundles-and-splitters",
+    href: "/docs/extraction/splitting",
   },
   {
     title: "Observable runs",
     body: "Inspect every attempt, typed error codes, validation issues, token use, and wall time.",
-    href: "/docs/reference/errors",
+    href: "/docs/resources/errors",
   },
 ] as const;
 

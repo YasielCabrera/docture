@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples model
 ```
 
-Docs: [`guides/with-a-model`](../../docs/content/docs/guides/with-a-model.mdx)
+Docs: [`guides/with-a-model`](../../docs/content/docs/extraction/with-a-model.mdx)
 
 ## Why this one needs a real key
 

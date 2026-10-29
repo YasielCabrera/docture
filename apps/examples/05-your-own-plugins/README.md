@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples plugins
 ```
 
-Docs: [`concepts/strategies`](../../docs/content/docs/concepts/strategies.mdx)
+Docs: [`concepts/strategies`](../../docs/content/docs/extraction/strategies.mdx)
 
 ## Imports and installs
 

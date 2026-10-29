@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples cli
 ```
 
-Docs: [`guides/cli`](../../docs/content/docs/guides/cli.mdx)
+Docs: [`guides/cli`](../../docs/content/docs/cli/quick-start.mdx)
 
 ## Install the CLI
 

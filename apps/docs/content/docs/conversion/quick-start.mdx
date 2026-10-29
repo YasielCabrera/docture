@@ -1,0 +1,48 @@
+---
+title: Convert your first PDF
+description: Convert a digital PDF to Markdown and write its assets without a model.
+---
+
+Use a PDF with selectable text. This example writes `converted/report.md` and its referenced assets without calling a model.
+
+## Install
+
+Use Node 22 or later:
+
+```sh
+npm install docture pdfjs-dist@6.2.108 zod@^4
+```
+
+## Convert the document
+
+Save this source as `convert.mts` and place `report.pdf` beside it:
+
+<SourceExample file="document-conversion.ts" title="convert.mts" />
+
+Run it with your TypeScript runner:
+
+```sh
+npx tsx convert.mts
+```
+
+The output is Markdown with page markers. Assets stay separate under stable relative names. The library returns bytes; the example writes them to disk and disposes the converter.
+
+## Select pages
+
+
+Pass `pages` to convert part of a document. PDF loaders read only those pages, and the
+result keeps their original numbers:
+
+```ts
+const result = await converter.convert("report.pdf", { format: "json", pages: [2, 3] });
+result.pages.map((page) => page.pageNumber); // [2, 3]
+```
+
+Running headers and table continuations are detected among the selected pages only. An
+element that lies wholly on a selected page keeps its ID unless that detection changes
+its kind or rows.
+
+
+PDF.js reads the text layer. A scan without convertible text raises `NoConvertibleContentError`. Configure [OCR](/docs/integrations/scanned-documents) or [selected-page OCR fallback](/docs/integrations/selected-page-ocr) when scans are expected. Conversion does not switch OCR mode after a loader succeeds.
+
+Choose [output formats](/docs/conversion/formats), [assets](/docs/conversion/assets), or [retrieval chunks](/docs/conversion/retrieval-chunks) next.

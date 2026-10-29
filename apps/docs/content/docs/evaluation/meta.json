@@ -1,0 +1,29 @@
+{
+  "title": "Evaluation",
+  "root": false,
+  "pages": [
+    "quick-start",
+    "---Scoring---",
+    "scoring-rules",
+    "array-matching",
+    "---Datasets---",
+    "datasets",
+    "ground-truth",
+    "dataset-management",
+    "---Experiments---",
+    "processors",
+    "experiments",
+    "run-history",
+    "comparisons",
+    "ci",
+    "reports",
+    "---Analysis---",
+    "calibration",
+    "grounding",
+    "judges",
+    "conversion-checks",
+    "frameworks",
+    "reference"
+  ],
+  "pagesIndex": "index"
+}

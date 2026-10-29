@@ -1,0 +1,26 @@
+{
+  "title": "Integrations",
+  "root": false,
+  "pages": [
+    "loaders",
+    "rasterizers",
+    "scanned-documents",
+    "pdfjs",
+    "mupdf",
+    "canvas",
+    "tesseract",
+    "paddleocr",
+    "selected-page-ocr",
+    "mammoth",
+    "email",
+    "azure-read",
+    "docling-import",
+    "docling-serve",
+    "docling-workflow",
+    "paperless-read",
+    "paperless-updates",
+    "paperless-workflow",
+    "ai-sdk-tool"
+  ],
+  "pagesIndex": "index"
+}

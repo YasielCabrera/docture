@@ -1,0 +1,18 @@
+{
+  "title": "API reference",
+  "pages": [
+    "models",
+    "constraints",
+    "templates",
+    "documents",
+    "pdfkit",
+    "html",
+    "verify",
+    "measure",
+    "degrade",
+    "node",
+    "text-generators",
+    "errors"
+  ],
+  "pagesIndex": "index"
+}

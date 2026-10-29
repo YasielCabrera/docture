@@ -1,0 +1,30 @@
+---
+title: Gate evaluation regressions in CI
+description: Fail on required quality thresholds errors or unacceptable baseline drops.
+---
+
+Add explicit thresholds to a completed result:
+
+```ts
+import { gate } from "@docture/eval";
+
+const verdict = gate(result, {
+	thresholds: [
+		{ metric: "f1", min: 0.95 },
+		{ metric: "f1", slice: { rendition: "scan" }, min: 0.9 },
+	],
+	maxErrorRate: 0,
+	regressions: { maxDrop: { f1: 0.01 } },
+});
+console.log(verdict.pass, verdict.checks);
+```
+
+This assumes `result` includes the desired case slices and a [baseline comparison](/docs/evaluation/comparisons). Regression budgets need comparison data. Set `requireSignificance` when only statistically established regressions should fail.
+
+Thresholds apply to every experiment unless `experiment` selects one. A threshold may target a segment, one slice value, or a path pattern. Equality passes. A run that is not complete fails. Missing required metrics fail by default; `onNull: "pass"` changes that policy explicitly.
+
+Precision, recall, and F1 default to run scope, which includes errored cases as omissions. Use another scope only when it matches the quality contract you intend to enforce. Include an error-rate threshold so processor failures remain visible.
+
+For the CLI, put `gate` in `docture.eval.ts` and run `docture eval run`. A failed gate returns exit code `1`. Persist a JSON or JUnit report as a CI artifact so reviewers can inspect failing fields.
+
+See [gate API](/docs/evaluation/reference/gates) and [reports](/docs/evaluation/reports).

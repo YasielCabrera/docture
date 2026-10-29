@@ -8,10 +8,10 @@ const footerLinks = [
   {
     title: "Documentation",
     links: [
-      { label: "Quick start", href: "/docs/quick-start" },
-      { label: "How it works", href: "/docs/how-it-works" },
-      { label: "Scanned documents", href: "/docs/guides/scanned-documents" },
-      { label: "Package reference", href: "/docs/reference/packages" },
+      { label: "Quick start", href: "/docs/extraction/quick-start" },
+      { label: "How it works", href: "/docs/getting-started/how-it-works" },
+      { label: "Scanned documents", href: "/docs/integrations/scanned-documents" },
+      { label: "Package reference", href: "/docs/getting-started/reference/packages" },
     ],
   },
   {

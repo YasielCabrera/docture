@@ -1,0 +1,19 @@
+---
+title: Choose a workflow
+description: Select extraction, conversion, evaluation, or synthetic generation.
+---
+
+Choose the output you need before selecting an engine.
+
+| You need | Workflow | Output |
+| --- | --- | --- |
+| Invoice fields or another typed record | [Extraction](/docs/extraction) | Schema-inferred data, attempts, validation, and usage |
+| Readable content or an indexing input | [Conversion and retrieval](/docs/conversion) | Text, Markdown, HTML, document JSON, or grounded chunks |
+| Evidence that a processor meets your requirements | [Evaluation](/docs/evaluation) | Field scores, reports, comparisons, and CI gates |
+| Test inputs before you have labeled documents | [Synthetic data](/docs/synthetic) | Documents, ground truth, and field locations |
+
+Use [classification](/docs/extraction/classification) to identify document kinds. Use [bundle splitting](/docs/extraction/splitting) when one source contains several documents. Use [long-document extraction](/docs/extraction/long-documents) when one document exceeds a model request budget.
+
+These operations compose. Convert and chunk content for retrieval, or generate a corpus and evaluate an extraction processor. Evaluation accepts processors outside Docture through its processor contract.
+
+For scans, choose [OCR or vision](/docs/integrations/scanned-documents). For existing services and storage, see [integrations](/docs/integrations).

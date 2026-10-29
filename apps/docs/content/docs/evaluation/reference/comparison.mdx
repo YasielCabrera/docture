@@ -1,0 +1,18 @@
+---
+title: Evaluation run comparison API
+description: Paired experiments, clustered statistical tests, and comparison defaults.
+---
+
+## `@docture/eval/compare`
+
+Defaults: test `auto`, 10,000 resamples, seed `docture-eval`, alpha 0.05 and clustering by `group`. Each common experiment is compared separately unless `experiment` selects an id or pair. Unsupported comparisons fail closed.
+
+- `CompareOptions`
+
+### `compareRuns`
+
+```ts
+compareRuns(baseline: EvalResult, candidate: EvalResult, options?: CompareOptions): RunComparison
+```
+
+Compare every experiment both runs have, or the selected pair, over paired case and epoch rows with exact McNemar or a seeded, group-clustered bootstrap (FNV-1a/Mulberry32). Small samples (at most 20 clusters) use exact sign-flip p-values; subgroup families use Holm correction. Throws `IncomparableRunsError` listing every reason the runs cannot be paired.

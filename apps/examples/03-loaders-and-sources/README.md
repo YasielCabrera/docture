@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples loaders
 ```
 
-Docs: [`concepts/loaders`](../../docs/content/docs/concepts/loaders.mdx)
+Docs: [`concepts/loaders`](../../docs/content/docs/integrations/loaders.mdx)
 
 ## Imports and installs
 

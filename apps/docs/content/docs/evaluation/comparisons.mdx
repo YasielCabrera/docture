@@ -1,0 +1,25 @@
+---
+title: Compare evaluation runs and select baselines
+description: Pair compatible cases and experiments before interpreting a change.
+---
+
+## Compare two runs
+
+Compare two saved results:
+
+```ts
+import { compareRuns } from "@docture/eval/compare";
+
+const comparison = compareRuns(baseline, candidate, { seed: "release-check" });
+console.log(comparison.experiments);
+```
+
+The default compares common experiment IDs. Select a named experiment or pair when needed. Pairing uses case and epoch rows; incompatible comparisons throw `IncomparableRunsError` with reasons.
+
+Continuous measures use a seeded cluster bootstrap. Binary outcomes use exact McNemar. Related cases share the dataset's `group` cluster, so digital, scan, and photo renditions of one original do not count as independent truth. Small samples use exact sign-flip p-values; subgroup families use Holm correction. Defaults are `10000` resamples, alpha `0.05`, and seed `docture-eval`.
+
+Read the summary delta and verdict together. Verdicts include `improved`, `regressed`, `unchanged`, `inconclusive`, `insufficient`, `not-tested`, and `incomparable`. A visible difference alone does not establish statistical significance.
+
+For automatic history lookup, give `runEval` a store, Git provenance, and `baseline: "auto"`. The resolver selects compatible complete history on the current branch. Set `fallbackBranch` explicitly when another branch should be searched. Missing required provenance fails closed. Use an explicit run ID for a fixed release baseline.
+
+See [comparison API](/docs/evaluation/reference/comparison), [baseline API](/docs/evaluation/reference/gates), and [CI gates](/docs/evaluation/ci).

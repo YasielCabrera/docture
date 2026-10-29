@@ -1,0 +1,46 @@
+---
+title: Connect an MCP host
+description: Expose conversion, inspection, and configured extraction over stdio.
+---
+
+## MCP server
+
+`docture mcp` serves conversion, inspection, and configured-schema extraction over the Model Context Protocol. It needs the optional peer `@modelcontextprotocol/sdk`:
+
+```sh
+npm install --save-dev @docture/cli @modelcontextprotocol/sdk@1.32.2
+```
+
+Register it in the host's MCP server configuration:
+
+```json
+{ "mcpServers": { "docture": { "command": "npx", "args": ["docture", "mcp"] } } }
+```
+
+| Tool | Arguments | Result items |
+| --- | --- | --- |
+| `convert` | `source`, optional `format`: `markdown` (default), `html`, `text`, or `json`, optional `pages`: one-based page numbers | `content`, `format`, `mimeType`, `pageCount`, `loader`, `method`, `warnings` |
+| `inspect` | `source`, optional `pages`: one-based page numbers | the same fields as `inspect --format json` |
+
+`source` is a path relative to the directory the host starts the server in, an absolute
+path, or an http(s) or `file:` URL. The server fixes `docture.config.*` for its lifetime and reuses shared wiring; `--config` and `--no-config` work as for other commands. `convert`
+returns content and writes no files or assets. With `pages`, it reads and converts only
+those pages and keeps their original numbers; a page the document lacks fails the item
+with `PAGE_OUT_OF_RANGE`.
+
+Each result is the version 1 envelope, as structured content and as JSON text. A failed
+document sets the MCP `isError` flag and reports `error.code`, for example `LOAD_FAILED`.
+A config that fails to load, or a config factory that throws or returns an invalid
+converter, answers the same way: one failed item with the code the CLI would report.
+Missing or malformed arguments, and `-` as a source, are JSON-RPC invalid-parameter errors.
+Stdout carries only protocol frames; warnings go to stderr. The server stops at the end of
+its input or on Ctrl-C, cancelling calls still in flight. Without the SDK, `docture mcp`
+exits with code `1` and names the version to install. The other commands never load it.
+
+The complete flag and library API reference is under
+[`@docture/cli`](/docs/cli/reference/cli).
+
+`--concurrency` overlaps model calls and file or network I/O. Local PDF parsing and rendering run on one thread. Higher concurrency does not make CPU-bound PDF work parallel. To keep a server responsive during that work, use `worker_threads` or a separate process.
+
+
+See the [complete tool reference](/docs/cli/mcp-tools) for extraction, Paperless tools, and shutdown behavior.

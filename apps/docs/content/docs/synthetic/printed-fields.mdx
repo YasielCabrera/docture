@@ -1,0 +1,25 @@
+---
+title: Define printed fields and synthetic ground truth
+description: Make the answer key match the information visible on the page.
+---
+
+Declare every schema field in the template's `printed` mask, including optional fields. A new schema field then requires a decision in each template.
+
+| Declaration | Ground truth |
+| --- | --- |
+| `true` | The field value, with a matching drawing required |
+| `false` | `null`, because this template does not print the field |
+| Predicate | Print according to the value, root, and parent |
+| `prints(transform)` | What the page lets a reader recover from the value |
+
+Objects use a mask per key. Arrays use `{ items: ... }`. A field such as `usage[].rateCents` can be hidden even when other cells in each row print.
+
+## Project transformed values
+
+For a tariff stored as `standard`, `green`, or `night-saver`, use `prints()` to map both `standard` and `green` to the printed label `Flat rate`. Draw that same label. The answer key then holds `Flat rate`, because the page cannot distinguish the two original values.
+
+`project(mask, value)` returns `expected` and the concrete printed leaves. It is useful for inspecting a template before rendering. Renderers call it themselves. Drawing an undeclared path or omitting a declared printed field raises `TemplateError`.
+
+A `FieldLabel` keeps ground-truth `value` separately from drawn `text`. Money can therefore be labeled with integer cents while drawing a localized currency string. Unprinted truth is `null`; choose a nullable evaluation schema when scoring it.
+
+See [printed-mask APIs](/docs/synthetic/reference/templates#prints) and [synthetic evaluation](/docs/synthetic/evaluation).

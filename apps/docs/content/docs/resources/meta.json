@@ -1,0 +1,16 @@
+{
+  "title": "Resources",
+  "root": false,
+  "pages": [
+    "examples",
+    "custom-components",
+    "testing",
+    "testing-api",
+    "errors",
+    "troubleshooting",
+    "migration",
+    "architecture",
+    "changelog"
+  ],
+  "pagesIndex": "index"
+}

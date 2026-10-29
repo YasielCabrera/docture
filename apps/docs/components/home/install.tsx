@@ -38,7 +38,7 @@ export function Install() {
           <p className="max-w-[52ch] text-sm leading-relaxed text-fd-muted-foreground">
             The <code className="font-mono text-[0.8125rem]">docture</code> root provides core
             and uses a schema helper. Add only the engines your selected adapters use.{" "}
-            <Link href="/docs/reference/packages" className="text-brand hover:underline">
+            <Link href="/docs/getting-started/reference/packages" className="text-brand hover:underline">
               Choose imports and engines
             </Link>
           </p>

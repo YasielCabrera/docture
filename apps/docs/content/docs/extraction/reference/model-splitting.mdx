@@ -1,0 +1,56 @@
+---
+title: Model splitting API
+description: Text and image splitter options, eager requests, and lazy page pairs.
+---
+
+Import these APIs from `docture/llm` or the narrow entries listed below. Install AI SDK 7 and Zod (3.25.76 or later 3.x, or 4.1.8 or later) in the application.
+For model components:
+
+```sh
+npm install docture ai@^7 zod@^4
+```
+
+Also install the provider you construct, such as `@ai-sdk/openai`. The
+[complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model)
+includes the document engine and schema library.
+
+All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
+gateway model string.
+
+## LLM splitters
+
+Import from `docture/llm/split`.
+
+```ts
+new TextSplitter(options: SplitterOptions)
+new ImageSplitter(options: SplitterOptions)
+textSplitter(options: SplitterOptions): TextSplitter
+imageSplitter(options: SplitterOptions): ImageSplitter
+```
+
+`TextSplitter` requires `TEXT_LAYER`. `ImageSplitter` requires `RENDERABLE_PAGES`.
+The default splitter name is `"TextSplitter"` or `"ImageSplitter"`. It stays the same
+in a minified bundle and in a subclass, so telemetry reads `docture.split.TextSplitter`
+unless you pass `name`.
+
+`SplitterOptions` contains required `model`, plus:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `name` | `"TextSplitter"` or `"ImageSplitter"` | Splitter name. |
+| `excerptChars` | `1200` | Text from the start of each page. |
+| `instructions` | none | Additional split guidance. |
+| `cache`, `pricing` | none | Shared cache and cost configuration. |
+| `temperature` | `0` | AI SDK temperature. |
+| `maxRetries` | `2` | AI SDK retry count. |
+| `dpi` | `120` | Image splitter render resolution. |
+| `maxEdge` | none | Image edge limit. |
+| `format` | `png` | Image format. |
+| `maxEagerPages` | `40` | Pages sent by an eager split request. |
+
+Unknown model names are reconciled to `UNKNOWN`. Splitter calls reject on model,
+rendering, or abort failures. Eager splitting sends every page in windows of at most
+`maxEagerPages`. A page-pair seam check joins adjacent windows only when the second page
+continues the first document. A joined group keeps the earlier classification and the
+lower group confidence. Each window ignores page numbers outside its own pages and
+fills any gaps so every source page remains in a group.

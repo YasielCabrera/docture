@@ -1,0 +1,50 @@
+---
+title: Table and merged-cell detection
+description: Detection examples, output behavior, and limits for table and merged-cell detection.
+---
+
+## Tables and merged cells
+
+Core groups aligned rows into `table` elements. Rows with the same number of cells at
+matching positions form a plain table. When rows differ in cell count, the rows with the
+most cells set the column bands. A shorter row joins the table when each of its cells
+falls in a band, so a totals row stays with its table. A row more than 1.5 times the row
+spacing below the row above starts a new form section instead, unless it holds a number
+without letters in the table's last column, as a totals row does. That holds for a shorter row, such as
+`Booking ID` and `Payment Mode` labels under a `Check In`/`Check Out`/`Rooms` table, and
+for a row in a different font weight. The section and the rows above it become tables
+only if each is a table on its own. A label over two columns becomes
+a merged cell:
+
+```ts
+const result = await converter.convert(source, { format: "json" });
+const table = result.pages[0]?.elements.find((element) => element.kind === "table");
+console.log(table?.rows); // [["Item", "Quarters", ""], ["", "Q1", "Q2"], ["Alpha", "10", "20"]]
+console.log(table?.headerRows); // 2
+console.log(table?.spans); // [{ row: 0, col: 1, rowSpan: 1, colSpan: 2 }]
+```
+
+`rows` keeps one slot per column. A merged cell's text is in its anchor slot, and every
+slot it covers holds `""`. Each format renders spans differently:
+
+- HTML puts the `headerRows` rows in `<thead>` and writes `colspan` and `rowspan` on the
+  anchor cell.
+- Markdown has no merged cells. It flattens the header rows into one row and joins each
+  column's labels with ` / `, as in `| Item | Quarters / Q1 | Quarters / Q2 |`. Covered
+  body cells stay blank, so a value is never copied into another cell.
+- TXT keeps the original source lines.
+- JSON keeps `rows`, `headerRows`, and `spans`.
+
+Detection is a heuristic. A label must cover more than half of each column it merges,
+and those columns must be empty in its row. A bold label in a bold header row can instead
+sit centred over two or more columns, such as `Quarters` above `Q1` and `Q2`, even when it
+overlaps neither. A centred line without bold type stays outside the table with a
+`LAYOUT_DEGRADED` warning, because it could also be a caption. A caption such as
+`Table 1` or `Table A`, heading-size text, or a line more than 1.5 row spacings above the table never
+merges. Rows above the band rows join only as header
+rows that a merged label proves. A row span needs a cell box that covers at least half of
+each row line, which OCR or synthetic geometry can provide and PDF text layers rarely do.
+An empty cell never makes a row span. Text layers that emit one span per word keep the
+plain table rule. A layout analyzer group that would produce an invalid table is
+ignored, and the tables stay separate. The
+[reference](/docs/conversion/reference/layout#semantic-layout) lists the rules.

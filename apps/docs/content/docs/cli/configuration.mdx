@@ -1,0 +1,34 @@
+---
+title: Configure the CLI
+description: Load typed configuration and choose document engines.
+---
+
+## Configuration file
+
+Declare the dependencies imported by this config directly:
+
+```sh
+npm install --save-dev @docture/cli docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+```
+
+<SourceExample file="docture.config.ts" title="docture.config.ts" />
+
+The CLI finds the nearest `docture.config.ts`, `.mts`, `.js`, or `.mjs` while walking up
+from the working directory. Command flags override configuration defaults.
+
+If a configured integration's engine is not installed, the command reports
+`MISSING_ENGINE` with the package and range to install rather than a damaged file.
+Errors raised by the configuration's copy of `docture` keep their codes, hints, and
+usage even when the package manager installed a separate copy for the CLI. A typed
+config's `extractor` and `converter` also type-check against either copy, because the CLI
+types them by the methods it calls.
+
+With pnpm, an application whose `pdfjs-dist` differs from the CLI's `6.2.108` gets its own
+copy of `docture`. Combining `--vision` with a PDF.js loader built in the config then loads
+both PDF.js versions into one process, and PDF.js rejects the second with
+`The API version ... does not match the Worker version ...`. Omit `loaders` to use the
+CLI's PDF.js loader, or install `pdfjs-dist@6.2.108` in the application.
+
+Node 22.18 or newer can import erasable TypeScript config and schema modules directly.
+Earlier Node 22 releases need `--experimental-strip-types`, or compiled `.js` or `.mjs`
+files. JSON Schema files do not require TypeScript support.

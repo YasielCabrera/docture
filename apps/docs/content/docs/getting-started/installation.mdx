@@ -1,0 +1,281 @@
+---
+title: Install the components you use
+description: Complete install commands for core, models, PDF and OCR engines, testing, and the CLI.
+---
+
+Use Node.js 22 or newer. Install `docture` and the peers required by the imports you
+select. The [package reference](/docs/getting-started/reference/packages) lists every public subpath. The
+recipes install the engine versions Docture is developed with. Each engine's
+[supported range](/docs/getting-started/reference/packages#engine-versions) lists the other versions it
+accepts and the versions the release gate runs.
+
+## Core, custom loaders, and in-memory documents
+
+For core contracts, extraction, conversion, `DocumentLoaderData`, or custom components:
+
+```sh
+npm install docture zod@^4
+```
+
+Core uses `@ai-sdk/provider-utils`, whose schema helper has a Zod peer. Zod 3.25.76 or
+later 3.x, or Zod 4.1.8 or later, also satisfies the model integrations that import
+`zod/v4`. These recipes install Zod 4. You can still define contracts
+with another supported schema library. Test doubles need only:
+
+```sh
+npm install docture
+```
+
+Import core from `docture`, retrieval chunks from `docture/chunk`, and test doubles from
+`docture/testing/doubles`. None requires an engine or model runtime.
+
+## PDF.js text extraction and deterministic conversion
+
+For `docture/loaders/pdfjs`, including conversion without a model:
+
+```sh
+npm install docture pdfjs-dist@6.2.108 zod@^4
+```
+
+For deterministic extraction with a Zod schema:
+
+```sh
+npm install docture pdfjs-dist@6.2.108 zod@^4
+```
+
+## Text extraction, classification, splitting, and layout with a model
+
+For the model examples using PDF.js and OpenAI:
+
+```sh
+npm install docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+```
+
+Use `docture/llm/text`, `docture/llm/classifier`, `docture/llm/split`, or
+`docture/llm/layout` for individual capabilities. `docture/llm/extractor` exposes the
+extractor factory. `docture/llm` exposes the `LLM` convenience class and all model APIs.
+These model calls need AI SDK 7 and a supported Zod release. Install the AI SDK provider you construct, or use a gateway
+model string with gateway credentials. Set the selected provider's credential before
+running the [quick start](/docs/extraction/quick-start).
+
+The cache, pricing, prompt, merge, and schema-relaxation utilities need only `docture`:
+
+```sh
+npm install docture
+```
+
+Import those helpers from `docture/llm/cache`, `docture/llm/pricing`,
+`docture/llm/prompt`, `docture/llm/merge`, or `docture/llm/relax`.
+
+## MuPDF text and rendering
+
+For `DocumentLoaderMuPdf` or `MuPdfRasterizer` from `docture/loaders/mupdf`:
+
+```sh
+npm install docture mupdf@1.28.0 zod@^4
+```
+
+MuPDF is AGPL-3.0-or-later licensed. For vision extraction using MuPDF for both reading
+and rendering, plus the OpenAI provider:
+
+```sh
+npm install docture mupdf@1.28.0 ai@^7 @ai-sdk/openai zod@^4
+```
+
+Compose `DocumentLoaderMuPdf` with `MuPdfRasterizer` through `withRasterizer()`.
+
+## Canvas rendering and vision
+
+For `NapiCanvasRasterizer` from `docture/raster/canvas`:
+
+```sh
+npm install docture pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10
+```
+
+For the [scanned-document vision recipe](/docs/integrations/scanned-documents):
+
+```sh
+npm install docture pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10 ai@^7 @ai-sdk/openai zod@^4
+```
+
+Canvas uses a platform-specific native prebuild. `docture/llm/vision` supplies the model
+strategy; the loader and rasterizer supply the page images.
+
+PDF.js also loads canvas itself, and `pdfjs-dist@6.4.299` requires canvas 1.0.10 or later.
+Docture's canvas range starts at that version, so npm and pnpm can install one canvas for
+both. Pages are drawn on the canvas that PDF.js loaded.
+
+## Tesseract OCR
+
+For `DocumentLoaderTesseract` from `docture/loaders/tesseract`:
+
+```sh
+npm install docture tesseract.js@7.0.0
+```
+
+Tesseract recognizes image inputs. To read scanned PDFs, also compose a PDF rasterizer.
+For the canvas-backed OCR example:
+
+```sh
+npm install docture tesseract.js@7.0.0 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10
+```
+
+The default Tesseract worker can download its language data. Configure language-data
+locations when running without network access. Add `ai@^7`, a provider, and your schema
+library if a model extracts fields from the OCR text.
+
+## PaddleOCR
+
+For `DocumentLoaderPaddleOcr` from `docture/loaders/paddleocr`:
+
+```sh
+npm install docture ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0
+```
+
+For the canvas-backed scanned-PDF OCR example:
+
+```sh
+npm install docture ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10
+```
+
+To read TIFF files with PaddleOCR, also install its TIFF decoder:
+
+```sh
+npm install utif2@4.1.0
+```
+
+PaddleOCR needs model assets as well as ONNX Runtime's platform-specific native libraries.
+Configure the model source and rasterizer in the [OCR guide](/docs/integrations/scanned-documents).
+
+## Applications with their own OCR engine
+
+Docture pins `tesseract.js@7.0.0`, `ppu-paddle-ocr@6.3.0`, and `onnxruntime-node@1.27.0`
+exactly, because OCR recognition is verified only with those versions. npm checks an
+optional peer whenever the project installs that package, even if no code imports an OCR
+adapter. An application that already depends on another release of one of these packages
+therefore cannot install `docture` with npm, even for core extraction. An application that
+depends only on `@docture/cli` installs without an error, but npm also installs the pinned
+release of each such package under `@docture/cli`. For `onnxruntime-node`, that second
+copy takes about 270 MB.
+
+For core and the other non-OCR entries, add an npm override that gives Docture the
+application's own version. The same override removes the CLI's second copy. Add one entry
+for each of these packages that the application declares. `$onnxruntime-node` refers to
+the version in the application's dependencies:
+
+```json
+{
+  "overrides": {
+    "docture": {
+      "onnxruntime-node": "$onnxruntime-node"
+    }
+  }
+}
+```
+
+The override does not make that version supported for `docture/loaders/tesseract` or
+`docture/loaders/paddleocr`. Those adapters remain verified only with the exact versions
+above. pnpm installs the application's version with an unmet-peer warning, and the OCR
+adapters remain unsupported with that version.
+
+## Generated PDFs and conformance suites
+
+For `docture/testing/fixtures`:
+
+```sh
+npm install --save-dev docture pdfkit@0.19.1
+```
+
+For `docture/testing/conformance`, install both Vitest and PDFKit because the suites
+register tests and generate PDFs:
+
+```sh
+npm install --save-dev docture pdfkit@0.19.1 'vitest@>=3'
+```
+
+Add the engine for the adapter under test. For the runnable accuracy example, which reads
+a generated PDF with PDF.js and uses a Zod schema:
+
+```sh
+npm install --save-dev docture pdfjs-dist@6.2.108 pdfkit@0.19.1 zod@^4
+```
+
+## Command-line tool
+
+For a project-local CLI:
+
+```sh
+npm install --save-dev @docture/cli
+npx docture --help
+```
+
+For a one-off invocation without a local install:
+
+```sh
+npx --package @docture/cli docture --help
+```
+
+The CLI requires AI SDK and PDF.js and attempts to install canvas as its optional default
+renderer. If optional dependencies were omitted, restore canvas with:
+
+```sh
+npm install --save-dev @docture/cli @napi-rs/canvas@1.0.10
+```
+
+`docture mcp` and `@docture/cli/mcp` need the optional MCP SDK peer. No other command
+loads it:
+
+```sh
+npm install --save-dev @docture/cli @modelcontextprotocol/sdk@1.32.2
+```
+
+For the CLI examples using a Zod schema and a local OpenAI provider:
+
+```sh
+npm install --save-dev @docture/cli @ai-sdk/openai zod@^4
+```
+
+If your config imports Docture components, declare those imports directly:
+
+```sh
+npm install --save-dev @docture/cli docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+```
+
+TypeScript schema and config modules use Node's type stripping, available from Node
+22.18. See [CLI setup and commands](/docs/cli/quick-start).
+
+## Evaluation
+
+```sh
+npm install @docture/eval docture zod@^4
+# Optional semantic judge only:
+npm install ai@^7
+```
+
+The root, runner, reporters and framework adapters need no model engine. Import file I/O from `@docture/eval/node` and the judge from `@docture/eval/judge`.
+
+## Synthetic documents
+
+`@docture/synthetic` needs only `docture` for models and templates. Add the engines for the entries you import:
+
+```sh
+npm install --save-dev @docture/synthetic docture zod@^4
+# Render templates to PDF (@docture/synthetic/pdfkit):
+npm install --save-dev pdfkit@0.19.1
+# Verify labels and write corpora (@docture/synthetic/verify, /node):
+npm install --save-dev pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10
+# Scan, photo and fax renditions (@docture/synthetic/degrade):
+npm install --save-dev sharp@0.35.5
+# Optional value and layout sources:
+npm install --save-dev @faker-js/faker@10.6.0   # @docture/synthetic/faker
+npm install --save-dev playwright-core@1.64.1   # @docture/synthetic/html
+npm install --save-dev ai@^7                    # @docture/synthetic/llm
+```
+
+The HTML renderer also needs a Chromium build that matches Playwright 1.64.1:
+
+```sh
+npx playwright-core install chromium
+```
+
+The [synthetic corpus guide](/docs/synthetic/fonts-and-locales#supply-fonts) explains fonts and the glyph check.

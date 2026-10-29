@@ -1,0 +1,85 @@
+---
+title: Evaluation html reporter API
+description: Html reports from saved evaluation results.
+---
+
+## `@docture/eval/reporters/html`
+
+This entry is Node-only: its writing factory imports `node/artifacts`. Pure rendering implementations have no Node imports. The factory consumes `EvalResult` through `onResult`; writing requires an explicit `out` except for the terminal reporter.
+
+- `Bar`
+- `BarData`
+- `CellValue`
+- `Column`
+- `DocumentRow`
+- `HTML_IDS`
+- `HtmlOptions`
+- `HtmlPanel`
+- `HtmlParts`
+- `HtmlReporterOptions`
+- `HtmlTheme`
+- `HtmlView`
+- `PanelData`
+- `SectionData`
+- `Tile`
+- `TileData`
+- `Tone`
+- `panel`
+
+### `embedJson`
+
+```ts
+embedJson(value: unknown): string
+```
+
+JSON for a `<script type="application/json">` element: `<` and line separators are escaped so the data cannot end the element.
+
+### `renderHtml`
+
+```ts
+renderHtml(result: EvalResult, options?: HtmlOptions): string
+```
+
+The result as one offline HTML file: inline CSS, the prebuilt client, and the result embedded as JSON. The page references nothing on the network and the client never parses markup from the data.
+
+The theme must keep the page offline. `theme.css` must not contain `@import`, a `url()` whose target is not a `data:` URL, or any other network URL. `theme.logo` must be a `data:image` URL, and `theme.accent` a CSS color. A theme that breaks these rules throws one `TypeError` listing every problem.
+
+A `template` replaces the page shell and receives `HtmlParts`. It must place `parts.csp`, the Content-Security-Policy `<meta>` element, in the page's head before any `<style>`, `<script>` or `<body>`. A page without it throws `TypeError`.
+
+```ts
+renderHtml(result, {
+  template: (parts) => `<!doctype html><html><head>${parts.csp}<title>${parts.title}</title><style>${parts.css}</style></head><body>${parts.body}${parts.data}<script>${parts.script}</script></body></html>`,
+});
+```
+
+### `scoreTone`
+
+```ts
+scoreTone(value: number | null): Tone
+```
+
+Score colors: green at 99.5%, accent at 90%, amber at 60%, red below.
+
+### `htmlReporter`
+
+```ts
+htmlReporter(options: HtmlReporterOptions): Reporter
+```
+
+Write the result as a single offline HTML report, optionally rewritten live during the run.
+
+### `defineColumn`
+
+```ts
+defineColumn(column: Column): Column
+```
+
+Declare a column. Identity at runtime; it pins the type.
+
+### `defaultColumns`
+
+```ts
+defaultColumns(): readonly Column[]
+```
+
+The columns every per-case view starts from.

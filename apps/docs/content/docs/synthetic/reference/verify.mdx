@@ -1,0 +1,26 @@
+---
+title: Synthetic verify API
+description: Public API for @docture/synthetic/verify.
+---
+
+## `@docture/synthetic/verify`
+
+- `VerifiableDocument`
+- `VerificationReport`
+- `VerifyOptions`
+
+### `verifyLabels`
+
+```ts
+verifyLabels(document: VerifiableDocument, options?: VerifyOptions): Promise<VerificationReport>
+```
+
+Read a digital rendition back through PDF.js and confirm every label: its box lies on the page, and the text spans meeting the box show the label's text. `tolerance` grows each box before matching, default 2 points. A degraded rendition has no text layer and throws `RangeError`. Needs `pdfjs-dist` through `docture/loaders/pdfjs`.
+
+### `assertVerified`
+
+```ts
+assertVerified(document: VerifiableDocument, options?: VerifyOptions): Promise<void>
+```
+
+`verifyLabels`, throwing `LabelVerificationError` with every failed label.

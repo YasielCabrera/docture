@@ -1,0 +1,26 @@
+{
+  "title": "API reference",
+  "pages": [
+    "extractor",
+    "contracts",
+    "strategies",
+    "models",
+    "text",
+    "vision",
+    "classification",
+    "model-classification",
+    "splitting",
+    "model-splitting",
+    "validation",
+    "citations",
+    "results",
+    "batches",
+    "pipeline",
+    "prompts",
+    "partials",
+    "cache-pricing",
+    "telemetry",
+    "performance"
+  ],
+  "pagesIndex": "index"
+}

@@ -1,0 +1,35 @@
+---
+title: Synthetic text-generators API
+description: Public API for @docture/synthetic/faker.
+---
+
+## `@docture/synthetic/faker`
+
+### `fakerFor`
+
+```ts
+fakerFor(locale: string, options?: { readonly refDate?: string }): Promise<<V>(build: (faker: Faker) => V) => Generator<V>>
+```
+
+Generators backed by Faker in `locale` (`de`, `de-AT`, `en_US`, and so on), falling back to English. Each generator reseeds Faker from its position's stream before calling `build`, so a value depends only on the seed and its path. Relative dates count back from `refDate`, default `2025-01-01T00:00:00.000Z`, never from the wall clock. An unknown locale throws `RangeError`.
+
+### `ENGINE_RANGES`
+
+`{ "@faker-js/faker": "10.6.0" }`.
+
+## `@docture/synthetic/llm`
+
+- `TextPoolCache`
+- `TextPoolOptions`
+
+### `llmTextPool`
+
+```ts
+llmTextPool(options: TextPoolOptions): Promise<readonly string[]>
+```
+
+Ask a model once for `count` distinct realistic strings, such as company names of a trade, and cache them by model, prompt, count and temperature (default 0). Sample from the pool with `gen.pick(pool)`, so ground truth stays the sampled value and labels are still verified. With a persistent `cache`, a corpus rebuilds offline. A model that returns no usable strings throws `SynthesisError`.
+
+### `ENGINE_RANGES`
+
+`{ ai: "^7.0.0" }`.

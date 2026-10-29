@@ -1,0 +1,46 @@
+---
+title: Vision extraction API
+description: Vision model options, page limits, rendering, and request budgets.
+---
+
+Import these APIs from `docture/llm` or the narrow entries listed below. Install AI SDK 7 and Zod (3.25.76 or later 3.x, or 4.1.8 or later) in the application.
+For model components:
+
+```sh
+npm install docture ai@^7 zod@^4
+```
+
+Also install the provider you construct, such as `@ai-sdk/openai`. The
+[complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model)
+includes the document engine and schema library.
+
+All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
+gateway model string.
+
+## Vision extraction
+
+Import from `docture/llm/vision`.
+
+```ts
+new VisionStrategy(options: VisionStrategyOptions)
+vision(options: VisionStrategyOptions): ExtractionStrategy
+```
+
+`VisionStrategy` requires `RENDERABLE_PAGES`, is named `vision` by default, and uses
+classification as a hint by default.
+
+`VisionStrategyOptions` contains the same model, prompt, cache, price, retry, temperature,
+and classification fields as text extraction. Vision-specific options are:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `dpi` | `200` | Render resolution. |
+| `maxEdge` | `1568` | Maximum image edge in pixels. |
+| `format` | `png` | Render format. |
+| `maxPages` | all | Maximum pages sent. |
+| `pageMode` | `together` | Consecutive page groups or one request per page. |
+| `pagesPerRequest` | `20` | Maximum pages in a together group. Positive integer. |
+| `concurrency` | `4` | Maximum model requests in flight. Positive integer. |
+
+The strategy rejects when there are no pages, a page cannot render, the model fails, or
+the caller aborts. Per-page results are merged before core validation.

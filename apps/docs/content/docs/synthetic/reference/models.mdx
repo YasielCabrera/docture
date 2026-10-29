@@ -1,0 +1,107 @@
+---
+title: Synthetic models and generators API
+description: Public signatures, types, behavior, and defaults for synthetic models and generators.
+---
+
+## `@docture/synthetic`
+
+A model samples values, a template draws them, and the template's printed mask decides what the ground truth holds. Randomness comes only from `streamFor(seed, key)`, keyed by a field's path, so equal inputs give equal values on every platform and adding a field never changes the values of the others. Nothing reads the wall clock.
+
+- `ArrayLength`
+- `At`
+- `ConcretePath`
+- `Constraint`
+- `FieldLabel`
+- `FieldSpec`
+- `Fields`
+- `Flag`
+- `FontSource`
+- `Formatter`
+- `GenContext`
+- `Generator`
+- `InferSchema`
+- `JsonSchema`
+- `LabelFailure`
+- `LabelFailureKind`
+- `Locale`
+- `Mask`
+- `Model`
+- `ModelOptions`
+- `ObjectMask`
+- `PageInfo`
+- `PageSize`
+- `PathPattern`
+- `PathSegment`
+- `Printed`
+- `PrintedMask`
+- `Projection`
+- `Rendition`
+- `Sample`
+- `SampleOptions`
+- `Scenario`
+- `SchemaSource`
+- `Stream`
+- `Surface`
+- `SynthConfig`
+- `SynthRendition`
+- `SynthesisProblem`
+- `SyntheticCase`
+- `SyntheticDocument`
+- `TableColumn`
+- `TableOptions`
+- `TagValue`
+- `Template`
+- `TemplateDefinition`
+- `TemplateProblem`
+- `TemplateProblemCode`
+- `TextStyle`
+- `TypedJsonSchema`
+- `ValueAt`
+
+`PathPattern<T>` names every schema position of `T` with `[]` for array items, such as `lineItems[].amount`. `ConcretePath<T>` names one position, such as `lineItems[3].amount`. `ValueAt<T, P>` is the type at a pattern. `FieldSpec` is a `Generator` or, for an array, an `ArrayLength`. `Fields<T>` maps patterns or concrete paths to field specs; a concrete path wins over its pattern.
+
+### `defineModel`
+
+```ts
+defineModel<const S extends object>(schema: S, options?: ModelOptions<InferSchema<S>>): Model<InferSchema<S>>
+```
+
+A model of the values `schema` describes. `schema` is a Docture contract, a Standard Schema with JSON Schema output (Zod 4.2 and later, ArkType, Valibot), an AI SDK schema or a plain JSON Schema. Positions without a generator get defaults from the schema. `model.sample({ seed, scenario })` samples, applies the scenario's `shape`, runs `derive`, checks the constraints and the scenario's `expect`, validates against the schema, and returns a deep-frozen `Sample`. Any failure throws `SynthesisError` listing every problem.
+
+`ModelOptions` holds `fields`, `derive`, `constraints`, `presence` (probability an optional property without a generator is present, default 0.85), `nulls` (probability a nullable position without a generator is `null`, default 0.1) and `arrays` (length range of arrays without a length, default `[1, 4]`). `derive` runs after sampling and again after a scenario's `shape`, so it must be idempotent.
+
+### `scenario`
+
+```ts
+scenario<T>(definition: Scenario<T>): Scenario<T>
+```
+
+A named variation such as "many line items" or "credit balance". `fields` replace the model's generators at the same positions; `shape` rewrites a derived sample; `expect` returns `false` or a message when a sample breaks the scenario's promise. `tags` reach each case's params.
+
+### `typedJsonSchema`
+
+```ts
+typedJsonSchema<T>(schema: JsonSchema): TypedJsonSchema<T>
+```
+
+Brand a plain JSON Schema with the type of its values, so `defineModel` infers `T` without a schema library.
+
+### `readSchema`
+
+```ts
+readSchema(input: unknown): SchemaSource
+```
+
+Read the JSON Schema and the optional validator of a contract, Standard Schema, AI SDK schema or JSON Schema. Returns `{ ok: false, message }` for anything else.
+
+### `gen`
+
+```ts
+gen.value(value) gen.from(generate) gen.int(min, max) gen.float(min, max, { decimals })
+gen.pick(items) gen.weighted([[value, weight], ...]) gen.pattern("INV-######")
+gen.date({ from, to }) gen.dateAfter(path, { days }) gen.words(min, max, pool?)
+gen.iban(country?) gen.luhn(prefix, length) gen.absent() gen.null() gen.maybe(inner, p?)
+gen.array({ length })
+```
+
+Built-in generators. Each draws only from its position's own stream. In `gen.pattern`, `#` is a digit, `A` an uppercase letter, `?` either, and a backslash escapes the next character. `gen.dateAfter` reads the ISO date at another concrete path. `gen.luhn` returns `length` digits whose last digit is the Luhn check digit. `gen.array` sets a length; items come from the item generators. `gen.from` receives a `GenContext` with the position's `stream`, `path`, `segments`, schema node, nearest array `index`, `get(path)` for another position, `sibling(key)` and `fallback()` for the schema default.

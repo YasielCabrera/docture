@@ -1,0 +1,27 @@
+---
+title: Export images and assets
+description: Return referenced, embedded, or omitted image assets without implicit filesystem writes.
+---
+
+## Assets
+
+`assets` accepts `referenced`, `embedded`, or `omit`:
+
+```ts
+const referenced = await converter.convert(source, { assets: "referenced" });
+const embedded = await converter.convert(source, { assets: "embedded" });
+const textOnly = await converter.convert(source, { assets: "omit" });
+```
+
+Referenced output uses stable relative names such as
+`report.assets/page-1-image-1.png`. `result.assets` carries each name, media type,
+position, and `Uint8Array` value. Embedded Markdown and HTML use data URLs. Omit mode
+does not ask the loader for asset bytes.
+
+V1 copies embedded raster figures. It does not reconstruct vector art or produce a
+pixel-matched HTML rendering of the page.
+
+
+The library does not write files. The [quick start](/docs/conversion/quick-start) writes each referenced asset beside the document. Choose embedded assets for a self-contained response, or omit them when indexing text only.
+
+See [converter results](/docs/conversion/reference/converter#result) for the asset records and [CLI conversion](/docs/cli/commands) for filesystem output.

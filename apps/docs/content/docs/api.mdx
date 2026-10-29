@@ -1,0 +1,94 @@
+---
+title: API reference
+description: Find public APIs by package and import path.
+---
+
+Each entry below links to its canonical reference pages. Import public entries rather than files under `src` or `dist`. Install the engines required by the [package reference](/docs/getting-started/reference/packages).
+
+## Core
+
+| Import | Reference |
+| --- | --- |
+| `docture` | [Validation and repair API](/docs/extraction/reference/validation), [Extraction results API](/docs/extraction/reference/results), [Batch and lifecycle API](/docs/extraction/reference/batches), [Field citations API](/docs/extraction/reference/citations), [Extractor API](/docs/extraction/reference/extractor), [Chunking and merge helpers API](/docs/extraction/reference/partials), [Cache and pricing API](/docs/extraction/reference/cache-pricing), [Element identity and evidence API](/docs/conversion/reference/evidence), [Semantic layout API](/docs/conversion/reference/layout), [Document converter API](/docs/conversion/reference/converter), [Document JSON API](/docs/conversion/reference/document-json), [Layout analyzer API](/docs/conversion/reference/analyzers), [Retrieval chunking API](/docs/conversion/reference/chunk), [Cross-page continuation detection](/docs/conversion/reference/continuations), [Contracts and schemas API](/docs/extraction/reference/contracts), [Core documents and loaders](/docs/getting-started/reference/documents), [Strategies and routing API](/docs/extraction/reference/strategies), [Pipeline and disposal API](/docs/extraction/reference/pipeline), [Classification API](/docs/extraction/reference/classification), [Splitting and Process API](/docs/extraction/reference/splitting), [Model splitting API](/docs/extraction/reference/model-splitting), [Errors](/docs/resources/errors) |
+| `docture/llm` | [Model splitting API](/docs/extraction/reference/model-splitting), [Model backend and factory API](/docs/extraction/reference/models), [Model classification API](/docs/extraction/reference/model-classification), [Model layout API](/docs/conversion/reference/model-layout), [Chunking and merge helpers API](/docs/extraction/reference/partials), [Text extraction API](/docs/extraction/reference/text), [Model telemetry API](/docs/extraction/reference/telemetry), [Vision extraction API](/docs/extraction/reference/vision), [Prompt helpers API](/docs/extraction/reference/prompts), [Cache and pricing API](/docs/extraction/reference/cache-pricing) |
+| `docture/llm/text` | [Chunking and merge helpers API](/docs/extraction/reference/partials), [Text extraction API](/docs/extraction/reference/text), [Model telemetry API](/docs/extraction/reference/telemetry), [Model backend and factory API](/docs/extraction/reference/models) |
+| `docture/llm/vision` | [Model telemetry API](/docs/extraction/reference/telemetry), [Vision extraction API](/docs/extraction/reference/vision), [Model backend and factory API](/docs/extraction/reference/models) |
+| `docture/llm/classifier` | [Model backend and factory API](/docs/extraction/reference/models), [Model classification API](/docs/extraction/reference/model-classification), [Model telemetry API](/docs/extraction/reference/telemetry) |
+| `docture/llm/layout` | [Model layout API](/docs/conversion/reference/model-layout), [Model telemetry API](/docs/extraction/reference/telemetry) |
+| `docture/llm/split` | [Model splitting API](/docs/extraction/reference/model-splitting), [Model telemetry API](/docs/extraction/reference/telemetry) |
+| `docture/llm/extractor` | [Model backend and factory API](/docs/extraction/reference/models) |
+| `docture/llm/cache` | [Cache and pricing API](/docs/extraction/reference/cache-pricing) |
+| `docture/llm/pricing` | [Cache and pricing API](/docs/extraction/reference/cache-pricing) |
+| `docture/llm/prompt` | [Prompt helpers API](/docs/extraction/reference/prompts), [Chunking and merge helpers API](/docs/extraction/reference/partials) |
+| `docture/llm/merge` | [Chunking and merge helpers API](/docs/extraction/reference/partials) |
+| `docture/llm/relax` | [Chunking and merge helpers API](/docs/extraction/reference/partials) |
+| `docture/loaders/pdfjs` | [PDF.js](/docs/integrations/pdfjs) |
+| `docture/loaders/mupdf` | [MuPDF](/docs/integrations/mupdf) |
+| `docture/loaders/tesseract` | [Tesseract OCR](/docs/integrations/tesseract) |
+| `docture/loaders/paddleocr` | [PaddleOCR](/docs/integrations/paddleocr) |
+| `docture/raster/canvas` | [Canvas rasterizer](/docs/integrations/canvas) |
+| `docture/chunk` | [Retrieval chunking API](/docs/conversion/reference/chunk) |
+| `docture/testing/doubles` | [Testing APIs](/docs/resources/testing-api) |
+| `docture/testing/conformance` | [Testing APIs](/docs/resources/testing-api) |
+| `docture/testing/fixtures` | [Testing APIs](/docs/resources/testing-api) |
+| `docture/node` | [Validation and repair API](/docs/extraction/reference/validation), [Extraction results API](/docs/extraction/reference/results), [Batch and lifecycle API](/docs/extraction/reference/batches), [Field citations API](/docs/extraction/reference/citations), [Extractor API](/docs/extraction/reference/extractor), [Chunking and merge helpers API](/docs/extraction/reference/partials), [Cache and pricing API](/docs/extraction/reference/cache-pricing), [Element identity and evidence API](/docs/conversion/reference/evidence), [Semantic layout API](/docs/conversion/reference/layout), [Document converter API](/docs/conversion/reference/converter), [Document JSON API](/docs/conversion/reference/document-json), [Layout analyzer API](/docs/conversion/reference/analyzers), [Retrieval chunking API](/docs/conversion/reference/chunk), [Cross-page continuation detection](/docs/conversion/reference/continuations), [Contracts and schemas API](/docs/extraction/reference/contracts), [Core documents and loaders](/docs/getting-started/reference/documents), [Strategies and routing API](/docs/extraction/reference/strategies), [Pipeline and disposal API](/docs/extraction/reference/pipeline), [Classification API](/docs/extraction/reference/classification), [Splitting and Process API](/docs/extraction/reference/splitting), [Model splitting API](/docs/extraction/reference/model-splitting), [Errors](/docs/resources/errors), [Node file sources](/docs/getting-started/reference/node) |
+| `docture/loaders/mammoth` | [Read DOCX with Mammoth](/docs/integrations/mammoth) |
+| `docture/llm/tool` | [Use extraction as an AI SDK tool](/docs/integrations/ai-sdk-tool) |
+| `docture/inputs/email` | [Expand email messages and attachments](/docs/integrations/email) |
+| `docture/loaders/azure-di` | [Azure Document Intelligence Read](/docs/integrations/azure-read) |
+| `docture/sources/paperless` | [Read and search Paperless documents](/docs/integrations/paperless-read) |
+| `docture/import/docling` | [Import Docling JSON](/docs/integrations/docling-import) |
+| `docture/loaders/docling` | [Connect to Docling Serve](/docs/integrations/docling-serve) |
+| `docture/sinks/paperless` | [Plan and apply Paperless updates](/docs/integrations/paperless-updates) |
+
+## CLI and services
+
+| Import | Reference |
+| --- | --- |
+| `@docture/cli` | [CLI package](/docs/cli/reference/cli) |
+| `@docture/cli/config` | [CLI package](/docs/cli/reference/cli) |
+| `@docture/cli/mcp` | [CLI package](/docs/cli/reference/cli) |
+| `@docture/cli/service` | [HTTP service](/docs/cli/reference/service) |
+
+## Evaluation
+
+| Import | Reference |
+| --- | --- |
+| `@docture/eval` | [Evaluation core types](/docs/evaluation/reference/types), [Evaluation array alignment API](/docs/evaluation/reference/arrays), [Evaluation gates and baselines API](/docs/evaluation/reference/gates), [Evaluation results API](/docs/evaluation/reference/results), [Evaluation calibration API](/docs/evaluation/reference/calibration), [Evaluation specs API](/docs/evaluation/reference/specs), [Evaluation model judge API](/docs/evaluation/reference/judges), [Evaluation datasets and reporter contracts API](/docs/evaluation/reference/core), [Docture evaluation adapter API](/docs/evaluation/reference/processors), [Evaluation grounding API](/docs/evaluation/reference/grounding), [Evaluation dataset management API](/docs/evaluation/reference/datasets), [Evaluation runner API](/docs/evaluation/reference/runner), [Evaluation run comparison API](/docs/evaluation/reference/comparison), [Evaluation utilities API](/docs/evaluation/reference/utilities), [Evaluation template reporter API](/docs/evaluation/reference/reporters-template), [Evaluation configuration API](/docs/evaluation/reference/config), [Evaluation comparators API](/docs/evaluation/reference/comparators), [Evaluation metrics and assertions API](/docs/evaluation/reference/metrics), [Conversion checks API](/docs/evaluation/reference/conversion) |
+| `@docture/eval/config` | [Evaluation configuration API](/docs/evaluation/reference/config) |
+| `@docture/eval/dataset` | [Evaluation dataset management API](/docs/evaluation/reference/datasets), [Evaluation gates and baselines API](/docs/evaluation/reference/gates) |
+| `@docture/eval/runner` | [Docture evaluation adapter API](/docs/evaluation/reference/processors), [Evaluation runner API](/docs/evaluation/reference/runner) |
+| `@docture/eval/node` | [Evaluation files and storage API](/docs/evaluation/reference/storage) |
+| `@docture/eval/docture` | [Docture evaluation adapter API](/docs/evaluation/reference/processors) |
+| `@docture/eval/compare` | [Evaluation run comparison API](/docs/evaluation/reference/comparison) |
+| `@docture/eval/calibration` | [Evaluation calibration API](/docs/evaluation/reference/calibration) |
+| `@docture/eval/grounding` | [Evaluation grounding API](/docs/evaluation/reference/grounding) |
+| `@docture/eval/reporters/terminal` | [Evaluation csv reporter API](/docs/evaluation/reference/reporters-csv), [Evaluation terminal reporter API](/docs/evaluation/reference/reporters-terminal) |
+| `@docture/eval/reporters/json` | [Evaluation json reporter API](/docs/evaluation/reference/reporters-json) |
+| `@docture/eval/reporters/markdown` | [Evaluation csv reporter API](/docs/evaluation/reference/reporters-csv), [Evaluation markdown reporter API](/docs/evaluation/reference/reporters-markdown) |
+| `@docture/eval/reporters/csv` | [Evaluation csv reporter API](/docs/evaluation/reference/reporters-csv) |
+| `@docture/eval/reporters/junit` | [Evaluation junit reporter API](/docs/evaluation/reference/reporters-junit) |
+| `@docture/eval/reporters/html` | [Evaluation html reporter API](/docs/evaluation/reference/reporters-html), [Evaluation csv reporter API](/docs/evaluation/reference/reporters-csv), [Evaluation terminal reporter API](/docs/evaluation/reference/reporters-terminal) |
+| `@docture/eval/reporters/template` | [Evaluation markdown reporter API](/docs/evaluation/reference/reporters-markdown), [Evaluation template reporter API](/docs/evaluation/reference/reporters-template) |
+| `@docture/eval/judge` | [Evaluation model judge API](/docs/evaluation/reference/judges) |
+| `@docture/eval/vitest` | [Evaluation framework adapters API](/docs/evaluation/reference/frameworks) |
+| `@docture/eval/evalite` | [Evaluation framework adapters API](/docs/evaluation/reference/frameworks) |
+| `@docture/eval/promptfoo` | [Evaluation framework adapters API](/docs/evaluation/reference/frameworks) |
+| `@docture/eval/autoevals` | [Evaluation framework adapters API](/docs/evaluation/reference/frameworks) |
+| `@docture/eval/conversion` | [Conversion checks API](/docs/evaluation/reference/conversion) |
+
+## Synthetic data
+
+| Import | Reference |
+| --- | --- |
+| `@docture/synthetic` | [Synthetic models and generators API](/docs/synthetic/reference/models), [Synthetic templates and formatting API](/docs/synthetic/reference/templates), [Synthetic constraints and paths API](/docs/synthetic/reference/constraints), [Synthetic documents and CLI configuration API](/docs/synthetic/reference/documents), [Synthetic text-generators API](/docs/synthetic/reference/text-generators), [Synthetic errors API](/docs/synthetic/reference/errors), [Synthetic data API reference](/docs/synthetic/reference), [Synthetic pdfkit API](/docs/synthetic/reference/pdfkit), [Synthetic verify API](/docs/synthetic/reference/verify) |
+| `@docture/synthetic/pdfkit` | [Synthetic pdfkit API](/docs/synthetic/reference/pdfkit) |
+| `@docture/synthetic/verify` | [Synthetic verify API](/docs/synthetic/reference/verify) |
+| `@docture/synthetic/measure` | [Synthetic measure API](/docs/synthetic/reference/measure) |
+| `@docture/synthetic/degrade` | [Synthetic degrade API](/docs/synthetic/reference/degrade), [Synthetic pdfkit API](/docs/synthetic/reference/pdfkit) |
+| `@docture/synthetic/faker` | [Synthetic pdfkit API](/docs/synthetic/reference/pdfkit), [Synthetic text-generators API](/docs/synthetic/reference/text-generators) |
+| `@docture/synthetic/node` | [Synthetic node API](/docs/synthetic/reference/node), [Synthetic verify API](/docs/synthetic/reference/verify), [Synthetic degrade API](/docs/synthetic/reference/degrade) |
+| `@docture/synthetic/llm` | [Synthetic pdfkit API](/docs/synthetic/reference/pdfkit), [Synthetic text-generators API](/docs/synthetic/reference/text-generators) |
+| `@docture/synthetic/html` | [Synthetic pdfkit API](/docs/synthetic/reference/pdfkit), [Synthetic html API](/docs/synthetic/reference/html) |
+
+The evaluation result JSON Schema is also published as `@docture/eval/result-v1.schema.json`. See the [result format](/docs/evaluation/reference/results).

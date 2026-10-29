@@ -1,0 +1,22 @@
+---
+title: Draft and approve evaluation ground truth
+description: Keep processor-generated proposals separate from reviewed expected values.
+---
+
+Use a writable dataset for draft generation and sign-off. `folderDataset` implements both methods. Its default draft filename is `expected.draft.json`; set `expected` to the signed-off filename.
+
+Configure the dataset, spec, and one processor in `docture.eval.ts`. Then run:
+
+```sh
+docture eval draft --experiment parser
+docture eval sign-off case-001
+docture eval validate
+```
+
+Drafting extracts proposed answers for pending cases. Inspect each draft against its documents before sign-off. `sign-off` records approval through the dataset adapter. Run `validate` afterward to check the stored truth against the spec. Neither operation establishes that an approved answer is factually correct.
+
+For programmatic drafting, call `draftExpected(dataset, processor)` from `@docture/eval/dataset`. It uses `pendingCases()` when available and otherwise selects cases with `status: "draft"`. It writes proposed values with `draft: true`, returns their IDs, and disposes the processor. It never signs them off.
+
+The folder adapter rejects unsigned drafts unless `drafts` explicitly allows or skips them. Keep the default for regression runs so a processor does not grade itself against its own unchecked answer.
+
+See [dataset setup](/docs/evaluation/datasets), [dataset API](/docs/evaluation/reference/datasets), and [CLI command reference](/docs/cli/commands).

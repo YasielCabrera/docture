@@ -1,0 +1,76 @@
+---
+title: Choose a loader and rendering engine
+description: How bytes become pages, text, positions, and document facts.
+---
+
+A loader accepts `RawDocument` bytes and returns a `LoadedDocument`.
+
+```ts
+interface DocumentLoader {
+  readonly name: string;
+  readonly capabilities: LoaderCapabilities;
+  load(document: RawDocument, ctx: LoadContext): Promise<LoadedDocument>;
+  dispose?(): Promise<void>;
+}
+```
+
+## Built-in loaders
+
+| Loader | Input | Output |
+|---|---|---|
+| `DocumentLoaderData` | Text, Markdown, CSV, HTML, JSON, XML | Text |
+| `DocumentLoaderPdfJs` | PDF | Text and geometry |
+| `DocumentLoaderMuPdf` | PDF | Text and geometry |
+| `DocumentLoaderTesseract` | PNG, JPEG, multi-page TIFF, and PDF with a rasterizer | OCR text, geometry, confidence, images |
+| `DocumentLoaderPaddleOcr` | PNG, JPEG, multi-page TIFF with `utif2`, and PDF with a rasterizer | OCR text, geometry, confidence, images |
+
+The public subpath identifies the document library. See
+[installation recipes](/docs/getting-started/installation) for each adapter's engine peer. Each loader exports one class name and one matching options type.
+
+## Capabilities
+
+`LoaderCapabilities` reports text, geometry, page-image support, accepted media types,
+and optional custom facts.
+
+```ts
+new DocumentLoaderPdfJs().capabilities;
+// {
+//   text: true,
+//   geometry: true,
+//   images: false,
+//   mimeTypes: ["application/pdf"]
+// }
+```
+
+The boolean properties remain literal types. An API that accepts `GeometryLoader` or
+`ImageLoader` can reject an incompatible loader during typechecking.
+
+Strategy eligibility is a runtime decision. It uses facts found on the loaded document,
+not only the loader's general capabilities.
+
+## Loaded pages
+
+Each page has a 1-based page number, dimensions in PDF points, and text. Geometry loaders
+also return `TextLine` values with positioned `TextSpan` values.
+
+Coordinates use a top-left origin. Lines are sorted from top to bottom and spans from left
+to right.
+
+`LoadedDocument.form` reports `digital`, `scanned`, `mixed`, or `unknown`. The loader name
+appears in `result.loader`.
+
+## Selection and failures
+
+docture filters loaders by media type, then tries them in declaration order. A later
+loader runs only when an earlier eligible loader throws.
+
+When fallback reaches a working loader, `result.attempts` starts with the failed loaders.
+The successful loader is recorded in `result.loader`, not as an attempt. If every eligible
+loader fails, `LoadFailedError.attempts` contains all of their failures.
+
+See [sources and inputs](/docs/getting-started/sources) for source forms and
+[loader API pages](/docs/integrations/pdfjs) for options.
+
+PDF.js and MuPDF parse and render on the main thread in Node. MuPDF yields between
+pages, but individual engine calls still use that thread. Use a worker thread or a
+separate process to isolate CPU work from a server request loop.

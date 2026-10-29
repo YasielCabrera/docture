@@ -1,0 +1,45 @@
+---
+title: Model classification API
+description: Model classifier options, excerpts, failures, and abstention behavior.
+---
+
+Import these APIs from `docture/llm` or the narrow entries listed below. Install AI SDK 7 and Zod (3.25.76 or later 3.x, or 4.1.8 or later) in the application.
+For model components:
+
+```sh
+npm install docture ai@^7 zod@^4
+```
+
+Also install the provider you construct, such as `@ai-sdk/openai`. The
+[complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model)
+includes the document engine and schema library.
+
+All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
+gateway model string.
+
+## LLM classifier
+
+Import from `docture/llm/classifier`.
+
+```ts
+new LlmClassifier(options: LlmClassifierOptions)
+llmClassifier(options: LlmClassifierOptions): Classifier
+```
+
+`LlmClassifier` requires `TEXT_LAYER` and is named `llm-classifier` by default.
+`LlmClassifierOptions` contains required `model`, plus `name`, `excerptChars`, `cache`,
+`pricing`, `instructions`, `temperature`, and `maxRetries`. Instructions append to the
+classifier system prompt. Defaults are 4,000 characters, temperature `0`, and two
+retries.
+
+No candidates or empty text returns `null`. An `UNKNOWN` answer, an invented candidate
+name, or a model error returns a signal whose name is `null`. The classifier does not
+reject for model failures.
+
+Signals include usage for paid calls, including abstentions. Cache hits retain token
+counts and omit cost because no new call ran.
+
+`createLlmExtractor` shares `llm.cache`, `pricing`, `temperature`, `maxRetries`, and
+`instructions` with vision and model classification. Explicit vision options override
+shared values. Text-only `name`, `system`, `hints`, and `maxCharsPerRequest` stay with
+the text strategy.

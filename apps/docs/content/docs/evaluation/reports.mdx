@@ -1,0 +1,38 @@
+---
+title: Generate and customize evaluation reports
+description: Render stored results without repeating extraction or scoring.
+---
+
+## Render a saved result
+
+Choose one reporter entry for the output you need. Terminal, JSON, Markdown, CSV, JUnit, HTML, and custom templates consume the same `EvalResult`.
+
+```ts
+import { renderHtml } from "@docture/eval/reporters/html";
+import { renderScoreboard } from "@docture/eval/reporters/terminal";
+
+console.log(renderScoreboard(result));
+const html = renderHtml(result);
+```
+
+The HTML document embeds its client and works offline. `renderHtml` returns text; write that text to an `.html` file to inspect it.
+
+Pass reporter factories to `runEval` for lifecycle output:
+
+```ts
+import { jsonReporter } from "@docture/eval/reporters/json";
+import { junitReporter } from "@docture/eval/reporters/junit";
+
+const reporters = [
+	jsonReporter({ out: "artifacts/result", layout: "split" }),
+	junitReporter({ out: "artifacts/junit.xml" }),
+];
+```
+
+The split JSON layout writes metadata and case rows separately. `readEvalResult` can read them later; re-rendering needs no model calls. Reporters' public entries are Node-only because they also export file-writing factories.
+
+Customize columns with `defineColumn`, compose Markdown sections, add data-driven HTML panels, or replace the format with `templateReporter`. Use root `defineReporter` for project lifecycle hooks. `buildResult` supports a project-owned processing loop that still uses the built-in reporters.
+
+Reporter failures become result warnings. Inspect warnings before treating a missing artifact as a successful report.
+
+Use `docture eval report` to render saved runs from the [CLI](/docs/cli/commands). See the [reporter API index](/docs/evaluation/reference).

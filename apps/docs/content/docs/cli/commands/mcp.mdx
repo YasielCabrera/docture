@@ -1,0 +1,33 @@
+---
+title: "docture mcp"
+description: "Serve convert and inspect to an agent over MCP stdio"
+---
+
+Starts a Model Context Protocol server on stdin and stdout. Its convert and inspect
+tools return the same version 1 envelope as --format json, and call no model.
+Needs the optional peer @modelcontextprotocol/sdk.
+
+## Flags
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--config <path>` | Not set | Config file. Default: the nearest docture.config.&#123;ts,mts,js,mjs&#125; |
+| `--no-config` | Not set | Ignore any config file that is found |
+| `--no-color` | Not set | Never emit ANSI colour |
+| `--help`, `-h` | Not set | Show this help |
+
+## Examples
+
+```sh
+docture mcp
+docture mcp --config ./docture.config.ts
+```
+
+## Behavior
+
+- Register it with an MCP host, for example in its JSON server configuration:
+-   &#123; "mcpServers": &#123; "docture": &#123; "command": "npx", "args": ["docture", "mcp"] &#125; &#125; &#125;
+- Relative sources resolve against the directory the host starts the server in.
+- Install the SDK beside the CLI: npm install @modelcontextprotocol/sdk@1.32.2
+
+See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).

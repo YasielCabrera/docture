@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples bundles
 ```
 
-Docs: [`concepts/bundles-and-splitters`](../../docs/content/docs/concepts/bundles-and-splitters.mdx)
+Docs: [`concepts/bundles-and-splitters`](../../docs/content/docs/extraction/splitting.mdx)
 
 ## Imports and installs
 

@@ -1,0 +1,30 @@
+---
+title: Evaluation array alignment API
+description: Index, ordered, and Hungarian row alignment.
+---
+
+## `@docture/eval`
+
+### `byIndex`
+
+```ts
+byIndex(): ArrayRule
+```
+
+Pair row i with row i. Right for tables whose order is part of the data.
+
+### `hungarian`
+
+```ts
+hungarian(options?: { readonly key?: readonly string[]; readonly minSimilarity?: number; readonly weights?: Readonly<Record<string, number>>; readonly maxCells?: number; }): ArrayRule
+```
+
+Order-free pairing: rows with equal `key` values pair first, the rest by an optimal assignment on row similarity. Rows below `minSimilarity` stay unpaired.
+
+### `ordered`
+
+```ts
+ordered(options?: { readonly minSimilarity?: number; readonly maxCells?: number; }): ArrayRule
+```
+
+Order-preserving pairing that maximizes total row similarity, like a diff. Rows below `minSimilarity` stay unpaired.

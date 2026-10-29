@@ -1,0 +1,112 @@
+---
+title: Text extraction API
+description: Text model options, cited requests, verification rules, and repair.
+---
+
+Import these APIs from `docture/llm` or the narrow entries listed below. Install AI SDK 7 and Zod (3.25.76 or later 3.x, or 4.1.8 or later) in the application.
+For model components:
+
+```sh
+npm install docture ai@^7 zod@^4
+```
+
+Also install the provider you construct, such as `@ai-sdk/openai`. The
+[complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model)
+includes the document engine and schema library.
+
+All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
+gateway model string.
+
+## Text extraction
+
+Import from `docture/llm/text`.
+
+```ts
+new LlmStrategy(options: LlmStrategyOptions)
+llm(options: LlmStrategyOptions): ExtractionStrategy
+modelIdOf(model: LanguageModel): string
+```
+
+`LlmStrategy` requires `TEXT_LAYER`, is named `llm` by default, and uses classification as
+a hint by default. `modelIdOf()` returns a gateway string, a provider object's `modelId`,
+or `unknown`.
+
+`LlmStrategyOptions` contains:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `model` | required | AI SDK language model. |
+| `name` | `llm` | Strategy name. |
+| `completion` | `forbidden` | Single request, pagination, or concatenation. |
+| `maxCharsPerRequest` | `24000` | Character budget for concatenation. |
+| `concurrency` | `4` | Maximum chunk requests in flight. Positive integer. |
+| `providerOptions` | none | Provider-specific settings forwarded to the AI SDK and included in cache identity. |
+| `system` | `DEFAULT_SYSTEM_PROMPT` | Replacement system prompt. |
+| `instructions` | none | Text appended to the system prompt. |
+| `hints` | `{}` | Guidance keyed by classification name. |
+| `cache` | none | Optional `LlmCache`. |
+| `pricing` | none | Optional prices by model id. |
+| `temperature` | `0` | AI SDK temperature. |
+| `maxRetries` | `2` | AI SDK retry count. |
+| `needsClassification` | `hint` | Core classification requirement. |
+| `citations` | `false` | Cite and verify each value. See [field citations](#field-citations). |
+
+Empty text and provider failures reject the strategy. Multi-request results are merged,
+then core validates the complete result.
+
+### Field citations
+
+`llm({ model, citations: true })` shows the document as numbered lines, such as
+`[p1-line-1] Total due: $1,234.50`, and asks for `{ data, citations }`, where each citation
+is `{ path, ids }`. `createLlmExtractor({ model, llm: { citations: true } })` and
+`new LLM(model, { extraction: { citations: true } })` pass the option through. The result
+then carries `citations`, one [`FieldCitation`](/docs/extraction/reference/citations#field-citations)
+per present leaf of `data`, `citationSources` for real lines, and optional `evidenceSources` for cited native records.
+
+Positioned loader lines and native element or cell evidence can be cited. Native IDs identify blocks or cells, never printed lines. PDF.js, MuPDF, and OCR adapters can provide real lines; Docling provides native evidence. A request without either kind of evidence ID has `uncited` values. `VisionStrategy` sends page images and does not cite; a run that falls back to vision returns no `citations`.
+
+Each cited value is checked against the cited lines with exact normalizers. No match is
+fuzzy, case-insensitive or rounded.
+
+- A string matches after Unicode NFKC and whitespace collapsing. Superscripts and
+  fractions stay as printed. A string may span lines that follow each other on one page.
+- A number matches one token on one line after currency symbols, grouping separators and
+  parentheses are read. `(120.00)` shows -120, `1.234,50 €` shows 1234.5, and `1,234`
+  shows both 1234 and 1.234. A digit run joined to a letter, a fraction or more digits
+  never matches, so `INV-0042`, `A4`, `5½`, the `99` of `$.99` and the parts of
+  `13/03/2024` or `10:30` show no number. A plain space before exactly three digits may
+  group thousands, so `12 345` shows neither 12 nor 345, and not 12345 either. A
+  superscript ends a number: `100¹` shows 100.
+- An ISO date (`YYYY-MM-DD`) also matches an unambiguous printed date on one line:
+  `2024/03/05`, `March 5, 2024`, `5 March 2024`, `5-Mar-2024`, or `13/03/2024` where the
+  day is over 12. `05/03/2024` reads two ways, so it stays `cited-unverified`.
+- A boolean never matches.
+
+An id the request did not show is not evidence. Array indexes are rebased when parts are
+merged, and a scalar keeps the citation of the part whose value won. Caller refinements and
+transforms still run on `data`, and a value the schema changed is `cited-unverified`.
+Cited requests use their own cache entries; a cached answer is validated and verified
+again on every hit. A verified match also records which OCR spans it covers, so the result
+can report [`minOcrConfidence`](/docs/extraction/reference/citations#field-citations) for
+the matched words alone: the whole token for a number or date, including its currency
+sign, and each covered word for a string that spans lines.
+
+Citations cost tokens: the line ids enlarge the prompt, and the `citations` list grows with
+the number of values, so a long table can truncate an answer. Under `concatenate`, the
+character budget counts the line ids. The model writes dotted paths, so it cannot cite
+a key that contains `.`; such a value is `uncited`, and its result `path` is quoted, as
+in `` `a.b` ``.
+
+`LlmStrategy` and `VisionStrategy` implement `repair()`. After a single-request answer
+fails, the repair replays that request (the document text, or the page images) followed by
+the previous answer and one `path: message` line per issue, using the caller's strict
+schema. A merged multi-request answer is repaired without resending the document: the
+request holds the merged answer and its issues only. A response that failed to parse in one
+part of a multi-request run is not repaired; the strategy fails as before. Repair responses
+use the response cache under their own key, so a cached answer that fails a rule is
+repaired once and the repair is then served from the cache. See
+[repair](/docs/extraction/reference/validation#repair) for the budget and attempt records.
+With citations on, a single-request repair asks for `{ data, citations }` again and
+verifies the new answer in full. A merged repair cannot see the document, so a value keeps
+its previous citation only while it is unchanged and, inside an array, only while the whole
+array is unchanged; any other value is `uncited`.

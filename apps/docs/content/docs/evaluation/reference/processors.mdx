@@ -1,0 +1,18 @@
+---
+title: Docture evaluation adapter API
+description: Adapt an existing Docture extractor to the evaluation processor contract.
+---
+
+## `@docture/eval/docture`
+
+- `FromDoctureOptions`
+- `FromDoctureProjection`
+
+### `fromDocture`
+
+```ts
+fromDocture<C extends ContractLike>(extractor: DoctureExtractor, contract: C, options?: FromDoctureOptions): EvalExtractor<ExtractionResult<InferContract<C>>, InferContract<C>>
+fromDocture<C extends ContractLike, T>(extractor: DoctureExtractor, contract: C, options: FromDoctureProjection<C, T>): EvalExtractor<ExtractionResult<InferContract<C>>, T>
+```
+
+Adapt a structural Docture extractor; each case must contain one non-empty document. Every Docture failure, including `UnsupportedSourceError`, becomes an errored row: Docture has no signal for a document outside the project's scope. Usage has no `calls`, because one Docture attempt can make several model calls and the result does not count them. When a failed extraction carries usage without a price, `fromDocture` prices it as it prices a successful result, so the errored row records what the failed attempts cost.

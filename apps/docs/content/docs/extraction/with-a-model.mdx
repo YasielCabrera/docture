@@ -1,0 +1,114 @@
+---
+title: Extract with a model
+description: Configure text and vision extraction with an AI SDK model.
+---
+
+docture accepts the AI SDK `LanguageModel` type. Use a provider instance or an AI Gateway
+model string.
+
+```ts
+import { llm } from "docture/llm/text";
+import { openai } from "@ai-sdk/openai";
+
+llm({ model: openai("gpt-5") });
+llm({ model: "openai/gpt-5" });
+```
+
+The `ai` and `zod` packages are optional peers. Model integrations use AI SDK 7 and
+Zod 3.25.76 or later 3.x, or Zod 4.1.8 or later. Also install the provider package used by
+the application.
+
+
+## Install
+
+```sh
+npm install docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+```
+
+See [installation recipes](/docs/getting-started/installation) for other engines and providers.
+
+## Use the model backend
+
+`LLM` can create a text strategy, vision strategy, classifier, and splitter from one
+model configuration.
+
+```ts
+import { Extractor } from "docture/node";
+import { LLM } from "docture/llm";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+
+const extractor = new Extractor()
+  .loadDocumentLoader(new DocumentLoaderPdfJs())
+  .loadLlm(new LLM(openai("gpt-5")));
+```
+
+Register other model components at the same time:
+
+```ts
+const backend = new LLM(openai("gpt-5"), {
+  instructions: "Dates must use YYYY-MM-DD.",
+  cache: fileCache(".docture-cache"),
+  pricing: {
+    "gpt-5": {
+      inputPerMillion: 2,
+      outputPerMillion: 10,
+      cacheReadPerMillion: 0.2,
+      cacheWritePerMillion: 2.5,
+    },
+  },
+});
+
+extractor.loadLlm(backend, {
+  vision: true,
+  classify: true,
+});
+```
+
+`vision: true` adds a vision strategy. The selected loader must produce renderable pages
+at runtime. `classify: true` adds an LLM classifier.
+
+## Complete example
+
+<SourceExample file="with-a-model.ts" title="extract-invoice.ts" />
+
+## Build strategies directly
+
+Use direct strategies when each model component needs different settings:
+
+```ts
+import { llm } from "docture/llm/text";
+import { vision } from "docture/llm/vision";
+
+const extractor = new Extractor({
+  loaders: [renderableLoader],
+  strategies: [
+    llm({ model: openai("gpt-5-mini"), name: "text" }),
+    vision({ model: openai("gpt-5"), name: "scan", maxPages: 3 }),
+  ],
+});
+```
+
+`llm()` requires `TEXT_LAYER`. `vision()` requires `RENDERABLE_PAGES`. The pipeline checks
+these facts after loading each document.
+
+## Use the convenience factory
+
+`createLlmExtractor()` builds the usual text strategy and can add a vision strategy or
+classifier.
+
+```ts
+import { createLlmExtractor } from "docture/llm/extractor";
+
+const extractor = createLlmExtractor({
+  loaders: [new DocumentLoaderPdfJs()],
+  model: openai("gpt-5"),
+  before: [knownInvoiceParser],
+  vision: false,
+  classifyWithModel: true,
+});
+```
+
+Strategies in `before` run before the model.
+
+
+See [model settings](/docs/extraction/model-settings) for prompts, caching, and prices. Use [scans and images](/docs/integrations/scanned-documents) for vision setup.

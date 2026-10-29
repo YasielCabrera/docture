@@ -1,0 +1,87 @@
+---
+title: "docture eval run"
+description: "Run an evaluation from docture.eval.ts, or score files against ground truth"
+---
+
+Without files, loads docture.eval.ts, runs every experiment over the dataset, stores the
+run, writes the reporters, prints the scoreboard and applies the gate.
+With files, quick mode extracts each one through docture.config.ts and scores it against
+its ground truth with loose comparisons. Exits 1 when a gate fails.
+
+## Arguments
+
+| Argument | Required | Meaning |
+| --- | --- | --- |
+| `file...` | No | Quick mode: documents to extract and score. Omit to run docture.eval.ts |
+
+## Flags
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--format <fmt>` | text | Text prints the scoreboard. JSON prints the eval result, or the document envelope in quick mode. NDJSON streams rows Choices: `json`, `ndjson`, `text`. |
+| `--experiment <ids>` | Not set | Comma-separated experiment ids from the config. Default: all |
+| `--sample <n>` | Not set | Run a deterministic stratified sample of n cases |
+| `--strata <path>` | Not set | Stratify the sample by a case path, such as tags.rendition or group |
+| `--seed <text>` | none | Sample seed |
+| `--cases <ids>` | Not set | Comma-separated case ids to run |
+| `--epochs <n>` | 1 | Run every case n times |
+| `--resume <runId\|latest>` | Not set | Continue an unfinished run, reusing its finished cases |
+| `--baseline <runId\|auto\|none>` | Not set | Compare against this run. auto: the latest complete run of the dataset |
+| `--reporter <names>` | Not set | Comma-separated terminal, html, md, json, csv, junit, or a module path. Replaces the config's reporters. Repeatable Repeatable. |
+| `--out <dir>` | eval-report | Directory reporters write into |
+| `--no-gate` | Not set | Skip the gate. The run still records every metric |
+| `--store <dir>` | Not set | Run store directory. Default: the config's store, else .docture/eval beside the config |
+| `--schema <path>`, `-s` | Not set | Quick mode: module exporting a schema, or a .json JSON Schema |
+| `--truth <path>` | &#60;name&#62;.expected.json beside each input | Quick mode: a directory of &#60;name&#62;.json, or one file for one input |
+| `--min-f1 <n>` | Not set | Quick mode: gate on a minimum mean document F1 |
+| `--max-cost-usd <usd>` | Not set | Quick mode: gate on the priced total cost; requires pricing |
+| `--calibrate` | Not set | Quick mode: add an OCR confidence calibration report |
+| `--target-precision <n>` | 0.99 | Calibration target precision in (0,1] |
+| `--min-support <n>` | 5 | Minimum fields behind a calibration threshold |
+| `--report <path>` | Not set | Quick mode: write the scoreboard here too |
+| `--align-by <field>` | Not set | Quick mode: match array elements by this field instead of by position |
+| `--tolerance <n>` | 0.01 | Quick mode: absolute tolerance for numbers |
+| `--string-similarity <n>` | 0.9 | Quick mode: minimum similarity, 0,1, for two strings to count as equal |
+| `--model <provider/id>`, `-m` | Not set | The AI SDK model, e.g. openai/gpt-5 or anthropic/claude-opus-5 |
+| `--gateway` | Not set | Route through the Vercel AI Gateway even if the provider package is installed |
+| `--pricing <path>` | Not set | JSON prices by model id with inputPerMillion and outputPerMillion; optional cacheReadPerMillion and cacheWritePerMillion default to inputPerMillion |
+| `--cache <dir>` | Not set | Cache model responses on disk, so a re-run is free |
+| `--instructions <text>` | Not set | Domain guidance appended to the system prompt |
+| `--temperature <n>` | 0 | Sampling temperature |
+| `--vision` | Not set | Render pages and add a vision strategy , this is what reads a scan |
+| `--dpi <n>` | 200 | Render resolution for --vision |
+| `--max-pages <n>` | Not set | Send at most this many page images to the model, under --vision |
+| `--completion <mode>` | forbidden | How a document too big for one request is split Choices: `forbidden`, `paginate`, `concatenate`. |
+| `--max-chars <n>` | 24000 | Character budget per request under --completion concatenate |
+| `--timeout <ms>` | Not set | Per-stage deadline. Omit for none |
+| `--concurrency <n>` | 4 | Overlaps model calls and I/O; local PDF work uses one thread |
+| `--only <strategy>` | Not set | Restrict to these strategies, in this order. Repeatable Repeatable. |
+| `--classify` | Not set | Classify with the model first, and prompt with what it decided |
+| `--classifications <path>` | Not set | Module exporting the candidate document kinds |
+| `--dry-run` | Not set | Validate the invocation and print the plan as JSON. Reads no document and writes no file |
+| `--config <path>` | Not set | Eval config. Default: the nearest docture.eval.&#123;ts,mts,js,mjs&#125;. In quick mode, docture.config.ts |
+| `--no-config` | Not set | Ignore any config file that is found |
+| `--verbose`, `-v` | Not set | Report the wiring, the routing, and every attempt |
+| `--quiet`, `-q` | Not set | Only failures and the first hint per error code on stderr |
+| `--no-color` | Not set | Never emit ANSI colour |
+| `--help`, `-h` | Not set | Show this help |
+
+## Examples
+
+```sh
+docture eval run
+docture eval run --experiment llm --sample 60 --strata tags.rendition --reporter html,junit
+docture eval run --resume latest
+docture eval run corpus/*.pdf -s ./invoice.ts -m openai/gpt-5 --truth corpus/truth --min-f1 0.95
+```
+
+## Behavior
+
+- Quick mode also runs without the subcommand: docture eval corpus/*.pdf -s ./invoice.ts.
+- Reporters write into --out: report.html, report.md, result.json, cases.csv, junit.xml.
+- A module reporter exports a Reporter (default or `reporter`) or a function (result) =&#62; string,
+-   written to &#60;out&#62;/&#60;module name&#62;.txt or to the module's exported `fileName`.
+- The terminal scoreboard always prints in text format; listing `terminal` changes nothing.
+- A run without a configured gate exits 0 and says that no gate ran.
+
+See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).

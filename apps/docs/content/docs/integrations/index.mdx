@@ -1,0 +1,23 @@
+---
+title: Integrations
+description: Choose document readers, OCR engines, rendering, and external services.
+---
+
+A loader turns a source into pages, text, geometry, and document facts. A rasterizer adds page images. Sources and sinks connect external systems without changing your extraction contract.
+
+| Need | Integration |
+| --- | --- |
+| Selectable PDF text and positions | [PDF.js](/docs/integrations/pdfjs) or [MuPDF](/docs/integrations/mupdf) |
+| PDF page images | [Canvas](/docs/integrations/canvas) or [MuPDF](/docs/integrations/mupdf) |
+| Local OCR | [Tesseract](/docs/integrations/tesseract) or [PaddleOCR](/docs/integrations/paddleocr) |
+| OCR on selected weak pages | [Selected-page OCR fallback](/docs/integrations/selected-page-ocr) |
+| DOCX text | [Mammoth](/docs/integrations/mammoth) |
+| Email bodies and attachments | [Email expansion](/docs/integrations/email) |
+| Managed OCR | [Azure Read](/docs/integrations/azure-read) |
+| Native Docling elements and cells | [JSON import](/docs/integrations/docling-import) or [Docling Serve](/docs/integrations/docling-serve) |
+| Existing Paperless documents | [Read and search](/docs/integrations/paperless-read), then [plan updates](/docs/integrations/paperless-updates) |
+| Schema-bound extraction in an agent | [AI SDK extraction tool](/docs/integrations/ai-sdk-tool) |
+
+Start with [loader capabilities](/docs/integrations/loaders) and [OCR versus vision](/docs/integrations/scanned-documents). Install the engines listed on each adapter page. Missing engines fail when used with `MissingEngineError`.
+
+For end-to-end service workflows, read [Docling](/docs/integrations/docling-workflow) or [Paperless](/docs/integrations/paperless-workflow).

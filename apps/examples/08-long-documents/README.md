@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples long
 ```
 
-Docs: [`guides/long-documents`](../../docs/content/docs/guides/long-documents.mdx)
+Docs: [`guides/long-documents`](../../docs/content/docs/extraction/long-documents.mdx)
 
 ## Imports and installs
 

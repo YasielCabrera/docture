@@ -1,0 +1,194 @@
+---
+title: Packages and imports
+description: The four published packages, every public subpath, and required peers.
+---
+
+Docture publishes four packages: `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic`. All
+require Node.js 22 or newer. `docture` contains core, model integrations, adapters and testing. `@docture/eval`
+supplies evaluation. `@docture/synthetic` generates labeled synthetic documents for evaluation.
+Its root exports core only. The CLI supplies the `docture` executable.
+
+## Public entry points
+
+| Import | Purpose | Optional peers used by that entry |
+| --- | --- | --- |
+| `docture` | Contracts, extraction, deterministic conversion, errors, classification, and `Process` | Zod through its schema helper |
+| `docture/llm` | All model components, including the `LLM` convenience class and `model()` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
+| `docture/llm/text` | `LlmStrategy`, `LlmStrategyOptions`, `llm`, and `modelIdOf` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
+| `docture/llm/vision` | `VisionStrategy`, `VisionStrategyOptions`, and `vision` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
+| `docture/llm/classifier` | `LlmClassifier`, its options, and `llmClassifier` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
+| `docture/llm/layout` | `LlmLayoutAnalyzer`, its options, and `llmLayout` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
+| `docture/llm/split` | Text and image splitters and their options | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
+| `docture/llm/extractor` | `createLlmExtractor` and `LlmExtractorOptions` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
+| `docture/llm/cache` | Response caches, fingerprints, and cache keys | None |
+| `docture/llm/pricing` | Prices and token usage accounting | None |
+| `docture/llm/prompt` | Prompt construction, chunks, and token estimates | None |
+| `docture/llm/merge` | Partial result merging | None |
+| `docture/llm/relax` | Partial JSON Schema preparation | None |
+| `docture/loaders/pdfjs` | PDF text and geometry through PDF.js | `pdfjs-dist@^6.2.108` |
+| `docture/loaders/mupdf` | MuPDF text, geometry, and rendering | `mupdf@~1.28.0` |
+| `docture/loaders/tesseract` | OCR through Tesseract.js | `tesseract.js@7.0.0` |
+| `docture/loaders/paddleocr` | OCR through PaddleOCR and ONNX Runtime | `ppu-paddle-ocr@6.3.0`, `onnxruntime-node@1.27.0`; `utif2@4.1.0` for TIFF |
+| `docture/raster/canvas` | PDF.js page rendering with canvas | `pdfjs-dist@^6.2.108`, `@napi-rs/canvas@^1.0.10` |
+| `docture/chunk` | Retrieval chunks with page, box, and source-id provenance | None |
+| `docture/testing/doubles` | In-memory documents, loaders, and fixed or failing strategies | None |
+| `docture/testing/conformance` | Loader and rasterizer conformance suites | `vitest@>=3`, `pdfkit@>=0.17.2 <0.21.0` |
+| `docture/testing/fixtures` | Generated invoice and rich-document PDFs | `pdfkit@>=0.17.2 <0.21.0` |
+| `@docture/cli` | CLI configuration, IO, errors, and `run` | See CLI dependencies below |
+| `@docture/cli/mcp` | The `convert` and `inspect` MCP server | `@modelcontextprotocol/sdk@1.32.2` |
+
+Files under `src` and `dist` are internal. The [API reference](/docs/api)
+documents the named exports of each supported entry point. The
+[migration guide](/docs/resources/migration) maps the removed scoped packages.
+
+## Install recipes
+
+The [installation recipes](/docs/getting-started/installation) give a complete command for every
+integration, including model providers, OCR, rendering, testing, and the CLI.
+
+Every engine listed above is an optional peer of `docture`. Install the engine explicitly
+when selecting its adapter. If an adapter's engine is missing, its first use throws
+`MissingEngineError` with the package and range to install.
+
+## Engine versions
+
+Each peer declares the versions this release supports. The packed-package gate installs a
+range's lowest version and the newest release that existed when the range was chosen. For
+the PDF and rendering engines it runs the shipped loader and rasterizer conformance suites.
+For Zod it runs model classification and extraction against a mocked model.
+
+| Peer | Supported versions | Versions run by the release gate |
+| --- | --- | --- |
+| `pdfjs-dist` | `^6.2.108` | 6.2.108, 6.3.289, 6.4.299 |
+| `@napi-rs/canvas` | `^1.0.10` | 1.0.10, 1.0.13 |
+| `mupdf` | `~1.28.0` | 1.28.0, 1.28.1 |
+| `pdfkit` | `>=0.17.2 <0.21.0` | 0.17.2, 0.19.1, 0.20.2 |
+| `zod` | `^3.25.76` or `^4.1.8` | 3.25.76, 4.1.8, 4.4.3, 4.6.7 |
+| `ai` | `^7.0.0` | 7.0.51, 7.0.149 |
+| `vitest` | `>=3` | 4.1.10 |
+| `tesseract.js` | `7.0.0` | None; recognition runs only in the opt-in OCR tests |
+| `ppu-paddle-ocr` | `6.3.0` | Installed without ONNX Runtime to check the missing-runtime error; recognition runs only in the opt-in OCR tests |
+| `onnxruntime-node` | `1.27.0` | None; recognition runs only in the opt-in OCR tests |
+
+The gate installs these engine versions with npm and pnpm. PDF.js loads canvas itself, so
+the gate also runs the lowest PDF.js with the newest canvas and the newest PDF.js with the
+lowest canvas. Each of these engine installs must contain a single canvas.
+
+Tesseract.js, PaddleOCR, and ONNX Runtime stay at exact versions. Their recognition is
+tested only with downloaded models, which the release gate does not fetch. The gate
+installs `tesseract.js@6.0.1`, `ppu-paddle-ocr@6.6.1`, and `onnxruntime-node@1.30.0` only
+to check that npm rejects them beside `docture`, that npm adds a second copy of each pinned
+engine beside them when a project depends only on `@docture/cli`, and that the
+[documented override](/docs/getting-started/installation#applications-with-their-own-ocr-engine)
+fixes both. It does not run OCR with them. The `ai` and `vitest` ranges predate this
+release; the gate runs the listed versions only.
+
+An installed peer must satisfy its range even when the application does not import that
+adapter. With npm, an engine version outside the range in the same project fails the
+install with `ERESOLVE`. pnpm installs it and prints an unmet-peer warning; Docture does not
+support that combination. A new major version, a new `mupdf` minor version, or a new
+`pdfkit` minor version is unsupported until a release verifies it.
+
+Core's normal dependencies are `@ai-sdk/provider-utils` for schema utilities,
+`@types/json-schema@7.0.15` for JSON Schema declarations, and `parse5`, `htmlparser2`,
+and `entities` for HTML/XHTML syntax. The syntax parsers load only for HTML/XHTML input.
+Consumers do not need to install those declarations separately. The schema helper has a Zod peer. Zod 3.25.76 or later 3.x,
+or Zod 4.1.8 or later, satisfies that helper and the model classification, layout, and
+splitting integrations, which import `zod/v4`. Installing
+`docture` alone does not request the AI SDK runtime, a PDF engine, OCR, canvas, ONNX
+Runtime, PDFKit, or Vitest.
+
+## CLI dependencies
+
+`@docture/cli` requires `docture`, `ai`, and `pdfjs-dist`. Its default canvas renderer uses
+`@napi-rs/canvas` as an optional dependency. A normal CLI install attempts that native
+prebuild. Text extraction still works when canvas is unavailable. If optional dependencies
+were omitted, install `@napi-rs/canvas@1.0.10` to use `--vision` or raster assets.
+
+`@modelcontextprotocol/sdk@1.32.2` is an optional peer used only by `docture mcp` and
+`@docture/cli/mcp`. Install it explicitly to serve MCP; the root entry never loads it.
+
+A config that imports Docture components or a provider declares those dependencies in the
+application too. See [the CLI guide](/docs/cli/quick-start).
+
+## Runtime and licences
+
+Docture code is MIT licensed. The selected engines have their own licences and assets:
+
+| Engine | Licence | Runtime detail |
+| --- | --- | --- |
+| `ai`, `pdfjs-dist` | Apache-2.0 | PDF.js uses JavaScript and WASM assets. |
+| `mupdf` | AGPL-3.0-or-later | MuPDF runs through WASM. |
+| `tesseract.js` | Apache-2.0 | OCR uses WASM and language data. |
+| `ppu-paddle-ocr`, `onnxruntime-node` | MIT | ONNX Runtime has platform-specific native dependencies. |
+| `@napi-rs/canvas` | MIT | Canvas has platform-specific native prebuilds. |
+| `pdfkit`, `vitest`, `zod` | MIT | PDF generation, test tooling, and schema validation. |
+
+## Bundling and download size
+
+All Docture wrappers ship in one npm tarball, whichever subpath you import. Optional peers
+control engine installation separately from that download.
+
+The library emits ESM modules and declares `sideEffects: false`. A production bundler can
+remove unused modules. Narrow entries expose the capabilities you select:
+
+```ts
+import { Extractor } from "docture";
+import { llm } from "docture/llm/text";
+import { fileCache } from "docture/llm/cache";
+```
+
+A used convenience class keeps the implementations its methods reference. In particular,
+`LLM` creates text, vision, classification, layout, and split components. There is no
+universal guarantee that unused class methods or runtime branches disappear. Prefer
+`llm()` from `docture/llm/text` when only text extraction is needed.
+
+Unbundled Node.js execution and dependencies externalized by an application build are not
+tree-shaken. Actual bundle contents depend on the bundler, configuration, and imports.
+
+## Evaluation entries
+
+`@docture/eval` requires the `docture` peer. Its root contains specs, comparators, metrics, result contracts and gates. Import independent capabilities from these entries:
+
+| Import | Purpose |
+| --- | --- |
+| `@docture/eval/config` | Typed CLI configuration |
+| `@docture/eval/dataset` | Sampling, migrations and truth drafting |
+| `@docture/eval/runner` | Execution, experiments, resume and rescore |
+| `@docture/eval/node` | Folder and JSONL datasets, file history and artifacts |
+| `@docture/eval/docture` | Adapt a Docture extractor |
+| `@docture/eval/compare` | Paired per-experiment run comparison |
+| `@docture/eval/calibration` | Confidence reliability and acceptance coverage |
+| `@docture/eval/grounding` | Evidence against labelled locations |
+| `@docture/eval/conversion` | Conversion content checks |
+| `@docture/eval/reporters/terminal` | Scoreboard and terminal progress |
+| `@docture/eval/reporters/json` | JSON and split JSONL |
+| `@docture/eval/reporters/markdown` | Composable Markdown |
+| `@docture/eval/reporters/html` | Offline HTML |
+| `@docture/eval/reporters/csv` | CSV tables |
+| `@docture/eval/reporters/junit` | JUnit XML |
+| `@docture/eval/reporters/template` | Custom render functions |
+| `@docture/eval/judge` | Semantic string comparator; optional `ai@^7.0.0` |
+| `@docture/eval/vitest` | Structural matchers and dataset tests |
+| `@docture/eval/evalite` | Extraction scorer |
+| `@docture/eval/promptfoo` | JavaScript assertion |
+| `@docture/eval/autoevals` | Extraction F1 score |
+
+Only the judge needs an optional engine. Framework adapters import no host framework.
+
+## Synthetic data entries
+
+`@docture/synthetic` requires the `docture` peer. Its root holds models, generators, constraints, scenarios, printed masks, templates and formatting, and needs no engine. Every engine is an optional peer, loaded on first use.
+
+| Import | Purpose | Optional peers used by that entry |
+| --- | --- | --- |
+| `@docture/synthetic` | Models, templates, masks, `toEvalCase` | None; a Standard Schema library such as `zod@^4` for typed models |
+| `@docture/synthetic/pdfkit` | Render templates to PDF with field boxes | `pdfkit@>=0.17.2 <0.21.0` |
+| `@docture/synthetic/verify` | Read a PDF back and confirm every label | `pdfjs-dist@^6.2.108` |
+| `@docture/synthetic/degrade` | Scan, low-quality scan, photo and fax renditions | `sharp@0.35.5`, `pdfjs-dist@^6.2.108`, `@napi-rs/canvas@^1.0.10`; `pdfkit` for PDF output |
+| `@docture/synthetic/node` | Resumable corpora that `jsonlDataset` reads | The peers of the renditions in the plan |
+| `@docture/synthetic/faker` | Seeded, locale-aware values | `@faker-js/faker@10.6.0` |
+| `@docture/synthetic/html` | HTML and CSS templates printed by Chromium | `playwright-core@1.64.1` and a Chromium build |
+| `@docture/synthetic/llm` | Model-written text pools | `ai@^7.0.0` |
+
+See the [synthetic data API](/docs/synthetic/reference) and the [synthetic corpus guide](/docs/synthetic/quick-start). Each reporter entry is Node-only because it also exports a file-writing factory that imports `node/artifacts`. The pure `render*` implementations have no Node imports; this does not make their entry points browser-safe.

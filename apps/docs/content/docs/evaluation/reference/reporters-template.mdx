@@ -1,0 +1,37 @@
+---
+title: Evaluation template reporter API
+description: Template reports from saved evaluation results.
+---
+
+## `@docture/eval/reporters/template`
+
+This entry is Node-only: its writing factory imports `node/artifacts`. Pure rendering implementations have no Node imports. The factory consumes `EvalResult` through `onResult`; writing requires an explicit `out` except for the terminal reporter.
+
+- `TableView`
+- `TemplateHelpers`
+- `TemplateRender`
+- `TemplateReporterOptions`
+
+### `renderTemplate`
+
+```ts
+renderTemplate(result: EvalResult, render: TemplateRender): string
+```
+
+Render a result through a custom template function.
+
+### `templateHelpers`
+
+```ts
+templateHelpers(): { percent: (value: number | null | undefined) => string; usd: (value: number | null | undefined) => string; ms: (value: number | null | undefined) => string; count: (value: number | null | undefined) => string; number: (value: number | null | undefined) => string; metric: (value: number | null | undefined, format: MetricFormat) => string; delta: (value: number | null | undefined, format: MetricFormat) => string; value: (value: JsonValue | undefined) => string; escapeHtml: (text: string) => string; escapeMarkdown: (text: string) => string; escapeXml: (text: string) => string; columns: () => readonly Column[]; cellText: (column: Column, row: CaseResult) => string; diffLines: (row: CaseResult) => readonly string[]; isFailure: (row: CaseResult) => boolean; metricInfo: (result: EvalResult, id: string) => MetricInfo; views: { overview: (result: EvalResult) => TableView; segments: (result: EvalResult) => readonly TableView[]; slices: (result: EvalResult, name?: string) => readonly TableView[]; paths: (result: EvalResult, limit?: number) => readonly TableView[]; comparison: (result: EvalResult, caseLimit?: number) => readonly TableView[]; calibration: (result: EvalResult) => readonly TableView[]; grounding: (result: EvalResult) => readonly TableView[]; gate: (result: EvalResult) => TableView | undefined; }; }
+```
+
+Formatters, escapes and the shared summary views, for a render function that writes any format.
+
+### `templateReporter`
+
+```ts
+templateReporter(options: TemplateReporterOptions): Reporter
+```
+
+Write whatever a render function returns, such as a Slack summary or a custom text file.

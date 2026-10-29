@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const docs = new URL("../content/docs/reference/", import.meta.url);
+const docs = new URL("../content/docs/resources/", import.meta.url);
 const repository = new URL("../../../", import.meta.url);
 const blob = "https://github.com/YasielCabrera/docture/blob/main/";
 
@@ -12,7 +12,7 @@ const changelogLinks = (): string[] => {
 };
 
 describe("changelog reference page", () => {
-  it("appears in the Reference sidebar", () => {
+  it("appears in the Resources sidebar", () => {
     const meta = JSON.parse(readFileSync(new URL("meta.json", docs), "utf8")) as { pages: string[] };
     expect(meta.pages).toContain("changelog");
   });
@@ -21,6 +21,8 @@ describe("changelog reference page", () => {
     expect(changelogLinks()).toEqual([
       "https://github.com/YasielCabrera/docture/blob/main/packages/docture/CHANGELOG.md",
       "https://github.com/YasielCabrera/docture/blob/main/packages/cli/CHANGELOG.md",
+      "https://github.com/YasielCabrera/docture/blob/main/packages/eval/CHANGELOG.md",
+      "https://github.com/YasielCabrera/docture/blob/main/packages/synthetic/CHANGELOG.md",
     ]);
   });
 
@@ -29,6 +31,6 @@ describe("changelog reference page", () => {
       .map((href) => href.slice(blob.length))
       .filter((path) => !existsSync(fileURLToPath(new URL(path, repository))));
     expect(missing).toEqual([]);
-    expect(changelogLinks()).toHaveLength(2);
+    expect(changelogLinks()).toHaveLength(4);
   });
 });

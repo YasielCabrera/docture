@@ -1,0 +1,34 @@
+---
+title: Integrate evaluation frameworks
+description: Reuse one scoring spec in Vitest Evalite promptfoo or autoevals.
+---
+
+Choose an adapter for the host you already run. The adapters use structural contracts and do not import or initialize the host framework.
+
+| Host | Entry | Adapter |
+| --- | --- | --- |
+| Vitest | `@docture/eval/vitest` | `extractionMatchers`, `describeEval` |
+| Evalite | `@docture/eval/evalite` | `extractionScorer` |
+| promptfoo | `@docture/eval/promptfoo` | `extractionAssertion` |
+| autoevals | `@docture/eval/autoevals` | `ExtractionF1` |
+
+For Vitest, register the matcher once and await the assertion:
+
+```ts
+import { expect, test } from "vitest";
+import { extractionMatchers } from "@docture/eval/vitest";
+
+expect.extend(extractionMatchers());
+
+test("inventory", async () => {
+	await expect(actual).toMatchExtraction(expected, spec, { minF1: 0.95 });
+});
+```
+
+This assumes `actual`, `expected`, and `spec` from your test setup. Add the documented `ExtractionMatchers` module augmentation so TypeScript recognizes the matcher. The [framework API](/docs/evaluation/reference/frameworks#framework-adapter-wiring) provides the declaration and full wiring.
+
+Vitest defaults to minimum F1 `1`; ungraded output fails. `describeEval` registers one test per dataset case, prepares the processor in `beforeAll`, and disposes it in `afterAll`. Await registration during collection.
+
+Evalite supports F1, precision, recall, and ANLS; ungraded values score zero. Promptfoo reads expected truth from `context.vars.expected` and defaults to threshold `0.95`. Invalid JSON string output fails with score zero. Autoevals returns a score plus count and ungraded metadata.
+
+Use the [runner](/docs/evaluation/experiments) instead when you need stored raw outputs, resume, or paired run comparison.

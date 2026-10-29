@@ -984,8 +984,8 @@ export default defineSynthConfig({ model, templates: [slip], createdAt: "2025-01
     }
   });
   const ocrOverride = await check("npm core works beside an application's own OCR engines with the documented override", async () => {
-    const recipes = await Promise.all(["installation", "migration"].map(async guide => {
-      const source = await readFile(join(root, "apps/docs/content/docs/guides", `${guide}.mdx`), "utf8");
+    const recipes = await Promise.all(["getting-started/installation", "resources/migration"].map(async guide => {
+      const source = await readFile(join(root, "apps/docs/content/docs", `${guide}.mdx`), "utf8");
       const recipe = /```json\n(\{\n\s+"overrides"[\s\S]*?)```/.exec(source)?.[1];
       assert.ok(recipe, `the ${guide} guide shows the npm override for an application's own OCR engine`);
       return JSON.parse(recipe);

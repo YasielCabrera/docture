@@ -1,0 +1,17 @@
+---
+title: Synthetic data overview
+description: Generate labeled documents from schemas and evaluate extraction without manual labeling.
+---
+
+`@docture/synthetic` samples values, renders documents, and records what each page shows. Each printed field has ground truth, text, a page number, and a box in PDF points. Verification reads the digital PDF back before degradation changes its appearance.
+
+Start with [your first labeled PDF](/docs/synthetic/quick-start). Then choose a task:
+
+- [Define models and generators](/docs/synthetic/models) and [add scenarios](/docs/synthetic/scenarios).
+- Create [PDF](/docs/synthetic/pdf-templates) or [HTML templates](/docs/synthetic/html-templates).
+- Declare [printed fields](/docs/synthetic/printed-fields) and [verify labels](/docs/synthetic/verification).
+- [Simulate scans and photos](/docs/synthetic/degradation), [build a corpus](/docs/synthetic/corpora), and [evaluate it](/docs/synthetic/evaluation).
+
+The [API reference](/docs/synthetic/reference) lists every public entry. The root needs no engine. Renderers and other engine-backed entries load their optional peers when used. Choose [installation recipes](/docs/getting-started/installation#synthetic-documents) for the entries you use.
+
+Synthetic data tests the cases your model and templates describe. Use [real datasets](/docs/evaluation/datasets) to check behavior outside those cases. The [CLI](/docs/cli/commands) runs generation from `docture.synth.ts`.

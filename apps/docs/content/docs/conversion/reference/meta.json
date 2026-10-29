@@ -1,0 +1,16 @@
+{
+  "title": "API reference",
+  "pages": [
+    "analyzers",
+    "chunk",
+    "continuations",
+    "converter",
+    "document-json",
+    "evidence",
+    "furniture",
+    "layout",
+    "model-layout",
+    "tables"
+  ],
+  "pagesIndex": "index"
+}

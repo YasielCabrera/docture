@@ -1,0 +1,30 @@
+---
+title: Read DOCX with Mammoth
+description: Read DOCX text on one logical page with an optional Mammoth install.
+---
+
+Install the exact tested engine explicitly.
+
+```sh
+pnpm add docture mammoth@1.13.0
+```
+
+```ts
+import { DocumentConverter } from "docture";
+import { DocumentLoaderMammoth } from "docture/loaders/mammoth";
+
+async function convertDocx(docxBytes: Uint8Array) {
+  const converter = new DocumentConverter({ loaders: [new DocumentLoaderMammoth()] });
+  try {
+    return await converter.convert({ bytes: docxBytes, mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }, { format: "text" });
+  } finally {
+    await converter.dispose();
+  }
+}
+```
+
+`DocumentLoaderMammoth` uses `extractRawText` and returns one logical page with zero width and height. Headings, paragraphs and table cells retain source order. Formatting, physical pagination, positioned geometry and images are unavailable. Only DOCX is accepted. A page request may select page 1; another page fails with `PAGE_OUT_OF_RANGE`.
+
+The adapter is Node-only. Mammoth loads on the first call, and a missing install raises `MISSING_ENGINE`. Parsing an invalid DOCX raises `MammothDocumentError` with `LOAD_FAILED` and its engine cause. Cancellation is cooperative before and after parsing; it cannot interrupt Mammoth while it is running. Raw-text extraction does not produce HTML and leaves external-file access at Mammoth's disabled default. Diagnostics log counts and types without document content.
+
+Run `pnpm --dir apps/examples exec tsx 20-input-loaders/index.ts` for a deterministic real DOCX conversion.

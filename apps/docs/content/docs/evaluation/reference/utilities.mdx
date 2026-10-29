@@ -1,0 +1,62 @@
+---
+title: Evaluation utilities API
+description: Canonical JSON, fingerprints, path formatting, and slice values.
+---
+
+## `@docture/eval`
+
+### `toJsonValue`
+
+```ts
+toJsonValue(value: unknown): JsonValue
+```
+
+Convert any value to its JSON form the way `JSON.stringify` would, so a result holds exactly what a saved copy holds. `undefined`, functions, symbols and non-finite numbers become `null`; dates become ISO strings.
+
+### `canonicalJson`
+
+```ts
+canonicalJson(value: unknown): string
+```
+
+`JSON.stringify` with object keys sorted, so equal values always produce equal text.
+
+### `fingerprintOf`
+
+```ts
+fingerprintOf(value: unknown): string
+```
+
+A stable 64-bit FNV-1a fingerprint of a value's canonical JSON, as 16 hex digits. Equal values hash equally across processes and platforms, so specs, datasets and experiment configs can be compared between saved runs.
+
+### `compareCodeUnits`
+
+```ts
+compareCodeUnits(a: string, b: string): number
+```
+
+Order strings by UTF-16 code unit, the same on every host. Use it wherever order reaches a fingerprint, a seed or written output; `localeCompare` depends on the host locale.
+
+### `formatPath`
+
+```ts
+formatPath(segments: readonly PathSegment[]): string
+```
+
+Format path segments as a concrete path: `formatPath(["lineItems", 3, "amount"])` is `lineItems[3].amount`.
+
+### `patternOf`
+
+```ts
+patternOf(path: string): string
+```
+
+Turn a concrete path into its pattern: `lineItems[3].amount` becomes `lineItems[].amount`. Returns the text unchanged when it does not parse.
+
+### `sliceValues`
+
+```ts
+sliceValues<C>(slices: Readonly<Record<string, SliceSpec<C>>>, item: C): Record<string, TagValue>
+```
+
+Evaluate slices for one item. Absent values are left out.

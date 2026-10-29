@@ -1,0 +1,36 @@
+---
+title: Save, resume, and re-score evaluation runs
+description: Reuse raw processor output while keeping each recorded result identifiable.
+---
+
+Persist runs with `fileRunStore` and keep raw answers for later scoring:
+
+```ts
+import { fileRunStore } from "@docture/eval/node";
+import { runEval } from "@docture/eval/runner";
+
+const store = fileRunStore("eval-runs");
+const result = await runEval({ dataset, spec, experiments, store });
+console.log(result.run.id);
+```
+
+The store writes run metadata, case rows, a result, and raw output. It encodes raw-file IDs to avoid collisions between case-sensitive IDs on case-insensitive filesystems.
+
+## Resume unfinished work
+
+Pass `resume: "latest"` or an unfinished run ID with the same store, dataset ID, and experiment IDs. Completed runs cannot resume. Rows are reusable when case content, experiment configuration, and epoch match. Reused raw outputs are scored with the current spec. Errored and interrupted rows are retried.
+
+Custom dataset adapters should provide document content hashes so changed inputs invalidate reuse. Filesystem adapters calculate them during listing.
+
+## Re-score without extraction
+
+```ts
+import { rescore } from "@docture/eval/runner";
+
+const rescored = await rescore(store, result.run.id, revisedSpec);
+console.log(rescored.run.rescoredFrom);
+```
+
+Re-scoring creates a new run and leaves the source unchanged. Pass current comparison, gate, and section options; they do not carry over from the source result. Use the returned result with a reporter to render it. Supply `extractors` for projections when raw output differs from the comparable view. Supply `dataset` when refreshing truth, locations, tags, or groups; replacement slices require it. `runDirectory` can read a copied run directory as an external raw-output source.
+
+Use `readEvalResult` and `writeEvalResult` for split result artifacts. Read [storage API](/docs/evaluation/reference/storage) and [runner API](/docs/evaluation/reference/runner) for exact contracts. See [comparisons](/docs/evaluation/comparisons) before choosing a baseline.

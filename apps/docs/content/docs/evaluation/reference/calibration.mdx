@@ -1,0 +1,34 @@
+---
+title: Evaluation calibration API
+description: Confidence reliability, supported thresholds, and merged reports.
+---
+
+## `@docture/eval/calibration`
+
+Defaults: 10 bins, grouping by `pattern`, target precision 0.99 and minimum support 5. Auto-accept requires a one-sided 95% Clopper-Pearson lower bound.
+
+- `CalibrationOptions`
+
+### `calibrate`
+
+```ts
+calibrate(result: EvalResult, options?: CalibrationOptions): CalibrationReport
+```
+
+Calibrate exact confidence counts. Auto-accept requires a one-sided 95% Clopper-Pearson lower bound. An errored case's omissions count toward `groundTruth` overall and in pattern, field-type and segment groups; `by: "path"` groups count only scored cases, because an errored case has no concrete paths.
+
+### `mergeCalibration`
+
+```ts
+mergeCalibration(a: CalibrationReport, b: CalibrationReport): CalibrationReport
+```
+
+Merge reports without losing score ties, AUROC or average precision.
+
+### `calibrationSection`
+
+```ts
+calibrationSection(options?: CalibrationOptions): (result: EvalResult) => { calibration: CalibrationReport; }
+```
+
+Add calibration through the runner's result sections hook.

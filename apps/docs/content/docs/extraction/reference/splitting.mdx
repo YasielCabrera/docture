@@ -1,0 +1,87 @@
+---
+title: Splitting and Process API
+description: Splitter contracts, Process configuration, page groups, and lifecycle.
+---
+
+Import from `docture`.
+
+## Splitter contract
+
+`Splitter` has a stable `name`, optional runtime `requires`,
+`belongsToSameDocument(first, second, context)`, optional `splitEager()`, and optional
+`dispose()`.
+
+`SplitContext` contains classifications, signal, logger, optional `recordUsage()`, and
+optional `documentLabel`, the bundle's file name when it has one.
+
+`SplitVerdict` contains `belongsToSameDocument`, first and optional second page
+classifications, and optional confidence.
+
+```ts
+defineSplitter(splitter: Splitter): Splitter
+
+runSplitter(
+  splitter: Splitter,
+  pages: readonly LoadedPage[],
+  strategy: SplittingStrategy,
+  context: SplitContext,
+  options?: RunSplitterOptions,
+): Promise<DocGroups>
+```
+
+`RunSplitterOptions.concurrency` defaults to `4` for lazy seam checks. Eager splitting
+uses `splitEager()` when implemented and otherwise uses the lazy path. The splitter may
+reject on component, abort, or rendering failures.
+
+`DocGroup` contains 1-based `pages`, classification, and optional confidence. `DocGroups`
+is the ordered read-only group list. `UNCLASSIFIED` is the string `UNKNOWN`.
+
+```ts
+pageWindows<T>(pages: readonly T[], size = 2): T[][]
+aggregateDocGroups(verdicts: readonly SplitVerdict[], pageCount: number): DocGroup[]
+```
+
+`pageWindows()` returns overlapping windows and throws when `size` is less than `2`.
+`aggregateDocGroups()` folds seam verdicts, preserves order, and covers the declared page
+count.
+
+
+## Process
+
+```ts
+new Process()
+  .loadDocumentLoader(...loaders)
+  .loadSplitter(splitter)
+  .loadExtractor(extractor)
+  .loadLogger(logger)
+  .loadFile(source)
+  .split(classifications, strategy?)
+```
+
+`loadSource()` is an alias of `loadFile()`. Wiring and planning methods return the same
+process. `split()` defaults to `SplittingStrategy.EAGER` and does not read the source.
+
+```ts
+extract(options?: ProcessExtractOptions): Promise<ClassifiedExtraction<C>[]>
+splitOnly(options?: RunOptions): Promise<SplitReport>
+dispose(): Promise<void>
+```
+
+`ProcessExtractOptions` extends `RunOptions`. `onUnclassified` defaults to `"throw"`; the
+other value is `"skip"`. Extraction `concurrency` defaults to `4`.
+
+`SplitReport` contains the splitter name, splitting strategy, groups, and splitting
+`Usage`. It is also available as `lastSplit` after a completed split.
+
+For a one-page source, `Process` does not call the splitter. With one configured
+classification it assigns that kind directly. With several classifications, it asks the
+configured extractor to classify the page.
+
+Missing source, loaders, splitter, classifications, or extractor configuration throws.
+Unknown groups throw `UnclassifiedGroupError` unless skipping is explicit. `dispose()`
+settles the splitter, default extractor, and process loaders, then reports failures with
+`AggregateError`.
+
+Classification uses the same loader fallback and stage deadlines as extraction.
+Eligible classifiers run concurrently, while their signals retain registration order.
+A throwing classifier records an abstention. Caller aborts propagate.

@@ -1,0 +1,29 @@
+---
+title: "docture synth verify"
+description: "Read every digital case of a corpus back and confirm its labels"
+---
+
+Read every digital case of a corpus back and confirm its labels
+
+## Arguments
+
+| Argument | Required | Meaning |
+| --- | --- | --- |
+| `corpus` | Yes | A directory written by docture synth corpus |
+
+## Flags
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--verbose`, `-v` | Not set | Report the wiring, the routing, and every attempt |
+| `--quiet`, `-q` | Not set | Only failures and the first hint per error code on stderr |
+| `--no-color` | Not set | Never emit ANSI colour |
+| `--help`, `-h` | Not set | Show this help |
+
+## Examples
+
+```sh
+docture synth verify corpus
+```
+
+See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).

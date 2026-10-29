@@ -1,0 +1,42 @@
+---
+title: PDF.js
+description: Public API for docture/loaders/pdfjs.
+---
+
+Import from `docture/loaders/pdfjs`.
+
+```sh
+npm install docture pdfjs-dist@6.2.108
+```
+
+```ts
+new DocumentLoaderPdfJs(options?: DocumentLoaderPdfJsOptions)
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `password` | none | Password for an encrypted PDF. |
+| `maxPages` | all | Maximum pages to read. |
+| `lineTolerance` | core default `0.5` | Vertical band used to group text runs into lines. |
+
+The loader is named `pdfjs`, accepts `application/pdf`, and reports text and geometry
+capabilities. It does not report image capability. Use `withRasterizer()` when a later
+component needs page images.
+
+It returns top-left-origin geometry in PDF points, page text, form-feed-separated document
+text, inferred form, and metadata with total and read page counts.
+
+Opening, password, page decode, and caller abort failures reject `load()`. In an extractor,
+the next eligible loader may run. If every eligible loader fails, `LoadFailedError`
+contains their attempts.
+
+```ts
+import { withRasterizer } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { NapiCanvasRasterizer } from "docture/raster/canvas";
+
+const loader = withRasterizer(
+  new DocumentLoaderPdfJs(),
+  new NapiCanvasRasterizer(),
+);
+```

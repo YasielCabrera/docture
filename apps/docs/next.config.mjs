@@ -1,3 +1,4 @@
+import migration from "./lib/docs-migration.json" with { type: "json" };
 import { createMDX } from "fumadocs-mdx/next";
 
 const withMDX = createMDX();
@@ -5,6 +6,16 @@ const withMDX = createMDX();
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
+  allowedDevOrigins: ["127.0.0.1"],
+  redirects() {
+    return Object.entries(migration).flatMap(([source, entry]) => {
+      const split = Object.entries(entry.anchors).some(([anchor, target]) => target !== `${entry.to}#${anchor}`);
+      return [
+        ...(split ? [] : [{ source, destination: entry.to, permanent: true }]),
+        { source: `${source}.md`, destination: `${entry.to}.md`, permanent: true },
+      ];
+    });
+  },
   rewrites() {
     return [
       { source: "/docs.md", destination: "/llms.mdx/docs/content.md" },

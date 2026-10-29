@@ -1,0 +1,97 @@
+---
+title: Extractor API
+description: Extractor construction, registration, run options, and extraction methods.
+---
+
+Import from `docture`.
+
+## Extractor
+
+```ts
+new Extractor(options?: ExtractorOptions)
+createExtractor(options: ExtractorOptions): Extractor
+```
+
+`Extractor` owns registered components and defaults. `createExtractor()` is equivalent to
+the constructor but requires at least one loader.
+
+`ExtractorOptions` contains:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `loaders` | `[]` | Loaders in fallback order. |
+| `strategies` | `[]` | Strategies in routing order. |
+| `classifiers` | `[]` | Classifiers to run when classification is needed. |
+| `classifications` | `[]` | Default document kinds. |
+| `policy` | `declarationOrder` | Orders eligible strategies. |
+| `logger` | `silentLogger` | Pipeline logger. |
+| `stageTimeoutMs` | no deadline | Per-stage deadline. |
+| `classify` | `higherOrder`, threshold `0` | Classifier result selection. |
+| `rules` | `[]` | Default `ValidationRule[]` for every call. Rules receive `unknown` data because one extractor serves many contracts. |
+| `onRuleFailure` | `"report"` | Default `RuleFailureMode`. |
+| `maxRepairs` | `1` | Default repairs per strategy. `0` disables repair. |
+
+Component registration methods return the same extractor: `loadDocumentLoader()`,
+`loadStrategy()`, `loadLlm()`, `loadClassifier()`, `loadClassifications()`, `loadPolicy()`,
+and `loadLogger()`. Duplicate names throw `DuplicateComponentError`. The `components`
+getter returns read-only copies of the current registrations.
+
+`ModelBackend` is the core interface accepted by `loadLlm()`. It provides `id` and
+`extraction()`, and may provide `vision()`, `classifier()`, `splitter()`, and `layout()`.
+`LoadLlmOptions` has `vision?: boolean` and `classify?: boolean`, both `false` by default.
+Requesting an unsupported component throws `MissingComponentError` with code `MISSING_COMPONENT`.
+
+`DocumentExtractor` is the smaller interface used by classifications. It contains
+`extractResult()`.
+
+`PipelineComponents` is the low-level collection passed to `runPipeline()`. It contains
+all component arrays, the routing policy, logger, and optional timeout and classification
+defaults.
+
+
+## Extraction methods
+
+```ts
+extract<C extends ContractLike>(
+  source: DocumentSource,
+  contract: C,
+  options?: RunOptions,
+): Promise<ExtractionResult<InferContract<C>>>
+
+extractResult<C extends ContractLike>(...): Promise<ExtractionResult<InferContract<C>>>
+extractData<C extends ContractLike>(...): Promise<InferContract<C>>
+safeExtract<C extends ContractLike>(...): Promise<SafeExtraction<InferContract<C>>>
+```
+
+`extractResult()` is an explicit alias of `extract()`. `extractData()` returns only the
+validated data. `safeExtract()` returns `{ ok: true, result }` or `{ ok: false, error }`
+instead of throwing.
+
+`RunOptions` contains:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `signal` | new signal | Caller cancellation. |
+| `pages` | all pages | 1-based page numbers to extract from a loaded document. |
+| `stageTimeoutMs` | extractor default | Per-call stage deadline. |
+| `only` | all strategies | Strategy names to use, in requested order. Unknown names are ignored. |
+| `classifications` | extractor default | Per-call candidate kinds. |
+| `classify` | extractor default | Per-call classification selection. |
+| `logger` | extractor default | Per-call logger. |
+| `rules` | extractor default | `ValidationRule<T>[]` typed from the contract. Replaces the extractor's rules. An empty array clears them. |
+| `onRuleFailure` | extractor default, then `"report"` | `"report"` keeps the data and lists rule issues in `result.validation`. `"fail"` fails the attempt with `CONTRACT_VIOLATION` and tries the next strategy. |
+| `maxRepairs` | extractor default, then `1` | Times to re-ask a strategy that implements `repair()` after its answer failed. Non-negative integer; other values reject with `RangeError`. `0` makes one call per strategy. |
+
+Extraction rejects on source, loading, eligibility, strategy, validation, timeout, or
+caller abort failures. See the [error reference](/docs/resources/errors).
+
+
+## Check literal capability wiring
+
+`createCheckedExtractor({ loaders, strategies, ...options })` is an opt-in construction path. It rejects a known nonempty loader tuple when every loader explicitly lacks a known required text, geometry or image capability. Empty loader tuples are rejected. `withRasterizer` advertises image feasibility. Functional `llm`, `vision` and `defineStrategy` retain their requirement literals.
+
+The check covers advertised feasibility per fact. Actual document facts and the eligible strategy diagnostics remain authoritative at runtime. Widened arrays, unknown booleans, custom facts and widened requirements remain unchecked. Use ordinary constructors for preloaded documents or intentional heterogeneous fallback wiring. Existing constructor, factory and fluent APIs retain their dynamic behavior.
+
+`sourceResolver` in `ExtractorOptions` selects explicit source access. Its default is the portable resolver. Use `resolveNodeSource` from `docture/node` for local files.
+
+Full extraction results retain `sourceDigest`, `physicalSourceDigest` and opaque `sourceMetadata` when the loader provides them. Native Docling metadata includes its export identity, diagnostics and canonical-ID-to-native-pointer sidecar. Save these with the result; a physical digest binds highlights to exact original bytes, while an export digest identifies the normalized native input.

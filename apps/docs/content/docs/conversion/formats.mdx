@@ -1,0 +1,48 @@
+---
+title: Choose an output format
+description: Select text, Markdown, HTML, or versioned document JSON.
+---
+
+## Output formats
+
+```ts
+await converter.convert(source, { format: "text" });
+await converter.convert(source, { format: "markdown" });
+await converter.convert(source, { format: "html" });
+await converter.convert(source, { format: "json" });
+```
+
+- TXT joins pages with form feeds and adds no image placeholders.
+- Markdown uses CommonMark, GFM tables, and `<!-- page: N -->` markers.
+- HTML is a complete escaped HTML5 document. Each page is a numbered `section`.
+- JSON exports the versioned `DoctureDocument` with semantic elements, provenance, and assets.
+
+All four formats read the same semantic elements. Headings, paragraphs, lists, tables,
+code, figures, page breaks, and running headers and footers retain page and bounding-box
+provenance.
+
+
+## Serverless and in-memory use
+
+The library never writes files:
+
+```ts
+const result = await converter.convert(pdfBytes, {
+  format: "html",
+  assets: "embedded",
+});
+
+return new Response(result.content, {
+  headers: { "content-type": result.mimeType },
+});
+```
+
+This works in a request handler, queue worker, or indexing job without a temporary output
+directory. Chunking, embeddings, and index writes remain application concerns.
+
+
+Use [document JSON](/docs/conversion/document-json) for validated storage and [assets](/docs/conversion/assets) for image handling.
+
+## Use the CLI
+
+`docture convert report.pdf --out converted --to md` writes the selected format to disk. Referenced assets go under `<out>/<stem>.assets/`. Basename collisions reject before any document loads. A failed batch input leaves successful outputs in place and exits with code `1`. See [command reference](/docs/cli/commands).

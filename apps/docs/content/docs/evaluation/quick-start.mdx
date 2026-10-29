@@ -1,0 +1,62 @@
+---
+title: Run your first evaluation
+description: Score a small deterministic experiment without credentials or document engines.
+---
+
+This program runs one processor against one expected answer and checks its F1. No model or document engine is required.
+
+## Install
+
+```sh
+pnpm add @docture/eval docture zod@^4
+pnpm add -D tsx
+```
+
+## Run a case
+
+Save as `evaluate.mts`:
+
+```ts
+import { defineEval, exact, gate, inMemoryDataset } from "@docture/eval";
+import { runEval } from "@docture/eval/runner";
+import { renderScoreboard } from "@docture/eval/reporters/terminal";
+import { z } from "zod";
+
+const schema = z.object({ title: z.string(), count: z.number() });
+const spec = defineEval(schema, { strings: exact() });
+const dataset = inMemoryDataset("inventory", [{
+	id: "one",
+	documents: [],
+	expected: { title: "Screws", count: 12 },
+}]);
+const result = await runEval({
+	dataset,
+	spec,
+	experiments: {
+		parser: {
+			id: "parser",
+			async extract() {
+				return { raw: { title: "Screws", count: 12 } };
+			},
+		},
+	},
+});
+console.log(renderScoreboard(result));
+console.log(gate(result, { thresholds: [{ metric: "f1", min: 1 }] }).pass);
+```
+
+```sh
+pnpm exec tsx evaluate.mts
+```
+
+The scoreboard reports F1 `1`, and the last line is `true`. Change `count` in the processor answer to `11` to produce a mismatch and fail the threshold.
+
+## Use real documents
+
+[Prepare a dataset](/docs/evaluation/datasets), then [adapt your extractor](/docs/evaluation/processors). Example 23 at `apps/examples/23-evaluate-a-schema/index.ts` runs a complete lab-report evaluation with deterministic parsers and a mocked model.
+
+For direct scoring of a Docture result, use the runnable recipe:
+
+<SourceExample file="measure-accuracy.ts" title="Score an extraction result" />
+
+See [scoring rules](/docs/evaluation/scoring-rules) before choosing a production gate.

@@ -1,0 +1,27 @@
+---
+title: Test pipelines and components
+description: Use deterministic doubles, PDF fixtures, provider mocks, and conformance checks.
+---
+
+Test routing, validation, data, and failure behavior with deterministic components before making live model calls.
+
+| Test | Use |
+| --- | --- |
+| Extraction without a provider | `docture/testing/doubles` |
+| Known PDF bytes and expected fields | `docture/testing/fixtures` |
+| Loader and rasterizer contracts | `docture/testing/conformance` |
+| Model-backed strategy behavior | An AI SDK mock language model |
+| Accuracy on your own documents | [Evaluation datasets and experiments](/docs/evaluation) |
+
+Test both successful results and the behavior your application relies on: strategy fallback, cancellation, selected pages, validation failures, and disposal. Compare actual returned data rather than implementation call counts.
+
+Run the complete keyless testing example from the repository:
+
+```sh
+pnpm --dir apps/examples exec tsx 14-testing-your-pipeline/index.ts
+pnpm --filter @docture/examples test
+```
+
+The [testing API](/docs/resources/testing-api) lists the doubles, fixture generators, and conformance suites. Engine-free doubles need no PDF or model peer. PDF fixtures and conformance suites require the exact engines in [installation recipes](/docs/getting-started/installation).
+
+Live provider, OCR, and remote-service checks need their own credentials or assets. Deterministic mocks cover behavior without establishing live service compatibility.

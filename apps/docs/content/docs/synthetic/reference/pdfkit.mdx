@@ -1,0 +1,20 @@
+---
+title: Synthetic pdfkit API
+description: Public API for @docture/synthetic/pdfkit.
+---
+
+## `@docture/synthetic/pdfkit`
+
+- `RenderPdfOptions`
+
+### `renderPdf`
+
+```ts
+renderPdf<T>(template: Template<T>, sample: Sample<T>, options?: RenderPdfOptions): Promise<SyntheticDocument>
+```
+
+Render a sample with a template into a PDF and label every printed field with its page and box. `createdAt` is written as the creation and modification date and defaults to a fixed date, so equal inputs give equal bytes. `compress` defaults to `true`; `producer`, `creator` and `title` set document info. Fails with `TemplateError` when the drawing and the printed mask disagree or a font lacks a glyph.
+
+### `ENGINE_RANGES`
+
+`{ pdfkit: ">=0.17.2 <0.21.0" }`. Every engine entry exports the ranges it supports under this name.

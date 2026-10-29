@@ -1,0 +1,54 @@
+---
+title: "docture convert"
+description: "Convert PDFs to TXT, Markdown, HTML, or JSON"
+---
+
+Recovers grounded document text and layout for indexing and RAG. Outputs and
+referenced images are written beneath the required --out directory.
+
+## Arguments
+
+| Argument | Required | Meaning |
+| --- | --- | --- |
+| `file...` | Yes | Paths, globs, http(s) URLs, or - for stdin |
+
+## Flags
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--out <directory>`, `-o` | Not set | Output directory. Required |
+| `--format <fmt>` | text | JSON is a versioned envelope; NDJSON streams result items Choices: `json`, `ndjson`, `text`. |
+| `--to <fmt>` | md | Document format to write Choices: `md`, `html`, `txt`, `json`. |
+| `--assets <mode>` | referenced | How page images and figures are written Choices: `referenced`, `embedded`, `omit`. |
+| `--pages <n,n,...>` | Not set | Convert selected one-based pages, keeping original page numbers |
+| `--assist-layout` | Not set | Use --model to refine roles and reading order without changing text |
+| `--timeout <ms>` | Not set | Per-stage deadline. Omit for none |
+| `--concurrency <n>` | 4 | Overlaps model calls and I/O; local PDF work uses one thread |
+| `--model <provider/id>`, `-m` | Not set | The AI SDK model, e.g. openai/gpt-5 or anthropic/claude-opus-5 |
+| `--gateway` | Not set | Route through the Vercel AI Gateway even if the provider package is installed |
+| `--pricing <path>` | Not set | JSON prices by model id with inputPerMillion and outputPerMillion; optional cacheReadPerMillion and cacheWritePerMillion default to inputPerMillion |
+| `--cache <dir>` | Not set | Cache model responses on disk, so a re-run is free |
+| `--instructions <text>` | Not set | Domain guidance appended to the system prompt |
+| `--temperature <n>` | 0 | Sampling temperature |
+| `--dry-run` | Not set | Validate the invocation and print the plan as JSON. Reads no document and writes no file |
+| `--config <path>` | Not set | Config file. Default: the nearest docture.config.&#123;ts,mts,js,mjs&#125; |
+| `--no-config` | Not set | Ignore any config file that is found |
+| `--verbose`, `-v` | Not set | Report the wiring, the routing, and every attempt |
+| `--quiet`, `-q` | Not set | Only failures and the first hint per error code on stderr |
+| `--no-color` | Not set | Never emit ANSI colour |
+| `--help`, `-h` | Not set | Show this help |
+
+## Examples
+
+```sh
+docture convert report.pdf --out converted/
+docture convert corpus/*.pdf -o converted/ --to html --assets embedded
+docture convert report.pdf -o converted/ --assist-layout -m openai/gpt-5
+```
+
+## Behavior
+
+- The default PDF.js loader reads digital PDFs. Configure an OCR loader explicitly for scans.
+- Model assistance can classify and reorder known elements, but its schema contains no text field.
+
+See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).

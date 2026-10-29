@@ -1,0 +1,26 @@
+---
+title: Configure CLI models and vision
+description: Select a provider, gateway route, cache, and page rendering.
+---
+
+## Models and vision
+
+`--model` accepts `provider/model-id`. The CLI uses a provider package installed in the
+current project when it can resolve one. Otherwise it uses the AI Gateway. `--gateway`
+forces the gateway path.
+
+```sh
+docture extract scan.pdf \
+  -s ./invoice.ts \
+  -m openai/gpt-5 \
+  --vision \
+  --dpi 200
+```
+
+The CLI uses `docture/raster/canvas` with its optional default dependency
+`@napi-rs/canvas`. A normal install attempts the native prebuild. If optional dependencies
+were omitted, install it explicitly:
+
+```sh
+npm install --save-dev @docture/cli @napi-rs/canvas@1.0.10
+```

@@ -1,0 +1,28 @@
+---
+title: Save and load document JSON
+description: Export versioned elements and validate saved documents before reuse.
+---
+
+## Export structured JSON
+
+`format: "json"` returns a version 2 document with page dimensions, semantic elements,
+provenance, assets, and warnings. The CLI writes it with `docture convert report.pdf
+--out converted --to json`. `--format json` separately selects the command envelope.
+See the [JSON format reference](/docs/conversion/reference/document-json#versioned-json) and
+the [generated schema](/schemas/docture-document-v2.schema.json).
+
+Validate a saved file before you use it. `parseDoctureDocument()` accepts version 1 and
+version 2 files and returns version 2:
+
+```ts
+import { readFile } from "node:fs/promises";
+import { parseDoctureDocument } from "docture";
+
+const parsed = parseDoctureDocument(JSON.parse(await readFile("converted/report.json", "utf8")));
+if (!parsed.ok) throw new Error(parsed.issues.map((issue) => issue.path + ": " + issue.message).join("\n"));
+```
+
+To see the elements over the pages they came from, run `docture review --conversion
+converted/report.json --source report.pdf`. See [Review](/docs/cli/review#review).
+
+A parsed document can feed `chunkDocument()` with the same chunk IDs as its original conversion, when the content and options match. Save assets and source identity with the document when downstream code needs them. See [document JSON API](/docs/conversion/reference/document-json) for versions, validation failures, and evidence parsing.

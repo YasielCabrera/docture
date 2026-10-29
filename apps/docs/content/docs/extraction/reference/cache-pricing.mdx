@@ -1,0 +1,62 @@
+---
+title: Cache and pricing API
+description: Response-cache contracts, token usage, and model price tables.
+---
+
+Import these APIs from the narrow entries listed below, which need no model runtime.
+They are also available from `docture/llm`, whose model exports require `ai@^7` and a supported Zod release.
+
+```sh
+npm install docture
+```
+
+## Cache
+
+Import from `docture/llm/cache`.
+
+`CachedResponse` contains unknown `data` and raw token counts, including optional
+`inputTokenDetails` for provider cache reads and writes.
+`LlmCache` defines asynchronous `get()` and `set()`, plus optional `clear()`.
+
+`CacheKeyParts` requires `provider`, `modelId`, `temperature`, system prompt, user prompt,
+and JSON Schema, with an optional request `variant`. An undefined temperature hashes as
+`0`. Capabilities resolve a string model to provider `"gateway"`.
+
+`ContentPart` is a text part with `text`, or a file part with byte `data` and `mediaType`.
+`fingerprint()` hashes these parts in order, including file bytes and media types.
+
+```ts
+cacheKey(parts: CacheKeyParts): string
+fingerprint(content: readonly ContentPart[]): string
+memoryCache(maxEntries = 500): LlmCache
+fileCache(root: string): LlmCache
+```
+
+`cacheKey()` returns a SHA-256 hex digest. `memoryCache()` is a bounded least-recently-used
+process cache that copies responses on reads and writes. `fileCache()` shards JSON entries
+below the supplied directory. Missing or unreadable disk entries are cache misses; write
+failures reject `set()`.
+
+
+## Pricing and usage
+
+Import from `docture/llm/pricing`.
+
+`ModelPricing` contains `inputPerMillion` and `outputPerMillion` in US dollars, plus
+optional `cacheReadPerMillion` and `cacheWritePerMillion`. Each missing cache rate uses
+the input rate. `PricingTable` maps model ids to prices. `RawUsage` contains optional
+input, output, and total token counts, plus `inputTokenDetails` with optional
+`noCacheTokens`, `cacheReadTokens`, and `cacheWriteTokens`.
+
+```ts
+lookupPricing(modelId: string, pricing?: PricingTable): ModelPricing | undefined
+toUsage(
+  raw: RawUsage,
+  wallMs: number,
+  modelId?: string,
+  pricing?: PricingTable,
+): Partial<Usage>
+```
+
+`lookupPricing()` first checks the full id, then an id without its provider prefix.
+`toUsage()` normalizes missing counts to zero and adds `costUsd` only when a price exists.

@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples fallback
 ```
 
-Docs: [`reference/errors`](../../docs/content/docs/reference/errors.mdx)
+Docs: [`reference/errors`](../../docs/content/docs/resources/errors.mdx)
 
 ## Imports and installs
 

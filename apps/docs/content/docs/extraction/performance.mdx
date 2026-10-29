@@ -1,0 +1,67 @@
+---
+title: Tune concurrency and memory
+description: Choose request, batch, OCR, and rendering limits for the work that constrains your pipeline.
+---
+
+Concurrency controls overlap different work and can multiply across levels. Start with the defaults, measure your own documents, and change one limit at a time.
+
+## Composed controls multiply
+
+Controls at different levels multiply. `extractBatch()` with `concurrency: 4` and
+`llm({ concurrency: 4 })` can keep 16 model requests in flight. Size the product to your
+provider's rate limit, not each control on its own.
+
+OCR pools belong to a loader instance. A Tesseract loader creates its worker pool on its
+first load, sized by the loader's `concurrency`, and reuses it for every later load.
+Concurrent documents on the same loader queue for those workers, so a batch of four
+documents still uses at most the pool's workers. A PaddleOCR loader also builds one
+engine and reuses it, but each concurrent document runs its own page pool against it.
+Four documents with `"auto"` can have 16 page images in flight on one engine.
+
+## Work on the main thread
+
+`--concurrency` and `extractBatch()` concurrency overlap model calls and file or network
+I/O. They do not make CPU-bound work parallel. The [CLI guide](/docs/cli/quick-start) ends
+with the same caveat for `--concurrency`, and [loaders](/docs/integrations/loaders#selection-and-failures)
+describe it for PDF.js and MuPDF.
+
+These steps run on the main JavaScript thread:
+
+- PDF.js text extraction and page rendering, including `NapiCanvasRasterizer` drawing and
+  PNG encoding.
+- MuPDF parsing and rendering. It yields between pages, but each engine call blocks.
+- PaddleOCR image preprocessing and inference. onnxruntime-node 1.27.0 calls the native
+  session synchronously from the main thread. The ONNX runtime spreads one inference over
+  several cores, but two pages do not run inference at the same time.
+- Rendering the pages that an OCR loader reads. Tesseract and PaddleOCR render all of
+  those pages before recognition starts.
+
+Tesseract recognition runs in worker threads. Model requests are network I/O and wait
+off the thread. To keep a server responsive during CPU-bound work, run docture in a
+`worker_threads` worker or a separate process.
+
+## Memory controls
+
+- OCR loaders hold an encoded PNG of every page they read until recognition ends. Pass
+  `pages` to `extract()` or `convert()` to render only those pages. Built-in OCR loaders forward `maxPages` to their rasterizer so it caps the highest original page number before rendering. A custom rasterizer must honor that option to bound work.
+- `page.image()` memoizes one render per page and raster options. A second call with the
+  same options reuses it. Different `dpi` or `maxEdge` values render again.
+- TIFF input is bounded per page: at most 8192 x 8192 pixels and 256 MiB of decoded
+  samples. PaddleOCR converts a TIFF page to PNG in bands of rows instead of one full RGBA
+  copy. These limits are not part of the benchmark above.
+- Each Tesseract worker keeps its own engine and model. Lower `concurrency` before you
+  lower `dpi` when memory is the limit, because `dpi` also changes accuracy.
+
+## Choose settings
+
+1. For model-bound work, raise batch or request concurrency to your provider's rate limit.
+   Count the product of the levels.
+2. For Tesseract, keep the default unless memory is tight. The recorded benchmark used about 200 MiB per extra
+   worker at 300 DPI; measure your engine, models, and documents.
+3. For PaddleOCR on CPU, measure `concurrency: 1` against `"auto"` with your documents.
+4. For vision, keep the default `maxEdge: 1568` or set your provider's limit. It cuts
+   render time and request size.
+5. Run the benchmark with `--only model`, `--only ocr`, or `--only raster` to compare
+   one group on your hardware.
+
+See [controls and measurements](/docs/extraction/reference/performance) for every default and the reproducible benchmark conditions.

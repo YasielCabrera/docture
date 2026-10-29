@@ -1,0 +1,30 @@
+---
+title: Calibrate evaluation field confidence
+description: Measure whether reported confidence matches labeled extraction correctness.
+---
+
+## Analyze confidence
+
+Processors may return `confidence`, keyed by concrete actual paths such as `items[0].amount`. Confidence must be in `[0, 1]`. Evaluate it against reviewed expected values:
+
+```ts
+import { calibrate } from "@docture/eval/calibration";
+
+const report = calibrate(result, {
+	bins: 10,
+	by: "pattern",
+	targetPrecision: 0.99,
+	minSupport: 5,
+});
+console.log(report);
+```
+
+These are the defaults. The report includes coverage and reliability statistics. Missing confidence remains uncovered; the evaluator does not invent it from citation status or extraction success.
+
+An auto-accept threshold requires a one-sided 95% Clopper-Pearson lower bound to reach target precision. Minimum support alone does not establish that bound. If no threshold qualifies, keep the unsupported result rather than choosing one from the displayed confidence values.
+
+Use `calibrationSection()` in `runEval.sections` to attach analysis before gates and reporting. `mergeCalibration` combines compatible reports while preserving score ties and ranking statistics.
+
+Errored-case omissions count toward overall ground truth and pattern, field-type, and segment groups. Path groups contain only scored cases because an errored case has no concrete output paths.
+
+Calibration describes confidence behavior on the labeled dataset. [Grounding](/docs/evaluation/grounding) evaluates source-location support separately. See [calibration API](/docs/evaluation/reference/calibration).

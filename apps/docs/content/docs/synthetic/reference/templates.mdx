@@ -1,0 +1,84 @@
+---
+title: Synthetic templates and formatting API
+description: Public signatures, types, behavior, and defaults for synthetic templates and formatting.
+---
+
+## `@docture/synthetic`
+
+### `prints`
+
+```ts
+prints<V, R = never>(print: (value: NonNullable<V>, root: R) => unknown): Printed<V, R>
+```
+
+Declare a position printed as `print(value)` rather than as its value. The label and the ground truth hold what the page lets a reader recover, such as a plan name that two tariffs share. Return `null` when nothing is printed.
+
+A `PrintedMask<T>` must name every key of `T`, optional ones included, so a new schema field fails to compile until each template decides. Each position is a `Flag`: `true`, `false`, a predicate over the value, its root and its parent, or a `prints()` transform. Objects take an `ObjectMask` per key and arrays take `{ items }`.
+
+### `project`
+
+```ts
+project<T>(mask: PrintedMask<T>, root: T): Projection
+```
+
+The ground truth a template promises (`expected`, with every unprinted position `null`) and the label value of each printed leaf by concrete path (`leaves`). Renderers call it; call it yourself to inspect a mask.
+
+### `locales`
+
+```ts
+locales["en-US"] locales["en-GB"] locales["de-DE"] locales["fr-FR"] locales["es-ES"]
+```
+
+Locale presets for numbers, money and dates. A `Locale` sets the decimal and group separators, a date pattern with `DD`, `MM`, `YYYY` and `MON`, month names, the currency symbol and position, and the minus sign. The presets use `-` because the standard PDF fonts cannot draw U+2212.
+
+### `formatter`
+
+```ts
+formatter(locale: Locale): Formatter
+```
+
+`number(value, decimals?)`, `money(minor, { symbol?, decimals? })` for integer minor units, and `date(iso, pattern?)`. Formatting uses explicit patterns rather than `Intl`, so printed text and PDF bytes do not change with the runtime's ICU version.
+
+### `defineTemplate`
+
+```ts
+defineTemplate<T>(): (definition: TemplateDefinition<T>) => Template<T>
+```
+
+Define a template for values of type `T`: `defineTemplate<Invoice>()({ ... })`. A definition has a `key`, `aliases`, a `family`, `tags` that reach every case, a `page` size (default A4) and margin (default 50), a `locale`, `fonts`, the `printed` mask and `draw(surface, value, format)`.
+
+`draw` receives a `Surface<T>` in PDF points with a top-left origin. `field(path, text, at)` draws text for one or more fields and labels each with the drawn box. `text`, `rule`, `rect` and `image` draw content that is not a field. `measure(text, style)` returns the box text would take, and `addPage()` starts a new page. An `At` is a `TextStyle` (`font`, `size`, `color`, `align`, `width`, `lineGap`) plus `x` and the top `y`. Text wraps only with a `width`.
+
+`fonts` maps names to a `FontSource`: a standard PDF font name or the bytes of a TrueType or OpenType font. The renderer checks every drawn character against the font and fails with `TemplateError` (`missing-glyph`) when a glyph is absent, instead of printing a blank or a substitute.
+
+### `defaultFonts`
+
+```ts
+defaultFonts: { regular: "Helvetica"; bold: "Helvetica-Bold"; italic: "Helvetica-Oblique"; mono: "Courier" }
+```
+
+The font names every template can use without declaring them.
+
+### `pageSizes`
+
+```ts
+pageSizes.A4 pageSizes.A5 pageSizes.Letter pageSizes.Legal
+```
+
+Page sizes in points.
+
+### `selectTemplates`
+
+```ts
+selectTemplates<T>(registry: readonly Template<T>[], selectors: readonly string[]): readonly Template<T>[]
+```
+
+Resolve selectors by key, alias, family or `all`, keeping registry order and dropping duplicates. An unknown selector throws `RangeError` listing the known keys.
+
+### `drawTable`
+
+```ts
+drawTable<T, Item>(surface: Surface<T>, options: TableOptions<Item>): number
+```
+
+Draw a paginated table from measured row heights. Rows never split across pages and the header repeats on each page. Cells of columns with a `key` are labeled as `<path>[i].<key>`. `reserveAfter` keeps room for a closing block, and `onPage` runs on each new page before the header, for running headers. Returns the y below the last row on the page where the closing block fits. A `TableColumn` has a `header`, a `width`, an `align`, an optional `key` and `text(item, index)`.

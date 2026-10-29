@@ -6,7 +6,7 @@
 
 This example is a test file rather than a script — see below.
 
-Docs: [`reference/packages`](../../docs/content/docs/reference/packages.mdx)
+Docs: [`reference/packages`](../../docs/content/docs/getting-started/reference/packages.mdx)
 
 ## Imports and installs
 

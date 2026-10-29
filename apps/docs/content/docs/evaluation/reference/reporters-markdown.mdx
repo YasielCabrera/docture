@@ -1,0 +1,57 @@
+---
+title: Evaluation markdown reporter API
+description: Markdown reports from saved evaluation results.
+---
+
+## `@docture/eval/reporters/markdown`
+
+This entry is Node-only: its writing factory imports `node/artifacts`. Pure rendering implementations have no Node imports. The factory consumes `EvalResult` through `onResult`; writing requires an explicit `out` except for the terminal reporter.
+
+- `CellValue`
+- `Column`
+- `MarkdownHelpers`
+- `MarkdownOptions`
+- `MarkdownReporterOptions`
+- `MarkdownSection`
+- `TableView`
+- `md`
+
+### `renderMarkdown`
+
+```ts
+renderMarkdown(result: EvalResult, options?: MarkdownOptions): string
+```
+
+The result as a Markdown report built from sections.
+
+### `markdownReporter`
+
+```ts
+markdownReporter(options: MarkdownReporterOptions): Reporter
+```
+
+Write the result as a Markdown report.
+
+### `defineColumn`
+
+```ts
+defineColumn(column: Column): Column
+```
+
+Declare a column. Identity at runtime; it pins the type.
+
+### `defaultColumns`
+
+```ts
+defaultColumns(): readonly Column[]
+```
+
+The columns every per-case view starts from.
+
+### `escapeMarkdown`
+
+```ts
+escapeMarkdown(text: string): string
+```
+
+Backslash-escape Markdown syntax, entity-escape HTML, and fold line breaks into spaces.

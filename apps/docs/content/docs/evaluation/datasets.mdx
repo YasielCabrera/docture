@@ -1,0 +1,27 @@
+---
+title: Prepare evaluation datasets
+description: Adapt project-owned documents and ground truth without changing their storage layout.
+---
+
+A dataset exposes an `id` and an async `cases()` method. Each case has a unique `id`, `documents`, and `expected`. A document provides `name`, `mimeType`, and lazy `bytes()`. Add a content `hash` when your adapter supports resume.
+
+For one folder per case, configure the files explicitly:
+
+```ts
+import { folderDataset } from "@docture/eval/node";
+
+const dataset = folderDataset("fixtures", {
+	id: "invoices",
+	documents: "invoice.pdf",
+	expected: "expected.json",
+});
+console.log((await dataset.cases()).map(item => item.id));
+```
+
+Each non-dot subdirectory of `fixtures` becomes a case. The adapter hashes document contents during discovery, loads bytes lazily, and rejects missing files and unsigned drafts by default.
+
+Use `inMemoryDataset` for tests or generated values. Use `jsonlDataset` for a manifest with `id`, document paths, and `expected` per line. Paths resolve relative to the manifest unless `base` is set. A custom `Dataset` can read any layout.
+
+Add `tags` for report slices and `params` for processor inputs. Set `group` on related renditions of one original document; comparisons use it as the bootstrap cluster. Add `locations`, keyed by concrete expected paths, for [grounding evaluation](/docs/evaluation/grounding).
+
+Ground truth must already match the scoring view. The runner validates selected truth before processing. Datasets with duplicate case IDs fail. See [draft approval](/docs/evaluation/ground-truth), [sampling and migrations](/docs/evaluation/dataset-management), and [filesystem API](/docs/evaluation/reference/storage).

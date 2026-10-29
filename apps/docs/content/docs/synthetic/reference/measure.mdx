@@ -1,0 +1,44 @@
+---
+title: Synthetic measure API
+description: Public API for @docture/synthetic/measure.
+---
+
+## `@docture/synthetic/measure`
+
+- `Measurement`
+- `MeasuredPage`
+- `MeasuredLine`
+- `LayoutSource`
+- `CompareOptions`
+- `LayoutComparison`
+- `LineDrift`
+- `PlacedLine`
+- `RepeatedLine`
+
+### `measurePdf`
+
+```ts
+measurePdf(bytes: Uint8Array): Promise<Measurement>
+```
+
+Read every text line of a PDF with its box, page by page, top to bottom and left to right. Spans on one visual line stay separate lines when a gap wider than their font size divides them, so a label and its value, or two columns, are measured apart. Boxes reach from the baseline up one font size, as every box from Docture's PDF.js loader does, so the baseline is `box.y + box.height`. Needs `pdfjs-dist` through `docture/loaders/pdfjs`.
+
+### `compareLayouts`
+
+```ts
+compareLayouts(reference: LayoutSource, candidate: LayoutSource, options?: CompareOptions): Promise<LayoutComparison>
+```
+
+Measure how far the text of a candidate sits from the same text in a reference, for a template that reproduces a real form. Each side is PDF bytes, a rendered PDF `SyntheticDocument` or a `Measurement`, so `compareLayouts(referenceBytes, await renderPdf(template, sample))` works. Only text that occurs exactly once on a page of both documents is paired, by its whitespace-collapsed content. Each matched line reports `dx` and `dy` in points, candidate minus reference, and `drift`, the larger of the two. Text found on that page of one document only is listed in `onlyInReference` or `onlyInCandidate`; text repeated on either side is listed in `repeated` with its counts. `ok` is `maxDrift <= tolerance`, default 0.5 points. A document of another media type throws `RangeError`.
+
+```ts
+import { compareLayouts } from "@docture/synthetic/measure";
+import { renderPdf } from "@docture/synthetic/pdfkit";
+
+const drift = await compareLayouts(referencePdf, await renderPdf(template, sample), { tolerance: 1 });
+for (const line of drift.matched.filter((line) => line.drift > drift.tolerance)) {
+  console.log(`p${line.pageNumber} dx=${line.dx.toFixed(2)} dy=${line.dy.toFixed(2)} ${line.text}`);
+}
+```
+
+`ok` checks matched-line drift only. No matched lines produce `maxDrift: 0`; unmatched or repeated text does not make `ok` false. Check those lists before treating a result as an acceptable reproduction.

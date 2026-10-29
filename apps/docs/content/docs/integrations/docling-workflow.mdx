@@ -1,0 +1,56 @@
+---
+title: Extract from Docling documents
+description: Keep native elements, table cells, source identity and caller schemas.
+---
+
+Install docture and the engines your extraction strategy uses. The importer and
+HTTP service adapter need no Docling npm peer.
+
+```sh
+npm install docture ai@7.0.51 zod@4.4.3
+```
+
+Import an existing Python or official-client export with
+`importDoclingDocument(nativeJson)` from `docture/import/docling`. Pass its `source`
+to your configured extractor and its `document` to `chunkDocument()` from
+`docture/chunk`. Keep `provenance` beside saved JSON for native pointer lookup.
+
+For a service, configure `DocumentLoaderDoclingServe` from
+`docture/loaders/docling` in your existing extractor or CLI config's `loaders`.
+The normal extraction pipeline applies your schema, validation rules, bounded
+repair and conflict reporting. Select `llm({ model, citations: true })` to verify
+field values against native element or table-cell text.
+
+Use `DoclingServeClient` when you need normalized JSON, diagnostics, the native
+sidecar or an explicit job reference. `submit()` returns a reference you can save;
+`resume(reference).wait()` follows that task without another POST. An interrupted
+submission can have an unknown outcome, and abort does not stop the remote job.
+
+Run the deterministic local example from the repository:
+
+```sh
+pnpm --dir apps/examples exec tsx 18-docling/index.ts
+```
+
+The example imports real Python-export fixtures generated with core 2.104.0,
+models the serve 1.38.2 protocol, extracts two document kinds with different caller
+schemas, and saves conversion/provenance artifacts with the same native digest.
+Its mock service and model need no credentials. Live conversion was not run.
+
+Save CLI extraction with `--full --citations`. The result retains `evidenceSources`
+beside real-line `citationSources`. `docture review --extraction result.json
+--source original.epub` can display native text and citation status without images.
+The review states when physical placement or page images are unavailable.
+
+Physical element/cell highlights require known native units, explicit original-byte
+binding and matching page images. Review rejects a different source digest before
+rendering overlays. Logical pages and unlocated multipage cells have no physical
+box. A canonical JSON digest does not certify that a separately supplied PDF was
+the original source.
+
+Keep the official Docling client when you need its broader artifact, storage or
+native chunking features. Feed its native JSON into the independent importer.
+Docture's service adapter documents a bounded subset of that protocol.
+
+Reference details are in [Docling JSON import](/docs/integrations/docling-import)
+and [Docling service loader](/docs/integrations/docling-serve).

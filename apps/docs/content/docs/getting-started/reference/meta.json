@@ -1,0 +1,9 @@
+{
+  "title": "Shared API reference",
+  "pages": [
+    "packages",
+    "documents",
+    "node"
+  ],
+  "pagesIndex": "index"
+}

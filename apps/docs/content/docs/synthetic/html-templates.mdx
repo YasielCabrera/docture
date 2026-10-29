@@ -1,0 +1,44 @@
+---
+title: Create synthetic HTML templates
+description: Print labeled HTML pages with a separately installed Chromium build.
+---
+
+Use `@docture/synthetic/html` for HTML and CSS layouts. Install its engine and Chromium separately:
+
+```sh
+npm install --save-dev @docture/synthetic docture playwright-core@1.64.1 pdfjs-dist@6.2.108
+npx playwright-core install chromium
+```
+
+## Mark fields
+
+Reuse the model and `Bill` type from the [quick start](/docs/synthetic/quick-start):
+
+```ts
+import { locales } from "@docture/synthetic";
+import { defineHtmlTemplate, escapeHtml, renderHtmlPdf } from "@docture/synthetic/html";
+import { assertVerified } from "@docture/synthetic/verify";
+import { model, type Bill } from "./synth.mjs";
+
+const html = defineHtmlTemplate<Bill>()({
+	key: "html-bill",
+	family: "bill",
+	locale: locales["en-US"],
+	printed: { customerName: true, totalCents: true },
+	css: "section.page { padding: 50pt; font: 12pt Arial; }",
+	render(bill, format) {
+		return `<section class="page">
+			<p data-field="customerName">${escapeHtml(bill.customerName)}</p>
+			<p data-field="totalCents">${format.money(bill.totalCents)}</p>
+		</section>`;
+	},
+});
+const document = await renderHtmlPdf(html, await model.sample({ seed: 7 }));
+await assertVerified(document);
+```
+
+Each fixed-size `section.page` is one page. Declare pagination explicitly. `data-field` names a concrete path or comma-separated paths, and the renderer labels the element's text box in points. A field outside its page or a mask mismatch raises `TemplateError`.
+
+Embed font bytes as data URLs. Use `escapeHtml` for inserted text or quoted attributes. Keep ligatures disabled so the PDF text layer preserves field text. Pass `browser` to reuse Chromium or `executablePath` to choose a build. Without a supplied browser, rendering launches and closes one. Byte reproducibility applies within the same Chromium build.
+
+See [HTML API options](/docs/synthetic/reference/html).

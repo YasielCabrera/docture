@@ -1,0 +1,42 @@
+---
+title: Evaluation runner API
+description: Experiments, bounded concurrency, resume, re-scoring, and lifecycle.
+---
+
+## `@docture/eval/runner`
+
+`runEval` defaults to concurrency 1 and one epoch. Baseline, store, reporters and sections are opt-in. `resume: "latest"` selects an unfinished compatible run. `rescore` reads stored raw output and applies the current spec without extraction. Processors preflight before work and dispose after success, error or cancellation.
+
+- `EvalExtractor`
+- `ExtractContext`
+- `ExtractOutput`
+- `RescoreOptions`
+- `ResultOptions`
+- `ResultSection`
+- `RunEvalOptions`
+
+### `runEval`
+
+```ts
+runEval<T>(options: RunEvalOptions<T>): Promise<EvalResult>
+```
+
+Run every case through every experiment with bounded concurrency and return the stored result. Lanes share one cursor, and the first lane failure aborts the others. Rows interrupted by an abort are dropped so a resume extracts them again. `dispose` runs once on success, failure and abort: on success its failures become warnings; on failure the original error is thrown with `disposalErrors` attached. Reporter failures become warnings, persisted after every hook ran.
+
+When `extract` throws a value with a `usage` member, such as Docture's `ExtractionFailedError.usage`, the errored row keeps that usage. Failed paid calls therefore count toward `costUsd` and the token metrics. A `usage` member that is not valid usage is dropped, and the row's error message says why.
+
+### `memoryRunStore`
+
+```ts
+memoryRunStore(): RunStore
+```
+
+Create an isolated in-memory store, including raw outputs for re-scoring.
+
+### `rescore`
+
+```ts
+rescore<T>(store: RunStore, runId: string, spec: EvalSpec<T>, options?: RescoreOptions<T>): Promise<EvalResult>
+```
+
+Score a stored run again from its raw outputs, without calling `extract`, and store the outcome as a new run whose `run.rescoredFrom` names the source run. The source run is never changed. Warnings, comparison and gate describe the new run, so they come from `options`, not from the source.

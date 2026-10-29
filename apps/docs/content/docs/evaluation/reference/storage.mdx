@@ -1,0 +1,91 @@
+---
+title: Evaluation files and storage API
+description: Filesystem datasets, result artifacts, provenance, and run stores.
+---
+
+## `@docture/eval/node`
+
+`folderDataset` ignores dot folders, hashes documents and rejects unsigned drafts by default. `include` selects explicit case ids. `jsonlDataset` resolves documents relative to its manifest unless `base` is set. `readEvalResult` and `writeEvalResult` use `result.json` with `cases.jsonl`.
+
+- `FolderDatasetOptions`
+- `LiveArtifact`
+
+### `gitInfo`
+
+```ts
+gitInfo(cwd: string): Promise<RunInfo["git"]>
+```
+
+Read repository provenance on demand, returning undefined outside a Git repository. A detached HEAD reports the branch `detached@<first 12 hex digits of the sha>`, which never matches another commit's runs.
+
+### `fileDocument`
+
+```ts
+fileDocument(path: string, mimeType?: string): CaseDocument
+```
+
+Make a lazy filesystem document; an explicit MIME type overrides extension inference.
+
+### `folderDataset`
+
+```ts
+folderDataset<T = unknown>(root: string, options: FolderDatasetOptions<T>): DraftableDataset<T>
+```
+
+Discover one case per subfolder of `root`; folders whose name starts with `.` are ignored. Documents load lazily, but each listed document's content is hashed while listing, because the resume key and the dataset fingerprint must survive a fresh checkout, which resets modification times. Fails on a missing root, document or expected file, a draft without sign-off unless `drafts` allows it, and an unknown `include` id.
+
+### `jsonlDataset`
+
+```ts
+jsonlDataset<T = unknown>(manifest: string, options?: { readonly id?: string; readonly base?: string; readonly toExpected?: (json: unknown, id: string) => T; }): Dataset<T>
+```
+
+Load a JSONL manifest with `id`, `documents` (paths relative to `base`, default the manifest's folder) and `expected` on each line, plus optional `tags`, `params` and `group`. Errors name the manifest line and case.
+
+### `fileRunStore`
+
+```ts
+fileRunStore(dir: string): RunStore
+```
+
+A run store in a directory. `index.jsonl` is an append-only list of run events, and `runs/<runId>/` holds `run.json`, `cases.jsonl`, `result.json` and `raw/<experiment>/<caseId>.<epoch>.json`. Each id in a raw path is `x-` plus its UTF-8 bytes in lowercase hex, or `h-` plus their SHA-256 when longer than 60 bytes, so ids that differ only in letter case never share a file. A crash can tear the last line of a log; readers ignore it and the next append cuts it.
+
+### `readEvalResult`
+
+```ts
+readEvalResult(dir: string): Promise<EvalResult>
+```
+
+Read and validate the small metadata file and separate case rows.
+
+### `runDirectory`
+
+```ts
+runDirectory(dir: string): Pick<RunStore, "readResult" | "readRaw">
+```
+
+Read one run directory on its own, such as `runs/<runId>/` copied out of a store. It holds the result and the raw outputs. Pass it as `source` to `rescore(store, runId, spec, { source })`. The re-scored run is written to `store`. Reading another run id fails with `RunStoreError` (`not-found`).
+
+### `writeEvalResult`
+
+```ts
+writeEvalResult(dir: string, result: EvalResult): Promise<void>
+```
+
+Replace case rows, then atomically write `result.json`, the commit point a reader checks first. Raw files remain available.
+
+### `writeFileAtomic`
+
+```ts
+writeFileAtomic(path: string, data: string | Uint8Array): Promise<void>
+```
+
+Write a file so readers see either the old or the new content, never a partial one. Creates parent directories.
+
+### `liveArtifact`
+
+```ts
+liveArtifact(path: string, options?: { readonly intervalMs?: number; }): LiveArtifact
+```
+
+Create a throttled atomic writer for an artifact that is rewritten while a run progresses.

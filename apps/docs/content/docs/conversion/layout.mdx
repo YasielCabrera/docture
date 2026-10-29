@@ -1,0 +1,30 @@
+---
+title: Preserve layout and tables
+description: Inspect detected structure, merged cells, and elements that continue across pages.
+---
+
+The converter uses source text, tagged hints, geometry, and typography to infer reading order and structure. It keeps uncertain content as paragraphs. It does not paraphrase, dehyphenate, or generate captions.
+
+## Inspect a table
+
+```ts
+const result = await converter.convert(source, { format: "json" });
+const table = result.pages[0]?.elements.find((element) => element.kind === "table");
+if (table?.kind === "table") {
+	console.log(table.rows, table.headerRows, table.spans);
+}
+```
+
+A merged cell stores text in its anchor slot and empty strings in covered slots. HTML writes spans. Markdown flattens header rows and leaves covered body cells blank. JSON retains rows, headers, and spans. TXT keeps source lines.
+
+## Handle page boundaries
+
+A continued table or paragraph lives on its starting page and has provenance segments for later pages. Each table row can carry its own provenance. Formats render the joined element once, so a page fragment is not always an exact physical-page transcript.
+
+Joining requires compatible geometry, typography, and continuation evidence. Weak evidence keeps elements separate and can produce `LAYOUT_DEGRADED`. Paragraphs in scripts without letter case do not join across pages.
+
+## Inspect headers and footers
+
+Detected running headers and footers remain available as `page-header` and `page-footer` elements. Markdown and HTML omit them from body text. TXT and JSON retain them. Untagged repeated furniture needs at least three pages; tags can identify furniture on one page.
+
+Review conversion warnings and [source evidence](/docs/conversion/evidence). Use [CLI review](/docs/cli/review) to inspect boxes. The [semantic layout reference](/docs/conversion/reference/layout) specifies detection thresholds, continuation rules, and known limits. [Model assistance](/docs/conversion/model-layout) can refine roles and order.

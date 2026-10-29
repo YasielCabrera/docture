@@ -1,0 +1,24 @@
+---
+title: Evaluation grounding API
+description: Evaluate expected pages and boxes against processor evidence.
+---
+
+## `@docture/eval/grounding`
+
+- `GroundingOptions`
+
+### `grounding`
+
+```ts
+grounding(result: EvalResult, options?: GroundingOptions): GroundingReport
+```
+
+Grade correct predictions whose evidence supports a labelled expected page or box.
+
+### `groundingSection`
+
+```ts
+groundingSection(options?: GroundingOptions): (result: EvalResult) => { grounding: GroundingReport; }
+```
+
+Add grounding through the runner's result sections hook.

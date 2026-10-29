@@ -1,0 +1,28 @@
+---
+title: Match evaluation array items
+description: Choose row alignment that reflects whether order and identity matter.
+---
+
+Give every row array an alignment rule before scoring. Use `byIndex()` when position is part of the answer, `ordered()` when insertions should preserve order, or `hungarian()` when rows may arrive in any order.
+
+```ts
+import { defineEval, exact, hungarian } from "@docture/eval";
+import { z } from "zod";
+
+const schema = z.object({ rows: z.array(z.object({ sku: z.string(), count: z.number() })) });
+const spec = defineEval(schema, {
+	strings: exact(),
+	arrays: { rows: hungarian({ key: ["sku"] }) },
+});
+const expected = { rows: [{ sku: "A", count: 1 }, { sku: "B", count: 2 }] };
+const actual = { rows: [{ sku: "B", count: 2 }, { sku: "A", count: 1 }] };
+console.log(spec.score(expected, actual).metrics.f1);
+```
+
+This scores F1 `1`. Hungarian keys are row-relative paths. Rows whose key values are present and equal pair before similarity matching.
+
+Both similarity-based rules default to minimum similarity `0.5` and a budget of `250000` expected-by-actual matrix cells. Above that budget, alignment falls back to a greedy method and records a warning. Inspect the recorded algorithm when a large table behaves differently.
+
+Similarity matching needs at least one weighted row field with a synchronous comparator. A model judge alone cannot establish row alignment. Set Hungarian `weights` when some fields should matter more for pairing.
+
+See the [array API](/docs/evaluation/reference/arrays) and [model judge constraints](/docs/evaluation/judges).

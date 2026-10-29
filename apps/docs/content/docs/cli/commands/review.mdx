@@ -1,0 +1,59 @@
+---
+title: "docture review"
+description: "Write an offline HTML page that overlays conversion boxes or cited fields on page images"
+---
+
+Draws what docture found over each rendered page, in one self-contained HTML file
+that loads nothing from the network. Without --schema or --model it reviews a
+conversion; with them it extracts with citations and lists every field beside the
+pages, highlighting the lines each field cites.
+
+## Arguments
+
+| Argument | Required | Meaning |
+| --- | --- | --- |
+| `file` | No | The document to convert or extract, a path, http(s) URL, or - for stdin. Omit with --conversion or --extraction |
+
+## Flags
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--out <path>`, `-o` | review.html | The HTML file to write |
+| `--dpi <n>` | 96 | Page image resolution |
+| `--conversion <path>` | Not set | Review a saved `convert --to json` file instead of converting. Needs --source |
+| `--extraction <path>` | Not set | Review a saved `extract --full` result instead of extracting. Needs --source |
+| `--source <file>` | Not set | The original document a saved file came from; its pages are rendered |
+| `--item <n>` | Not set | Which result of a saved batch envelope to review, from 0. Required when it holds several |
+| `--schema <path>`, `-s` | Not set | Extract with this schema and review the cited fields |
+| `--model <provider/id>`, `-m` | Not set | The AI SDK model, e.g. openai/gpt-5 or anthropic/claude-opus-5 |
+| `--gateway` | Not set | Route through the Vercel AI Gateway even if the provider package is installed |
+| `--pricing <path>` | Not set | JSON prices by model id with inputPerMillion and outputPerMillion; optional cacheReadPerMillion and cacheWritePerMillion default to inputPerMillion |
+| `--cache <dir>` | Not set | Cache model responses on disk, so a re-run is free |
+| `--instructions <text>` | Not set | Domain guidance appended to the system prompt |
+| `--temperature <n>` | 0 | Sampling temperature |
+| `--completion <mode>` | forbidden | How a document too big for one request is split Choices: `forbidden`, `paginate`, `concatenate`. |
+| `--max-chars <n>` | 24000 | Character budget per request under --completion concatenate |
+| `--timeout <ms>` | Not set | Per-stage deadline. Omit for none |
+| `--dry-run` | Not set | Validate the invocation and print the plan as JSON. Reads no document and writes no file |
+| `--config <path>` | Not set | Config file. Default: the nearest docture.config.&#123;ts,mts,js,mjs&#125; |
+| `--no-config` | Not set | Ignore any config file that is found |
+| `--verbose`, `-v` | Not set | Report the wiring, the routing, and every attempt |
+| `--quiet`, `-q` | Not set | Only failures and the first hint per error code on stderr |
+| `--no-color` | Not set | Never emit ANSI colour |
+| `--help`, `-h` | Not set | Show this help |
+
+## Examples
+
+```sh
+docture review report.pdf -o review.html
+docture review --conversion report.json --source report.pdf
+docture review invoice.pdf --schema ./invoice.ts --model openai/gpt-5
+docture review --extraction results.json --source invoice.pdf --item 0
+```
+
+## Behavior
+
+- Pages are rendered with the configured loaders, or PDF.js and @napi-rs/canvas by default.
+- Saved conversion JSON and extraction results are validated before any page is rendered.
+
+See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).

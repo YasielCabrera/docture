@@ -1,0 +1,27 @@
+---
+title: Verify synthetic labels
+description: Read digital PDFs back and check that every label matches its page and box.
+---
+
+Verify the digital document before deriving scans or photos. Install `pdfjs-dist@6.2.108` alongside `@docture/synthetic` and `docture`.
+
+## Check a rendering
+
+```ts
+import { assertVerified, verifyLabels } from "@docture/synthetic/verify";
+import { renderPdf } from "@docture/synthetic/pdfkit";
+import { model, template } from "./synth.mjs";
+
+const document = await renderPdf(template, await model.sample({ seed: 7 }));
+const report = await verifyLabels(document, { tolerance: 2 });
+console.log(report);
+await assertVerified(document);
+```
+
+`verifyLabels` checks that each box lies on its page and that PDF text spans inside the expanded box show the label's text. Tolerance defaults to 2 points. `assertVerified` throws `LabelVerificationError` with all failed labels.
+
+The failure kinds are `missing`, `outside-box`, and `page-overflow`. Verification checks the digital text layer and label placement. It does not measure OCR accuracy or a processor's extraction quality. A degraded rendition has no text layer and raises `RangeError`.
+
+`writeCorpus` verifies each digital rendering by default. A failed rendering records failures for its cases while other renderings continue. Do not disable verification when preparing a corpus whose labels you intend to trust.
+
+See [verification options](/docs/synthetic/reference/verify), [layout measurement](/docs/synthetic/layout-measurement), and [evaluation](/docs/synthetic/evaluation).

@@ -1,0 +1,46 @@
+---
+title: Synthetic degrade API
+description: Public API for @docture/synthetic/degrade.
+---
+
+## `@docture/synthetic/degrade`
+
+- `BedKnobs`
+- `DegradeOptions`
+- `EncodeKnobs`
+- `GeometryKnobs`
+- `Matrix`
+- `PaperKnobs`
+- `Profile`
+- `ProfileKey`
+- `Range`
+- `ResolvedKnobs`
+- `Rgb`
+
+### `degrade`
+
+```ts
+degrade(document: SyntheticDocument, options: DegradeOptions): Promise<SyntheticDocument>
+```
+
+A scan, low-quality scan, photo or fax rendition of a PDF document. Each page is rasterized at `dpi` (default 200), aged, warped by one homography, captured and encoded. Every label box goes through the same homography and is stored as the axis-aligned bound of the warped quad. `severity` runs from 0 to 1 and interpolates every knob. `output` is `pdf` (default), `png` or `jpeg`; images need a one-page document. `salt` varies the random draws without changing the profile. The knobs each page used are recorded in `provenance`.
+
+### `profiles`
+
+```ts
+profiles.scan profiles["scan-lq"] profiles.photo profiles.fax
+```
+
+The built-in `Profile` recipes. A profile groups `PaperKnobs` (tint, stains, folds, fibres), `GeometryKnobs` (skew, shear, offset, perspective, surface colour), `BedKnobs` (falloff, shadow, dust, streaks, blur, motion blur, grain, contrast) and `EncodeKnobs` (softness, greyscale, bilevel threshold, JPEG quality). Each knob is a `Range` from severity 0 to severity 1. Pass your own `Profile` to `degrade` for a different capture.
+
+### `transformBox`
+
+```ts
+transformBox(matrix: Matrix, box: LayoutBox): LayoutBox
+```
+
+The axis-aligned bound of a box mapped through a row-major 3×3 homography.
+
+### `ENGINE_RANGES`
+
+`{ sharp: "0.35.5", pdfkit: ">=0.17.2 <0.21.0" }`. Rasterizing also needs `pdfjs-dist` and `@napi-rs/canvas` through `docture/raster/canvas`; `pdfkit` is needed only for PDF output.

@@ -1,0 +1,94 @@
+---
+title: Evaluation comparators API
+description: Exact, numeric, date, identifier, text, set, box, and custom comparators.
+---
+
+## `@docture/eval`
+
+### `defineComparator`
+
+```ts
+defineComparator<E>(comparator: Comparator<E>): Comparator<E>
+```
+
+Declare a custom comparator. Identity at runtime; it pins the type.
+
+### `describeComparator`
+
+```ts
+describeComparator(comparator: Pick<Comparator, "id" | "options">): string
+```
+
+Render a comparator for `spec.explain`, such as `number(abs 0.01)`.
+
+### `exact`
+
+```ts
+exact(options?: { readonly normalize?: ExactNormalization; }): Comparator
+```
+
+Equal JSON values, optionally ignoring case or spacing in strings. A mismatch that only differs in case or spacing gets a hint.
+
+### `number`
+
+```ts
+number(options?: NumberOptions): Comparator
+```
+
+Numbers within an absolute or relative tolerance. Mismatches carry sign, minor-unit, scale and transposition hints.
+
+### `date`
+
+```ts
+date(options?: DateOptions): Comparator
+```
+
+Calendar dates at a granularity. Mismatches that are the right date in another layout, or with day and month swapped, get a `date-format` hint.
+
+### `identifier`
+
+```ts
+identifier(options?: { readonly strip?: string; }): Comparator
+```
+
+Identifiers such as IBANs, references and plates: equal after removing spacing and separators and ignoring case.
+
+### `text`
+
+```ts
+text(options: TextOptions): Comparator
+```
+
+Strings by similarity after lowercasing and collapsing whitespace.
+
+### `oneOf`
+
+```ts
+oneOf(values: readonly Primitive[], options?: { readonly normalize?: "none" | "case"; }): Comparator
+```
+
+A closed vocabulary: the actual value must equal the expected one, and ground truth must be one of `values`.
+
+### `setOf`
+
+```ts
+setOf(element: Comparator, options?: { readonly minSimilarity?: number; }): Comparator
+```
+
+An unordered collection compared as a whole. Elements pair by the best total similarity; the collection matches when every element pairs with a match and neither side has extras. Similarity is the share of matched elements.
+
+### `boxIoU`
+
+```ts
+boxIoU(options: { readonly min: number; }): Comparator
+```
+
+Boxes that overlap by at least `min` intersection over union. Boxes on different pages never match.
+
+### `intersectionOverUnion`
+
+```ts
+intersectionOverUnion(a: Box, b: Box): number
+```
+
+Intersection over union of two boxes. 0 when they do not overlap or have no area.

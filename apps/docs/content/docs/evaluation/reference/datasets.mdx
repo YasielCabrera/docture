@@ -1,0 +1,63 @@
+---
+title: Evaluation dataset management API
+description: Fingerprints, deterministic sampling, draft truth, and guarded migrations.
+---
+
+## `@docture/eval/dataset`
+
+`runMigration` previews by default. With `write: true` it writes only after target checks and optional `spec` validation pass for every case. `draftExpected` writes drafts, never sign-off. Sampling is deterministic for a given seed.
+
+- `DraftableDataset`
+- `Migration`
+- `MigrationDiff`
+- `MigrationReport`
+- `PendingCase`
+- `SampleOptions`
+
+### `caseFingerprint`
+
+```ts
+caseFingerprint(item: EvalCase): string
+```
+
+Hash the content and metadata that determine whether a case can be resumed.
+
+### `datasetFingerprint`
+
+```ts
+datasetFingerprint(items: readonly EvalCase[]): string
+```
+
+Hash a dataset independently of its discovery order.
+
+### `sample`
+
+```ts
+sample<T>(items: readonly EvalCase<T>[], options: SampleOptions<T>): readonly EvalCase<T>[]
+```
+
+Select a nested prefix by incremental largest remainder; whole groups can exceed `size`.
+
+### `defineMigration`
+
+```ts
+defineMigration<T>(migration: Migration<T>): Migration<T>
+```
+
+Define the paths and transformation of a migration.
+
+### `runMigration`
+
+```ts
+runMigration<T>(dataset: WritableDataset<T>, migration: Migration<T>, options?: { readonly write?: boolean; readonly spec?: EvalSpec<T>; }): Promise<MigrationReport>
+```
+
+Preview every change and validate guards for every case, then optionally write. A draft case stays a draft.
+
+### `draftExpected`
+
+```ts
+draftExpected<T>(dataset: WritableDataset<T> & Partial<Pick<DraftableDataset<T>, "pendingCases">>, processor: EvalExtractor<unknown, T>): Promise<readonly string[]>
+```
+
+Extract proposed truth for every case without signed-off truth and write it as a draft, replacing an existing draft. Uses `pendingCases()` when the dataset has it, otherwise the cases whose status is `draft`. Returns the drafted case ids.

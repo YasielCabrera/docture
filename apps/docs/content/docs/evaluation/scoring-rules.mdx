@@ -1,0 +1,32 @@
+---
+title: Define evaluation scoring rules
+description: Choose field comparators, weights, null handling, segments, and assertions.
+---
+
+## Configure field rules
+
+Use the schema of the comparable answer, which may differ from the processor's raw output.
+
+```ts
+import { defineEval, exact, number } from "@docture/eval";
+import { z } from "zod";
+
+const Inventory = z.object({ title: z.string(), count: z.number() });
+const spec = defineEval(Inventory, {
+	strings: exact({ normalize: "case" }),
+	fields: { count: { compare: number({ abs: 0 }), critical: true } },
+});
+console.log(spec.validate({ title: "Screws", count: 12 }).ok);
+console.log(spec.score({ title: "Screws", count: 12 }, { title: "screws", count: 12 }).metrics.f1);
+console.log(spec.explain("count"));
+```
+
+The first two values are `true` and `1`. `explain` identifies the comparator and its source.
+
+Rules resolve in this order: the most specific `fields` pattern, schema `x-docture-eval` annotations, unambiguous type defaults, then `strings`. Unresolved fields, unused rules, and incomplete segment assignments fail together in `EvalSpecError`. Arrays of rows also require [alignment rules](/docs/evaluation/array-matching).
+
+Use `weight` for weighted precision, recall, and F1. A zero-weight field still affects the unweighted `exact` metric. Use `critical: true` for fields that must match. If you declare `segments`, assign each leaf to one segment. Use `assertions` for relationships across fields.
+
+The default `nulls: "absent"` treats null, undefined, and empty strings as missing. `nulls: "strict"` keeps null as a value. Empty metric denominators produce `null`, so an ungraded metric is not a perfect score.
+
+`looseEval()` supplies exploratory JSON rules without a schema. Use explicit rules for a repeatable comparison or CI gate. See [specs](/docs/evaluation/reference/specs), [comparators](/docs/evaluation/reference/comparators), and [metrics](/docs/evaluation/reference/metrics).

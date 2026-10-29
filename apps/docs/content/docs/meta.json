@@ -1,13 +1,15 @@
 {
   "title": "Documentation",
   "pages": [
-    "---Getting started---",
     "index",
-    "quick-start",
-    "how-it-works",
-    "---Documentation---",
-    "guides",
-    "concepts",
-    "reference"
+    "getting-started",
+    "extraction",
+    "conversion",
+    "evaluation",
+    "synthetic",
+    "cli",
+    "integrations",
+    "resources",
+    "api"
   ]
 }

@@ -1,0 +1,32 @@
+---
+title: Inspect results and conflicting values
+description: Read attempt history, usage, validation, source identity, and disagreements.
+---
+
+Keep the full result when you need to explain an answer:
+
+```ts
+const result = await extractor.extract(source, Invoice);
+console.log(result.data, result.method, result.loader);
+console.log(result.attempts, result.validation, result.usage);
+```
+
+`extractData()` returns only the inferred data. `extractResult()` is an alias of `extract()`. `safeExtract()` returns `{ ok: true, result }` or `{ ok: false, error }`.
+
+## Follow attempts
+
+Failed loader attempts precede extraction attempts. The successful loader appears in `result.loader` and is not duplicated. Attempts identify the stage, component, status, elapsed time, and any reported error, usage, or validation issues. Raw model output is capped at 10,000 JavaScript string characters.
+
+Schema validation accepts the result's shape. Report-mode cross-field rules may still leave `validation.valid` false. Usage includes model tokens, optional priced cost, and elapsed wall time. Missing cost means unknown or unpriced; it does not mean zero.
+
+## Inspect disagreements
+
+Multi-request extraction can return `conflicts`, one field path and competing values with their pages. Conflicts do not invalidate a result. Arrays append rows and are not compared row by row. See [long documents](/docs/extraction/long-documents#conflicting-values) for merge rules.
+
+Use `formatFieldPath()` and `parseFieldPath()` when matching conflicts, citations, and validation issues, especially for keys containing dots or backticks.
+
+## Keep source identity
+
+When the loader provides them, save `sourceDigest`, `physicalSourceDigest`, and `sourceMetadata` with the result. Native export identity and physical file identity have different roles. A physical digest binds highlights to the exact original bytes.
+
+See [results API](/docs/extraction/reference/results) for fields and [source evidence](/docs/conversion/evidence) for coordinate and identity contracts.

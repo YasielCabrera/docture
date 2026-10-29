@@ -1,0 +1,24 @@
+---
+title: Evaluate a synthetic corpus
+description: Read corpus truth and source locations with the evaluation package.
+---
+
+Install `@docture/eval` alongside `@docture/synthetic` and `docture`. `jsonlDataset` reads the manifest returned by `writeCorpus`.
+
+Each case includes tags for template, family, scenario, rendition, severity, and locale, plus a `group` shared by the renditions of one rendering. Expected `locations` come from the transformed label boxes. Preserve groups in comparisons so related renditions do not count as independent ground truths.
+
+## Choose the scored view
+
+Project truth with `toExpected` when a processor returns only part of the original schema. Permit `null` for fields that a template does not print. Use explicit field comparators and array matching rules with `defineEval`.
+
+Add slices such as `rendition: "tags.rendition"` to find failures hidden by an overall score. `groundingSection()` compares processor evidence with expected locations; it does not infer evidence for a processor that returns none.
+
+For an in-memory rendering, `toEvalCase(document)` produces the case shape without a runtime dependency on eval. It includes ground truth, labels grouped by path, rendition tags, and rendering group identity.
+
+## Complete example
+
+<SourceExample file="synthetic-corpus.ts" title="synthetic-corpus.ts" />
+
+The example writes four cases and prints `4 cases, digital F1 1, scan F1 0`. Its processor reads only the PDF text layer. Scans have no text layer, so the difference tests that limitation rather than OCR quality.
+
+The [full utility-bill program](https://github.com/YasielCabrera/docture/tree/main/apps/examples/24-synthetic-corpus) uses two layouts and localized values. See [evaluation quick start](/docs/evaluation/quick-start), [grounding](/docs/evaluation/grounding), and [synthetic document APIs](/docs/synthetic/reference/documents).

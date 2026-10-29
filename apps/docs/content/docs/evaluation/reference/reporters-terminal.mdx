@@ -1,0 +1,46 @@
+---
+title: Evaluation terminal reporter API
+description: Terminal reports from saved evaluation results.
+---
+
+## `@docture/eval/reporters/terminal`
+
+This entry is Node-only: its writing factory imports `node/artifacts`. Pure rendering implementations have no Node imports. The factory consumes `EvalResult` through `onResult`; writing requires an explicit `out` except for the terminal reporter.
+
+- `CellValue`
+- `Column`
+- `ScoreboardOptions`
+- `TerminalReporterOptions`
+- `TerminalStream`
+
+### `renderScoreboard`
+
+```ts
+renderScoreboard(result: EvalResult, options?: ScoreboardOptions): string
+```
+
+The final scoreboard as plain text: overall metrics, segments, slices, failures, comparison verdicts, gate and warnings.
+
+### `terminalReporter`
+
+```ts
+terminalReporter(options?: TerminalReporterOptions): Reporter
+```
+
+Print progress and the final scoreboard. On a TTY a two-line panel is repainted below the case lines; otherwise each case prints one line. Narrow terminals drop low-priority columns, never the error text.
+
+### `defineColumn`
+
+```ts
+defineColumn(column: Column): Column
+```
+
+Declare a column. Identity at runtime; it pins the type.
+
+### `defaultColumns`
+
+```ts
+defaultColumns(): readonly Column[]
+```
+
+The columns every per-case view starts from.

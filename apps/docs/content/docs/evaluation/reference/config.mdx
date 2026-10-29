@@ -1,0 +1,18 @@
+---
+title: Evaluation configuration API
+description: The docture.eval.ts configuration contract.
+---
+
+## `@docture/eval/config`
+
+`defineEvalConfig` returns its input unchanged. Dataset, spec and experiments are required. `sections` adds result analyses before reporting; `fallbackBranch` is used when automatic baseline lookup finds no run on the current branch. `baseline: "auto"` requires Git provenance and a store. `store` accepts a directory or a structural `RunStore`.
+
+- `EvalConfig`
+
+### `defineEvalConfig`
+
+```ts
+defineEvalConfig<T>(config: EvalConfig<T>): EvalConfig<T>
+```
+
+Type a `docture.eval.ts` config. Identity at runtime.

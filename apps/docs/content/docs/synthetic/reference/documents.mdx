@@ -1,0 +1,56 @@
+---
+title: Synthetic documents and CLI configuration API
+description: Public signatures, types, behavior, and defaults for synthetic documents and cli configuration.
+---
+
+## `@docture/synthetic`
+
+### `toEvalCase`
+
+```ts
+toEvalCase(document: SyntheticDocument, options?: { readonly id?: string }): SyntheticCase
+```
+
+An `EvalCase` for `@docture/eval`, built without depending on it. Tags hold the template's tags plus `template`, `family`, `scenario`, `rendition` and a severity bucket. Params hold the seed, the scenario tags and the rendition. `locations` group the labels by path.
+
+A `SyntheticDocument` holds `bytes`, `mimeType`, `pages` (`PageInfo` with size in points), `expected`, `labels` (`FieldLabel`: `path`, ground-truth `value`, drawn `text`, `pageNumber` and `box`), the `sample` identity, the `template` identity, the `rendition` and `provenance`.
+
+### `caseIdOf`
+
+```ts
+caseIdOf(document: { sample; template; rendition }): string
+```
+
+The case id of a rendering's rendition, from identity fields only, so ids are known before rendering.
+
+### `groupOf`
+
+```ts
+groupOf(document: SyntheticDocument): string
+```
+
+The group shared by every rendition of one rendering, `seed:scenario:template`, so eval treats them as one ground truth.
+
+### `locationsOf`
+
+```ts
+locationsOf(labels: readonly FieldLabel[]): SyntheticCase["locations"]
+```
+
+Labels grouped by path, the shape of `EvalCase.locations`.
+
+### `severityBucket`
+
+```ts
+severityBucket(severity: number): "mild" | "moderate" | "severe"
+```
+
+Below 0.4 is mild, below 0.75 moderate, the rest severe.
+
+### `defineSynthConfig`
+
+```ts
+defineSynthConfig<T>(config: SynthConfig<T>): SynthConfig<T>
+```
+
+Type a `docture.synth.ts` file for [`docture synth`](/docs/synthetic/corpora#use-the-cli): `model`, `templates`, `scenarios`, default `seeds`, `renditions` (default digital), `out` and `createdAt`. A `SynthRendition` is the shape that `digital()`, `scan()` and the other rendition helpers return, so the root entry stays free of Node imports.

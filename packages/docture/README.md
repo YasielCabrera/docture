@@ -35,8 +35,8 @@ npm install docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
 
 `docture` exports core from its root. Import model features from `docture/llm` or a
 narrow entry such as `docture/llm/text`, and adapters from `docture/loaders/*`. Engines
-are optional peers that you install explicitly. The only other published package is
-`@docture/cli`. Node.js 22 or newer is required.
+are optional peers that you install explicitly. The other published packages are `@docture/cli`, `@docture/eval`, and
+`@docture/synthetic`. Node.js 22 or newer is required.
 
 ## Usage
 
@@ -284,7 +284,7 @@ await writeCorpus("corpus", { model, templates: [classic], seeds: [1, 2, 3], ren
 ```
 
 See [example 24](https://github.com/YasielCabrera/docture/tree/main/apps/examples/24-synthetic-corpus) and the
-[synthetic corpus guide](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/guides/synthetic-corpus.mdx).
+[synthetic corpus guide](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/synthetic/quick-start.mdx).
 
 ### CLI
 
@@ -462,7 +462,7 @@ npm install --save-dev @docture/synthetic docture pdfkit@0.19.1 pdfjs-dist@6.2.1
 ```
 All peers must satisfy their compatibility range when present, even for an adapter the
 application does not import. The versions above are the ones Docture is developed with;
-the [package reference](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/reference/packages.mdx#engine-versions)
+the [package reference](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/getting-started/reference/packages.mdx#engine-versions)
 lists each supported range and the versions the release gate runs. If the application
 already depends on another release of `tesseract.js`, `ppu-paddle-ocr`, or
 `onnxruntime-node`, the installation recipes give an npm override for core use. A missing
@@ -479,7 +479,7 @@ npm install --save-dev @docture/cli @napi-rs/canvas@1.0.10
 
 MuPDF is AGPL-3.0-or-later licensed. Tesseract and MuPDF use WASM. ONNX Runtime and
 canvas have platform-specific native dependencies. See the
-[installation recipes](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/guides/installation.mdx) for complete
+[installation recipes](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/getting-started/installation.mdx) for complete
 commands for each input and provider.
 
 ### Bundling and installation
@@ -512,7 +512,7 @@ import { fileCache } from "docture/llm/cache";
 ```
 
 Install the selected engines explicitly after removing their old scoped wrappers. See
-the [migration guide](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/guides/migration.mdx) for the complete mapping.
+the [migration guide](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/resources/migration.mdx) for the complete mapping.
 
 ## Documentation
 

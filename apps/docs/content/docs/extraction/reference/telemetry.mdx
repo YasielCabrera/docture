@@ -1,0 +1,57 @@
+---
+title: Model telemetry API
+description: Per-call telemetry settings, recorded context, and cache behavior.
+---
+
+Import these APIs from `docture/llm` or the narrow entries listed below. Install AI SDK 7 and Zod (3.25.76 or later 3.x, or 4.1.8 or later) in the application.
+For model components:
+
+```sh
+npm install docture ai@^7 zod@^4
+```
+
+Also install the provider you construct, such as `@ai-sdk/openai`. The
+[complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model)
+includes the document engine and schema library.
+
+All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
+gateway model string.
+
+## Telemetry
+
+Every text, vision, classifier, layout, splitter, and repair component accepts
+`telemetry?: LlmTelemetryOptions`. `LLM` passes its `telemetry` to every component it
+builds. Each entry point that exports a component also exports the type.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `isEnabled` | AI SDK default | Turns telemetry on or off for docture's calls. |
+| `recordInputs` | `false` | Asks integrations to record prompts, document text, and page images. |
+| `recordOutputs` | `false` | Asks integrations to record model answers. |
+| `integrations` | registered integrations | Per-call AI SDK telemetry integrations. |
+| `runtimeContext` | none | Extra context recorded on every call. |
+| `documentLabel` | `true` | `false` keeps the source file name out of telemetry. |
+
+`recordInputs` and `recordOutputs` are flags on each telemetry event, not filters. The
+AI SDK still passes the messages and the answer to every integration's callbacks, and
+each integration decides whether to honour the flags. Check that every integration you
+register honours them before you send it sensitive documents.
+
+Each call sets `functionId` to `docture.<stage>.<component>`. The stages are `extract`,
+`vision`, `classify`, `layout`, `split`, and `repair`, and the component is the
+strategy, classifier, analyzer, or splitter name, for example `docture.extract.llm` or
+`docture.classify.llm-classifier`. The runtime context gains a `docture` entry with
+`stage`, `component`, the source file name as `document` when known, the `pages` the call
+covered, and the `chunk` index of a multi-request extraction. `documentLabel: false`
+leaves `document` out. Layout calls name the converted source like every other stage.
+A classifier call lists only the pages with text in its excerpt: with the default
+`excerptChars` of 4000, a long first page is the only page listed. When the document's
+`text` is not its page texts joined by form feeds, as with a preloaded document whose
+text the caller wrote, the excerpt cannot be traced to pages and the classifier call
+has no `pages`. A cached answer makes no model call and emits no telemetry.
+
+```ts
+import { llm } from "docture/llm/text";
+
+llm({ model, telemetry: { integrations: [myIntegration], runtimeContext: { tenant: "acme" } } });
+```

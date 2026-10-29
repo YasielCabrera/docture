@@ -1,0 +1,82 @@
+---
+title: Manage cancellation, deadlines, and cleanup
+description: Stop runs, bound stage time, log events, and dispose shared engines.
+---
+
+## Stop a run
+
+Pass an `AbortSignal` to stop work owned by the caller:
+
+```ts
+const controller = new AbortController();
+
+const pending = extractor.extract("invoice.pdf", Invoice, {
+  signal: controller.signal,
+});
+
+controller.abort();
+await pending;
+```
+
+A caller abort propagates and suppresses fallback. The pipeline does not start another
+loader or strategy after cancellation.
+
+## Set stage deadlines
+
+During extraction, `stageTimeoutMs` applies to each loader, classifier, and strategy
+stage:
+
+```ts
+const extractor = new Extractor({
+  loaders,
+  strategies,
+  stageTimeoutMs: 30_000,
+});
+```
+
+You may override it per extraction through `RunOptions`. A loader or strategy deadline
+creates a failed attempt with `TIMEOUT`, then fallback continues. A classifier deadline
+becomes an abstaining signal so the remaining classifiers can answer.
+
+## Log pipeline events
+
+The default logger is silent. Register `consoleLogger` or implement `Logger`:
+
+```ts
+const extractor = new Extractor()
+  .loadLogger(consoleLogger());
+```
+
+Log fields contain component names, codes, ids, and timing data. Built-in components do
+not log document content.
+
+## Release resources
+
+```ts
+try {
+  await runWork(extractor);
+} finally {
+  await extractor.dispose();
+}
+```
+
+`dispose()` releases loaders, strategies, classifiers, workers, and model engines. It is
+idempotent. If several components fail during disposal, docture waits for all of them and
+throws an `AggregateError` containing every failure.
+
+`Process.dispose()` releases its splitter, default extractor, and directly registered
+loaders.
+
+## Scope disposal
+
+`Extractor`, `DocumentConverter`, composed raster loaders, and the OCR loader classes
+support `Symbol.asyncDispose`. Node 22 or later can release their resources with
+`await using`. Explicit `dispose()` remains available.
+
+```ts
+await using extractor = new Extractor({ loaders: [loader], strategies: [parser] });
+await extractor.extract(source, schema);
+```
+
+Failed lazy page renders and engine initialization are retried on the next request.
+Successful page renders remain memoized.

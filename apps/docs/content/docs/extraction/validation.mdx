@@ -1,0 +1,34 @@
+---
+title: Validate results and repair answers
+description: Check schema shape and cross-field rules, then repair or fall back on failed answers.
+---
+
+Start with a runtime schema. The pipeline validates a strategy's answer before accepting it. A JSON Schema wrapper without a validator supplies no runtime check.
+
+## Add a rule
+
+Pass typed rules for facts such as a nonnegative total:
+
+```ts
+const result = await extractor.extract(source, Invoice, {
+	rules: [(invoice) => invoice.total >= 0
+		? []
+		: [{ path: "total", message: "Total must be nonnegative" }]],
+	onRuleFailure: "report",
+});
+console.log(result.validation);
+```
+
+`report` returns data and marks failed rules in `validation`. Choose `onRuleFailure: "fail"` when a rule must reject the attempt. Per-call `rules` replaces extractor defaults; `[]` clears them. A rule that throws or returns malformed issues rejects the run without fallback.
+
+## Bound repairs
+
+Set `maxRepairs` to the number of times a strategy can repair a rejected answer, default `1`. Use `0` to disable repairs. Only strategies that implement `repair()` are retried this way. A failed repair exhausts the budget before the next eligible strategy runs.
+
+Report-mode rule issues do not trigger repair. A transport retry uses `maxRetries`; it retries a failed model request and has a separate budget. Repair requests cost tokens and appear as separate `repair` attempts.
+
+## Inspect failure
+
+When all attempts fail, the first schema or rule violation takes precedence as `ContractViolationError`. Its `failedCheck` distinguishes `schema` from `rule`. If every strategy throws before validation, the run raises `ExtractionFailedError`. Caller cancellation stops repair and fallback.
+
+See [validation and repair API](/docs/extraction/reference/validation) for full rule, error, and repair contracts. [Result inspection](/docs/extraction/results) explains attempt records.

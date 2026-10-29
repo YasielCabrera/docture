@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples contracts
 ```
 
-Docs: [`concepts/contracts`](../../docs/content/docs/concepts/contracts.mdx)
+Docs: [`concepts/contracts`](../../docs/content/docs/extraction/schemas.mdx)
 
 ## Imports and installs
 

@@ -1,0 +1,20 @@
+---
+title: Check document conversion
+description: Assert text presence order and table structure in converted documents.
+---
+
+Use `checkConversion` from `@docture/eval/conversion` to test a converted document without a model judge. The runnable recipe generates its own PDF:
+
+<SourceExample file="check-conversion.ts" title="Check converted text and tables" />
+
+The recipe prints `4/4 conversion checks passed`. It checks text presence, absence, reading order, and neighboring table cells.
+
+Pass the converted result when checks need pages, provenance, or table structure. A plain Markdown or text string supports text checks only.
+
+Text matching normalizes Unicode with NFKC and folds whitespace runs. A match stays within one unit: an element, a list item, a table cell, or a blank-line-separated block in string output. Text spread across separate units does not match one phrase.
+
+Each check returns its ID, pass state, and failure reason. Inspect `report.passed`, `report.failed`, and `report.results`, then fail your test or CI command according to your policy.
+
+These checks test the declared conversion properties. They do not measure schema extraction accuracy or establish visual equivalence with the original PDF.
+
+See [conversion checks API](/docs/evaluation/reference/conversion) and [Conversion and retrieval](/docs/conversion).

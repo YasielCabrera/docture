@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { LegacyDocRedirect } from "@/components/legacy-doc-redirect";
+import { legacyDocs } from "@/lib/docs-migration";
 import type { Metadata } from "next";
 import {
   DocsBody,
@@ -14,7 +16,11 @@ import { getPageMarkdownUrl, source } from "@/lib/source";
 export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   const params = await props.params;
   const page = source.getPage(params.slug);
-  if (!page) notFound();
+  if (!page) {
+    const entry = legacyDocs.get(`/docs/${(params.slug ?? []).join("/")}`);
+    if (entry === undefined) notFound();
+    return <LegacyDocRedirect entry={entry} />;
+  }
 
   const MDX = page.data.body;
 
@@ -39,7 +45,7 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
 }
 
 export async function generateStaticParams() {
-  return source.generateParams();
+  return [...source.generateParams(), ...Array.from(legacyDocs.keys(), (route) => ({ slug: route.slice("/docs/".length).split("/") }))];
 }
 
 export async function generateMetadata(
@@ -47,7 +53,11 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const params = await props.params;
   const page = source.getPage(params.slug);
-  if (!page) notFound();
+  if (!page) {
+    const entry = legacyDocs.get(`/docs/${(params.slug ?? []).join("/")}`);
+    if (entry === undefined) notFound();
+    return { title: "Documentation moved", robots: { index: false, follow: true }, alternates: { canonical: entry.to } };
+  }
 
   return { title: page.data.title, description: page.data.description };
 }

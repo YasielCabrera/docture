@@ -1,0 +1,35 @@
+---
+title: Prompt helpers API
+description: Prompt construction, field guidance, and schema instructions.
+---
+
+Import these APIs from the narrow entries listed below, which need no model runtime.
+They are also available from `docture/llm`, whose model exports require `ai@^7` and a supported Zod release.
+
+```sh
+npm install docture
+```
+
+## Prompt construction
+
+Import from `docture/llm/prompt`.
+
+`DEFAULT_SYSTEM_PROMPT` is the default extraction instruction string.
+
+```ts
+buildPrompt(text: string, options?: BuildPromptOptions): PromptParts
+wrapUntrusted(
+  tag: "document" | "excerpt" | "example" | "input" | "output",
+  text: string,
+  escape?: readonly ("document" | "excerpt" | "example" | "input" | "output")[],
+): string
+```
+
+`BuildPromptOptions` has `system`, `instructions`, optional `classification`, `hints`, and
+`examples`. `system` replaces the default; instructions, hints and examples are appended.
+Each example, `{ text, output }` with `output` as JSON text, is rendered as `<example>`
+holding `<input>` and `<output>`. `PromptParts` contains
+the final `system` and user `prompt`. The document text is wrapped in document delimiters.
+`wrapUntrusted()` neutralizes matching open and close tag forms inside the text, and those
+of every tag in `escape`, ignoring case and surrounding whitespace, then wraps it in one
+tag pair. Other text is unchanged.

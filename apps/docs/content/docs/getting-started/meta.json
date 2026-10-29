@@ -1,0 +1,14 @@
+{
+  "title": "Getting started",
+  "root": false,
+  "defaultOpen": true,
+  "pages": [
+    "choose-workflow",
+    "installation",
+    "how-it-works",
+    "sources",
+    "runtime",
+    "reference"
+  ],
+  "pagesIndex": "index"
+}

@@ -1,0 +1,75 @@
+---
+title: Element identity and evidence API
+description: Source lines, native evidence, identifiers, and provenance segments.
+---
+
+Import from `docture`.
+
+## Element IDs
+
+A page break's ID is `p<page>-page-break`. Every other element's ID is `p<page>-` and 12 hex
+characters from a SHA-256 digest of these inputs:
+
+- The scheme version.
+- The identity class. Headings, paragraphs, code, page headers, and page footers share the
+  `text` class, so a heuristic that retypes unchanged text keeps its ID. Lists, tables, and
+  figures each have their own class.
+- The page number and the left and top position of the element's first page, rounded to
+  whole points. Text-only pages use `0, 0`.
+- The normalized content. A list contributes its ordered flag and item text, a table every
+  cell, including rows on continuation pages, and a figure its alt text, caption, and
+  rounded size. Normalization applies NFC, collapses whitespace runs to one space, and
+  trims.
+
+Converting the same file with the same loader and options gives the same IDs. An element
+keeps its ID when an unrelated element is inserted without moving it, although its
+`sourceIds` and `lineIds` change, because loaders count blocks and lines in page order. A
+layout analyzer that retypes or reorders an element keeps its ID. A group keeps the ID of
+its first member.
+
+An ID is an anchor, not a checksum. The guarantee has these limits:
+
+- Reflow, a different loader, or a segmentation change can move, split, or merge elements,
+  which changes their IDs.
+- A page inserted earlier changes the page number of every later element and so its ID.
+- Furniture and continuation detection compare pages. Under page selection, an element
+  keeps its ID only when its own segmentation and continuation decisions do not change.
+- Whitespace edits inside code, image bytes, and moves of less than half a point do not
+  change an ID. A position close to a half point can round differently in another engine
+  version.
+- Exact duplicates with the same class, page, position, and content get `-2`, `-3`, and so
+  on, in document order. A duplicate has no individual stability promise, and neither has
+  the very unlikely case of two different elements whose digests share 12 hex characters.
+- Stable element IDs do not stabilize chunk membership or citation line IDs.
+
+`parseDoctureDocument()` keeps IDs as saved. Documents from earlier releases have ordinal
+IDs such as `p1-text-4`, which are not mapped to the new scheme. Convert the source again
+to get the new IDs.
+
+
+## Source lines
+
+```ts
+sourceLines(page: Pick<LoadedPage, "pageNumber" | "lines">): readonly SourceLine[]
+isLineSourceId(id: string): id is LineSourceId
+```
+
+A `LineSourceId` names one positioned loader line as `p<page>-line-<I>`, where `I` is the
+1-based index into `page.lines`. `sourceLines()` returns each line's `SourceLine` with ID,
+page number, box, and verbatim text. Pages without positioned lines return none.
+`isLineSourceId()` accepts only the canonical form, without leading zeros.
+
+The same loader with the same options yields the same IDs during extraction and
+conversion. A line split into two columns contributes its ID to both halves, so an ID
+resolves to the whole physical line.
+
+`ConversionAsset` extends the loader's `LoadedAsset` with its stable relative `reference`.
+
+
+## Native element evidence
+
+`EvidenceSourceId` includes real line IDs plus neutral `ElementSourceId` and `CellSourceId` values. `isEvidenceSourceId` checks that syntax. `SourceEvidence` retains actual element or table-cell granularity and text without inventing `TextLine` records.
+
+`EvidenceLocation` distinguishes bound physical page boxes, logical pages and unlocated multi-page evidence. A physical location requires its source digest. Logical or ambiguous evidence has no physical box. `parseSourceEvidence` returns `SourceEvidenceParse` with validated evidence or diagnostics for untrusted saved input. Imported JSON and chunks preserve evidence IDs, granularity and location. Field results keep line-only citationSources and native evidenceSources separately.
+
+`ConvertedPage.evidence` retains native element and table-cell records in every output format. Passing a conversion result directly to `chunkDocument()` preserves the same evidence as chunking its saved JSON. Mixed native and OCR pages retain each untouched native page's authoritative layout and source identity. Layout grouping preserves source IDs while updating their normalized parent references.

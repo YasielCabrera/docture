@@ -24,7 +24,7 @@ const categories: readonly Category[] = [
   {
     name: "Loader",
     job: "Turn bytes into pages of text, geometry, or OCR.",
-    href: "/docs/concepts/loaders",
+    href: "/docs/integrations/loaders",
     columns: 3,
     entries: [
       {
@@ -62,7 +62,7 @@ const categories: readonly Category[] = [
   {
     name: "Strategy",
     job: "Turn loaded pages into data that satisfies your contract.",
-    href: "/docs/concepts/strategies",
+    href: "/docs/extraction/strategies",
     columns: 3,
     entries: [
       {
@@ -85,7 +85,7 @@ const categories: readonly Category[] = [
   {
     name: "Rasterizer",
     job: "Give any compatible loader lazy page images.",
-    href: "/docs/concepts/rasterizers",
+    href: "/docs/integrations/rasterizers",
     columns: 2,
     entries: [
       {
@@ -113,7 +113,7 @@ const categories: readonly Category[] = [
   {
     name: "Classifier",
     job: "Choose a document kind and the contract that goes with it.",
-    href: "/docs/concepts/classification",
+    href: "/docs/extraction/classification",
     columns: 2,
     entries: [
       {
@@ -141,7 +141,7 @@ const categories: readonly Category[] = [
   {
     name: "Splitter",
     job: "Cut one multi-document file into typed page groups.",
-    href: "/docs/concepts/bundles-and-splitters",
+    href: "/docs/extraction/splitting",
     columns: 2,
     entries: [
       {

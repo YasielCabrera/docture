@@ -1,0 +1,792 @@
+{
+  "/docs/concepts/bundles-and-splitters": {
+    "to": "/docs/extraction/splitting",
+    "anchors": {
+      "splitter-contract": "/docs/extraction/splitting#splitter-contract",
+      "eager-and-lazy-splitting": "/docs/extraction/splitting#eager-and-lazy-splitting",
+      "process-lifecycle": "/docs/extraction/splitting#process-lifecycle"
+    }
+  },
+  "/docs/concepts/classification": {
+    "to": "/docs/extraction/classification",
+    "anchors": {
+      "classification-fields": "/docs/extraction/classification#classification-fields",
+      "classifier-signals": "/docs/extraction/classification#classifier-signals",
+      "choosing-a-verdict": "/docs/extraction/classification#choosing-a-verdict",
+      "flat-lists-and-trees": "/docs/extraction/classification#flat-lists-and-trees"
+    }
+  },
+  "/docs/concepts/contracts": {
+    "to": "/docs/extraction/schemas",
+    "anchors": {
+      "worked-examples": "/docs/extraction/reference/contracts",
+      "when-the-name-is-used": "/docs/extraction/reference/contracts",
+      "structural-contract": "/docs/extraction/reference/contracts",
+      "convert-a-contract-to-a-classification": "/docs/extraction/reference/contracts"
+    }
+  },
+  "/docs/concepts/loaders": {
+    "to": "/docs/integrations/loaders",
+    "anchors": {
+      "built-in-loaders": "/docs/integrations/loaders#built-in-loaders",
+      "capabilities": "/docs/integrations/loaders#capabilities",
+      "loaded-pages": "/docs/integrations/loaders#loaded-pages",
+      "selection-and-failures": "/docs/integrations/loaders#selection-and-failures"
+    }
+  },
+  "/docs/concepts/rasterizers": {
+    "to": "/docs/integrations/rasterizers",
+    "anchors": {
+      "compose-with-a-loader": "/docs/integrations/rasterizers#compose-with-a-loader",
+      "lazy-page-images": "/docs/integrations/rasterizers#lazy-page-images",
+      "cancel-a-page-image": "/docs/integrations/rasterizers#cancel-a-page-image",
+      "shipped-rasterizer-defaults": "/docs/integrations/rasterizers#shipped-rasterizer-defaults"
+    }
+  },
+  "/docs/concepts/schemas-and-types": {
+    "to": "/docs/extraction/schemas",
+    "anchors": {
+      "supported-schemas": "/docs/extraction/reference/contracts",
+      "field-guidance": "/docs/extraction/reference/contracts",
+      "validation": "/docs/extraction/reference/contracts",
+      "partial-model-requests": "/docs/extraction/reference/contracts"
+    }
+  },
+  "/docs/concepts/strategies": {
+    "to": "/docs/extraction/strategies",
+    "anchors": {
+      "eligibility": "/docs/extraction/strategies#eligibility",
+      "classification-needs": "/docs/extraction/strategies#classification-needs",
+      "running-and-validation": "/docs/extraction/strategies#running-and-validation",
+      "strategy-context-and-outcome": "/docs/extraction/strategies#strategy-context-and-outcome"
+    }
+  },
+  "/docs/guides/batches-and-lifecycle": {
+    "to": "/docs/extraction/batches",
+    "anchors": {
+      "install": "/docs/extraction/batches#install",
+      "extract-a-batch": "/docs/extraction/batches#extract-a-batch",
+      "stop-a-run": "/docs/extraction/lifecycle#stop-a-run",
+      "set-stage-deadlines": "/docs/extraction/lifecycle#set-stage-deadlines",
+      "log-pipeline-events": "/docs/extraction/lifecycle#log-pipeline-events",
+      "release-resources": "/docs/extraction/lifecycle#release-resources",
+      "scope-disposal": "/docs/extraction/lifecycle#scope-disposal"
+    }
+  },
+  "/docs/guides/cli": {
+    "to": "/docs/cli/quick-start",
+    "anchors": {
+      "commands": "/docs/cli/commands#commands",
+      "convert": "/docs/cli/commands#convert",
+      "extract": "/docs/cli/commands#extract",
+      "inspect": "/docs/cli/commands#inspect",
+      "output-streams": "/docs/cli/inputs-and-outputs#output-streams",
+      "batches": "/docs/cli/inputs-and-outputs#batches",
+      "standard-input": "/docs/cli/inputs-and-outputs#standard-input",
+      "dry-run": "/docs/cli/dry-run#dry-run",
+      "models-and-vision": "/docs/cli/models#models-and-vision",
+      "review": "/docs/cli/review#review",
+      "conversion-view": "/docs/cli/review#conversion-view",
+      "extraction-view": "/docs/cli/review#extraction-view",
+      "configuration-file": "/docs/cli/configuration#configuration-file",
+      "evaluate-in-ci": "/docs/cli/evaluation#evaluate-in-ci",
+      "quick-mode": "/docs/cli/evaluation#quick-mode",
+      "mcp-server": "/docs/cli/mcp#mcp-server"
+    }
+  },
+  "/docs/guides/container-images": {
+    "to": "/docs/cli/containers",
+    "anchors": {}
+  },
+  "/docs/guides/custom-loader": {
+    "to": "/docs/resources/custom-components",
+    "anchors": {
+      "install": "/docs/resources/custom-components#install",
+      "loader": "/docs/resources/custom-components#loader",
+      "rasterizer": "/docs/resources/custom-components#rasterizer",
+      "strategy": "/docs/resources/custom-components#strategy",
+      "classifier": "/docs/resources/custom-components#classifier",
+      "splitter": "/docs/resources/custom-components#splitter",
+      "test-pdf-loaders-and-rasterizers": "/docs/resources/custom-components#test-pdf-loaders-and-rasterizers",
+      "complete-example": "/docs/resources/custom-components#complete-example"
+    }
+  },
+  "/docs/guides/docling": {
+    "to": "/docs/integrations/docling-workflow",
+    "anchors": {}
+  },
+  "/docs/guides/document-conversion": {
+    "to": "/docs/conversion/quick-start",
+    "anchors": {
+      "install": "/docs/conversion/quick-start#install",
+      "digital-and-scanned-pdfs": "/docs/conversion/quick-start",
+      "selected-pages": "/docs/conversion/quick-start",
+      "output-formats": "/docs/conversion/formats#output-formats",
+      "assets": "/docs/conversion/assets#assets",
+      "deterministic-and-model-assisted-layout": "/docs/conversion/layout",
+      "running-headers-and-footers": "/docs/conversion/reference/furniture#running-headers-and-footers",
+      "tables-and-merged-cells": "/docs/conversion/reference/tables#tables-and-merged-cells",
+      "tables-and-paragraphs-across-pages": "/docs/conversion/reference/continuations#tables-and-paragraphs-across-pages",
+      "serverless-and-in-memory-use": "/docs/conversion/formats#serverless-and-in-memory-use",
+      "result-provenance": "/docs/conversion/evidence#result-provenance",
+      "cli": "/docs/cli/commands",
+      "export-structured-json": "/docs/conversion/document-json#export-structured-json"
+    }
+  },
+  "/docs/guides/http-service": {
+    "to": "/docs/cli/http-service",
+    "anchors": {}
+  },
+  "/docs/guides/installation": {
+    "to": "/docs/getting-started/installation",
+    "anchors": {
+      "core-custom-loaders-and-in-memory-documents": "/docs/getting-started/installation#core-custom-loaders-and-in-memory-documents",
+      "pdfjs-text-extraction-and-deterministic-conversion": "/docs/getting-started/installation#pdfjs-text-extraction-and-deterministic-conversion",
+      "text-extraction-classification-splitting-and-layout-with-a-model": "/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model",
+      "mupdf-text-and-rendering": "/docs/getting-started/installation#mupdf-text-and-rendering",
+      "canvas-rendering-and-vision": "/docs/getting-started/installation#canvas-rendering-and-vision",
+      "tesseract-ocr": "/docs/getting-started/installation#tesseract-ocr",
+      "paddleocr": "/docs/getting-started/installation#paddleocr",
+      "applications-with-their-own-ocr-engine": "/docs/getting-started/installation#applications-with-their-own-ocr-engine",
+      "generated-pdfs-and-conformance-suites": "/docs/getting-started/installation#generated-pdfs-and-conformance-suites",
+      "command-line-tool": "/docs/getting-started/installation#command-line-tool",
+      "evaluation": "/docs/getting-started/installation#evaluation",
+      "synthetic-documents": "/docs/getting-started/installation#synthetic-documents"
+    }
+  },
+  "/docs/guides/long-documents": {
+    "to": "/docs/extraction/long-documents",
+    "anchors": {
+      "tables-across-requests": "/docs/extraction/long-documents#tables-across-requests",
+      "install": "/docs/extraction/long-documents#install",
+      "fragment-schemas": "/docs/extraction/long-documents#fragment-schemas",
+      "merge-rules": "/docs/extraction/long-documents#merge-rules",
+      "conflicting-values": "/docs/extraction/long-documents#conflicting-values",
+      "vision-pages": "/docs/extraction/long-documents#vision-pages",
+      "control-cost": "/docs/extraction/long-documents#control-cost",
+      "complete-example": "/docs/extraction/long-documents#complete-example"
+    }
+  },
+  "/docs/guides/measuring-accuracy": {
+    "to": "/docs/evaluation/quick-start",
+    "anchors": {
+      "declare-the-comparable-view": "/docs/evaluation/scoring-rules#configure-field-rules",
+      "adapt-a-dataset-and-processor": "/docs/evaluation/processors#adapt-an-extractor",
+      "save-and-report": "/docs/evaluation/reports#render-a-saved-result",
+      "compare-and-gate": "/docs/evaluation/comparisons#compare-two-runs",
+      "confidence-and-evidence": "/docs/evaluation/calibration#analyze-confidence"
+    }
+  },
+  "/docs/guides/migration": {
+    "to": "/docs/resources/migration",
+    "anchors": {
+      "replace-the-removed-scoped-packages": "/docs/resources/migration#replace-the-removed-scoped-packages",
+      "move-model-imports-out-of-the-root": "/docs/resources/migration#move-model-imports-out-of-the-root",
+      "install-selected-engines-explicitly": "/docs/resources/migration#install-selected-engines-explicitly",
+      "check-cli-invocations-and-bundle-assumptions": "/docs/resources/migration#check-cli-invocations-and-bundle-assumptions",
+      "update-loader-names-and-constructed-records": "/docs/resources/migration#update-loader-names-and-constructed-records",
+      "move-local-files-to-the-node-entry": "/docs/resources/migration#move-local-files-to-the-node-entry",
+      "move-evaluation-to-doctureeval": "/docs/resources/migration#move-evaluation-to-doctureeval"
+    }
+  },
+  "/docs/guides/paperless": {
+    "to": "/docs/integrations/paperless-workflow",
+    "anchors": {}
+  },
+  "/docs/guides/performance": {
+    "to": "/docs/extraction/performance",
+    "anchors": {
+      "controls-and-defaults": "/docs/extraction/reference/performance#controls-and-defaults",
+      "composed-controls-multiply": "/docs/extraction/performance#composed-controls-multiply",
+      "work-on-the-main-thread": "/docs/extraction/performance#work-on-the-main-thread",
+      "measured-results": "/docs/extraction/reference/performance#measured-results",
+      "model-requests-controlled-mock-provider": "/docs/extraction/reference/performance#model-requests-controlled-mock-provider",
+      "ocr": "/docs/extraction/reference/performance#ocr",
+      "rendering": "/docs/extraction/reference/performance#rendering",
+      "memory-controls": "/docs/extraction/performance#memory-controls",
+      "choose-settings": "/docs/extraction/performance#choose-settings"
+    }
+  },
+  "/docs/guides/retrieval-chunks": {
+    "to": "/docs/conversion/retrieval-chunks",
+    "anchors": {
+      "choose-a-budget": "/docs/conversion/retrieval-chunks#choose-a-budget",
+      "how-elements-are-packed": "/docs/conversion/retrieval-chunks#how-elements-are-packed",
+      "stable-ids": "/docs/conversion/retrieval-chunks#stable-ids"
+    }
+  },
+  "/docs/guides/routing-and-fallback": {
+    "to": "/docs/extraction/routing",
+    "anchors": {
+      "install": "/docs/extraction/routing#install",
+      "loader-order": "/docs/extraction/routing#loader-order",
+      "strategy-eligibility": "/docs/extraction/routing#strategy-eligibility",
+      "strategy-order": "/docs/extraction/routing#strategy-order",
+      "custom-routing-policy": "/docs/extraction/routing#custom-routing-policy",
+      "complete-example": "/docs/extraction/routing#complete-example",
+      "validation-fallback": "/docs/extraction/routing#validation-fallback",
+      "classification-requirements": "/docs/extraction/routing#classification-requirements"
+    }
+  },
+  "/docs/guides/scanned-documents": {
+    "to": "/docs/integrations/scanned-documents",
+    "anchors": {
+      "use-a-vision-model": "/docs/integrations/scanned-documents#use-a-vision-model",
+      "use-tesseract-ocr": "/docs/integrations/scanned-documents#use-tesseract-ocr",
+      "use-paddleocr": "/docs/integrations/scanned-documents#use-paddleocr",
+      "choose-between-ocr-and-vision": "/docs/integrations/scanned-documents#choose-between-ocr-and-vision",
+      "loader-ordering-is-not-ocr-fallback": "/docs/integrations/scanned-documents#loader-ordering-is-not-ocr-fallback",
+      "mixed-documents": "/docs/integrations/scanned-documents#mixed-documents",
+      "rendering-details": "/docs/integrations/scanned-documents#rendering-details"
+    }
+  },
+  "/docs/guides/selected-page-ocr": {
+    "to": "/docs/integrations/selected-page-ocr",
+    "anchors": {}
+  },
+  "/docs/guides/sources-and-inputs": {
+    "to": "/docs/getting-started/sources",
+    "anchors": {
+      "install": "/docs/getting-started/sources#install",
+      "paths-and-urls": "/docs/getting-started/sources#paths-and-urls",
+      "bytes": "/docs/getting-started/sources#bytes",
+      "raw-documents": "/docs/getting-started/sources#raw-documents",
+      "text-and-data-files": "/docs/getting-started/sources#text-and-data-files",
+      "loaded-documents": "/docs/getting-started/sources#loaded-documents",
+      "media-type-detection": "/docs/getting-started/sources#media-type-detection",
+      "select-a-runtime-entry": "/docs/getting-started/sources#select-a-runtime-entry"
+    }
+  },
+  "/docs/guides/synthetic-corpus": {
+    "to": "/docs/synthetic/quick-start",
+    "anchors": {
+      "install": "/docs/synthetic/quick-start#install",
+      "1-start-from-your-schema": "/docs/synthetic/models",
+      "2-define-a-model-whose-values-add-up": "/docs/synthetic/models#override-fields",
+      "3-add-scenarios-for-the-cases-that-break-processors": "/docs/synthetic/scenarios#define-a-scenario",
+      "4-write-templates-with-a-printed-mask": "/docs/synthetic/printed-fields",
+      "5-render-and-verify-one-document": "/docs/synthetic/verification#check-a-rendering",
+      "6-write-the-corpus": "/docs/synthetic/corpora#write-cases",
+      "7-score-a-processor-on-it": "/docs/synthetic/evaluation#choose-the-scored-view",
+      "fonts-and-glyphs": "/docs/synthetic/fonts-and-locales#supply-fonts",
+      "values-from-faker-or-a-model": "/docs/synthetic/models#generate-realistic-text",
+      "html-templates": "/docs/synthetic/html-templates#mark-fields",
+      "from-the-command-line": "/docs/synthetic/corpora#use-the-cli",
+      "a-complete-program": "/docs/synthetic/evaluation#complete-example"
+    }
+  },
+  "/docs/guides/troubleshooting": {
+    "to": "/docs/resources/troubleshooting",
+    "anchors": {
+      "a-local-path-fails-after-switching-to-the-portable-entry": "/docs/resources/troubleshooting#a-local-path-fails-after-switching-to-the-portable-entry",
+      "an-adapter-imports-but-its-first-load-reports-a-missing-engine": "/docs/resources/troubleshooting#an-adapter-imports-but-its-first-load-reports-a-missing-engine",
+      "extraction-says-no-strategy-is-eligible": "/docs/resources/troubleshooting#extraction-says-no-strategy-is-eligible",
+      "a-scan-or-mixed-pdf-produces-incomplete-text": "/docs/resources/troubleshooting#a-scan-or-mixed-pdf-produces-incomplete-text",
+      "ocr-uses-memory-for-pages-outside-the-intended-limit": "/docs/resources/troubleshooting#ocr-uses-memory-for-pages-outside-the-intended-limit",
+      "a-selected-page-fails-or-output-page-numbers-look-unexpected": "/docs/resources/troubleshooting#a-selected-page-fails-or-output-page-numbers-look-unexpected",
+      "citations-show-text-but-cannot-highlight-printed-lines": "/docs/resources/troubleshooting#citations-show-text-but-cannot-highlight-printed-lines",
+      "a-paperless-apply-skips-a-value-or-reports-partial-progress": "/docs/resources/troubleshooting#a-paperless-apply-skips-a-value-or-reports-partial-progress",
+      "a-paperless-apply-tool-is-missing-from-mcp": "/docs/resources/troubleshooting#a-paperless-apply-tool-is-missing-from-mcp",
+      "the-http-service-refuses-a-remote-bind-or-an-upload": "/docs/resources/troubleshooting#the-http-service-refuses-a-remote-bind-or-an-upload",
+      "a-batch-rejects-its-concurrency-setting": "/docs/resources/troubleshooting#a-batch-rejects-its-concurrency-setting",
+      "a-calibration-report-has-no-supported-threshold": "/docs/resources/troubleshooting#a-calibration-report-has-no-supported-threshold"
+    }
+  },
+  "/docs/guides/with-a-model": {
+    "to": "/docs/extraction/with-a-model",
+    "anchors": {
+      "install": "/docs/extraction/with-a-model#install",
+      "use-the-model-backend": "/docs/extraction/with-a-model#use-the-model-backend",
+      "complete-example": "/docs/extraction/with-a-model#complete-example",
+      "build-strategies-directly": "/docs/extraction/with-a-model#build-strategies-directly",
+      "use-the-convenience-factory": "/docs/extraction/with-a-model#use-the-convenience-factory",
+      "guide-the-extraction": "/docs/extraction/model-settings#guide-the-extraction",
+      "cache-responses": "/docs/extraction/model-settings#cache-responses",
+      "report-cost": "/docs/extraction/model-settings#report-cost"
+    }
+  },
+  "/docs/guides/without-a-model": {
+    "to": "/docs/extraction/without-a-model",
+    "anchors": {
+      "install": "/docs/extraction/without-a-model#install",
+      "read-positioned-lines": "/docs/extraction/without-a-model#read-positioned-lines",
+      "write-the-strategy": "/docs/extraction/without-a-model#write-the-strategy",
+      "run-it": "/docs/extraction/without-a-model#run-it",
+      "complete-example": "/docs/extraction/without-a-model#complete-example",
+      "add-model-fallback": "/docs/extraction/without-a-model#add-model-fallback"
+    }
+  },
+  "/docs/how-it-works": {
+    "to": "/docs/getting-started/how-it-works",
+    "anchors": {
+      "resolve-the-source": "/docs/getting-started/how-it-works#resolve-the-source",
+      "load-the-document": "/docs/getting-started/how-it-works#load-the-document",
+      "record-document-facts": "/docs/getting-started/how-it-works#record-document-facts",
+      "select-strategies": "/docs/getting-started/how-it-works#select-strategies",
+      "classify-when-requested": "/docs/getting-started/how-it-works#classify-when-requested",
+      "extract-and-validate": "/docs/getting-started/how-it-works#extract-and-validate",
+      "cancellation-and-deadlines": "/docs/getting-started/how-it-works#cancellation-and-deadlines"
+    }
+  },
+  "/docs/quick-start": {
+    "to": "/docs/extraction/quick-start",
+    "anchors": {
+      "install": "/docs/extraction/quick-start#install",
+      "define-the-result": "/docs/extraction/quick-start#define-the-result",
+      "build-the-extractor": "/docs/extraction/quick-start#build-the-extractor",
+      "read-the-result": "/docs/extraction/quick-start#read-the-result",
+      "other-return-forms": "/docs/extraction/quick-start#other-return-forms"
+    }
+  },
+  "/docs/reference/api": {
+    "to": "/docs/api",
+    "anchors": {
+      "reference-pages": "/docs/api#core"
+    }
+  },
+  "/docs/reference/api/chunk": {
+    "to": "/docs/conversion/reference/chunk",
+    "anchors": {
+      "chunk-a-converted-document": "/docs/conversion/reference/chunk#chunk-a-converted-document",
+      "packing-rules": "/docs/conversion/reference/chunk#packing-rules"
+    }
+  },
+  "/docs/reference/api/cli": {
+    "to": "/docs/cli/reference/cli",
+    "anchors": {
+      "configuration": "/docs/cli/reference/cli#configuration",
+      "run-the-cli-in-process": "/docs/cli/reference/cli#run-the-cli-in-process",
+      "io": "/docs/cli/reference/cli#io",
+      "errors": "/docs/cli/reference/cli#errors",
+      "mcp-server": "/docs/cli/reference/cli#mcp-server",
+      "version": "/docs/cli/reference/cli#version",
+      "environment-and-credentials": "/docs/cli/reference/cli#environment-and-credentials",
+      "configure-named-extraction-and-paperless-mappings": "/docs/cli/reference/cli#configure-named-extraction-and-paperless-mappings"
+    }
+  },
+  "/docs/reference/api/core-classification": {
+    "to": "/docs/extraction/reference/classification",
+    "anchors": {
+      "classifications": "/docs/extraction/reference/classification#classifications",
+      "classifier-contract": "/docs/extraction/reference/classification#classifier-contract",
+      "classification-trees": "/docs/extraction/reference/classification#classification-trees",
+      "splitter-contract": "/docs/extraction/reference/splitting#splitter-contract",
+      "process": "/docs/extraction/reference/splitting#process"
+    }
+  },
+  "/docs/reference/api/core-components": {
+    "to": "/docs/extraction/reference/strategies",
+    "anchors": {
+      "extraction-strategies": "/docs/extraction/reference/strategies#extraction-strategies",
+      "routing": "/docs/extraction/reference/strategies#routing",
+      "enums": "/docs/extraction/reference/strategies#enums",
+      "low-level-pipeline": "/docs/extraction/reference/pipeline#low-level-pipeline",
+      "share-disposal-ownership": "/docs/extraction/reference/pipeline#share-disposal-ownership"
+    }
+  },
+  "/docs/reference/api/core-contracts": {
+    "to": "/docs/extraction/reference/contracts",
+    "anchors": {
+      "contracts": "/docs/extraction/reference/contracts#contracts",
+      "examples": "/docs/extraction/reference/contracts#examples",
+      "schema-types": "/docs/extraction/reference/contracts#schema-types",
+      "validation-in-the-pipeline": "/docs/extraction/reference/contracts#validation-in-the-pipeline"
+    }
+  },
+  "/docs/reference/api/core-conversion": {
+    "to": "/docs/conversion/reference/converter",
+    "anchors": {
+      "documentconverter": "/docs/conversion/reference/converter#documentconverter",
+      "conversion-calls": "/docs/conversion/reference/converter#conversion-calls",
+      "result": "/docs/conversion/reference/converter#result",
+      "semantic-layout": "/docs/conversion/reference/layout#semantic-layout",
+      "element-ids": "/docs/conversion/reference/evidence#element-ids",
+      "source-lines": "/docs/conversion/reference/evidence#source-lines",
+      "native-element-evidence": "/docs/conversion/reference/evidence#native-element-evidence",
+      "layout-analyzer-contract": "/docs/conversion/reference/analyzers#layout-analyzer-contract",
+      "versioned-json": "/docs/conversion/reference/document-json#versioned-json"
+    }
+  },
+  "/docs/reference/api/core-documents": {
+    "to": "/docs/getting-started/reference/documents",
+    "anchors": {
+      "sources": "/docs/getting-started/reference/documents#sources",
+      "document-data-loader": "/docs/getting-started/reference/documents#document-data-loader",
+      "loader-contract": "/docs/getting-started/reference/documents#loader-contract",
+      "loaded-documents-and-geometry": "/docs/getting-started/reference/documents#loaded-documents-and-geometry",
+      "geometry-helpers": "/docs/getting-started/reference/documents#geometry-helpers",
+      "rasterizers": "/docs/getting-started/reference/documents#rasterizers",
+      "loader-and-rasterizer-composition": "/docs/getting-started/reference/documents#loader-and-rasterizer-composition",
+      "logging": "/docs/getting-started/reference/documents#logging",
+      "requested-loading": "/docs/getting-started/reference/documents#requested-loading",
+      "resolve-portable-sources": "/docs/getting-started/reference/documents#resolve-portable-sources"
+    }
+  },
+  "/docs/reference/api/core-extraction": {
+    "to": "/docs/extraction/reference/extractor",
+    "anchors": {
+      "extractor": "/docs/extraction/reference/extractor#extractor",
+      "extraction-methods": "/docs/extraction/reference/extractor#extraction-methods",
+      "check-literal-capability-wiring": "/docs/extraction/reference/extractor#check-literal-capability-wiring",
+      "results": "/docs/extraction/reference/results#results",
+      "field-citations": "/docs/extraction/reference/citations#field-citations",
+      "validation-rules": "/docs/extraction/reference/validation#validation-rules",
+      "repair": "/docs/extraction/reference/validation#repair",
+      "batches": "/docs/extraction/reference/batches#batches",
+      "lifecycle": "/docs/extraction/reference/batches#lifecycle",
+      "bounded-work": "/docs/extraction/reference/batches#bounded-work"
+    }
+  },
+  "/docs/reference/api/eval": {
+    "to": "/docs/evaluation/reference",
+    "anchors": {
+      "doctureeval": "/docs/evaluation/reference/specs#doctureeval",
+      "tojsonvalue": "/docs/evaluation/reference/utilities#tojsonvalue",
+      "canonicaljson": "/docs/evaluation/reference/utilities#canonicaljson",
+      "fingerprintof": "/docs/evaluation/reference/utilities#fingerprintof",
+      "comparecodeunits": "/docs/evaluation/reference/utilities#comparecodeunits",
+      "formatpath": "/docs/evaluation/reference/utilities#formatpath",
+      "patternof": "/docs/evaluation/reference/utilities#patternof",
+      "inmemorydataset": "/docs/evaluation/reference/core#inmemorydataset",
+      "definereporter": "/docs/evaluation/reference/core#definereporter",
+      "resolvebaseline": "/docs/evaluation/reference/gates#resolvebaseline",
+      "slicevalues": "/docs/evaluation/reference/utilities#slicevalues",
+      "definecomparator": "/docs/evaluation/reference/comparators#definecomparator",
+      "describecomparator": "/docs/evaluation/reference/comparators#describecomparator",
+      "exact": "/docs/evaluation/reference/comparators#exact",
+      "number": "/docs/evaluation/reference/comparators#number",
+      "date": "/docs/evaluation/reference/comparators#date",
+      "identifier": "/docs/evaluation/reference/comparators#identifier",
+      "text": "/docs/evaluation/reference/comparators#text",
+      "oneof": "/docs/evaluation/reference/comparators#oneof",
+      "setof": "/docs/evaluation/reference/comparators#setof",
+      "boxiou": "/docs/evaluation/reference/comparators#boxiou",
+      "intersectionoverunion": "/docs/evaluation/reference/comparators#intersectionoverunion",
+      "byindex": "/docs/evaluation/reference/arrays#byindex",
+      "hungarian": "/docs/evaluation/reference/arrays#hungarian",
+      "ordered": "/docs/evaluation/reference/arrays#ordered",
+      "defineeval": "/docs/evaluation/reference/specs#defineeval",
+      "looseeval": "/docs/evaluation/reference/specs#looseeval",
+      "prf": "/docs/evaluation/reference/metrics#prf",
+      "groundingrule": "/docs/evaluation/reference/metrics#groundingrule",
+      "isgrounded": "/docs/evaluation/reference/metrics#isgrounded",
+      "supportslocation": "/docs/evaluation/reference/metrics#supportslocation",
+      "defineassertion": "/docs/evaluation/reference/metrics#defineassertion",
+      "sumof": "/docs/evaluation/reference/metrics#sumof",
+      "definemetric": "/docs/evaluation/reference/metrics#definemetric",
+      "builtinmetrics": "/docs/evaluation/reference/metrics#builtinmetrics",
+      "omittedof": "/docs/evaluation/reference/metrics#omittedof",
+      "runscopeomissions": "/docs/evaluation/reference/metrics#runscopeomissions",
+      "percentile": "/docs/evaluation/reference/metrics#percentile",
+      "prfmetricid": "/docs/evaluation/reference/metrics#prfmetricid",
+      "prfof": "/docs/evaluation/reference/metrics#prfof",
+      "buildresult": "/docs/evaluation/reference/results#buildresult",
+      "parsecaseresult": "/docs/evaluation/reference/results#parsecaseresult",
+      "parseevalresult": "/docs/evaluation/reference/results#parseevalresult",
+      "parseruninfo": "/docs/evaluation/reference/results#parseruninfo",
+      "gate": "/docs/evaluation/reference/gates#gate",
+      "doctureevalconfig": "/docs/evaluation/reference/config#doctureevalconfig",
+      "defineevalconfig": "/docs/evaluation/reference/config#defineevalconfig",
+      "doctureevaldataset": "/docs/evaluation/reference/datasets#doctureevaldataset",
+      "casefingerprint": "/docs/evaluation/reference/datasets#casefingerprint",
+      "datasetfingerprint": "/docs/evaluation/reference/datasets#datasetfingerprint",
+      "sample": "/docs/evaluation/reference/datasets#sample",
+      "definemigration": "/docs/evaluation/reference/datasets#definemigration",
+      "runmigration": "/docs/evaluation/reference/datasets#runmigration",
+      "draftexpected": "/docs/evaluation/reference/datasets#draftexpected",
+      "doctureevalrunner": "/docs/evaluation/reference/runner#doctureevalrunner",
+      "runeval": "/docs/evaluation/reference/runner#runeval",
+      "memoryrunstore": "/docs/evaluation/reference/runner#memoryrunstore",
+      "rescore": "/docs/evaluation/reference/runner#rescore",
+      "doctureevalnode": "/docs/evaluation/reference/storage#doctureevalnode",
+      "gitinfo": "/docs/evaluation/reference/storage#gitinfo",
+      "filedocument": "/docs/evaluation/reference/storage#filedocument",
+      "folderdataset": "/docs/evaluation/reference/storage#folderdataset",
+      "jsonldataset": "/docs/evaluation/reference/storage#jsonldataset",
+      "filerunstore": "/docs/evaluation/reference/storage#filerunstore",
+      "readevalresult": "/docs/evaluation/reference/storage#readevalresult",
+      "rundirectory": "/docs/evaluation/reference/storage#rundirectory",
+      "writeevalresult": "/docs/evaluation/reference/storage#writeevalresult",
+      "writefileatomic": "/docs/evaluation/reference/storage#writefileatomic",
+      "liveartifact": "/docs/evaluation/reference/storage#liveartifact",
+      "doctureevaldocture": "/docs/evaluation/reference/processors#doctureevaldocture",
+      "fromdocture": "/docs/evaluation/reference/processors#fromdocture",
+      "doctureevalcompare": "/docs/evaluation/reference/comparison#doctureevalcompare",
+      "compareruns": "/docs/evaluation/reference/comparison#compareruns",
+      "doctureevalcalibration": "/docs/evaluation/reference/calibration#doctureevalcalibration",
+      "calibrate": "/docs/evaluation/reference/calibration#calibrate",
+      "mergecalibration": "/docs/evaluation/reference/calibration#mergecalibration",
+      "calibrationsection": "/docs/evaluation/reference/calibration#calibrationsection",
+      "doctureevalgrounding": "/docs/evaluation/reference/grounding#doctureevalgrounding",
+      "grounding": "/docs/evaluation/reference/grounding#grounding",
+      "groundingsection": "/docs/evaluation/reference/grounding#groundingsection",
+      "doctureevalreportersterminal": "/docs/evaluation/reference/reporters-terminal#doctureevalreportersterminal",
+      "renderscoreboard": "/docs/evaluation/reference/reporters-terminal#renderscoreboard",
+      "terminalreporter": "/docs/evaluation/reference/reporters-terminal#terminalreporter",
+      "definecolumn": "/docs/evaluation/reference/reporters-terminal#definecolumn",
+      "defaultcolumns": "/docs/evaluation/reference/reporters-terminal#defaultcolumns",
+      "doctureevalreportersjson": "/docs/evaluation/reference/reporters-json#doctureevalreportersjson",
+      "renderjson": "/docs/evaluation/reference/reporters-json#renderjson",
+      "renderjsonsplit": "/docs/evaluation/reference/reporters-json#renderjsonsplit",
+      "jsonreporter": "/docs/evaluation/reference/reporters-json#jsonreporter",
+      "doctureevalreportersmarkdown": "/docs/evaluation/reference/reporters-markdown#doctureevalreportersmarkdown",
+      "rendermarkdown": "/docs/evaluation/reference/reporters-markdown#rendermarkdown",
+      "markdownreporter": "/docs/evaluation/reference/reporters-markdown#markdownreporter",
+      "definecolumn-1": "/docs/evaluation/reference/reporters-markdown#definecolumn",
+      "defaultcolumns-1": "/docs/evaluation/reference/reporters-markdown#defaultcolumns",
+      "escapemarkdown": "/docs/evaluation/reference/reporters-markdown#escapemarkdown",
+      "doctureevalreporterscsv": "/docs/evaluation/reference/reporters-csv#doctureevalreporterscsv",
+      "csvcell": "/docs/evaluation/reference/reporters-csv#csvcell",
+      "rendercsv": "/docs/evaluation/reference/reporters-csv#rendercsv",
+      "csvreporter": "/docs/evaluation/reference/reporters-csv#csvreporter",
+      "definecolumn-2": "/docs/evaluation/reference/reporters-csv#definecolumn",
+      "defaultcolumns-2": "/docs/evaluation/reference/reporters-csv#defaultcolumns",
+      "doctureevalreportersjunit": "/docs/evaluation/reference/reporters-junit#doctureevalreportersjunit",
+      "renderjunit": "/docs/evaluation/reference/reporters-junit#renderjunit",
+      "escapexml": "/docs/evaluation/reference/reporters-junit#escapexml",
+      "junitreporter": "/docs/evaluation/reference/reporters-junit#junitreporter",
+      "doctureevalreportershtml": "/docs/evaluation/reference/reporters-html#doctureevalreportershtml",
+      "embedjson": "/docs/evaluation/reference/reporters-html#embedjson",
+      "renderhtml": "/docs/evaluation/reference/reporters-html#renderhtml",
+      "scoretone": "/docs/evaluation/reference/reporters-html#scoretone",
+      "htmlreporter": "/docs/evaluation/reference/reporters-html#htmlreporter",
+      "definecolumn-3": "/docs/evaluation/reference/reporters-html#definecolumn",
+      "defaultcolumns-3": "/docs/evaluation/reference/reporters-html#defaultcolumns",
+      "doctureevalreporterstemplate": "/docs/evaluation/reference/reporters-template#doctureevalreporterstemplate",
+      "rendertemplate": "/docs/evaluation/reference/reporters-template#rendertemplate",
+      "templatehelpers": "/docs/evaluation/reference/reporters-template#templatehelpers",
+      "templatereporter": "/docs/evaluation/reference/reporters-template#templatereporter",
+      "doctureevaljudge": "/docs/evaluation/reference/judges#doctureevaljudge",
+      "judge": "/docs/evaluation/reference/judges#judge",
+      "doctureevalvitest": "/docs/evaluation/reference/frameworks#doctureevalvitest",
+      "tomatchextraction": "/docs/evaluation/reference/frameworks#tomatchextraction",
+      "extractionmatchers": "/docs/evaluation/reference/frameworks#extractionmatchers",
+      "describeeval": "/docs/evaluation/reference/frameworks#describeeval",
+      "doctureevalevalite": "/docs/evaluation/reference/frameworks#doctureevalevalite",
+      "extractionscorer": "/docs/evaluation/reference/frameworks#extractionscorer",
+      "doctureevalpromptfoo": "/docs/evaluation/reference/frameworks#doctureevalpromptfoo",
+      "extractionassertion": "/docs/evaluation/reference/frameworks#extractionassertion",
+      "doctureevalautoevals": "/docs/evaluation/reference/frameworks#doctureevalautoevals",
+      "extractionf1": "/docs/evaluation/reference/frameworks#extractionf1",
+      "doctureevalconversion": "/docs/evaluation/reference/conversion#doctureevalconversion",
+      "checkconversion": "/docs/evaluation/reference/conversion#checkconversion",
+      "framework-adapter-wiring": "/docs/evaluation/reference/frameworks#framework-adapter-wiring"
+    }
+  },
+  "/docs/reference/api/import-docling": {
+    "to": "/docs/integrations/docling-import",
+    "anchors": {}
+  },
+  "/docs/reference/api/inputs-email": {
+    "to": "/docs/integrations/email",
+    "anchors": {}
+  },
+  "/docs/reference/api/llm": {
+    "to": "/docs/extraction/reference/models",
+    "anchors": {
+      "model-backend": "/docs/extraction/reference/models#model-backend",
+      "extractor-factory": "/docs/extraction/reference/models#extractor-factory",
+      "telemetry": "/docs/extraction/reference/telemetry#telemetry",
+      "text-extraction": "/docs/extraction/reference/text#text-extraction",
+      "field-citations": "/docs/extraction/reference/text#field-citations",
+      "vision-extraction": "/docs/extraction/reference/vision#vision-extraction",
+      "llm-classifier": "/docs/extraction/reference/model-classification#llm-classifier",
+      "llm-splitters": "/docs/extraction/reference/model-splitting#llm-splitters",
+      "layout-assistance": "/docs/conversion/reference/model-layout#layout-assistance"
+    }
+  },
+  "/docs/reference/api/llm-tool": {
+    "to": "/docs/integrations/ai-sdk-tool",
+    "anchors": {}
+  },
+  "/docs/reference/api/llm-utilities": {
+    "to": "/docs/extraction/reference/prompts",
+    "anchors": {
+      "prompt-construction": "/docs/extraction/reference/prompts#prompt-construction",
+      "cache": "/docs/extraction/reference/cache-pricing#cache",
+      "pricing-and-usage": "/docs/extraction/reference/cache-pricing#pricing-and-usage",
+      "chunking": "/docs/extraction/reference/partials#chunking",
+      "partial-results": "/docs/extraction/reference/partials#partial-results",
+      "schema-relaxation": "/docs/extraction/reference/partials#schema-relaxation"
+    }
+  },
+  "/docs/reference/api/loader-azure-di": {
+    "to": "/docs/integrations/azure-read",
+    "anchors": {}
+  },
+  "/docs/reference/api/loader-docling": {
+    "to": "/docs/integrations/docling-serve",
+    "anchors": {}
+  },
+  "/docs/reference/api/loader-mammoth": {
+    "to": "/docs/integrations/mammoth",
+    "anchors": {}
+  },
+  "/docs/reference/api/loader-mupdf": {
+    "to": "/docs/integrations/mupdf",
+    "anchors": {
+      "loader": "/docs/integrations/mupdf#loader",
+      "rasterizer": "/docs/integrations/mupdf#rasterizer"
+    }
+  },
+  "/docs/reference/api/loader-paddleocr": {
+    "to": "/docs/integrations/paddleocr",
+    "anchors": {
+      "options": "/docs/integrations/paddleocr#options",
+      "models-and-related-types": "/docs/integrations/paddleocr#models-and-related-types"
+    }
+  },
+  "/docs/reference/api/loader-pdfjs": {
+    "to": "/docs/integrations/pdfjs",
+    "anchors": {}
+  },
+  "/docs/reference/api/loader-tesseract": {
+    "to": "/docs/integrations/tesseract",
+    "anchors": {}
+  },
+  "/docs/reference/api/node": {
+    "to": "/docs/getting-started/reference/node",
+    "anchors": {}
+  },
+  "/docs/reference/api/raster-canvas": {
+    "to": "/docs/integrations/canvas",
+    "anchors": {}
+  },
+  "/docs/reference/api/service": {
+    "to": "/docs/cli/reference/service",
+    "anchors": {}
+  },
+  "/docs/reference/api/sinks-paperless": {
+    "to": "/docs/integrations/paperless-updates",
+    "anchors": {}
+  },
+  "/docs/reference/api/sources-paperless": {
+    "to": "/docs/integrations/paperless-read",
+    "anchors": {}
+  },
+  "/docs/reference/api/synthetic": {
+    "to": "/docs/synthetic/reference",
+    "anchors": {
+      "docturesynthetic": "/docs/synthetic/reference/models#docturesynthetic",
+      "definemodel": "/docs/synthetic/reference/models#definemodel",
+      "scenario": "/docs/synthetic/reference/models#scenario",
+      "typedjsonschema": "/docs/synthetic/reference/models#typedjsonschema",
+      "readschema": "/docs/synthetic/reference/models#readschema",
+      "gen": "/docs/synthetic/reference/models#gen",
+      "ibancheckdigits": "/docs/synthetic/reference/constraints#ibancheckdigits",
+      "isvalidiban": "/docs/synthetic/reference/constraints#isvalidiban",
+      "luhncheckdigit": "/docs/synthetic/reference/constraints#luhncheckdigit",
+      "isvalidluhn": "/docs/synthetic/reference/constraints#isvalidluhn",
+      "constraint": "/docs/synthetic/reference/constraints#constraint",
+      "sumof": "/docs/synthetic/reference/constraints#sumof",
+      "before": "/docs/synthetic/reference/constraints#before",
+      "validiban": "/docs/synthetic/reference/constraints#validiban",
+      "validluhn": "/docs/synthetic/reference/constraints#validluhn",
+      "unique": "/docs/synthetic/reference/constraints#unique",
+      "valuesat": "/docs/synthetic/reference/constraints#valuesat",
+      "streamfor": "/docs/synthetic/reference/constraints#streamfor",
+      "formatpath": "/docs/synthetic/reference/constraints#formatpath",
+      "formatpattern": "/docs/synthetic/reference/constraints#formatpattern",
+      "parsepath": "/docs/synthetic/reference/constraints#parsepath",
+      "prints": "/docs/synthetic/reference/templates#prints",
+      "project": "/docs/synthetic/reference/templates#project",
+      "locales": "/docs/synthetic/reference/templates#locales",
+      "formatter": "/docs/synthetic/reference/templates#formatter",
+      "definetemplate": "/docs/synthetic/reference/templates#definetemplate",
+      "defaultfonts": "/docs/synthetic/reference/templates#defaultfonts",
+      "pagesizes": "/docs/synthetic/reference/templates#pagesizes",
+      "selecttemplates": "/docs/synthetic/reference/templates#selecttemplates",
+      "drawtable": "/docs/synthetic/reference/templates#drawtable",
+      "toevalcase": "/docs/synthetic/reference/documents#toevalcase",
+      "caseidof": "/docs/synthetic/reference/documents#caseidof",
+      "groupof": "/docs/synthetic/reference/documents#groupof",
+      "locationsof": "/docs/synthetic/reference/documents#locationsof",
+      "severitybucket": "/docs/synthetic/reference/documents#severitybucket",
+      "definesynthconfig": "/docs/synthetic/reference/documents#definesynthconfig",
+      "synthesiserror": "/docs/synthetic/reference/errors#synthesiserror",
+      "templateerror": "/docs/synthetic/reference/errors#templateerror",
+      "labelverificationerror": "/docs/synthetic/reference/errors#labelverificationerror",
+      "docturesyntheticpdfkit": "/docs/synthetic/reference/pdfkit#docturesyntheticpdfkit",
+      "renderpdf": "/docs/synthetic/reference/pdfkit#renderpdf",
+      "engineranges": "/docs/synthetic/reference/pdfkit#engineranges",
+      "docturesyntheticverify": "/docs/synthetic/reference/verify#docturesyntheticverify",
+      "verifylabels": "/docs/synthetic/reference/verify#verifylabels",
+      "assertverified": "/docs/synthetic/reference/verify#assertverified",
+      "docturesyntheticmeasure": "/docs/synthetic/reference/measure#docturesyntheticmeasure",
+      "measurepdf": "/docs/synthetic/reference/measure#measurepdf",
+      "comparelayouts": "/docs/synthetic/reference/measure#comparelayouts",
+      "docturesyntheticdegrade": "/docs/synthetic/reference/degrade#docturesyntheticdegrade",
+      "degrade": "/docs/synthetic/reference/degrade#degrade",
+      "profiles": "/docs/synthetic/reference/degrade#profiles",
+      "transformbox": "/docs/synthetic/reference/degrade#transformbox",
+      "engineranges-1": "/docs/synthetic/reference/degrade#engineranges",
+      "docturesyntheticnode": "/docs/synthetic/reference/node#docturesyntheticnode",
+      "writecorpus": "/docs/synthetic/reference/node#writecorpus",
+      "digital": "/docs/synthetic/reference/node#digital",
+      "scan": "/docs/synthetic/reference/node#scan",
+      "scanlq": "/docs/synthetic/reference/node#scanlq",
+      "photo": "/docs/synthetic/reference/node#photo",
+      "fax": "/docs/synthetic/reference/node#fax",
+      "docturesyntheticfaker": "/docs/synthetic/reference/text-generators#docturesyntheticfaker",
+      "fakerfor": "/docs/synthetic/reference/text-generators#fakerfor",
+      "engineranges-2": "/docs/synthetic/reference/text-generators#engineranges",
+      "docturesynthetichtml": "/docs/synthetic/reference/html#docturesynthetichtml",
+      "definehtmltemplate": "/docs/synthetic/reference/html#definehtmltemplate",
+      "renderhtmlpdf": "/docs/synthetic/reference/html#renderhtmlpdf",
+      "escapehtml": "/docs/synthetic/reference/html#escapehtml",
+      "engineranges-3": "/docs/synthetic/reference/html#engineranges",
+      "docturesyntheticllm": "/docs/synthetic/reference/text-generators#docturesyntheticllm",
+      "llmtextpool": "/docs/synthetic/reference/text-generators#llmtextpool",
+      "engineranges-4": "/docs/synthetic/reference/text-generators#engineranges-1"
+    }
+  },
+  "/docs/reference/api/testing": {
+    "to": "/docs/resources/testing-api",
+    "anchors": {
+      "generated-invoices": "/docs/resources/testing-api#generated-invoices",
+      "conversion-corpus": "/docs/resources/testing-api#conversion-corpus",
+      "test-doubles": "/docs/resources/testing-api#test-doubles",
+      "conformance-suites": "/docs/resources/testing-api#conformance-suites",
+      "fixture-profiles": "/docs/resources/testing-api#fixture-profiles"
+    }
+  },
+  "/docs/reference/architecture": {
+    "to": "/docs/resources/architecture",
+    "anchors": {
+      "core-layers": "/docs/resources/architecture#core-layers",
+      "extension-boundaries": "/docs/resources/architecture#extension-boundaries",
+      "data-flow": "/docs/resources/architecture#data-flow",
+      "tested-invariants": "/docs/resources/architecture#tested-invariants"
+    }
+  },
+  "/docs/reference/changelog": {
+    "to": "/docs/resources/changelog",
+    "anchors": {}
+  },
+  "/docs/reference/errors": {
+    "to": "/docs/resources/errors",
+    "anchors": {
+      "error-catalogue": "/docs/resources/errors#error-catalogue",
+      "constructors": "/docs/resources/errors#constructors",
+      "missing-optional-engines": "/docs/resources/errors#missing-optional-engines",
+      "errors-from-another-installed-copy": "/docs/resources/errors#errors-from-another-installed-copy",
+      "loader-and-strategy-attempts": "/docs/resources/errors#loader-and-strategy-attempts",
+      "abort-and-timeout-behavior": "/docs/resources/errors#abort-and-timeout-behavior",
+      "non-throwing-extraction": "/docs/resources/errors#non-throwing-extraction",
+      "structured-errors": "/docs/resources/errors#structured-errors"
+    }
+  },
+  "/docs/reference/packages": {
+    "to": "/docs/getting-started/reference/packages",
+    "anchors": {
+      "public-entry-points": "/docs/getting-started/reference/packages#public-entry-points",
+      "install-recipes": "/docs/getting-started/reference/packages#install-recipes",
+      "engine-versions": "/docs/getting-started/reference/packages#engine-versions",
+      "cli-dependencies": "/docs/getting-started/reference/packages#cli-dependencies",
+      "runtime-and-licences": "/docs/getting-started/reference/packages#runtime-and-licences",
+      "bundling-and-download-size": "/docs/getting-started/reference/packages#bundling-and-download-size",
+      "evaluation-entries": "/docs/getting-started/reference/packages#evaluation-entries",
+      "synthetic-data-entries": "/docs/getting-started/reference/packages#synthetic-data-entries"
+    }
+  }
+}

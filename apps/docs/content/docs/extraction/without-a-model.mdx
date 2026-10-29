@@ -1,0 +1,100 @@
+---
+title: Extract without a model
+description: Parse a known document layout with a deterministic strategy.
+---
+
+Use a deterministic parser for a known layout. A geometry loader supplies text lines and positions.
+
+## Install
+
+```sh
+npm install docture pdfjs-dist@6.2.108 zod@^4
+```
+
+See [installation recipes](/docs/getting-started/installation) for other engines and providers.
+
+## Read positioned lines
+
+```ts
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+
+const loader = new DocumentLoaderPdfJs();
+```
+
+Each `LoadedPage` has text. Geometry loaders also provide `lines`, and each line contains
+positioned `spans`.
+
+```ts
+for (const page of document.pages) {
+  for (const line of page.lines ?? []) {
+    console.log(line.y, line.text);
+  }
+}
+```
+
+Coordinates use PDF points with a top-left origin. `x` increases to the right and `y`
+increases downward.
+
+## Write the strategy
+
+```ts
+import { defineStrategy } from "docture";
+
+export const invoiceParser = defineStrategy({
+  name: "invoice-parser",
+  requires: ["TEXT_LAYER", "GEOMETRY"],
+
+  async extract(ctx) {
+    const lines = ctx.document.pages.flatMap((page) => page.lines ?? []);
+    const data = parseKnownInvoice(lines);
+    if (data === undefined) throw new Error("invoice layout not recognized");
+    return { data };
+  },
+});
+```
+
+A strategy that cannot parse the document must throw. Returning an empty object claims an
+extraction and can win when the requested schema accepts it.
+
+The strategy returns `unknown`. The pipeline validates it against the schema passed to
+`extract()`.
+
+## Run it
+
+```ts
+const extractor = new Extractor({
+  loaders: [new DocumentLoaderPdfJs()],
+  strategies: [invoiceParser],
+});
+
+const result = await extractor.extract("invoice.pdf", Invoice);
+result.method; // "invoice-parser"
+```
+
+A deterministic strategy reports zero model tokens. `costUsd` remains absent because no
+priced request ran.
+
+## Complete example
+
+This source includes the parser, loader, extractor, and run:
+
+<SourceExample file="deterministic-invoice.ts" title="extract-invoice.ts" />
+
+## Add model fallback
+
+```ts
+const extractor = new Extractor({
+  loaders: [new DocumentLoaderPdfJs()],
+  strategies: [
+    invoiceParser,
+    llm({ model: openai("gpt-5") }),
+  ],
+});
+```
+
+The parser runs first. If it throws or returns data that fails validation, the model gets
+the next attempt. `result.method` identifies the winner and `result.attempts` records the
+strategy failures.
+
+Use [measuring accuracy](/docs/evaluation/quick-start) to test the parser against
+known output.

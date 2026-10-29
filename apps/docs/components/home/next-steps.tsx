@@ -9,22 +9,22 @@ const steps = [
   {
     title: "How it works",
     body: "The pipeline, step by step, with the diagrams.",
-    href: "/docs/how-it-works",
+    href: "/docs/getting-started/how-it-works",
   },
   {
     title: "Without a model",
     body: "Deterministic extraction. No API calls, no key, no cost.",
-    href: "/docs/guides/without-a-model",
+    href: "/docs/extraction/without-a-model",
   },
   {
     title: "Scanned documents",
     body: "OCR it, or show it to a vision model. Both are one import.",
-    href: "/docs/guides/scanned-documents",
+    href: "/docs/integrations/scanned-documents",
   },
   {
     title: "Measuring accuracy",
     body: "Field-level scoring, for a test or a CI gate.",
-    href: "/docs/guides/measuring-accuracy",
+    href: "/docs/evaluation/quick-start",
   },
 ];
 

@@ -1,0 +1,24 @@
+---
+title: Layout analyzer API
+description: Custom layout analyzer inputs, annotations, and validation.
+---
+
+Import from `docture`.
+
+## Layout analyzer contract
+
+```ts
+defineLayoutAnalyzer(analyzer: LayoutAnalyzer): LayoutAnalyzer
+```
+
+`LayoutAnalyzer.analyze(context)` receives a `LayoutDocument` without page headers and
+footers, a signal, a logger, and `documentLabel`, the source file name when it has one.
+Core ignores annotations that name furniture, and
+furniture keeps its place. A table or paragraph with `continuations` stays last in its
+page's text after reordering, and annotations that retype or group it are ignored. `LayoutElementRole` excludes the furniture kinds. It
+returns `LayoutAnalysis` with `LayoutAnnotation` values, warnings, and optional usage.
+An annotation can contain an existing element ID, `LayoutElementRole`, heading level,
+group label, and page-local order. The contract has no text property.
+
+Core validates IDs and order before applying an analysis. `LayoutAnalyzerContext` and
+`LayoutAnalysis` are public for custom analyzers.

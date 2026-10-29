@@ -1,0 +1,32 @@
+---
+title: Running header and footer detection
+description: Detection examples, output behavior, and limits for running header and footer detection.
+---
+
+## Running headers and footers
+
+Core marks running headers and footers as `page-header` and `page-footer` elements.
+Markdown and HTML leave them out of the body, so chunks built from that output do not
+repeat a company name or page number per page. TXT and JSON keep them, in place at the
+top and bottom of each page.
+
+```ts
+const result = await converter.convert(source, { format: "markdown" });
+const footers = result.pages.flatMap((page) =>
+  page.elements.filter((element) => element.kind === "page-footer"),
+);
+console.log(footers.map((footer) => footer.text)); // ["Page 1 of 3", ...]
+```
+
+A tagged PDF's `header` and `footer` hints count when the line sits in the top or bottom
+10% of the page. Without tags, core infers furniture from text that repeats in those bands
+on at least three pages, including odd-page and even-page running heads. Page numbers
+match when they follow the page. These thresholds are heuristics. A one-page or two-page
+document gets furniture only from tags. A page number such as `Page 2 of 6` can sit up to
+15% from the top or bottom when it follows the pages, keeps the same height and indent, and
+has a line of blank space between it and the body. Bold text there, such as a numbered
+`Question 1` heading, stays in the body. Other text lower than 10% of the page
+stays in the body. A band line that repeats at the same place on another page without meeting these
+rules, such as a running header on a two-page document, also stays in the body. It is never
+a table row, and a table does not continue across it. The [reference](/docs/conversion/reference/layout#semantic-layout) lists the
+rules.

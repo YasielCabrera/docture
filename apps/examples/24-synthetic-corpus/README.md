@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples synthetic
 ```
 
-Docs: [`guides/synthetic-corpus`](../../docs/content/docs/guides/synthetic-corpus.mdx)
+Docs: [`guides/synthetic-corpus`](../../docs/content/docs/synthetic/quick-start.mdx)
 
 ## Imports and installs
 

@@ -1,0 +1,36 @@
+---
+title: Model layout API
+description: Model-assisted layout options, annotation limits, and usage.
+---
+
+Import these APIs from `docture/llm` or the narrow entries listed below. Install AI SDK 7 and Zod (3.25.76 or later 3.x, or 4.1.8 or later) in the application.
+For model components:
+
+```sh
+npm install docture ai@^7 zod@^4
+```
+
+Also install the provider you construct, such as `@ai-sdk/openai`. The
+[complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model)
+includes the document engine and schema library.
+
+All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
+gateway model string.
+
+## Layout assistance
+
+Import from `docture/llm/layout`.
+
+```ts
+new LlmLayoutAnalyzer(options: LlmLayoutAnalyzerOptions)
+llmLayout(options: LlmLayoutAnalyzerOptions): LayoutAnalyzer
+new LLM(model).layout(): LayoutAnalyzer
+```
+
+`LlmLayoutAnalyzer` is named `llm-layout` by default. Its options contain the required
+model plus optional name, instructions, cache, pricing, temperature, and retries.
+
+The model sees existing element IDs, roles, boxes, and grounded content. Its strict
+response schema accepts annotations only: ID, role, optional heading level, group, and order.
+It contains no text field. Core validates known IDs and page-local permutations before
+using the response. Calls support response caching and report token and cost usage.

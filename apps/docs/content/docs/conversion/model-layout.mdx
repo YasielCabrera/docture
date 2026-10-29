@@ -1,0 +1,33 @@
+---
+title: Add model-assisted layout
+description: Refine element roles and order while preserving source text.
+---
+
+Add a model layout component after the document loader:
+
+```sh
+npm install docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+```
+
+```ts
+import { DocumentConverter } from "docture/node";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { LLM } from "docture/llm";
+import { openai } from "@ai-sdk/openai";
+
+const converter = new DocumentConverter()
+	.loadDocumentLoader(new DocumentLoaderPdfJs())
+	.loadLlm(new LLM(openai("gpt-5")));
+try {
+	const result = await converter.convert("report.pdf");
+	console.log(result.content, result.warnings, result.usage);
+} finally {
+	await converter.dispose();
+}
+```
+
+Set the provider credential before running. The model receives existing element IDs, roles, boxes, and grounded content. It returns IDs, roles, heading levels, groups, and order. Its response has no text field.
+
+Core rejects unknown or duplicate IDs and invalid page-local order permutations. Failure leaves deterministic conversion in place, records a failed attempt, and adds a warning. The model does not see running headers or footers. Joined cross-page elements retain their protected structure.
+
+Use `llmLayout()` from `docture/llm/layout` for a direct component, or `defineLayoutAnalyzer()` for a custom analyzer. See [model layout API](/docs/conversion/reference/model-layout) and [analyzer contract](/docs/conversion/reference/analyzers).

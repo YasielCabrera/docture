@@ -1,0 +1,27 @@
+---
+title: "docture eval sample"
+description: "Print the case ids of a deterministic stratified sample"
+---
+
+Print the case ids of a deterministic stratified sample
+
+## Flags
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--size <n>` | Not set | Number of cases. Required |
+| `--strata <path>` | Not set | Stratify the sample by a case path, such as tags.rendition or group |
+| `--seed <text>` | none | Sample seed |
+| `--config <path>` | Not set | Eval config. Default: the nearest docture.eval.&#123;ts,mts,js,mjs&#125; |
+| `--verbose`, `-v` | Not set | Report the wiring, the routing, and every attempt |
+| `--quiet`, `-q` | Not set | Only failures and the first hint per error code on stderr |
+| `--no-color` | Not set | Never emit ANSI colour |
+| `--help`, `-h` | Not set | Show this help |
+
+## Examples
+
+```sh
+docture eval sample --size 60 --strata tags.rendition
+```
+
+See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).

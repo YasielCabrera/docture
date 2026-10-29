@@ -1,114 +1,37 @@
 ---
-title: Introduction
-description: Extract structured data or convert PDFs to grounded text in TypeScript.
+title: Documentation
+description: Extract, convert, evaluate, and generate documents with Docture.
 ---
 
-docture reads documents for strongly typed structured extraction and grounded conversion
-to TXT, Markdown, HTML, or versioned JSON.
+Choose a workflow. Each area includes a quick start, focused guides, and API reference.
 
-You choose how docture reads the document and how it extracts the fields. A loader reads
-PDF text, OCR output, or plain text. A strategy can call a model or run code you wrote.
+<Cards className="docs-start-links">
+  <Card title="Getting started" href="/docs/getting-started" description="Choose a workflow, install packages, and understand the pipeline." />
+  <Card title="Extraction" href="/docs/extraction" description="Read typed fields, classify documents, and split bundles." />
+  <Card title="Conversion and retrieval" href="/docs/conversion" description="Preserve content and evidence in text, HTML, Markdown, JSON, and retrieval chunks." />
+  <Card title="Evaluation" href="/docs/evaluation" description="Score processors, compare experiments, and gate regressions." />
+  <Card title="Synthetic data" href="/docs/synthetic" description="Generate labeled documents and reproducible evaluation corpora." />
+  <Card title="CLI and services" href="/docs/cli" description="Run terminal commands, connect MCP hosts, and serve HTTP requests." />
+  <Card title="Integrations" href="/docs/integrations" description="Choose PDF engines, OCR, inputs, and external services." />
+  <Card title="Resources" href="/docs/resources" description="Find examples, extension and testing tools, errors, and release notes." />
+</Cards>
 
 ## Get started
 
-<Cards className="docs-start-links">
-  <Card title="Quick start →" href="/docs/quick-start" description="Install docture and extract your first typed invoice." />
-  <Card title="How it works →" href="/docs/how-it-works" description="Understand loaders, contracts, and extraction strategies." />
-  <Card title="Convert documents →" href="/docs/guides/document-conversion" description="Turn PDFs into grounded Markdown, HTML, text, or JSON." />
-  <Card title="API reference →" href="/docs/reference/api" description="Find the types, methods, and components you need." />
-</Cards>
+Use the [extraction quick start](/docs/extraction/quick-start) or [conversion quick start](/docs/conversion/quick-start).
 
 ## Smallest complete example
 
-```ts
-import { contract } from "docture";
-import { Extractor } from "docture/node";
-import { LLM } from "docture/llm";
-import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
-import { openai } from "@ai-sdk/openai";
-import { z } from "zod";
-
-const Invoice = contract({
-  name: "invoice",
-  description: "A commercial invoice.",
-  schema: z.object({
-    invoiceNumber: z.string(),
-    total: z.number(),
-  }),
-});
-
-const extractor = new Extractor()
-  .loadDocumentLoader(new DocumentLoaderPdfJs())
-  .loadLlm(new LLM(openai("gpt-5")));
-
-try {
-  const result = await extractor.extract("invoice.pdf", Invoice);
-  console.log(result.data.invoiceNumber);
-  console.log(result.data.total);
-} finally {
-  await extractor.dispose();
-}
-```
-
-Start with the [quick start](/docs/quick-start) for installation and setup.
+Each quick start includes installation, runnable code, and the expected result.
 
 ## What you install
 
-The two published packages are `docture` and `@docture/cli`. Core comes from the
-`docture` root. Other capabilities use explicit subpaths, and each engine is installed
-only when selected. See [installation recipes](/docs/guides/installation) for exact commands.
-
-| Need | Import |
-|---|---|
-| Core pipeline | `docture` |
-| Model components | `docture/llm` or `docture/llm/text` |
-| PDF text and positions | `docture/loaders/pdfjs` |
-| MuPDF text and page rendering | `docture/loaders/mupdf` |
-| OCR with Tesseract | `docture/loaders/tesseract` |
-| OCR with PaddleOCR | `docture/loaders/paddleocr` |
-| Page rendering with PDF.js and canvas | `docture/raster/canvas` |
-| Retrieval chunks | `docture/chunk` |
-| Accuracy scoring | `@docture/eval` |
-| Test doubles | `docture/testing/doubles` |
-| PDF fixtures | `docture/testing/fixtures` |
-| Conformance suites | `docture/testing/conformance` |
-| Terminal commands | `@docture/cli` |
-
-See [packages and imports](/docs/reference/packages) before choosing an OCR or rendering
-engine. MuPDF and Tesseract use WASM. ONNX Runtime and canvas use native prebuilt bindings.
-For an existing application, follow the [migration guide](/docs/guides/migration).
+The four packages are `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic`. Add only the engines in your selected [installation recipe](/docs/getting-started/installation).
 
 ## What comes back
 
-`extract()` returns more than the extracted fields:
-
-```ts
-result.data;           // data inferred from the schema
-result.method;         // strategy that produced the valid result
-result.loader;         // loader that read the document
-result.attempts;       // failed loaders, then strategy attempts
-result.features;       // facts found on this document
-result.usage;          // tokens, cost when priced, and wall time
-result.validation;     // validation outcome
-result.classification; // present when classification ran
-```
-
-Use `extractData()` when you only need the fields. Use `safeExtract()` when a failure
-should be returned as a value instead of thrown.
+[Extraction results](/docs/extraction/results) include schema-inferred data, attempts, validation, and usage. Conversion returns content and source evidence. Evaluation returns scores and reports. Synthetic documents include ground truth and field locations.
 
 ## Choose a path
 
-| Your input | Start here |
-|---|---|
-| A PDF with selectable text | [Extract with a model](/docs/guides/with-a-model) |
-| A PDF to index or use in RAG | [Convert documents](/docs/guides/document-conversion) |
-| A layout you already know | [Extract without a model](/docs/guides/without-a-model) |
-| A scanned PDF or image | [Scanned documents](/docs/guides/scanned-documents) |
-| A path, URL, byte array, or preloaded document | [Sources and inputs](/docs/guides/sources-and-inputs) |
-| A file that contains several documents | [Bundles and splitters](/docs/concepts/bundles-and-splitters) |
-| A document that does not fit one model request | [Long documents](/docs/guides/long-documents) |
-| Many files | [Batches and lifecycle](/docs/guides/batches-and-lifecycle) |
-| A terminal workflow | [Command line](/docs/guides/cli) |
-
-Read [how it works](/docs/how-it-works) when you need to understand routing or diagnose
-why a component did not run.
+Use [Choose a workflow](/docs/getting-started/choose-workflow), the [API index](/docs/api), or [runnable examples](/docs/resources/examples).

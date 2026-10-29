@@ -1,0 +1,8 @@
+{
+  "title": "API reference",
+  "pages": [
+    "cli",
+    "service"
+  ],
+  "pagesIndex": "index"
+}

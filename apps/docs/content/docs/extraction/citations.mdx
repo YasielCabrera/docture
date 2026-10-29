@@ -1,0 +1,37 @@
+---
+title: Verify field citations
+description: Cite positioned lines or native evidence and inspect verification status.
+---
+
+Enable citations on a text strategy whose loader supplies positioned lines or native element and cell evidence:
+
+```ts
+import { llm } from "docture/llm/text";
+
+const strategy = llm({ model, citations: true });
+```
+
+Add the strategy to your extractor, then inspect the result:
+
+```ts
+const result = await extractor.extract(source, Invoice);
+for (const field of result.citations ?? []) {
+	console.log(field.path, field.status, field.ids);
+}
+```
+
+## Read the status
+
+- `verified` means the printed value matches the cited evidence under exact normalization rules.
+- `cited-unverified` means evidence was cited but did not verify, or a schema transform changed the value.
+- `uncited` means the answer supplied no supporting citation for that present leaf.
+
+`citationSources` contains cited real lines, original page numbers, boxes, and text. `evidenceSources` contains cited native elements or table cells at their actual granularity, with optional locations. Native records do not acquire invented line IDs. A verified citation supports the returned value in that evidence; it does not establish that the correct field or document was selected.
+
+Vision extraction sends images and does not cite lines. A run that falls back to vision has no `citations`. Text without positioned lines or native evidence IDs yields uncited values. Citations increase prompt and output tokens, especially for long tables.
+
+## Interpret OCR confidence
+
+`minOcrConfidence` reports the lowest OCR span score behind the cited occurrence when all relevant spans have valid scores. It is absent on ordinary PDF text layers. It is an OCR score, not a probability that extraction is correct, and scores from different engines do not compare.
+
+Use [CLI review](/docs/cli/review) to inspect the source visually. See [citation results](/docs/extraction/reference/citations) for field paths and confidence rules, [text extraction](/docs/extraction/reference/text#field-citations) for exact matching, and [grounding evaluation](/docs/evaluation/grounding) to compare evidence with labeled locations.

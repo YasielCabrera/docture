@@ -517,11 +517,21 @@ html:has(.mermaid-dialog[open]) {
   outline-offset: -3px;
 }
 
+.docs-layout :is(#nd-sidebar, #nd-sidebar-mobile) :is(a, button):focus-visible {
+  outline: none;
+  background-color: var(--color-fd-accent);
+}
+
+.docs-layout :is(#nd-sidebar, #nd-sidebar-mobile) a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .docs-layout #nd-sidebar {
   background: transparent;
 }
 
-.docs-layout #nd-sidebar [data-active="true"] {
+.docs-layout #nd-sidebar [data-active="true"]:not([data-sidebar-section]) {
   font-weight: 500;
 }
 

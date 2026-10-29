@@ -1,0 +1,95 @@
+---
+title: Classify documents
+description: Document kinds, classifier signals, and verdict selection.
+---
+
+Classification assigns a document to one of the kinds supplied by the caller. Each
+kind has its own schema, so a classified extraction keeps the document name and data
+type connected.
+
+```ts
+import { defineClassification } from "docture";
+import { z } from "zod";
+
+const invoice = defineClassification({
+  name: "invoice",
+  description: "A supplier invoice with a total due.",
+  schema: z.object({
+    invoiceNumber: z.string(),
+    total: z.number(),
+  }),
+});
+```
+
+`defineClassification()` preserves the literal name. This lets TypeScript narrow a
+`ClassifiedExtraction` by its `name` field.
+
+## Run classification
+
+Register a classifier, then ask it to choose among declared kinds. This example uses your existing `invoice` classification and `source`:
+
+```ts
+import { Extractor } from "docture/node";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { llmClassifier } from "docture/llm/classifier";
+import { openai } from "@ai-sdk/openai";
+
+const extractor = new Extractor({
+	loaders: [new DocumentLoaderPdfJs()],
+	classifiers: [llmClassifier({ model: openai("gpt-5") })],
+});
+try {
+	const result = await extractor.classify(source, [invoice]);
+	console.log(result.name, result.confidence, result.signals);
+} finally {
+	await extractor.dispose();
+}
+```
+
+Install the [model recipe](/docs/getting-started/installation) and set the provider credential. A recognized candidate returns its name; otherwise the verdict is `UNKNOWN`.
+
+Direct classification uses the whole loaded source. To classify a page subset, pass a `LoadedSource` narrowed to those pages rather than relying on extraction's `pages` filter.
+
+## Classification fields
+
+`schema` describes the data needed to recognize the kind. `extractionContract` may
+provide a different, usually larger, schema for extraction.
+
+`extractor` selects a per-kind extractor. `image` supplies a reference image for a
+classifier that supports one. `hints` adds document-specific guidance.
+
+Use `classificationOf(contract)` when an existing contract already contains the name,
+schema, description, and hints.
+
+## Classifier signals
+
+A classifier returns a `ClassificationSignal` or `null` to abstain. The signal contains
+the classifier name, proposed document name, confidence, and an optional note.
+
+Core runs every eligible classifier and keeps all returned signals. A thrown classifier
+error is recorded as an abstention unless the error is an abort.
+
+Names are matched to candidates without regard to letter case. With a nonempty candidate
+list, a name outside that list cannot win, but its signal remains visible in the result.
+With no candidates, core allows a classifier to return a free-form name and cannot attach
+a matched `classification` object.
+
+## Choosing a verdict
+
+The default `higherOrder` strategy selects the signal with the highest confidence. Its
+optional threshold rejects a winner below the configured confidence.
+
+`consensus` selects the name with the most votes and uses summed confidence to break a
+tie. `consensusWithThreshold` applies the same vote and tie rules, then requires the
+winning signal to meet the threshold.
+
+When no accepted signal remains, the result name is `UNKNOWN` with confidence `0`.
+
+## Flat lists and trees
+
+Use a flat list for a small set of kinds. A `ClassificationTree` groups many kinds into
+levels. Core descends one level at a time, which keeps each classification request
+small. `flattenTree()` returns the full depth-first list for reports or checks.
+
+See the [classification API](/docs/extraction/reference/classification) for direct
+classification methods, tree helpers, and result types.

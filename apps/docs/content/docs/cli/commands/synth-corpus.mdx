@@ -1,0 +1,37 @@
+---
+title: "docture synth corpus"
+description: "Write a labeled corpus that @docture/eval's jsonlDataset reads"
+---
+
+Write a labeled corpus that @docture/eval's jsonlDataset reads
+
+## Flags
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--out <dir>` | Not set | Corpus directory. Default: the config's out, else corpus beside the config |
+| `--seeds <seeds>` | Not set | A range such as 1-40, a list such as 1,2,3, or both. Default: the config's seeds |
+| `--templates <selectors>` | Not set | Comma-separated template keys, aliases or families. Default: all Repeatable. |
+| `--scenarios <names>` | Not set | Comma-separated scenarios; base is the unvaried model. Default: base and every configured scenario Repeatable. |
+| `--renditions <list>` | Not set | Comma-separated renditions such as digital,scan:0.3. Default: the config's, else digital Repeatable. |
+| `--concurrency <n>` | 4 | Renderings in flight at once |
+| `--no-verify` | Not set | Skip reading each digital rendering back to confirm its labels |
+| `--config <path>` | Not set | Synth config. Default: the nearest docture.synth.&#123;ts,mts,js,mjs&#125; |
+| `--verbose`, `-v` | Not set | Report the wiring, the routing, and every attempt |
+| `--quiet`, `-q` | Not set | Only failures and the first hint per error code on stderr |
+| `--no-color` | Not set | Never emit ANSI colour |
+| `--help`, `-h` | Not set | Show this help |
+
+## Examples
+
+```sh
+docture synth corpus
+docture synth corpus --seeds 1-40 --renditions digital,scan:0.3,photo:0.6 --out corpus
+```
+
+## Behavior
+
+- Rerunning converges: a case whose inputs and files are unchanged is skipped.
+- A case that fails is listed on stderr and in failures.jsonl, and the command exits 1.
+
+See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).

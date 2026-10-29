@@ -10,7 +10,7 @@ pnpm --filter @docture/examples exec node benchmarks/concurrency.ts
 pnpm --filter @docture/examples exec node benchmarks/concurrency.ts --reps 7 --only ocr
 ```
 
-Docs: [`guides/performance`](../../docs/content/docs/guides/performance.mdx)
+Docs: [`guides/performance`](../../docs/content/docs/extraction/performance.mdx)
 
 Run it with plain `node`, which strips the TypeScript types on Node 22.18 or later. A
 TypeScript loader such as `tsx` adds several hundred MiB to max RSS once PDF.js loads,

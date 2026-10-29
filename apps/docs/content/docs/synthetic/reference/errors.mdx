@@ -1,0 +1,18 @@
+---
+title: Synthetic errors API
+description: Public signatures, types, behavior, and defaults for synthetic errors.
+---
+
+## `@docture/synthetic`
+
+### `SynthesisError`
+
+Code `SYNTHESIS_FAILED`. A model could not sample a value that satisfies its schema, constraints and scenario. `problems` lists each `SynthesisProblem` with the path or constraint it concerns.
+
+### `TemplateError`
+
+Code `TEMPLATE_INVALID`. `template` names the template and `problems` lists each `TemplateProblem` with a `TemplateProblemCode`: `undeclared-field`, `unprinted-field`, `unknown-path`, `missing-glyph` or `invalid-template`.
+
+### `LabelVerificationError`
+
+Code `LABEL_VERIFICATION_FAILED`. `failures` lists each `LabelFailure` with its path, page and a `LabelFailureKind`: `missing`, `outside-box` or `page-overflow`.

@@ -1,0 +1,39 @@
+---
+title: "docture paperless"
+description: "Read, extract, plan and explicitly apply configured Paperless mappings"
+---
+
+Uses the configured Paperless instance and named schemas. Credentials and mappings cannot be replaced by command arguments.
+
+## Arguments
+
+| Argument | Required | Meaning |
+| --- | --- | --- |
+| `action` | Yes | read, search, extract, plan or apply |
+| `source` | No | Document ID, or saved plan path for apply |
+
+## Flags
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--schema <name>` | Not set | Configured schema and mapping name |
+| `--query` | Not set | Bounded native document query |
+| `--limit` | Not set | Maximum query results within the configured bound |
+| `--version` | Not set | Selected file-version ID |
+| `--out`, `-o` | Not set | Save the returned artifact to this path |
+| `--dry-run` | Not set | Print the proposed plan and perform no Paperless writes |
+| `--config <path>` | Not set | Config file. Default: the nearest docture.config.&#123;ts,mts,js,mjs&#125; |
+| `--no-config` | Not set | Ignore any config file that is found |
+| `--verbose`, `-v` | Not set | Report the wiring, the routing, and every attempt |
+| `--quiet`, `-q` | Not set | Only failures and the first hint per error code on stderr |
+| `--no-color` | Not set | Never emit ANSI colour |
+| `--help`, `-h` | Not set | Show this help |
+
+## Examples
+
+```sh
+docture paperless plan 42 --schema invoice
+docture paperless apply plan.json --schema invoice --dry-run
+```
+
+See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).

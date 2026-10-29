@@ -1,0 +1,41 @@
+---
+title: Process batches
+description: Process several sources, stop work, set deadlines, and release components.
+---
+
+## Install
+
+```sh
+npm install docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+```
+
+See [installation recipes](/docs/getting-started/installation) for other engines and providers.
+
+
+## Extract a batch
+
+`extractBatch()` starts up to four documents at once by default. It yields each result as
+soon as that document finishes.
+
+```ts
+for await (const item of extractor.extractBatch(files, Invoice, { concurrency: 4 })) {
+  if (item.outcome.ok) {
+    await save(item.source, item.outcome.result.data);
+  } else {
+    console.error(item.index, item.outcome.error.message);
+  }
+}
+```
+
+The generator does not reject for a document failure. Each item contains the original
+source, its input index, and a `SafeExtraction` outcome.
+
+Leaving `extractBatch()` or `convertBatch()` early aborts in-flight jobs and waits for
+them to settle. A loader or strategy that ignores cancellation delays that return.
+
+The complete typechecked batch example is kept with the documentation source:
+
+<SourceExample file="batch-invoices.ts" title="extract-batch.ts" />
+
+
+See [lifecycle](/docs/extraction/lifecycle) for cancellation and shared resource cleanup.

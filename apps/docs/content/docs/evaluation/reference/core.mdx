@@ -1,0 +1,22 @@
+---
+title: Evaluation datasets and reporter contracts API
+description: In-memory datasets and custom reporter construction.
+---
+
+## `@docture/eval`
+
+### `inMemoryDataset`
+
+```ts
+inMemoryDataset<T>(id: string, cases: readonly EvalCase<T>[]): Dataset<T>
+```
+
+A dataset over cases already in memory, for tests and generated corpora.
+
+### `defineReporter`
+
+```ts
+defineReporter(reporter: Reporter): Reporter
+```
+
+Declare a custom reporter. Identity at runtime; it pins the type.

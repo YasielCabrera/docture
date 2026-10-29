@@ -1,0 +1,126 @@
+---
+title: Synthetic constraints and paths API
+description: Public signatures, types, behavior, and defaults for synthetic constraints and paths.
+---
+
+## `@docture/synthetic`
+
+### `ibanCheckDigits`
+
+```ts
+ibanCheckDigits(country: string, bban: string): string
+```
+
+The two ISO 13616 mod-97 check digits for a country and BBAN.
+
+### `isValidIban`
+
+```ts
+isValidIban(value: string): boolean
+```
+
+Whether `value`, spaces ignored, is a well-formed IBAN with correct check digits.
+
+### `luhnCheckDigit`
+
+```ts
+luhnCheckDigit(payload: string): number
+```
+
+The Luhn check digit to append to `payload`.
+
+### `isValidLuhn`
+
+```ts
+isValidLuhn(value: string): boolean
+```
+
+Whether `value`, spaces ignored, ends in its correct Luhn check digit.
+
+### `constraint`
+
+```ts
+constraint<T>(name: string, check: (value: T) => string | readonly string[] | undefined): Constraint<T>
+```
+
+A custom cross-field rule. Return a message, a list of messages, or nothing when satisfied.
+
+### `sumOf`
+
+```ts
+sumOf<T>(items: PathPattern<T>, total: PathPattern<T>, options?: { readonly tolerance?: number }): Constraint<T>
+```
+
+The numbers at `items` sum to the number at `total`, within `tolerance`.
+
+### `before`
+
+```ts
+before<T>(earlier: PathPattern<T>, later: PathPattern<T>, options?: { readonly orEqual?: boolean }): Constraint<T>
+```
+
+The ISO date at `earlier` precedes the one at `later`. Absent dates pass.
+
+### `validIban`
+
+```ts
+validIban<T>(pattern: PathPattern<T>): Constraint<T>
+```
+
+Every value at `pattern` is a valid IBAN.
+
+### `validLuhn`
+
+```ts
+validLuhn<T>(pattern: PathPattern<T>): Constraint<T>
+```
+
+Every value at `pattern` passes the Luhn check.
+
+### `unique`
+
+```ts
+unique<T>(pattern: PathPattern<T>): Constraint<T>
+```
+
+Values at `pattern` are pairwise distinct.
+
+### `valuesAt`
+
+```ts
+valuesAt(root: unknown, pattern: string): readonly (readonly [string, unknown])[]
+```
+
+Every concrete path and value at a pattern. Absent positions are skipped.
+
+### `streamFor`
+
+```ts
+streamFor(seed: number | string, key: string): Stream
+```
+
+The deterministic stream for `key` under `seed`. A `Stream` has `next()`, `int(min, max)`, `float(min, max)`, `pick(items)`, `chance(p)` and `fork(key)`. Equal inputs give equal sequences on every platform.
+
+### `formatPath`
+
+```ts
+formatPath(segments: readonly PathSegment[]): string
+```
+
+`["lineItems", 3, "amount"]` becomes `lineItems[3].amount`, the path format of `@docture/eval`.
+
+### `formatPattern`
+
+```ts
+formatPattern(segments: readonly PathSegment[]): string
+```
+
+The pattern of a concrete position: indices become `[]`.
+
+### `parsePath`
+
+```ts
+parsePath(text: string): PathSegment[] | undefined
+```
+
+Parse a concrete path or a pattern. `[]` parses to `-1`. Text that no path formats to returns `undefined`.

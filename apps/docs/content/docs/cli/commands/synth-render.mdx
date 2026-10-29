@@ -1,0 +1,35 @@
+---
+title: "docture synth render"
+description: "Render one document with its labels"
+---
+
+Render one document with its labels
+
+## Flags
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--template <selector>` | Not set | Template key or alias. Required when the config has several |
+| `--seed <seed>` | Not set | Sample seed. Digits are a number, anything else a string. Required |
+| `--scenario <name>` | base | A scenario from the config |
+| `--rendition <rendition>` | digital | digital, or scan, scan-lq, photo or fax with a severity, such as photo:0.6 |
+| `--out <file>` | Not set | Document path. Labels go to &#60;file&#62;.labels.json. Required |
+| `--no-verify` | Not set | Skip reading each digital rendering back to confirm its labels |
+| `--config <path>` | Not set | Synth config. Default: the nearest docture.synth.&#123;ts,mts,js,mjs&#125; |
+| `--verbose`, `-v` | Not set | Report the wiring, the routing, and every attempt |
+| `--quiet`, `-q` | Not set | Only failures and the first hint per error code on stderr |
+| `--no-color` | Not set | Never emit ANSI colour |
+| `--help`, `-h` | Not set | Show this help |
+
+## Examples
+
+```sh
+docture synth render --seed 7 --out invoice.pdf
+docture synth render --template classic --seed 7 --rendition photo:0.6 --out photo.pdf
+```
+
+## Behavior
+
+- The digital rendering is verified before it is degraded, so a degraded document's labels come from verified ones.
+
+See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).

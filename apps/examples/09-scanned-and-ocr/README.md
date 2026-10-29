@@ -8,7 +8,7 @@
 pnpm --filter @docture/examples scanned
 ```
 
-Docs: [`guides/scanned-documents`](../../docs/content/docs/guides/scanned-documents.mdx)
+Docs: [`guides/scanned-documents`](../../docs/content/docs/integrations/scanned-documents.mdx)
 
 ```sh
 pnpm --filter @docture/examples scanned              # the diagnosis

@@ -1,0 +1,78 @@
+---
+title: Command reference
+description: Look up commands, flags, defaults, and exit behavior.
+---
+
+## Commands
+
+| Command | Job |
+|---|---|
+| `extract <file...>` | Extract data that matches a schema |
+| `convert <file...>` | Convert PDFs to TXT, Markdown, HTML, or JSON |
+| `classify <file...>` | Choose a document classification without extracting it |
+| `inspect <file...>` | Show loaded text, geometry, and document facts without a model |
+| `eval <command>` | Run, report, compare, and gate evaluations from `docture.eval.ts`, or score files against ground truth |
+| `review [file]` | Write an offline HTML page of element boxes or cited fields over the page images |
+| `synth <command>` | Generate labeled synthetic documents and corpora from `docture.synth.ts`; see [synthetic corpora from the command line](/docs/synthetic/corpora#use-the-cli) |
+| `mcp` | Serve conversion, inspection, configured extraction, and Paperless tools over MCP stdio |
+
+Run `docture <command> --help` for the flags accepted by that command.
+
+Add `--json` for a machine-readable list. `docture help --json` and `docture --help --json`
+print every command.
+`docture help extract --json` and `docture extract --help --json` print the same document
+for one command. The output is a version 1 envelope with command `help`. Each result's
+`spec` lists the positionals and the flags, with each flag's short alias, choices, default
+label, and description. `summary.environment` lists the environment variables. A flag
+value outside its listed choices exits with code `2`, and so does `docture help` with an
+unknown command.
+
+## Convert
+
+```sh
+docture convert reports/*.pdf --out converted/
+```
+
+`--out <directory>` is required. Markdown and referenced assets are the defaults. Use
+`--to md|html|txt|json` and `--assets referenced|embedded|omit` to change them.
+Referenced images are written to `<out>/<stem>.assets/`. The document is written as
+`<out>/<stem>.md`, `.html`, `.txt`, or `.json`.
+
+```sh
+docture convert report.pdf \
+  --out converted/ \
+  --assist-layout \
+  --model openai/gpt-5
+```
+
+Layout assistance can classify and reorder known elements but cannot return text. The
+default PDF.js loader reads digital PDFs. Configure an OCR loader for scanned PDFs.
+One failed batch input leaves successful outputs in place and returns exit code `1`.
+
+## Extract
+
+```sh
+docture extract invoice.pdf \
+  --schema ./invoice.ts \
+  --model openai/gpt-5
+```
+
+The schema module may export `default`, `schema`, or one named value. Select an explicit
+export with `--schema ./schemas.ts#Invoice`.
+
+JSON Schema files can guide a model but do not provide a runtime validator. Export a Zod,
+Valibot, ArkType, or other Standard Schema value when validation is required.
+
+## Inspect
+
+`inspect` needs no schema, model, or API key:
+
+```sh
+docture inspect scan.pdf --text --lines
+```
+
+Use it to check the selected loader, media type, page count, form, text length, geometry,
+and rendering support.
+
+
+The command pages below list the flags and defaults from the CLI command definitions.

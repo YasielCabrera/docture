@@ -1,0 +1,45 @@
+---
+title: "docture synth"
+description: "Generate labeled synthetic documents from docture.synth.ts"
+---
+
+Samples values from the model in docture.synth.ts, renders them with its templates and
+writes each document with its ground truth and field boxes. Every subcommand is a thin
+shell over @docture/synthetic. Rendering needs pdfkit, degraded renditions sharp, and
+verification the CLI's PDF.js.
+
+## Arguments
+
+| Argument | Required | Meaning |
+| --- | --- | --- |
+| `command` | Yes | A subcommand |
+
+## Flags
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--no-color` | Not set | Never emit ANSI colour |
+| `--help`, `-h` | Not set | Show this help |
+
+## Examples
+
+```sh
+docture synth list
+docture synth render --seed 7 --out invoice.pdf
+docture synth corpus --seeds 1-40
+```
+
+## Behavior
+
+- Exit codes: 0 done, 1 a case failed to render or verify, 2 usage error.
+- `docture synth <command> --help` describes one subcommand.
+
+## Subcommands
+
+- [`docture synth list`](/docs/cli/commands/synth-list). List the config's templates, scenarios and the rendition profiles.
+- [`docture synth gen`](/docs/cli/commands/synth-gen). Print one sampled value as JSON.
+- [`docture synth render`](/docs/cli/commands/synth-render). Render one document with its labels.
+- [`docture synth corpus`](/docs/cli/commands/synth-corpus). Write a labeled corpus that @docture/eval's jsonlDataset reads.
+- [`docture synth verify`](/docs/cli/commands/synth-verify). Read every digital case of a corpus back and confirm its labels.
+
+See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).

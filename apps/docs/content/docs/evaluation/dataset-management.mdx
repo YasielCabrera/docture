@@ -1,0 +1,39 @@
+---
+title: Sample and migrate evaluation datasets
+description: Create deterministic subsets and preview guarded changes to expected values.
+---
+
+Use a fixed seed when selecting a subset:
+
+```ts
+import { sample } from "@docture/eval/dataset";
+
+const selected = sample(await dataset.cases(), {
+	size: 100,
+	seed: "release-check",
+	keepGroups: true,
+	strata: item => String(item.tags?.rendition ?? "digital"),
+});
+console.log(selected.map(item => item.id));
+```
+
+This assumes an existing `dataset`. Increasing the requested size extends the deterministic sample. With `keepGroups: true`, complete groups may exceed the requested size.
+
+For a truth change, declare the only paths the transformation may edit. For a writable inventory dataset:
+
+```ts
+import { defineMigration, runMigration } from "@docture/eval/dataset";
+
+const migration = defineMigration({
+	id: "trim-title",
+	description: "Trim surrounding title whitespace",
+	targets: ["title"],
+	apply: (expected: { title: string; count: number }) => ({ ...expected, title: expected.title.trim() }),
+});
+const preview = await runMigration(dataset, migration, { spec });
+console.log(preview.written, preview.cases);
+```
+
+Preview writes nothing. Pass `write: true` after reviewing the diff. The migration checks all cases before writing, rejects changes outside declared targets, requires idempotence, and optionally validates the transformed truth against the spec. Draft cases remain drafts. A custom adapter's individual writes can still fail after earlier writes succeed.
+
+Use `docture eval sample` and `docture eval migrate` for the same workflows from the [CLI](/docs/cli/commands). See the [dataset management API](/docs/evaluation/reference/datasets).

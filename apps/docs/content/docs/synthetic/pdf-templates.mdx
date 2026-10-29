@@ -1,0 +1,20 @@
+---
+title: Create synthetic PDF templates
+description: Draw fields and paginated tables with PDFKit.
+---
+
+Define a template with `defineTemplate<T>()`, then render a sample through `@docture/synthetic/pdfkit`. Install `pdfkit@0.19.1`. The [quick start](/docs/synthetic/quick-start) contains a complete two-field template.
+
+## Draw and label
+
+Use `page.field(path, text, at)` for data fields. The call draws text and records its box. Use `page.text`, `rule`, `rect`, or `image` for unlabeled decoration. Coordinates use points with a top-left origin and positive y downward.
+
+A template declares a key, family, locale, printed mask, and draw function. Optional aliases and tags support selection and reporting. Page size defaults to A4 and margin to 50 points. Set `width` on text to enable wrapping. `measure()` returns the space text needs; `addPage()` starts a page.
+
+## Paginate tables
+
+Use `drawTable(surface, options)` with an array path, items, columns, and page bounds. A keyed column labels each cell as a concrete path such as `usage[3].kwh`. Rows stay intact and headers repeat. `reserveAfter` leaves space for totals; `onPage` draws content before each repeated header. The returned y is on the page where the closing block fits.
+
+The [runnable utility-bill example](https://github.com/YasielCabrera/docture/tree/main/apps/examples/24-synthetic-corpus) demonstrates tables, two layouts, and different printed masks.
+
+Rendering fails with `TemplateError` when drawing and declarations disagree or a font lacks a glyph. [Verify digital labels](/docs/synthetic/verification) before generating [degraded renditions](/docs/synthetic/degradation). See [template APIs](/docs/synthetic/reference/templates) and [PDF rendering options](/docs/synthetic/reference/pdfkit).

@@ -1,0 +1,59 @@
+---
+title: Configure prompts, caching, and pricing
+description: Guide model answers, cache unchanged requests, and report priced usage.
+---
+
+## Guide the extraction
+
+Start with clear field names and schema descriptions. Add `instructions` for rules that
+apply to every document. Use `hints` for rules tied to a classification name.
+
+```ts
+llm({
+  model: openai("gpt-5"),
+  instructions: "Amounts in parentheses are negative.",
+  hints: {
+    invoice: "Use the amount labelled Grand total.",
+  },
+});
+```
+
+`system` replaces the default system prompt. `instructions` appends to it. The default
+temperature is `0` and the default retry count is `2`.
+
+## Cache responses
+
+```ts
+import { fileCache, memoryCache } from "docture/llm/cache";
+
+llm({ model, cache: memoryCache(500) });
+llm({ model, cache: fileCache(".docture-cache") });
+```
+
+The cache key includes the model id, prompts, JSON Schema, and request variant. A cache hit
+returns the saved token counts with no `costUsd` because no new request ran.
+
+## Report cost
+
+Providers report token counts but not a stable price. Supply a pricing table when you need
+`usage.costUsd`:
+
+```ts
+llm({
+  model,
+  pricing: {
+    "gpt-5": { inputPerMillion: 2, outputPerMillion: 10 },
+  },
+});
+```
+
+Without a matching price, `costUsd` is absent. It is not reported as zero.
+
+Cache reads and writes use their optional rates. A missing cache rate falls back to
+`inputPerMillion`. Provider-reported cache counts appear as `cacheReadTokens` and
+`cacheWriteTokens` in usage, included in `inputTokens`.
+
+See [long documents](/docs/extraction/long-documents) for multi-request extraction and
+[scanned documents](/docs/integrations/scanned-documents) for vision setup.
+
+See [model telemetry](/docs/extraction/telemetry) to trace requests.

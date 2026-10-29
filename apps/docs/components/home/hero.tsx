@@ -45,7 +45,7 @@ export async function Hero() {
 
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
-              href="/docs/quick-start"
+              href="/docs/extraction/quick-start"
               className="group inline-flex items-center gap-2 rounded-control bg-brand-solid px-5 py-2.5 text-sm font-medium whitespace-nowrap text-brand-on-solid transition-transform duration-200 ease-out-quint hover:-translate-y-px active:translate-y-0 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
             >
               Quick start

@@ -103,7 +103,7 @@ Each error extends `DoctureError` and carries a literal `code`:
 - `TemplateError`, code `TEMPLATE_INVALID`: the drawing and the printed mask disagree, or a font lacks a glyph.
 - `LabelVerificationError`, code `LABEL_VERIFICATION_FAILED`: a labeled value is not inside its box on the rendered page.
 
-See the [synthetic corpus guide](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/guides/synthetic-corpus.mdx), the [API reference](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/reference/api/synthetic.mdx) and [example 24](https://github.com/YasielCabrera/docture/tree/main/apps/examples/24-synthetic-corpus).
+See the [synthetic corpus guide](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/synthetic/quick-start.mdx), the [API reference](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/synthetic/reference.mdx) and [example 24](https://github.com/YasielCabrera/docture/tree/main/apps/examples/24-synthetic-corpus).
 
 ## Entries
 

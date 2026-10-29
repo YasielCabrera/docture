@@ -1,0 +1,29 @@
+---
+title: Score evaluation source grounding
+description: Check correct values against labeled document pages and boxes.
+---
+
+Add expected locations to dataset cases, keyed by concrete expected paths:
+
+```ts
+const locations = {
+	total: [{ pageNumber: 1, box: { x: 20, y: 40, width: 80, height: 12 } }],
+};
+```
+
+Coordinates use PDF points with a top-left origin. A processor returns evidence keyed by actual output paths, with a one-based page number and optional box. Array alignment connects actual rows with their expected rows.
+
+```ts
+import { grounding } from "@docture/eval/grounding";
+
+const report = grounding(result, { level: "box", iou: 0.5 });
+console.log(report.experiments);
+```
+
+Use `level: "page"` when expected truth has page labels without physical boxes. Grounding requires both a correct value and supporting location evidence. A plausible citation for an incorrect answer does not make the answer grounded.
+
+Unlabeled fields stay outside expected-location denominators. Missing predictions for labeled fields remain omissions. Inspect coverage alongside grounded precision, recall, and F1 so a partially labeled corpus does not imply complete grounding coverage.
+
+Use `groundingSection()` in the runner's `sections` to include grounding in saved reports. External expected locations can also be supplied through the analysis options.
+
+Synthetic corpora already carry expected locations. See [synthetic evaluation](/docs/synthetic), [field citations](/docs/extraction), and [grounding API](/docs/evaluation/reference/grounding).

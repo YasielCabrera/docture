@@ -1,0 +1,73 @@
+---
+title: Document converter API
+description: Converter construction, options, methods, results, and failures.
+---
+
+Import from `docture`.
+
+## DocumentConverter
+
+```ts
+new DocumentConverter(options?: DocumentConverterOptions)
+createDocumentConverter(options: DocumentConverterOptions): DocumentConverter
+```
+
+`DocumentConverterOptions` accepts loaders in first-success order, one optional
+`layoutAnalyzer`, a logger, and a per-stage timeout. The factory requires at least one
+loader. A fluent converter may be created empty before `loadDocumentLoader()` is called.
+
+The wiring methods are `loadDocumentLoader()`, `loadLayoutAnalyzer()`, `loadLlm()`, and
+`loadLogger()`. `components` returns the registered loaders and optional analyzer.
+Duplicate loader names or a second analyzer throw `DuplicateComponentError`.
+
+
+## Conversion calls
+
+```ts
+convert(source: DocumentSource, options?: ConvertOptions): Promise<ConversionResult>
+safeConvert(source: DocumentSource, options?: ConvertOptions): Promise<SafeConversion>
+convertBatch(
+  sources: readonly DocumentSource[],
+  options?: ConversionBatchOptions,
+): AsyncGenerator<ConversionBatchItem>
+```
+
+`ConvertOptions` has `format`, `pages`, `assets`, `signal`, `logger`, and `stageTimeoutMs`.
+`pages` lists original one-based page numbers to convert. The converter copies the list
+when the call starts and sends it to the loader as `LoadRequest.pages`, with the `layout`
+and `assets` hints. It then keeps only those pages, also for preloaded sources and loaders
+that ignore the hint, and computes features, layout, and assets from them. Results keep the
+original page numbers, and a table or paragraph joins only across consecutive original
+pages. An empty list, or a page that is not an integer or not in the document, throws
+`PageSelectionError` with code `PAGE_OUT_OF_RANGE`, as extraction does.
+`ConversionFormat` is `"text" | "markdown" | "html" | "json"`; Markdown is the default.
+`ConversionAssetMode` is `"referenced" | "embedded" | "omit"`; referenced is the
+default.
+
+`SafeConversion` is `{ ok: true, result } | { ok: false, error }`.
+`ConversionBatchOptions` adds `concurrency`, default `4`. A `ConversionBatchItem` contains
+the original source, input index, and safe outcome. Items are yielded as they finish.
+Leaving the generator early aborts in-flight jobs and waits for them to settle.
+
+`dispose()` settles every disposable loader and analyzer once. Multiple teardown failures
+reject with `AggregateError`.
+
+
+## Result
+
+`ConversionResult` contains:
+
+| Field | Meaning |
+| --- | --- |
+| `content` | Whole-document output. |
+| `format`, `mimeType` | Selected format and output media type. |
+| `pages` | `ConvertedPage` fragments and semantic elements. |
+| `assets` | In-memory `ConversionAsset` values. Empty in omit mode. |
+| `loader`, `method` | Selected loader and deterministic or assisted method. |
+| `attempts`, `warnings` | Loader and analyzer history plus degraded-layout warnings. |
+| `features` | Runtime document facts. |
+| `usage` | Model tokens, optional cost, and complete wall time. |
+
+`ConversionWarning` has a `ConversionWarningCode`, message, and optional page number.
+Codes cover degraded or ambiguous layout, unsupported assets, unsafe links, analyzer
+failure, and invalid analyzer output.
