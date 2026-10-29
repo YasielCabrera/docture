@@ -23,7 +23,7 @@ For a separate application:
 
 ```sh
 pnpm add docture zod
-pnpm add -D @docture/synthetic @docture/eval pdfkit@0.19.1 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10 sharp@0.35.5
+pnpm add -D @docture/synthetic @docture/eval pdfkit pdfjs-dist @napi-rs/canvas sharp
 ```
 
 `pdfkit` renders, `pdfjs-dist` reads each digital PDF back to verify every label, and

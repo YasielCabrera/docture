@@ -19,7 +19,7 @@ path needs `ai@^7.0.0`.
 For a separate application:
 
 ```sh
-pnpm add docture pdfjs-dist@6.2.108 zod
+pnpm add docture pdfjs-dist zod
 ```
 
 The tour workspace already installs these dependencies. See the

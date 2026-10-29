@@ -19,7 +19,7 @@ Import capabilities and `withRasterizer` from `docture`, PDF readers from
 For a separate application:
 
 ```sh
-pnpm add docture pdfjs-dist@6.2.108 mupdf@1.28.0 @napi-rs/canvas@1.0.10 zod
+pnpm add docture pdfjs-dist mupdf @napi-rs/canvas zod
 ```
 
 The tour workspace already installs these dependencies. See the

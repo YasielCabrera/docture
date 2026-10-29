@@ -28,7 +28,7 @@ text layer scores both paths with `looseEval` from `@docture/eval`. Install the 
 you choose explicitly. To use every path in a separate application:
 
 ```sh
-pnpm add docture @docture/eval ai@^7.0.0 pdfjs-dist@6.2.108 mupdf@1.28.0 tesseract.js@7.0.0 ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0 @napi-rs/canvas@1.0.10 utif2@4.1.0 zod
+pnpm add docture @docture/eval ai pdfjs-dist mupdf tesseract.js ppu-paddle-ocr onnxruntime-node @napi-rs/canvas utif2 zod
 ```
 
 The tour workspace already installs these dependencies. See the

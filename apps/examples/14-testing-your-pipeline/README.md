@@ -19,8 +19,8 @@ Fixtures need `pdfkit`, conformance needs Vitest and fixtures, and the model tes
 For a separate application:
 
 ```sh
-pnpm add docture ai@^7.0.0 pdfjs-dist@6.2.108 zod
-pnpm add -D @docture/eval 'vitest@>=3' pdfkit@0.19.1
+pnpm add docture ai pdfjs-dist zod
+pnpm add -D @docture/eval vitest pdfkit
 ```
 
 The tour workspace already installs these dependencies. See the

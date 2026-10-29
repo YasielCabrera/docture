@@ -28,7 +28,7 @@ and `DocumentLoaderPdfJs` from `docture/loaders/pdfjs`. To build a similar confi
 your own project, declare its imports explicitly:
 
 ```sh
-pnpm add docture pdfjs-dist@6.2.108 zod
+pnpm add docture pdfjs-dist zod
 ```
 
 The [tour workspace](../README.md) already installs these dependencies. The example

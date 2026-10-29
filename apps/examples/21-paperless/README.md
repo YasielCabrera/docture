@@ -19,7 +19,7 @@ Paperless support covers 3.x with REST API 9 and 10. This example models 3.3.4 w
 The source adapter uses fetch only. Consumers that select archived PDF evidence install the optional PDF engine explicitly.
 
 ```sh
-pnpm add docture ai zod pdfjs-dist@^6.2.108
+pnpm add docture ai zod pdfjs-dist
 ```
 
 Paperless already has native AI suggestions and chat. paperless-gpt already offers OCR and custom-field workflows. This example demonstrates docture's caller schemas, evidence status, validation, and reusable source identity.

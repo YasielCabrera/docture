@@ -23,16 +23,16 @@ can import the root API without a model engine.
 | Import | Add to your application |
 |---|---|
 | `docture` | `pnpm add docture` |
-| `docture/llm`, `docture/llm/text`, `docture/llm/vision`, `docture/llm/classifier`, `docture/llm/layout`, `docture/llm/split`, `docture/llm/extractor` | `pnpm add ai@^7.0.0 zod@^4` |
-| `docture/loaders/pdfjs` | `pnpm add pdfjs-dist@6.2.108` |
-| `docture/loaders/mupdf` | `pnpm add mupdf@1.28.0` |
-| `docture/loaders/tesseract` | `pnpm add tesseract.js@7.0.0` |
-| `docture/loaders/paddleocr` | `pnpm add ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0`, plus `utif2@4.1.0` for TIFF |
-| `docture/raster/canvas` | `pnpm add pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10` |
-| `docture/testing/fixtures` | `pnpm add -D pdfkit@0.19.1` |
-| `docture/testing/conformance` | `pnpm add -D 'vitest@>=3' pdfkit@0.19.1` |
+| `docture/llm`, `docture/llm/text`, `docture/llm/vision`, `docture/llm/classifier`, `docture/llm/layout`, `docture/llm/split`, `docture/llm/extractor` | `pnpm add ai zod` |
+| `docture/loaders/pdfjs` | `pnpm add pdfjs-dist` |
+| `docture/loaders/mupdf` | `pnpm add mupdf` |
+| `docture/loaders/tesseract` | `pnpm add tesseract.js` |
+| `docture/loaders/paddleocr` | `pnpm add ppu-paddle-ocr onnxruntime-node`, plus `utif2` for TIFF |
+| `docture/raster/canvas` | `pnpm add pdfjs-dist @napi-rs/canvas` |
+| `docture/testing/fixtures` | `pnpm add -D pdfkit` |
+| `docture/testing/conformance` | `pnpm add -D vitest pdfkit` |
 | `@docture/eval` and its subpaths | `pnpm add -D @docture/eval` |
-| `@docture/synthetic`, `/pdfkit`, `/verify`, `/degrade`, `/node` | `pnpm add -D @docture/synthetic pdfkit@0.19.1 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10 sharp@0.35.5` |
+| `@docture/synthetic`, `/pdfkit`, `/verify`, `/degrade`, `/node` | `pnpm add -D @docture/synthetic pdfkit pdfjs-dist @napi-rs/canvas sharp` |
 
 The core API comes from `docture`. Evaluation comes from `@docture/eval`, and test doubles
 come from `docture/testing/doubles`. Those entrypoints need no engine peer. LLM utilities

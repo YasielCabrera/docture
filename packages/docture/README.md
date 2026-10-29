@@ -30,7 +30,7 @@ extraction pipeline before you have a hand-labeled corpus.
 ## Installation
 
 ```bash
-npm install docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+npm install docture pdfjs-dist ai @ai-sdk/openai zod
 ```
 
 `docture` exports core from its root. Import model features from `docture/llm` or a
@@ -289,7 +289,7 @@ See [example 24](https://github.com/YasielCabrera/docture/tree/main/apps/example
 ### CLI
 
 ```bash
-npm install --save-dev @docture/cli @ai-sdk/openai zod@^4
+npm install --save-dev @docture/cli @ai-sdk/openai zod
 npx docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5
 ```
 
@@ -386,37 +386,37 @@ Only `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic` are pu
 Core with its schema helper, custom components, or in-memory extraction:
 
 ```sh
-npm install docture zod@^4
+npm install docture zod
 ```
 
 PDF.js deterministic extraction or conversion:
 
 ```sh
-npm install docture pdfjs-dist@6.2.108 zod@^4
+npm install docture pdfjs-dist zod
 ```
 
 Any model capability with PDF.js and the OpenAI provider:
 
 ```sh
-npm install docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+npm install docture pdfjs-dist ai @ai-sdk/openai zod
 ```
 
 MuPDF text or rendering:
 
 ```sh
-npm install docture mupdf@1.28.0 zod@^4
+npm install docture mupdf zod
 ```
 
 Tesseract image OCR:
 
 ```sh
-npm install docture tesseract.js@7.0.0
+npm install docture tesseract.js
 ```
 
 PaddleOCR image OCR:
 
 ```sh
-npm install docture ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0
+npm install docture ppu-paddle-ocr onnxruntime-node
 ```
 
 Both OCR loaders read multi-page TIFF. PaddleOCR also needs `utif2@4.1.0` for TIFF.
@@ -425,13 +425,13 @@ PDF OCR also needs a configured rasterizer. For the scanned-document example abo
 which combines Tesseract, PDF.js, MuPDF rendering, and a model:
 
 ```sh
-npm install docture tesseract.js@7.0.0 pdfjs-dist@6.2.108 mupdf@1.28.0 ai@^7 @ai-sdk/openai zod@^4
+npm install docture tesseract.js pdfjs-dist mupdf ai @ai-sdk/openai zod
 ```
 
 Canvas rendering, or vision with PDF.js and OpenAI:
 
 ```sh
-npm install docture pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10 ai@^7 @ai-sdk/openai zod@^4
+npm install docture pdfjs-dist @napi-rs/canvas ai @ai-sdk/openai zod
 ```
 
 For rendering without a model, omit `ai` and the provider from that command.
@@ -445,13 +445,13 @@ npm install docture
 Generated PDF fixtures:
 
 ```sh
-npm install --save-dev docture pdfkit@0.19.1
+npm install --save-dev docture pdfkit
 ```
 
 Conformance suites generate PDFs and register Vitest tests, so they need both peers:
 
 ```sh
-npm install --save-dev docture pdfkit@0.19.1 'vitest@>=3'
+npm install --save-dev docture pdfkit vitest
 ```
 
 Also install the engine under test. Doubles need neither PDFKit nor Vitest.
@@ -459,7 +459,7 @@ Also install the engine under test. Doubles need neither PDFKit nor Vitest.
 Synthetic documents: rendering, label verification, and scan or photo renditions:
 
 ```sh
-npm install --save-dev @docture/synthetic docture pdfkit@0.19.1 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10 sharp@0.35.5
+npm install --save-dev @docture/synthetic docture pdfkit pdfjs-dist @napi-rs/canvas sharp
 ```
 All peers must satisfy their compatibility range when present, even for an adapter the
 application does not import. The versions above are the ones Docture is developed with;
@@ -475,7 +475,7 @@ also has a Zod peer.
 default renderer. If optional dependencies were omitted, install canvas explicitly:
 
 ```sh
-npm install --save-dev @docture/cli @napi-rs/canvas@1.0.10
+npm install --save-dev @docture/cli @napi-rs/canvas
 ```
 
 MuPDF is AGPL-3.0-or-later licensed. Tesseract and MuPDF use WASM. ONNX Runtime and

@@ -18,7 +18,7 @@ readers come from `docture/loaders/pdfjs` and `docture/loaders/mupdf`.
 For a separate application:
 
 ```sh
-pnpm add docture pdfjs-dist@6.2.108 mupdf@1.28.0 zod
+pnpm add docture pdfjs-dist mupdf zod
 ```
 
 The tour workspace already installs these dependencies. See the

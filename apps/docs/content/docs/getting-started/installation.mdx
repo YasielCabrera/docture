@@ -14,7 +14,7 @@ accepts and the versions the release gate runs.
 For core contracts, extraction, conversion, `DocumentLoaderData`, or custom components:
 
 ```sh
-npm install docture zod@^4
+npm install docture zod
 ```
 
 Core uses `@ai-sdk/provider-utils`, whose schema helper has a Zod peer. Zod 3.25.76 or
@@ -34,13 +34,13 @@ Import core from `docture`, retrieval chunks from `docture/chunk`, and test doub
 For `docture/loaders/pdfjs`, including conversion without a model:
 
 ```sh
-npm install docture pdfjs-dist@6.2.108 zod@^4
+npm install docture pdfjs-dist zod
 ```
 
 For deterministic extraction with a Zod schema:
 
 ```sh
-npm install docture pdfjs-dist@6.2.108 zod@^4
+npm install docture pdfjs-dist zod
 ```
 
 ## Text extraction, classification, splitting, and layout with a model
@@ -48,7 +48,7 @@ npm install docture pdfjs-dist@6.2.108 zod@^4
 For the model examples using PDF.js and OpenAI:
 
 ```sh
-npm install docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+npm install docture pdfjs-dist ai @ai-sdk/openai zod
 ```
 
 Use `docture/llm/text`, `docture/llm/classifier`, `docture/llm/split`, or
@@ -72,14 +72,14 @@ Import those helpers from `docture/llm/cache`, `docture/llm/pricing`,
 For `DocumentLoaderMuPdf` or `MuPdfRasterizer` from `docture/loaders/mupdf`:
 
 ```sh
-npm install docture mupdf@1.28.0 zod@^4
+npm install docture mupdf zod
 ```
 
 MuPDF is AGPL-3.0-or-later licensed. For vision extraction using MuPDF for both reading
 and rendering, plus the OpenAI provider:
 
 ```sh
-npm install docture mupdf@1.28.0 ai@^7 @ai-sdk/openai zod@^4
+npm install docture mupdf ai @ai-sdk/openai zod
 ```
 
 Compose `DocumentLoaderMuPdf` with `MuPdfRasterizer` through `withRasterizer()`.
@@ -89,13 +89,13 @@ Compose `DocumentLoaderMuPdf` with `MuPdfRasterizer` through `withRasterizer()`.
 For `NapiCanvasRasterizer` from `docture/raster/canvas`:
 
 ```sh
-npm install docture pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10
+npm install docture pdfjs-dist @napi-rs/canvas
 ```
 
 For the [scanned-document vision recipe](/docs/integrations/scanned-documents):
 
 ```sh
-npm install docture pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10 ai@^7 @ai-sdk/openai zod@^4
+npm install docture pdfjs-dist @napi-rs/canvas ai @ai-sdk/openai zod
 ```
 
 Canvas uses a platform-specific native prebuild. `docture/llm/vision` supplies the model
@@ -110,14 +110,14 @@ both. Pages are drawn on the canvas that PDF.js loaded.
 For `DocumentLoaderTesseract` from `docture/loaders/tesseract`:
 
 ```sh
-npm install docture tesseract.js@7.0.0
+npm install docture tesseract.js
 ```
 
 Tesseract recognizes image inputs. To read scanned PDFs, also compose a PDF rasterizer.
 For the canvas-backed OCR example:
 
 ```sh
-npm install docture tesseract.js@7.0.0 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10
+npm install docture tesseract.js pdfjs-dist @napi-rs/canvas
 ```
 
 The default Tesseract worker can download its language data. Configure language-data
@@ -129,19 +129,19 @@ library if a model extracts fields from the OCR text.
 For `DocumentLoaderPaddleOcr` from `docture/loaders/paddleocr`:
 
 ```sh
-npm install docture ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0
+npm install docture ppu-paddle-ocr onnxruntime-node
 ```
 
 For the canvas-backed scanned-PDF OCR example:
 
 ```sh
-npm install docture ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10
+npm install docture ppu-paddle-ocr onnxruntime-node pdfjs-dist @napi-rs/canvas
 ```
 
 To read TIFF files with PaddleOCR, also install its TIFF decoder:
 
 ```sh
-npm install utif2@4.1.0
+npm install utif2
 ```
 
 PaddleOCR needs model assets as well as ONNX Runtime's platform-specific native libraries.
@@ -183,21 +183,21 @@ adapters remain unsupported with that version.
 For `docture/testing/fixtures`:
 
 ```sh
-npm install --save-dev docture pdfkit@0.19.1
+npm install --save-dev docture pdfkit
 ```
 
 For `docture/testing/conformance`, install both Vitest and PDFKit because the suites
 register tests and generate PDFs:
 
 ```sh
-npm install --save-dev docture pdfkit@0.19.1 'vitest@>=3'
+npm install --save-dev docture pdfkit vitest
 ```
 
 Add the engine for the adapter under test. For the runnable accuracy example, which reads
 a generated PDF with PDF.js and uses a Zod schema:
 
 ```sh
-npm install --save-dev docture pdfjs-dist@6.2.108 pdfkit@0.19.1 zod@^4
+npm install --save-dev docture pdfjs-dist pdfkit zod
 ```
 
 ## Command-line tool
@@ -219,26 +219,26 @@ The CLI requires AI SDK and PDF.js and attempts to install canvas as its optiona
 renderer. If optional dependencies were omitted, restore canvas with:
 
 ```sh
-npm install --save-dev @docture/cli @napi-rs/canvas@1.0.10
+npm install --save-dev @docture/cli @napi-rs/canvas
 ```
 
 `docture mcp` and `@docture/cli/mcp` need the optional MCP SDK peer. No other command
 loads it:
 
 ```sh
-npm install --save-dev @docture/cli @modelcontextprotocol/sdk@1.32.2
+npm install --save-dev @docture/cli @modelcontextprotocol/sdk
 ```
 
 For the CLI examples using a Zod schema and a local OpenAI provider:
 
 ```sh
-npm install --save-dev @docture/cli @ai-sdk/openai zod@^4
+npm install --save-dev @docture/cli @ai-sdk/openai zod
 ```
 
 If your config imports Docture components, declare those imports directly:
 
 ```sh
-npm install --save-dev @docture/cli docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+npm install --save-dev @docture/cli docture pdfjs-dist ai @ai-sdk/openai zod
 ```
 
 TypeScript schema and config modules use Node's type stripping, available from Node
@@ -247,9 +247,9 @@ TypeScript schema and config modules use Node's type stripping, available from N
 ## Evaluation
 
 ```sh
-npm install @docture/eval docture zod@^4
+npm install @docture/eval docture zod
 # Optional semantic judge only:
-npm install ai@^7
+npm install ai
 ```
 
 The root, runner, reporters and framework adapters need no model engine. Import file I/O from `@docture/eval/node` and the judge from `@docture/eval/judge`.
@@ -259,18 +259,18 @@ The root, runner, reporters and framework adapters need no model engine. Import 
 `@docture/synthetic` needs only `docture` for models and templates. Add the engines for the entries you import:
 
 ```sh
-npm install --save-dev @docture/synthetic docture zod@^4
+npm install --save-dev @docture/synthetic docture zod
 # Render templates to PDF (@docture/synthetic/pdfkit):
-npm install --save-dev pdfkit@0.19.1
+npm install --save-dev pdfkit
 # Verify labels and write corpora (@docture/synthetic/verify, /node):
-npm install --save-dev pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10
+npm install --save-dev pdfjs-dist @napi-rs/canvas
 # Scan, photo and fax renditions (@docture/synthetic/degrade):
-npm install --save-dev sharp@0.35.5
+npm install --save-dev sharp
 # Optional value and layout sources:
-npm install --save-dev @faker-js/faker@10.6.0   # @docture/synthetic/faker
-npm install --save-dev react@19.3.1 @react-pdf/renderer@4.9.0   # @docture/synthetic/react-pdf
-npm install --save-dev playwright-core@1.64.1   # @docture/synthetic/html
-npm install --save-dev ai@^7                    # @docture/synthetic/llm
+npm install --save-dev @faker-js/faker   # @docture/synthetic/faker
+npm install --save-dev react @react-pdf/renderer   # @docture/synthetic/react-pdf
+npm install --save-dev playwright-core   # @docture/synthetic/html
+npm install --save-dev ai                    # @docture/synthetic/llm
 ```
 
 The HTML renderer also needs a Chromium build that matches Playwright 1.64.1:

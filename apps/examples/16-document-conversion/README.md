@@ -18,8 +18,8 @@ The generated fixture needs PDFKit; parsing needs PDF.js.
 For a separate application:
 
 ```sh
-pnpm add docture pdfjs-dist@6.2.108
-pnpm add -D pdfkit@0.19.1
+pnpm add docture pdfjs-dist
+pnpm add -D pdfkit
 ```
 
 The tour workspace already installs these dependencies. See the

@@ -4,7 +4,7 @@ Read this file explicitly when working on an application that imports docture.
 For example, a Codex task can read `node_modules/docture/AGENTS.md` before editing
 its extraction pipeline. Automatic dependency-guide discovery is not assumed.
 
-Install the schema peer used by the example with `npm install docture zod@4.4.3`.
+Install the schema peer used by the example with `npm install docture zod`.
 
 The package has per-file ESM and explicit capability entries. Import only the
 capabilities the application uses. The root is portable and contains core only.
@@ -41,7 +41,7 @@ Element and table-cell evidence is not positioned line evidence.
 Install optional engines explicitly beside the application. For PDF text:
 
 ```sh
-npm install docture pdfjs-dist@6.2.108
+npm install docture pdfjs-dist
 ```
 
 Then import `DocumentLoaderPdfJs` from `docture/loaders/pdfjs`.

@@ -33,7 +33,7 @@ from `docture/loaders/pdfjs`. Text extraction also has the narrow
 For a separate application:
 
 ```sh
-pnpm add docture ai@^7.0.0 pdfjs-dist@6.2.108 zod
+pnpm add docture ai pdfjs-dist zod
 ```
 
 The tour workspace already installs these dependencies. See the

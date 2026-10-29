@@ -193,19 +193,13 @@ async function checkPublicImports(files: readonly string[]): Promise<number> {
 }
 
 async function checkInstallRecipes(files: readonly string[]): Promise<number> {
-  const library = z
-    .object({ peerDependencies: z.record(z.string(), z.string()), devDependencies: z.record(z.string(), z.string()) })
-    .parse(JSON.parse(await readFile(resolve(ROOT, "../../packages/docture/package.json"), "utf8")));
   let count = 0;
   for (const file of files) {
     const source = await readFile(file, "utf8");
     for (const command of source.matchAll(/\b(?:npm (?:install|i)|pnpm add|yarn add)\b[^`"\n]*/g)) {
       count += 1;
-      for (const [, name = "", version = ""] of command[0].matchAll(/(?<![\w@/-])((?:@[\w.-]+\/)?[\w.-]+)@(\d+\.\d+\.\d+)(?![\w.-])/g)) {
-        const developed = library.devDependencies[name];
-        if (name in library.peerDependencies && version !== developed) {
-          fail(`${relative(ROOT, file)}: ${name}@${version} in an install command differs from the development version ${developed}`);
-        }
+      for (const [spec] of command[0].matchAll(/(?<![\w@/-])'?(?:@[\w.-]+\/)?[\w.-]+@[^\s'`]+/g)) {
+        fail(`${relative(ROOT, file)}: install commands name packages without versions; drop the version from ${spec}`);
       }
     }
   }

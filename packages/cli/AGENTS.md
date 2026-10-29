@@ -46,7 +46,7 @@ transaction or a durable receipt store. Keep returned partial/unknown outcomes.
 MCP stdio support is isolated behind `@docture/cli/mcp`. Install its SDK explicitly:
 
 ```sh
-npm install @modelcontextprotocol/sdk@1.32.2
+npm install @modelcontextprotocol/sdk
 ```
 
 Use the configured-schema extraction and Paperless tools. The apply tool requires

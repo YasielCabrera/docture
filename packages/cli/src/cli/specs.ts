@@ -8,7 +8,6 @@
  */
 
 import type { ConversionAssetMode, CompletionStrategy } from "docture";
-import { ENGINE_RANGES } from "../mcp/engines.js";
 import type { ChoiceFlagSpec, CommandSpec, FlagSpec, PositionalSpec } from "./args.js";
 
 const OUTPUT_FORMATS = ["json", "ndjson", "text"] as const;
@@ -705,7 +704,7 @@ export const MCP: CommandSpec = {
     "Register it with an MCP host, for example in its JSON server configuration:",
     '  { "mcpServers": { "docture": { "command": "npx", "args": ["docture", "mcp"] } } }',
     "Relative sources resolve against the directory the host starts the server in.",
-    `Install the SDK beside the CLI: npm install @modelcontextprotocol/sdk@${ENGINE_RANGES["@modelcontextprotocol/sdk"]}`,
+    `Install the SDK beside the CLI: npm install @modelcontextprotocol/sdk`,
   ],
 };
 

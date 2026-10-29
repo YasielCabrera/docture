@@ -3,7 +3,7 @@
 Extraction and grounded document conversion from a terminal.
 
 ```sh
-npm install --save-dev @docture/cli @ai-sdk/openai zod@^4
+npm install --save-dev @docture/cli @ai-sdk/openai zod
 npx docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5
 ```
 
@@ -199,13 +199,13 @@ available when canvas cannot install. If optional dependencies were omitted, res
 the renderer explicitly:
 
 ```sh
-npm install --save-dev @docture/cli @napi-rs/canvas@1.0.10
+npm install --save-dev @docture/cli @napi-rs/canvas
 ```
 
 For OCR with Tesseract and canvas in a custom config:
 
 ```sh
-npm install --save-dev @docture/cli docture tesseract.js@7.0.0 pdfjs-dist@6.2.108 @napi-rs/canvas@1.0.10
+npm install --save-dev @docture/cli docture tesseract.js pdfjs-dist @napi-rs/canvas
 ```
 
 Import `DocumentLoaderTesseract` from `docture/loaders/tesseract` and
@@ -262,7 +262,7 @@ MCP stdio. It needs the optional peer `@modelcontextprotocol/sdk`; the other com
 never load it:
 
 ```sh
-npm install --save-dev @docture/cli @modelcontextprotocol/sdk@1.32.2
+npm install --save-dev @docture/cli @modelcontextprotocol/sdk
 ```
 
 ```json
@@ -305,7 +305,7 @@ When flags stop being enough, wire it in TypeScript. The config hands you the ac
 libraries rather than a description of them. Declare the config's imports directly:
 
 ```sh
-npm install --save-dev @docture/cli docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+npm install --save-dev @docture/cli docture pdfjs-dist ai @ai-sdk/openai zod
 ```
 
 ```ts

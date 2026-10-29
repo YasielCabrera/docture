@@ -20,7 +20,7 @@ document engine.
 For a separate application:
 
 ```sh
-pnpm add docture @docture/eval pdfjs-dist@6.2.108 zod
+pnpm add docture @docture/eval pdfjs-dist zod
 ```
 
 The tour workspace already installs these dependencies. See the

@@ -5,16 +5,16 @@ Generate labeled synthetic documents from your extraction schema. Each document 
 ## Install
 
 ```sh
-npm install @docture/synthetic docture zod@^4 pdfkit@^0.20
+npm install @docture/synthetic docture zod pdfkit
 # Label verification and corpora:
-npm install pdfjs-dist@^6.2.108 @napi-rs/canvas@^1.0.10
+npm install pdfjs-dist @napi-rs/canvas
 # Scan, photo and fax renditions (also needs pdfjs-dist and @napi-rs/canvas):
-npm install sharp@0.35.5
+npm install sharp
 # Optional value and layout engines:
-npm install @faker-js/faker@10.6.0   # @docture/synthetic/faker
-npm install react@19.3.1 @react-pdf/renderer@4.9.0   # @docture/synthetic/react-pdf
-npm install playwright-core@1.64.1   # @docture/synthetic/html, then: npx playwright-core install chromium
-npm install ai@^7                    # @docture/synthetic/llm
+npm install @faker-js/faker   # @docture/synthetic/faker
+npm install react @react-pdf/renderer   # @docture/synthetic/react-pdf
+npm install playwright-core   # @docture/synthetic/html, then: npx playwright-core install chromium
+npm install ai                    # @docture/synthetic/llm
 ```
 
 ## Quick start

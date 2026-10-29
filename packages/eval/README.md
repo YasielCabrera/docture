@@ -5,9 +5,9 @@ Evaluate structured extraction with schema-driven specs, project-owned datasets 
 ## Install
 
 ```sh
-npm install @docture/eval docture zod@^4
+npm install @docture/eval docture zod
 # Only for @docture/eval/judge:
-npm install ai@^7
+npm install ai
 ```
 
 ## Quick start

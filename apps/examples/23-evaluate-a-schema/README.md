@@ -21,7 +21,7 @@ from `ai/test`.
 For a separate application:
 
 ```sh
-pnpm add docture ai@^7.0.0 zod
+pnpm add docture ai zod
 pnpm add -D @docture/eval
 ```
 
