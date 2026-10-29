@@ -15,6 +15,15 @@
   --radius-control: 0.5rem;
 
   --ease-out-quint: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-rise: rise 0.7s var(--ease-out-quint) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+    }
+  }
 }
 
 :root {
@@ -222,9 +231,12 @@ html {
   width: 196px;
 }
 
-/* Custom home-page snippets sit outside Fumadocs' CodeBlock wrapper. */
+/* Custom home-page snippets sit outside Fumadocs' CodeBlock wrapper, inside a
+   window that already paints the card surface. */
+.docs-home-code.shiki {
+  background-color: transparent !important;
+}
 .dark .docs-home-code.shiki {
-  background-color: var(--shiki-dark-bg) !important;
   color: var(--shiki-dark) !important;
 }
 .dark .docs-home-code.shiki code span {

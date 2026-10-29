@@ -21,6 +21,7 @@ export const heroImage = {
   height: 1683,
   /** Fraction of the page height the hero frames. The invoice ends here. */
   crop: 0.4774,
+  alt: "A generated invoice, INV-2026-4311, with 5 line items and a total of 10,768.68 EUR",
 } as const;
 
 export const heroBoxes: readonly HeroBox[] = [
@@ -53,20 +54,9 @@ export const heroBoxes: readonly HeroBox[] = [
   }
 ];
 
-export const bundlePages = [
-  {
-    "src": "/bundle-1.png",
-    "width": 396,
-    "height": 561
-  },
-  {
-    "src": "/bundle-2.png",
-    "width": 396,
-    "height": 561
-  },
-  {
-    "src": "/bundle-3.png",
-    "width": 396,
-    "height": 561
-  }
-] as const;
+/** The ground truth for the invoice, as `result.data` would hold it. */
+export const heroResult = {
+  "invoiceNumber": "INV-2026-4311",
+  "lineItemCount": 5,
+  "total": 10768.68
+} as const;

@@ -20,7 +20,7 @@ export function CopyCommand({ command }: { command: string }) {
   }, [state]);
 
   return (
-    <div className="flex w-full max-w-full min-w-0 items-center gap-2 rounded-control border border-fd-border bg-fd-card ps-4 pe-1.5 py-1.5">
+    <div className="flex h-[2.625rem] w-fit max-w-full min-w-0 items-center gap-2 rounded-control border border-fd-border bg-fd-card ps-4 pe-1">
       <code className="min-w-0 overflow-x-auto font-mono text-[0.8125rem] whitespace-nowrap text-fd-muted-foreground [scrollbar-width:none]">
         <span className="text-brand select-none">$ </span>
         {command}
