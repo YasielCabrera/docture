@@ -1,6 +1,6 @@
 import { LabelVerificationError, SynthesisError, TemplateError } from "@docture/synthetic";
 import { describe, expect, it } from "vitest";
-import { explain } from "@docture/cli";
+import { explain } from "../src/index.js";
 
 describe("synthetic error recovery hints", () => {
   it("points a failed sample at the model's generators and constraints", () => {

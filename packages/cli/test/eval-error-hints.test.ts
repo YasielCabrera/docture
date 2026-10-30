@@ -1,6 +1,6 @@
 import { DoctureError } from "docture";
 import { describe, expect, it } from "vitest";
-import { explain } from "@docture/cli";
+import { explain } from "../src/index.js";
 
 class EvalSpecError extends DoctureError {
   protected static override readonly doctureErrorIdentity = "EvalSpecError";

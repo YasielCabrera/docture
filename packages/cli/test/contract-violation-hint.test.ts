@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createExtractor } from "docture";
 import { fixedStrategy, inMemoryLoader, loadedDocument } from "docture/testing/doubles";
-import { explain } from "@docture/cli";
+import { explain } from "../src/index.js";
 
 const extractionFailure = (data: unknown, rules: readonly (() => { path: string; message: string }[])[] = []) =>
   createExtractor({
