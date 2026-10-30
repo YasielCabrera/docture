@@ -1,13 +1,12 @@
 ---
 title: Synthetic verify API
-description: Public API for @docture/synthetic/verify.
+description: Check that each label's text appears inside its box on a digital PDF, and read the failures.
+type: reference
 ---
 
-## `@docture/synthetic/verify`
+`@docture/synthetic/verify` reads a digital PDF back through PDF.js and checks every label against the text layer. It needs `pdfjs-dist`, loaded through `docture/loaders/pdfjs`. The [verification guide](/docs/synthetic/verification) shows it in use.
 
-- `VerifiableDocument`
-- `VerificationReport`
-- `VerifyOptions`
+## `@docture/synthetic/verify`
 
 ### `verifyLabels`
 
@@ -15,7 +14,9 @@ description: Public API for @docture/synthetic/verify.
 verifyLabels(document: VerifiableDocument, options?: VerifyOptions): Promise<VerificationReport>
 ```
 
-Read a digital rendition back through PDF.js and confirm every label: its box lies on the page, and the text spans meeting the box show the label's text. Whitespace is ignored as a fallback, because PDF.js reads letter-spaced text with a space between glyphs. `tolerance` grows each box before matching, default 2 points. A degraded rendition has no text layer and throws `RangeError`. Needs `pdfjs-dist` through `docture/loaders/pdfjs`.
+Checks that each label's box lies on its page and that the text spans meeting the grown box show the label's text. When the spans do not match as written, it compares the spans centred in the box with whitespace removed, because PDF.js reads letter-spaced text with a space between glyphs.
+
+Returns a `VerificationReport`. Throws `RangeError` when `document.rendition.kind` is not `digital`, because a degraded rendition has no text layer.
 
 ### `assertVerified`
 
@@ -23,4 +24,38 @@ Read a digital rendition back through PDF.js and confirm every label: its box li
 assertVerified(document: VerifiableDocument, options?: VerifyOptions): Promise<void>
 ```
 
-`verifyLabels`, throwing `LabelVerificationError` with every failed label.
+Runs `verifyLabels` and throws `LabelVerificationError` with every failed label when the report is not `ok`. Call it on the digital rendering before you derive scans or photos from it.
+
+## Types
+
+### `VerifyOptions`
+
+{/* options: VerifyOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `tolerance` | `2` | Points each label box grows on every side before text spans are matched against it. |
+
+### `VerifiableDocument`
+
+```ts
+type VerifiableDocument = Pick<SyntheticDocument, "bytes" | "mimeType" | "labels" | "rendition">;
+```
+
+The parts of a [`SyntheticDocument`](/docs/synthetic/reference/documents#toevalcase) that verification reads. Any rendered PDF document from `renderPdf`, `renderReactPdf`, or `renderHtmlPdf` qualifies.
+
+### `VerificationReport`
+
+{/* options: VerificationReport */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `ok` | `boolean` | `true` when no label failed. |
+| `checked` | `number` | Number of labels checked. |
+| `failures` | `readonly LabelFailure[]` | One entry per failed label, each with `path`, `kind`, `pageNumber`, and `message`. |
+
+Each [`LabelFailure`](/docs/synthetic/reference/errors#labelverificationerror) has one of three kinds:
+
+| Kind | Cause |
+| --- | --- |
+| `page-overflow` | The box extends past the edge of its page. |
+| `outside-box` | The page shows the text, but not inside the box. |
+| `missing` | The page does not show the text, or the label names a page the document does not have. |

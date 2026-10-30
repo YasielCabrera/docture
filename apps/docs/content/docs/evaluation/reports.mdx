@@ -1,7 +1,10 @@
 ---
 title: Generate and customize evaluation reports
 description: Render stored results without repeating extraction or scoring.
+type: how-to
 ---
+
+Reports render a finished `EvalResult` as a scoreboard, HTML, Markdown, CSV, JSON, or JUnit. Render saved results, write reports during a run, and customize their output.
 
 ## Render a saved result
 
@@ -15,11 +18,13 @@ console.log(renderScoreboard(result));
 const html = renderHtml(result);
 ```
 
-The HTML document embeds its client and works offline. `renderHtml` returns text; write that text to an `.html` file to inspect it.
+`result` is the value `runEval` returns, or a saved result read with `store.readResult(runId)` or `readEvalResult(dir)` from `@docture/eval/node`. The HTML document embeds its client and works offline. `renderHtml` returns text; write that text to an `.html` file to inspect it.
+
+## Write reports during a run
 
 Pass reporter factories to `runEval` for lifecycle output:
 
-```ts
+```ts check
 import { jsonReporter } from "@docture/eval/reporters/json";
 import { junitReporter } from "@docture/eval/reporters/junit";
 
@@ -29,7 +34,9 @@ const reporters = [
 ];
 ```
 
-The split JSON layout writes metadata and case rows separately. `readEvalResult` can read them later; re-rendering needs no model calls. Reporters' public entries are Node-only because they also export file-writing factories.
+The split JSON layout writes metadata and case rows separately. `readEvalResult` can read them later; re-rendering needs no model calls. Every reporter entry except the terminal reporter runs only in Node.js, because it also exports a file-writing factory.
+
+## Customize report output
 
 Customize columns with `defineColumn`, compose Markdown sections, add data-driven HTML panels, or replace the format with `templateReporter`. Use root `defineReporter` for project lifecycle hooks. `buildResult` supports a project-owned processing loop that still uses the built-in reporters.
 

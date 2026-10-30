@@ -1,7 +1,20 @@
 ---
 title: Handle long documents
 description: Split model extraction into several requests and merge the results.
+type: how-to
 ---
+
+When a document does not fit in one model request, a model strategy can send several requests and merge their answers into one result. This page builds on [extract with a model](/docs/extraction/with-a-model).
+
+## Install
+
+```sh
+npm install docture pdfjs-dist ai @ai-sdk/openai zod
+```
+
+See [installation recipes](/docs/getting-started/installation) for other engines and providers.
+
+## Choose a completion mode
 
 `completion` controls how `LlmStrategy` handles the document text.
 
@@ -47,14 +60,6 @@ when [field citations](/docs/extraction/reference/citations#field-citations) are
 
 This needs positioned lines from the loader, such as the PDF loaders provide. A document
 without lines, and every `forbidden` request, is sent exactly as before.
-
-## Install
-
-```sh
-npm install docture pdfjs-dist ai @ai-sdk/openai zod
-```
-
-See [installation recipes](/docs/getting-started/installation) for other engines and providers.
 
 ## Fragment schemas
 

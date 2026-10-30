@@ -1,6 +1,7 @@
 ---
 title: Tune concurrency and memory
 description: Choose request, batch, OCR, and rendering limits for the work that constrains your pipeline.
+type: how-to
 ---
 
 Concurrency controls overlap different work and can multiply across levels. Start with the defaults, measure your own documents, and change one limit at a time.
@@ -48,7 +49,7 @@ off the thread. To keep a server responsive during CPU-bound work, run docture i
   same options reuses it. Different `dpi` or `maxEdge` values render again.
 - TIFF input is bounded per page: at most 8192 x 8192 pixels and 256 MiB of decoded
   samples. PaddleOCR converts a TIFF page to PNG in bands of rows instead of one full RGBA
-  copy. These limits are not part of the benchmark above.
+  copy. The [recorded benchmark](/docs/extraction/reference/performance#measured-results) does not exercise these limits.
 - Each Tesseract worker keeps its own engine and model. Lower `concurrency` before you
   lower `dpi` when memory is the limit, because `dpi` also changes accuracy.
 
@@ -61,7 +62,7 @@ off the thread. To keep a server responsive during CPU-bound work, run docture i
 3. For PaddleOCR on CPU, measure `concurrency: 1` against `"auto"` with your documents.
 4. For vision, keep the default `maxEdge: 1568` or set your provider's limit. It cuts
    render time and request size.
-5. Run the benchmark with `--only model`, `--only ocr`, or `--only raster` to compare
+5. Run the [benchmark](/docs/extraction/reference/performance#measured-results) with `--only model`, `--only ocr`, or `--only raster` to compare
    one group on your hardware.
 
 See [controls and measurements](/docs/extraction/reference/performance) for every default and the reproducible benchmark conditions.

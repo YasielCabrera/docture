@@ -1,20 +1,22 @@
 ---
-title: Evaluation junit reporter API
-description: Junit reports from saved evaluation results.
+title: Evaluation JUnit reporter API
+description: Write evaluation results as JUnit XML so CI test views show each case and gate check.
+type: reference
 ---
+
+Import the JUnit reporter from `@docture/eval/reporters/junit`. [Gate evaluation regressions in CI](/docs/evaluation/ci) shows where JUnit output fits.
 
 ## `@docture/eval/reporters/junit`
 
-This entry is Node-only: its writing factory imports `node/artifacts`. Pure rendering implementations have no Node imports. The factory consumes `EvalResult` through `onResult`; writing requires an explicit `out` except for the terminal reporter.
-
-- `JunitOptions`
-- `JunitReporterOptions`
+This entry imports Node.js file APIs, so it runs only in Node.js. `junitReporter` writes the finished result to `out`.
 
 ### `renderJunit`
 
 ```ts
 renderJunit(result: EvalResult, options?: JunitOptions): string
 ```
+
+Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`JunitOptions`](/docs/evaluation/reference/reporters-junit#junitoptions).
 
 The result as JUnit XML: one suite per experiment, one test case per case and epoch, and the gate checks as their own suite. Throws `TypeError` when `threshold` is not a finite number in [0, 1].
 
@@ -32,4 +34,27 @@ Escape text for an XML attribute or element, dropping characters XML 1.0 cannot 
 junitReporter(options: JunitReporterOptions): Reporter
 ```
 
+Takes [`JunitReporterOptions`](/docs/evaluation/reference/reporters-junit#junitreporteroptions). Returns [`Reporter`](/docs/evaluation/reference/core#reporter).
+
 Write the result as JUnit XML for CI test views. The factory checks `threshold` when it is called, so an invalid threshold throws `TypeError` before any run starts.
+
+## Types
+
+### `JunitOptions`
+
+Options for `renderJunit`.
+
+{/* options: JunitOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `threshold` | `number` | A scored case fails when its F1 is below this. Default: it fails unless every leaf and assertion passed. |
+
+### `JunitReporterOptions`
+
+Options for `junitReporter`.
+
+{/* options: JunitReporterOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `out` | `string` | Required. File to write. |
+| `threshold` | `number` | A scored case fails when its F1 is below this. Default: it fails unless every leaf and assertion passed. |

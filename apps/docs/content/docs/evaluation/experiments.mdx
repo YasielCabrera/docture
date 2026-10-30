@@ -1,7 +1,12 @@
 ---
 title: Run evaluation experiments
 description: Run the same cases across processors and inspect slices, epochs, errors, and cost.
+type: how-to
 ---
+
+An experiment is one processor run over the dataset. Run several experiments over the same cases and read their outcomes, slices, epochs, and errors.
+
+## Run processors side by side
 
 Pass one processor or a record of named processors to `runEval`:
 
@@ -21,10 +26,20 @@ console.log(result.summary);
 
 This assumes configured `dataset`, `spec`, `parser`, and `model`. Both processors must project into the same scoring view. Defaults are concurrency `1` and one epoch. Epochs repeat each case to expose run-to-run variation.
 
+To score cases inside Vitest, Evalite, promptfoo, or autoevals instead of the runner, use the [framework adapters](/docs/evaluation/frameworks).
+
+## Select cases and read outcomes
+
 Use `select.ids` or `select.sample` for a subset. The runner rejects duplicate case IDs and unknown selected IDs, then validates expected truth before extraction. A case ends as scored, errored, or skipped. Review errors and omissions alongside F1; empty denominators are `null`.
+
+## Group fields and cases
 
 Use schema segments for groups of fields and `slices` for groups of cases. Reports can show both. Add `metrics` for custom measures and `sections` for analyses such as calibration and grounding. Reporter failures become warnings rather than silently disappearing.
 
+## Cancel and dispose
+
 Set `signal` for cancellation. Interrupted rows are not reused as completed answers; [resume](/docs/evaluation/run-history) extracts them again. The runner owns processor disposal, including on failure.
 
-For CLI use, export `defineEvalConfig` from `@docture/eval/config` in `docture.eval.ts`, then run `docture eval run`. See [configuration API](/docs/evaluation/reference/config) and [reports](/docs/evaluation/reports).
+## Run from the CLI
+
+For CLI use, export `defineEvalConfig` from `@docture/eval/config` in `docture.eval.ts`, then run `docture eval run`. [Evaluate from the CLI](/docs/cli/evaluation) covers the other `docture eval` commands. See [configuration API](/docs/evaluation/reference/config) and [reports](/docs/evaluation/reports).

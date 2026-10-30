@@ -1,21 +1,14 @@
 ---
 title: Conversion checks API
 description: Presence, absence, ordering, provenance, and table checks.
+type: reference
 ---
+
+Import conversion checks from `@docture/eval/conversion` to test converted documents without a model. [Check document conversion](/docs/evaluation/conversion-checks) shows a runnable recipe.
 
 ## `@docture/eval/conversion`
 
 `checkConversion(converted, checks)` checks text presence, absence, ordering and table neighbours against a converted document. It returns pass/fail counts and a reason for each failed check.
-
-- `AbsentCheck`
-- `ConversionCheck`
-- `ConversionCheckKind`
-- `ConversionCheckResult`
-- `ConversionReport`
-- `ConvertedPages`
-- `OrderCheck`
-- `PresentCheck`
-- `TableCheck`
 
 ### `checkConversion`
 
@@ -23,4 +16,146 @@ description: Presence, absence, ordering, provenance, and table checks.
 checkConversion(output: string | ConvertedPages, checks: readonly ConversionCheck[]): ConversionReport
 ```
 
-Grade converted output against presence, absence, order and table checks. Pass a converted document for page, provenance and table checks, or a Markdown or text string for text checks only.  Text is compared after Unicode NFKC normalization, with whitespace runs folded to one space. A match never crosses a unit: one element's text, a list item or a table cell, or for a string a block between blank lines.
+Takes [`ConvertedPages`](/docs/evaluation/reference/conversion#convertedpages) and [`ConversionCheck`](/docs/evaluation/reference/conversion#conversioncheck). Returns [`ConversionReport`](/docs/evaluation/reference/conversion#conversionreport).
+
+Grade converted output against presence, absence, order and table checks. Pass a converted document for page, provenance and table checks, or a Markdown or text string for text checks only. Text is compared after Unicode NFKC normalization, with whitespace runs folded to one space. A match never crosses a unit: one element's text, a list item or a table cell, or for a string a block between blank lines.
+
+Throws `RangeError` for an empty or repeated `id`, empty text, a negative or fractional `count`, and a page, source page or span that is not a positive integer. These are configuration errors; they never appear as failed entries in `report.results`.
+
+## Types
+
+### Common check fields
+
+Every check type extends `CheckBase`, which `@docture/eval/conversion` does not export. Write these fields directly on each check object.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Required. Nonempty and unique within one `checkConversion` call. Each result keeps it. |
+| `ignoreCase` | `boolean` | Compare without letter case. Default `false`. |
+
+```ts
+interface CheckBase {
+	readonly id: string;
+	readonly ignoreCase?: boolean;
+}
+```
+
+### `AbsentCheck`
+
+`text` occurs in no unit, so it also catches two units falsely joined into one. Takes the [common check fields](#common-check-fields).
+
+```ts
+interface AbsentCheck extends CheckBase {
+	readonly kind: "absent";
+	readonly text: string;
+	readonly page?: number;
+	readonly element?: DocumentElement["kind"];
+}
+```
+
+### `ConversionCheck`
+
+One check that `checkConversion` runs: a `PresentCheck`, `AbsentCheck`, `OrderCheck`, or `TableCheck`.
+
+```ts
+type ConversionCheck = PresentCheck | AbsentCheck | OrderCheck | TableCheck;
+```
+
+### `ConversionCheckKind`
+
+The family of a check: `present`, `absent`, `order` or `table`.
+
+```ts
+type ConversionCheckKind = ConversionCheck["kind"];
+```
+
+### `ConversionCheckResult`
+
+One check's verdict, with the reason when it failed.
+
+```ts
+type ConversionCheckResult =
+	| { readonly id: string; readonly kind: ConversionCheckKind; readonly pass: true }
+	| { readonly id: string; readonly kind: ConversionCheckKind; readonly pass: false; readonly reason: string };
+```
+
+### `ConversionReport`
+
+Every check's verdict and the pass and fail counts.
+
+```ts
+interface ConversionReport {
+	readonly pass: boolean;
+	readonly passed: number;
+	readonly failed: number;
+	/** One result per check, in check order. */
+	readonly results: readonly ConversionCheckResult[];
+}
+```
+
+### `ConvertedPages`
+
+What the checks read. `ConversionResult`, `DoctureDocument` and `LayoutDocument` all fit.
+
+```ts
+interface ConvertedPages {
+	readonly pages: readonly {
+		readonly pageNumber: number;
+		readonly elements: readonly DocumentElement[];
+	}[];
+}
+```
+
+### `OrderCheck`
+
+The first occurrence of `before` starts before the first occurrence of `after`. Takes the [common check fields](#common-check-fields).
+
+```ts
+interface OrderCheck extends CheckBase {
+	readonly kind: "order";
+	readonly before: string;
+	readonly after: string;
+}
+```
+
+### `PresentCheck`
+
+`text` occurs inside one unit: an element's text, a list item or a table cell. Takes the [common check fields](#common-check-fields).
+
+```ts
+interface PresentCheck extends CheckBase {
+	readonly kind: "present";
+	readonly text: string;
+	/** Exact number of occurrences. Default: at least one. */
+	readonly count?: number;
+	/** The page whose elements hold the match. A continued table or paragraph belongs to its first page. */
+	readonly page?: number;
+	/** Every page the matching unit's provenance covers, ascending. A table cell covers its row's page. */
+	readonly sourcePages?: readonly number[];
+	/** Only units of this element kind. */
+	readonly element?: DocumentElement["kind"];
+}
+```
+
+### `TableCheck`
+
+A table cell whose whole text is `cell`, and its neighbours. `null` means the table edge. Neighbours read through merged cells to the cell that covers the slot. Takes the [common check fields](#common-check-fields).
+
+```ts
+interface TableCheck extends CheckBase {
+	readonly kind: "table";
+	readonly cell: string;
+	/** Only tables whose first row has exactly these cells. Tells similar tables apart. */
+	readonly header?: readonly string[];
+	readonly left?: string | null;
+	readonly right?: string | null;
+	readonly up?: string | null;
+	readonly down?: string | null;
+	readonly colSpan?: number;
+	readonly rowSpan?: number;
+	/** The page whose elements hold the table. */
+	readonly page?: number;
+	/** The page the cell's row came from, read from `rowProvenance`. */
+	readonly sourcePage?: number;
+}
+```

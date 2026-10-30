@@ -1,14 +1,54 @@
 ---
 title: Recover selected pages with OCR
 description: Compose a primary loader and an explicit OCR fallback with caller-defined page quality.
+type: how-to
 ---
 
-Compose the text loader and OCR loader with `withOcrFallback`. Supply an `assess` callback and a `threshold` in the same units. The callback returns `{ kind: "text", quality }` or `{ kind: "intentional-blank" }`. Mark intentional blanks explicitly. Character count can be a starting signal, but calibrate the callback on your documents. `inferForm` labels the final document and does not select OCR work.
+`withOcrFallback` runs OCR only on the pages your text loader read poorly, and keeps every other page as the text loader returned it. Import it from `docture`.
 
-Only selected pages below the threshold reach OCR. Each request names one original page, so a failure can preserve that page while other pages improve. Built-in OCR loaders honor page hints. A custom loader may ignore them and read the whole document; the composition cannot guarantee reduced work for such a loader.
+## Compose the loaders
 
-A replacement must reach the threshold and improve the original quality by more than `minimumImprovement`, which defaults to zero. OCR failure, a missing matching page, incompatible dimensions or insufficient improvement keeps the primary page and adds a warning. Caller abort still cancels the document.
+Pass the text loader, the OCR loader, and an `assess` callback with a `threshold` in the same units:
 
-Replaced pages keep their original page numbers and known physical dimensions. OCR lines, blocks and source IDs come from the replacement. The primary lazy image function remains available when OCR supplies none. Document text and form are rebuilt from the selected pages. Shared capability facts are the intersection of both loaders. Per-page metadata identifies the supplier, quality scores and requested pages. It reports elapsed OCR time and unknown external cost separately from model token usage.
+```ts check
+import { withOcrFallback } from "docture";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { DocumentLoaderTesseract } from "docture/loaders/tesseract";
+import { NapiCanvasRasterizer } from "docture/raster/canvas";
 
-Run `pnpm --dir apps/examples exec tsx 20-input-loaders/ocr.ts` for an offline mixed-document example. Configure either the Tesseract or PaddleOCR loader explicitly for real recognition. Install that loader's engines and dispose the composition after use.
+const loader = withOcrFallback(
+  new DocumentLoaderPdfJs(),
+  new DocumentLoaderTesseract({ rasterizer: new NapiCanvasRasterizer() }),
+  {
+    threshold: 20,
+    assess: (page) => ({ kind: "text", quality: page.text.trim().length }),
+  },
+);
+```
+
+Install the engines of the OCR loader you choose, as listed on the [Tesseract](/docs/integrations/tesseract) and [PaddleOCR](/docs/integrations/paddleocr) pages. Call `dispose()` on the composition when you finish with it.
+
+{/* options: OcrFallbackOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `assess` | required | Returns a `PageOcrQuality` for each page from the text loader. |
+| `threshold` | required | Pages with a quality below this value go to OCR. |
+| `minimumImprovement` | `0` | How much an OCR page must exceed the original quality to replace it. |
+
+## Score page quality
+
+`assess` returns `{ kind: "text", quality }` or `{ kind: "intentional-blank" }`. Return `intentional-blank` for pages that are meant to be empty, so OCR leaves them alone. Character count is a starting signal. Calibrate the callback on your own documents. `inferForm` labels the final document and does not select pages for OCR.
+
+## Understand which pages are replaced
+
+Only pages below the threshold reach OCR, and each OCR request names one original page. The built-in OCR loaders read only the requested page. A custom loader can ignore the page hint and read the whole document, so the composition cannot guarantee less work with such a loader.
+
+An OCR page replaces the original when it reaches the threshold and improves the original quality by more than `minimumImprovement`. Otherwise the composition keeps the original page and adds an `OcrFallbackWarning`. That happens when OCR fails, returns no matching page, returns different page dimensions, does not improve enough, or the OCR loader does not accept the source's media type. Warnings are in the loaded document's `meta.ocrFallback.warnings` and are also logged. One page's failure leaves the other pages unaffected. A caller abort still cancels the whole document.
+
+## Read the combined document
+
+Replaced pages keep their original page numbers and known physical dimensions. Their lines, blocks, and source IDs come from OCR. When OCR supplies no page image, the text loader's lazy image function stays available. Document text and form are rebuilt from the selected pages. The composition accepts the text loader's MIME types and reports only the capability facts that both loaders report.
+
+Per-page metadata names the loader that supplied the page, the quality scores, and the requested pages. It reports elapsed OCR time and unknown external cost separately from model token usage.
+
+The repository example in [`apps/examples/20-input-loaders`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/20-input-loaders), `ocr.ts`, runs an offline mixed-document example with stub loaders.

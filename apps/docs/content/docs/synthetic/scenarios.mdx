@@ -1,17 +1,18 @@
 ---
 title: Add synthetic constraints and scenarios
 description: Keep derived values consistent and generate cases that challenge processors.
+type: how-to
 ---
 
 Use `derive` to recompute dependent values, constraints to reject invalid samples, and scenarios to name variations. Constraints validate samples; they do not search for a satisfying replacement.
 
 ## Define a scenario
 
-Reuse the `Bill` type and model from the [quick start](/docs/synthetic/quick-start):
+This example imports `model` and `Bill` from `bill.mts`, which the [quick start](/docs/synthetic/quick-start#define-the-model-and-template) defines.
 
 ```ts
 import { gen, scenario } from "@docture/synthetic";
-import { model, type Bill } from "./synth.mjs";
+import { model, type Bill } from "./bill.mjs";
 
 const credit = scenario<Bill>({
 	name: "credit-balance",

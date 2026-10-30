@@ -1,18 +1,22 @@
 ---
 title: Field citations API
 description: Evidence identifiers, verification status, field paths, and OCR confidence.
+type: reference
 ---
 
-Import from `docture`.
+Field citations record where each extracted value came from and whether the cited evidence shows it. Import the types from `docture` or `docture/node`. [Verify field citations](/docs/extraction/citations) shows them in use.
 
 ## Field citations
 
+### `FieldCitation`
+
+Where one present leaf of `data` came from.
+
 ```ts
 type FieldCitation =
-  | { path: string; status: "verified"; ids: readonly [EvidenceSourceId, ...EvidenceSourceId[]]; minOcrConfidence?: number }
-  | { path: string; status: "cited-unverified"; ids: readonly EvidenceSourceId[]; minOcrConfidence?: number }
-  | { path: string; status: "uncited"; ids: readonly [] };
-type CitationStatus = FieldCitation["status"];
+  | { readonly path: string; readonly status: "verified"; readonly ids: readonly [EvidenceSourceId, ...EvidenceSourceId[]]; readonly minOcrConfidence?: number }
+  | { readonly path: string; readonly status: "cited-unverified"; readonly ids: readonly EvidenceSourceId[]; readonly minOcrConfidence?: number }
+  | { readonly path: string; readonly status: "uncited"; readonly ids: readonly [] };
 ```
 
 A citing strategy, such as `llm({ model, citations: true })`, makes the result carry one
@@ -21,12 +25,22 @@ present leaf is a value that is not an object or an array and is not `null`, `un
 or a blank string; `0` and `false` are present. `path` is a field path, the same text a
 conflict or schema issue on that field uses.
 
+### `CitationStatus`
+
+The status of one citation.
+
+```ts
+type CitationStatus = FieldCitation["status"];
+```
+
 - `verified`: the value was found in the cited evidence, and `ids` are exactly the records the
   match spans.
 - `cited-unverified`: the cited records exist but do not show the value, or the caller's
   schema changed the value after the model answered. `ids` lists every cited record that
   exists and is empty when none did.
 - `uncited`: the model cited nothing for the value, as for a schema default.
+
+### OCR confidence
 
 `minOcrConfidence` is the lowest OCR confidence, from 0 to 1, among the spans behind a cited
 value. Use it to choose which values to inspect. It is evidence about the OCR, not a
@@ -45,12 +59,13 @@ score covers every word in it. Scores from two engines do not compare.
   joined by single spaces. Core reads every score from the loaded document's spans; a
   strategy can name spans but cannot supply a score.
 
+### Citation sources
+
 `citationSources` holds only real `SourceLine` records (`id`, `pageNumber`, `box`, `text`)
 for line IDs in `citations`, taken from the loaded document, so a page range keeps its original page
 numbers. A box carries no page size; read it from the source you render. A strategy
 reports citations through `StrategyOutcome.citations`, and the pipeline aligns them with
 the validated data: it marks every other leaf `uncited`, drops an entry for a key the
 schema stripped, and drops an id the document does not have.
-
 
 Native element and cell IDs are also `EvidenceSourceId` values. Cited native records appear separately in `evidenceSources` as `SourceEvidence`, with actual granularity and optional locations. They have no fabricated printed lines. OCR confidence is absent when a citation includes native evidence. See [source evidence](/docs/conversion/evidence).

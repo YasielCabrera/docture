@@ -1,16 +1,31 @@
 ---
-title: CLI and services
+title: CLI and services overview
 description: Use Docture from a terminal, an MCP host, or a persistent HTTP service.
+type: overview
 ---
 
-The `@docture/cli` package owns the `docture` executable, MCP server, and HTTP service. Commands use the same document and result contracts as the library.
+The `@docture/cli` package provides the `docture` executable, an MCP server, and an HTTP service. Commands use the same document and result contracts as the library.
 
-- [CLI quick start](/docs/cli/quick-start) and [configuration](/docs/cli/configuration)
-- [Inputs and output streams](/docs/cli/inputs-and-outputs), [models](/docs/cli/models), and [dry runs](/docs/cli/dry-run)
-- [Review documents and citations](/docs/cli/review)
-- [Command reference](/docs/cli/commands), including evaluation, synthetic generation, and Paperless
-- [Connect an MCP host](/docs/cli/mcp) and [tool reference](/docs/cli/mcp-tools)
-- [Run an HTTP service](/docs/cli/http-service), [protocol reference](/docs/cli/http-protocol), and [containers](/docs/cli/containers)
-- [Library API reference](/docs/cli/reference)
+## Get started
+
+- [Run your first CLI commands](/docs/cli/quick-start) installs the CLI and inspects, converts, and dry-runs an extraction of a sample PDF.
+- [Configure the CLI](/docs/cli/configuration) and [configure models and vision](/docs/cli/models) for your loaders, schema, and provider.
+
+## Run commands
+
+- [Work with inputs and output streams](/docs/cli/inputs-and-outputs) for batches, stdin, and JSON envelopes.
+- [Preview a CLI invocation](/docs/cli/dry-run) before it loads documents or calls a model.
+- [Review documents and extracted fields](/docs/cli/review) in an offline HTML page.
+- [Evaluate from the CLI](/docs/cli/evaluation) with `docture.eval.ts` or quick-mode ground truth.
+
+## Serve Docture to other programs
+
+- [Connect an MCP host](/docs/cli/mcp) and look up its [MCP tools](/docs/cli/mcp-tools).
+- [Run a local HTTP service](/docs/cli/http-service), with the [HTTP protocol reference](/docs/cli/http-protocol) and the [container recipe](/docs/cli/containers).
+
+## Look up flags and APIs
+
+- [Command reference](/docs/cli/commands) for every command, flag, and default.
+- [CLI and service API reference](/docs/cli/reference) for running the CLI, the MCP server, or the HTTP service from Node.
 
 For the programmatic workflows, see [Extraction](/docs/extraction), [Evaluation](/docs/evaluation), and [Synthetic data](/docs/synthetic).

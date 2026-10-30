@@ -1,63 +1,106 @@
 ---
 title: Connect to Docling Serve
-description: Fetch-only docling-serve conversion and resumable jobs.
+description: Convert PDF, DOCX, XLSX, PPTX, and EPUB files through a docling-serve instance, as a client or as a loader, with resumable jobs.
+type: how-to
 ---
 
-Import from `docture/loaders/docling`. This fetch-only entry needs no npm service
-peer, Python process, local OCR engine or model.
+`docture/loaders/docling` connects to a running docling-serve instance over HTTP. It needs no npm peer, Python process, local OCR engine, or model. Use `DoclingServeClient` for direct conversions and jobs, or `DocumentLoaderDoclingServe` inside an extractor or converter.
+
+## Convert a document
 
 ```ts
-import { DoclingServeClient, DocumentLoaderDoclingServe } from "docture/loaders/docling";
+import { DoclingServeClient } from "docture/loaders/docling";
 
 const client = new DoclingServeClient({ baseUrl: "http://127.0.0.1:5001/" });
 const converted = await client.convert(rawDocument);
+```
+
+`baseUrl` is the service root, including any deployment prefix, without `/v1`. Construction performs no I/O.
+
+`convert()` returns a `DoclingConversion`: the same `document`, `source`, `diagnostics`, and `provenance` that [Import Docling JSON](/docs/integrations/docling-import) describes, plus a `conversionStatus` and an optional `taskId`. The service accepts PDF, DOCX, XLSX, PPTX, and EPUB.
+
+## Submit and resume a long job
+
+For long conversions, submit a job and save its reference:
+
+```ts
 const job = await client.submit(rawDocument);
-const resumed = client.resume(job.reference);
-const result = await resumed.wait();
+const saved = job.reference;
+const result = await client.resume(saved).wait();
+```
+
+`DoclingJob.reference` is a plain serializable `DoclingJobReference` with the service identity and task ID. `resume(reference)` follows the task without another POST. A `DoclingJob` has three methods:
+
+- `status()` returns a `DoclingTaskStatus` with the task ID and its state: `pending`, `started`, `success`, or `failure`.
+- `result()` fetches the conversion of a finished task.
+- `wait()` polls until the task finishes, then returns the conversion.
+
+A successful task still needs a successful conversion. Aborting locally does not cancel the job on the server.
+
+## Use the service as a loader
+
+```ts check
+import { DocumentLoaderDoclingServe } from "docture/loaders/docling";
+
 const loader = new DocumentLoaderDoclingServe({ baseUrl: "http://127.0.0.1:5001/", mode: "async" });
 ```
 
-`DoclingServeOptions` configures `baseUrl`, `apiKey`, custom headers, injected
-`fetch`, request/job deadlines, `getRetries`, `maxPolls`, `pollIntervalMs`, input
-and response byte bounds, and importer options. Construction performs no I/O.
-The base URL is the service root, including any deployment prefix, without `/v1`.
+`DocumentLoaderDoclingServeOptions` adds `mode` and default `conversion` options to the connection options. The default mode, `sync`, calls `convert()`. The `async` mode submits a job and waits for it. The loader is named `docling-serve`. It reports text capability and the `NATIVE_EVIDENCE` fact, with no line geometry or page images. Loaded documents keep the native layout, evidence, and provenance.
 
-`DoclingConversionOptions` exposes `doOcr`, `forceOcr`, `doTableStructure`,
-`tableMode`, `ocrLanguages`, inclusive `pageRange`, explicit `allowPartial`, and
-caller cancellation. Multipart requests send one `files` item, its name and MIME,
-`to_formats=json`, and `target_type=inbody`.
+## Configure the connection
 
-The documented format matrix is PDF, DOCX, XLSX, PPTX and EPUB. The loader reports
-text capability and `NATIVE_EVIDENCE`; it does not promise positioned-line geometry
-or images. The richer client result also returns the normalized document and
-native sidecar. The loader retains native layout/evidence and provenance in its
-LoadedDocument while using the same importer.
+`DoclingServeOptions` extends `DoclingTransportOptions`, the HTTP settings:
 
-Task states are pending, started, success and failure. A successful task still
-needs a successful conversion. Partial success rejects unless explicitly allowed;
-skipped and failed conversions reject. `DoclingJob.reference` is serializable and
-contains the service identity and task ID. `status()`, `result()` and `wait()` keep
-that identity for explicit resume.
+{/* options: DoclingServeOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `baseUrl` | required | HTTP or HTTPS service root, without credentials, query, or fragment. |
+| `apiKey` | none | Sent in the `X-Api-Key` header. |
+| `headers` | none | Extra request headers. |
+| `fetch` | global `fetch` | Transport to use. |
+| `requestTimeoutMs` | `30000` | Deadline for each HTTP request. |
+| `maxRequestBytes` | `20000000` | Maximum input file size. |
+| `maxResponseBytes` | `20000000` | Maximum response size, checked before JSON parsing. |
+| `getRetries` | `2` | Retries for GET requests, at most `10`. |
+| `jobTimeoutMs` | `300000` | Deadline for an asynchronous job. |
+| `pollIntervalMs` | `250` | Delay between task status checks. |
+| `maxPolls` | `1200` | Maximum task status checks. |
+| `importOptions` | none | `DoclingImportOptions` for the returned JSON. |
 
-POSTs are never replayed. A disconnected submission or sync HTTP 504 can have an
-unknown server outcome. GET transport/status retries and polling are bounded.
-POST redirects reject; GET redirects cannot leave the configured origin with
-credentials. Response bytes are bounded before JSON parsing. Local cancellation
-does not claim server cancellation.
+## Set conversion options
 
-`DoclingServeError` has stable installed-copy identity, code `LOAD_FAILED`, a typed
-`reason`, `outcome`, optional HTTP `status` and optional `taskId`. Importer boundary
-errors remain `DoclingImportError`.
+Pass `DoclingConversionOptions` to `convert()` or `submit()`, or as the loader's `conversion` option:
 
-`DoclingTransportOptions` names the HTTP settings inherited by
-`DoclingServeOptions`. `DocumentLoaderDoclingServeOptions` adds `mode` and default
-`conversion` options. `DoclingConversion` extends the importer result with a
-conversion status and optional task ID. `DoclingTaskStatus` separates the task ID
-and state. `DoclingJobReference` is the plain serializable handle, and
-`DoclingServeFailure` enumerates the error reasons.
+{/* options: DoclingConversionOptions */}
+| Option | Meaning |
+| --- | --- |
+| `doOcr` | Run OCR in Docling. |
+| `forceOcr` | Run OCR even where the file has text. |
+| `doTableStructure` | Recognize table structure. |
+| `tableMode` | `fast` or `accurate` table recognition. |
+| `ocrLanguages` | OCR language codes. |
+| `pageRange` | Inclusive first and last page. |
+| `allowPartial` | Accept a partial conversion instead of rejecting it. |
+| `signal` | Caller cancellation. |
 
-Tests model the pinned docling-serve 1.38.2 v1 protocol and core schema 1.10.0.
-No live serve release is certified by the deterministic fixtures. See
-[the runnable example](https://github.com/YasielCabrera/docture/tree/main/apps/examples/18-docling).
+Each request sends one file with its name and MIME type, and asks for in-body JSON output.
 
-When partial conversion is explicitly allowed, saved `sourceMetadata` retains `conversionStatus`, `diagnostics`, `doclingErrors`, and any `doclingTask` reference. The normalized document and converter output retain a `PARTIAL_CONVERSION` warning with a bounded service-error excerpt. The returned normalized-document digest covers those saved warnings.
+## Accept partial conversions
+
+Partial conversions reject unless you set `allowPartial: true`. Skipped and failed conversions always reject. When you allow a partial conversion, the result keeps a `PARTIAL_CONVERSION` diagnostic with a short excerpt of the service errors, and the normalized document and converter output carry a warning. Saved `sourceMetadata` keeps `conversionStatus`, `diagnostics`, `doclingErrors`, and any `doclingTask` reference. The normalized document digest covers those warnings.
+
+## Handle failures and retries
+
+POST requests are never retried. A dropped submission or a sync HTTP 504 can leave the server outcome unknown. GET retries and polling are bounded. POST redirects reject, and GET redirects cannot carry credentials to another origin.
+
+Service failures throw `DoclingServeError` with code [`LOAD_FAILED`](/docs/resources/errors#error-catalogue) and these fields:
+
+- `reason`, a `DoclingServeFailure`: `configuration`, `transport`, `http`, `redirect`, `response`, `task`, `expired`, `timeout`, `conversion`, or `limit`.
+- `outcome`, `failed` or `unknown`. `unknown` means the server may have processed the request.
+- `status`, the HTTP status when there is one, and `taskId` for job failures.
+
+Invalid returned JSON throws `DoclingImportError` from the importer.
+
+## Supported versions
+
+The client implements a subset of the docling-serve 1.38.2 v1 protocol and native schema 1.10.0. Its tests run against recorded fixtures, not a live server. The repository example in [`apps/examples/18-docling`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/18-docling), `index.ts`, runs the client against a local mock service.

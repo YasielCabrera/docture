@@ -1,34 +1,34 @@
 ---
 title: Pipeline and disposal API
 description: Low-level pipeline functions and shared disposal ownership.
+type: reference
 ---
 
-Import from `docture`.
+These APIs expose the stages behind `Extractor` for custom composition, plus shared disposal and OCR fallback. Import them from `docture` or `docture/node`. Most applications use [`Extractor`](/docs/extraction/reference/extractor) instead.
 
 ## Low-level pipeline
 
-Most applications use `Extractor`. The following APIs expose the same stages for custom
-composition.
+### `runPipeline`
+
+Runs one extraction with explicit components.
 
 ```ts
-runPipeline<T>(
+function runPipeline<T>(
   components: PipelineComponents,
   source: DocumentSource,
   schema: FlexibleSchema<T>,
-  options?: RunOptions,
+  options?: RunOptions<T>,
 ): Promise<ExtractionResult<T>>
 ```
 
-`PipelineComponents` requires loader, strategy, classifier, and classification arrays,
-a routing `policy`, and a `logger`. It may set `stageTimeoutMs` and classification
-options. `RunOptions` is documented in [core extraction](/docs/extraction/reference/extractor).
+Resolves and loads the source, computes runtime features, classifies when needed, routes strategies, validates returned data, and returns the first validated result. Throws the typed failures listed in the [error reference](/docs/resources/errors). See [`PipelineComponents`](/docs/extraction/reference/extractor#pipelinecomponents) and [`RunOptions`](/docs/extraction/reference/extractor#runoptions).
 
-`runPipeline()` resolves and loads the source, computes runtime features, classifies when
-needed, routes strategies, validates returned data, and returns the first validated
-result. It throws the typed failures listed in the [error reference](/docs/resources/errors).
+### `readDocument`
+
+Tries each eligible loader in order and returns the first that succeeds.
 
 ```ts
-readDocument(
+function readDocument(
   loaders: readonly DocumentLoader[],
   raw: RawDocument,
   logger: Logger,
@@ -38,15 +38,99 @@ readDocument(
 ): Promise<ReadDocument>
 ```
 
-`ReadDocument` contains the loaded `document`, winning `loader`, and loader `attempts`.
-The first accepting loader that succeeds wins. When all accepting loaders fail,
-`LoadFailedError` carries their attempts.
+Throws `LoadFailedError`, carrying the loader attempts, when every accepting loader fails.
 
+### `ReadDocument`
+
+{/* options: ReadDocument */}
+| Field | Meaning |
+| --- | --- |
+| `document` | The `LoadedDocument`. |
+| `loader` | The loader that succeeded. |
+| `attempts` | One entry per loader tried, in order. |
 
 ## Share disposal ownership
 
-`createDisposalScope()` returns a structural `DisposalScope`. Its `dispose(...components)` method calls each `ScopedDisposable` once in that scope and aggregates failures. Core pipelines and `withRasterizer` pass the same scope to owned children. Frozen resources are supported without replacing their methods. Create a new scope for a later independent ownership lifetime.
+### `createDisposalScope`
 
-`withOcrFallback` composes a primary loader and explicitly selected OCR loader. `OcrFallbackOptions` requires a caller assessment and threshold. `PageOcrQuality` distinguishes intentional blanks from assessed content. `OcrFallbackWarning` explains per-page failures or rejected replacements. The [selected-page OCR guide](/docs/integrations/selected-page-ocr) defines replacement and warning behavior.
+Returns a scope that disposes each resource once.
+
+```ts
+function createDisposalScope(): DisposalScope
+```
+
+Core pipelines and `withRasterizer` pass the same scope to owned children, so a component shared by two owners is disposed once. Frozen resources are supported without replacing their methods. Create a new scope for each independent ownership lifetime.
+
+### `DisposalScope`
+
+Structural ownership shared by composed resources, including resources from another installed copy of Docture.
+
+```ts
+interface DisposalScope {
+  dispose(...components: readonly ScopedDisposable[]): Promise<void>;
+}
+```
+
+`dispose()` calls each component once in the scope and aggregates failures. See [scope disposal](/docs/extraction/lifecycle#scope-disposal).
+
+### `ScopedDisposable`
+
+A resource whose children can share the caller's scope.
+
+```ts
+interface ScopedDisposable {
+  dispose?(scope?: DisposalScope): Promise<void>;
+}
+```
+
+## OCR fallback
+
+### `withOcrFallback`
+
+Wraps a primary loader and rereads low-quality pages with a caller-selected OCR loader.
+
+```ts
+function withOcrFallback(
+  primary: DocumentLoader,
+  ocr: DocumentLoader,
+  options: OcrFallbackOptions,
+): DocumentLoader & { dispose(scope?: DisposalScope): Promise<void> }
+```
+
+The [selected-page OCR guide](/docs/integrations/selected-page-ocr) defines replacement and warning behavior.
+
+### `OcrFallbackOptions`
+
+{/* options: OcrFallbackOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `assess` | required | `(page: LoadedPage) => PageOcrQuality`. Scores a page; identify intentional blanks to leave them untouched. |
+| `threshold` | required | Quality an OCR candidate must reach, while also improving on the original. |
+| `minimumImprovement` | `0` | Required strict improvement beyond the original score. |
+
+### `PageOcrQuality`
+
+The result of `assess`.
+
+```ts check
+type PageOcrQuality =
+  | { readonly kind: "intentional-blank" }
+  | { readonly kind: "text"; readonly quality: number };
+```
+
+### `OcrFallbackWarning`
+
+Explains a page whose OCR failed or whose replacement was rejected.
+
+```ts check
+interface OcrFallbackWarning {
+  readonly pageNumber: number;
+  readonly code: "OCR_FAILED" | "OCR_PAGE_MISSING" | "NO_IMPROVEMENT" | "GEOMETRY_MISMATCH" | "OCR_NOT_ELIGIBLE";
+  readonly message: string;
+  readonly errorCode?: string;
+}
+```
+
+### Raster page caps
 
 `RasterOptions.maxPages` caps the highest original page number before rasterization. Built-in PDF rasterizers apply it before allocating page images. Both OCR loaders forward their cap and omit total `pageCount` when the cap prevents them from establishing the original count. Selected pages retain their original numbers. A cap above the document length still reads the whole document.

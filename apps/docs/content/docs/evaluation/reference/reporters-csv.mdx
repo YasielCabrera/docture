@@ -1,22 +1,22 @@
 ---
-title: Evaluation csv reporter API
-description: Csv reports from saved evaluation results.
+title: Evaluation CSV reporter API
+description: Render evaluation results as CSV, one row per case or per scored field, and write them to a file.
+type: reference
 ---
+
+Import the CSV reporter from `@docture/eval/reporters/csv`. [Generate and customize evaluation reports](/docs/evaluation/reports) shows reporters in use.
 
 ## `@docture/eval/reporters/csv`
 
-This entry is Node-only: its writing factory imports `node/artifacts`. Pure rendering implementations have no Node imports. The factory consumes `EvalResult` through `onResult`; writing requires an explicit `out` except for the terminal reporter.
-
-- `CellValue`
-- `Column`
-- `CsvOptions`
-- `CsvReporterOptions`
+This entry imports Node.js file APIs, so it runs only in Node.js. `csvReporter` writes the finished result to `out`.
 
 ### `csvCell`
 
 ```ts
 csvCell(value: CellValue): string
 ```
+
+Takes [`CellValue`](/docs/evaluation/reference/reporters-terminal#cellvalue).
 
 One RFC 4180 field. Text that a spreadsheet would run as a formula (a leading `=`, `+`, `-`, `@`, tab or carriage return) gets a leading `'`. Numbers are written as numbers.
 
@@ -26,6 +26,8 @@ One RFC 4180 field. Text that a spreadsheet would run as a formula (a leading `=
 renderCsv(result: EvalResult, options?: CsvOptions): string
 ```
 
+Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`CsvOptions`](/docs/evaluation/reference/reporters-csv#csvoptions).
+
 The result as CSV: one line per case with the report's columns, or one line per scored leaf.
 
 ### `csvReporter`
@@ -33,6 +35,8 @@ The result as CSV: one line per case with the report's columns, or one line per 
 ```ts
 csvReporter(options: CsvReporterOptions): Reporter
 ```
+
+Takes [`CsvReporterOptions`](/docs/evaluation/reference/reporters-csv#csvreporteroptions). Returns [`Reporter`](/docs/evaluation/reference/core#reporter).
 
 Write the result as CSV.
 
@@ -42,6 +46,12 @@ Write the result as CSV.
 defineColumn(column: Column): Column
 ```
 
+Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
+
+Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
+
+Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
+
 Declare a column. Identity at runtime; it pins the type.
 
 ### `defaultColumns`
@@ -50,4 +60,31 @@ Declare a column. Identity at runtime; it pins the type.
 defaultColumns(): readonly Column[]
 ```
 
+Returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
+
 The columns every per-case view starts from.
+
+## Types
+
+### `CsvOptions`
+
+Options for `renderCsv`.
+
+{/* options: CsvOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `level` | `"case" \| "field"` | `case` writes one line per case; `field` one line per scored leaf. Default `case`. |
+| `columns` | `readonly Column[]` | Columns of the `case` level. Default: the shared default columns. |
+
+### `CsvReporterOptions`
+
+Options for `csvReporter`.
+
+{/* options: CsvReporterOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `out` | `string` | Required. File to write. |
+| `level` | `"case" \| "field"` | `case` writes one line per case; `field` one line per scored leaf. Default `case`. |
+| `columns` | `readonly Column[]` | Columns of the `case` level. Default: the shared default columns. |
+
+This entry also exports [`CellValue`](/docs/evaluation/reference/reporters-terminal#cellvalue) and [`Column`](/docs/evaluation/reference/reporters-terminal#column).

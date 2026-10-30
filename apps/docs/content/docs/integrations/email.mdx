@@ -1,16 +1,74 @@
 ---
 title: Expand email messages and attachments
 description: Expand one RFC email into a chosen body and ordered attachment sources.
+type: how-to
 ---
 
-`docture/inputs/email` exports `expandEmail`, `ExpandEmailOptions`, `ExpandedEmail`, `EmailPart` and `EmailInputError`. Install `postal-mime@4.1.4` explicitly with `docture`. The parser loads on first expansion and requires no filesystem or network access.
+`expandEmail` splits one `.eml` message into its body and its attachments, each as a separate source you can convert or extract. Import it from `docture/inputs/email`.
 
-`expandEmail(raw, options)` accepts one `RawDocument` and returns ordered parts. The selected body comes first. Attachments follow in MIME order. Each part has a `document`, a stable `id`, a `parentId` and the original RFC `messageId` when present. The parent ID is versioned and derived from the exact input bytes. Each attachment keeps `originalFileName`, disposition, related-part status and optional content ID as metadata. Generated unique names such as `attachment-1.pdf` never use the supplied name as a path.
+## Install the parser
 
-The default chooses HTML from multipart alternatives, falling back to plain text. Set `bodyPreference: "text"` to prefer plain text. Bodies use the parser's decoded text and normalized LF endings, encoded as UTF-8. Expansion preserves attachment bytes. It does not sanitize or render HTML. Pass the body to `DocumentLoaderData` for cleaned text. CID resources stay independent attachment sources and are not fetched. Set `inlineAttachments: "omit"` to omit them. Attached emails remain opaque `message/rfc822` attachments.
+```sh
+npm install docture postal-mime
+```
 
-The defaults limit raw input to 25 MiB, decoded body and attachments to 50 MiB, attachments to 100, MIME parts to 256, nesting to 20 and combined headers to 256 KiB. Options are `maxInputBytes`, `maxDecodedBytes`, `maxAttachments`, `maxParts`, `maxNestingDepth` and `maxHeadersBytes`. Omitted inline resources still count toward limits. `signal` checks cancellation before and after parsing. A running parser cannot be preempted.
+The parser loads on the first expansion. If `postal-mime` is not installed, `expandEmail` fails with [`MISSING_ENGINE`](/docs/resources/errors#error-catalogue). Expansion needs no filesystem or network access.
 
-Missing message headers, invalid limits and exceeded bounds raise `EmailInputError` with `LOAD_FAILED`. Other malformed MIME follows the pinned parser's recovery behavior. A missing parser raises `MISSING_ENGINE`. Core source resolution maps `.eml` to `message/rfc822` and remains one-to-one.
+## Expand a message and convert its parts
 
-The deterministic example at `apps/examples/20-input-loaders/index.ts` expands an HTML body and a real PDF attachment. It routes the body through `DocumentLoaderData` and the attachment through `DocumentLoaderPdfJs`.
+Pass the raw message as a `RawDocument`. Route the body to `DocumentLoaderData` and attachments to the loader for their format:
+
+```ts check
+import { DocumentConverter, DocumentLoaderData } from "docture";
+import { expandEmail } from "docture/inputs/email";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+
+async function convertEmail(message: Uint8Array) {
+  const expanded = await expandEmail({ bytes: message, mimeType: "message/rfc822" });
+  const converter = new DocumentConverter({ loaders: [new DocumentLoaderData(), new DocumentLoaderPdfJs()] });
+  try {
+    return await Promise.all(expanded.parts.map((part) => converter.convert(part.document, { format: "text" })));
+  } finally {
+    await converter.dispose();
+  }
+}
+```
+
+`expandEmail` returns an `ExpandedEmail` whose `parts` list the selected body first, then the attachments in MIME order. Each `EmailPart` has:
+
+- `document`, the part's bytes and MIME type.
+- A stable `id`, and a `parentId` derived from the exact input bytes.
+- The original RFC `messageId`, when present.
+
+Attachment parts also carry `originalFileName`, `disposition`, `related`, and an optional `contentId`. Each attachment document gets a generated name such as `attachment-1.pdf`. The supplied file name is never used as a path.
+
+Core source resolution maps a `.eml` file to `message/rfc822` as one source. Call `expandEmail` to get the parts.
+
+## Choose the body and inline parts
+
+By default, the body is the HTML alternative of a multipart message, with plain text as the fallback. Set `bodyPreference: "text"` to prefer plain text. Bodies use the parser's decoded text with LF line endings, encoded as UTF-8.
+
+Expansion does not sanitize or render HTML. `DocumentLoaderData` cleans it into text. Inline resources referenced by CID stay separate attachment parts and are never fetched. Set `inlineAttachments: "omit"` to leave them out. An attached email stays one opaque `message/rfc822` attachment. Attachment bytes are unchanged.
+
+## Set size limits
+
+{/* options: ExpandEmailOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `bodyPreference` | `html` | Body to select from multipart alternatives. |
+| `inlineAttachments` | `include` | Whether to return CID inline resources as parts. |
+| `maxInputBytes` | 25 MiB | Raw message size. |
+| `maxDecodedBytes` | 50 MiB | Decoded body and attachment bytes combined. |
+| `maxAttachments` | `100` | Attachment count. |
+| `maxParts` | `256` | MIME part count. |
+| `maxNestingDepth` | `20` | MIME nesting depth. |
+| `maxHeadersBytes` | 256 KiB | Combined header size. |
+| `signal` | none | Cancellation, checked before and after parsing. |
+
+Omitted inline resources still count toward the limits. A running parser cannot be interrupted.
+
+## Handle errors
+
+Missing message headers, invalid limits, and exceeded limits throw `EmailInputError` with code [`LOAD_FAILED`](/docs/resources/errors#error-catalogue). Other malformed MIME follows the parser's own recovery behavior.
+
+The repository example in [`apps/examples/20-input-loaders`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/20-input-loaders), `index.ts`, expands an email with an HTML body and a PDF attachment, then converts both.

@@ -1,7 +1,10 @@
 ---
 title: Evaluation comparators API
 description: Exact, numeric, date, identifier, text, set, box, and custom comparators.
+type: reference
 ---
+
+Import field comparators from `@docture/eval` to decide whether an actual value matches an expected one. [Define evaluation scoring rules](/docs/evaluation/scoring-rules) shows how specs use them.
 
 ## `@docture/eval`
 
@@ -11,6 +14,12 @@ description: Exact, numeric, date, identifier, text, set, box, and custom compar
 defineComparator<E>(comparator: Comparator<E>): Comparator<E>
 ```
 
+Takes and returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
+
+Takes and returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
+
+Takes and returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
+
 Declare a custom comparator. Identity at runtime; it pins the type.
 
 ### `describeComparator`
@@ -18,6 +27,8 @@ Declare a custom comparator. Identity at runtime; it pins the type.
 ```ts
 describeComparator(comparator: Pick<Comparator, "id" | "options">): string
 ```
+
+Takes [`Comparator`](/docs/evaluation/reference/comparators#comparator).
 
 Render a comparator for `spec.explain`, such as `number(abs 0.01)`.
 
@@ -27,6 +38,8 @@ Render a comparator for `spec.explain`, such as `number(abs 0.01)`.
 exact(options?: { readonly normalize?: ExactNormalization; }): Comparator
 ```
 
+Takes [`ExactNormalization`](/docs/evaluation/reference/comparators#exactnormalization). Returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
+
 Equal JSON values, optionally ignoring case or spacing in strings. A mismatch that only differs in case or spacing gets a hint.
 
 ### `number`
@@ -34,6 +47,8 @@ Equal JSON values, optionally ignoring case or spacing in strings. A mismatch th
 ```ts
 number(options?: NumberOptions): Comparator
 ```
+
+Takes [`NumberOptions`](/docs/evaluation/reference/comparators#numberoptions). Returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
 
 Numbers within an absolute or relative tolerance. Mismatches carry sign, minor-unit, scale and transposition hints.
 
@@ -43,6 +58,8 @@ Numbers within an absolute or relative tolerance. Mismatches carry sign, minor-u
 date(options?: DateOptions): Comparator
 ```
 
+Takes [`DateOptions`](/docs/evaluation/reference/comparators#dateoptions). Returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
+
 Calendar dates at a granularity. Mismatches that are the right date in another layout, or with day and month swapped, get a `date-format` hint.
 
 ### `identifier`
@@ -50,6 +67,8 @@ Calendar dates at a granularity. Mismatches that are the right date in another l
 ```ts
 identifier(options?: { readonly strip?: string; }): Comparator
 ```
+
+Returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
 
 Identifiers such as IBANs, references and plates: equal after removing spacing and separators and ignoring case.
 
@@ -59,6 +78,8 @@ Identifiers such as IBANs, references and plates: equal after removing spacing a
 text(options: TextOptions): Comparator
 ```
 
+Takes [`TextOptions`](/docs/evaluation/reference/comparators#textoptions). Returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
+
 Strings by similarity after lowercasing and collapsing whitespace.
 
 ### `oneOf`
@@ -66,6 +87,8 @@ Strings by similarity after lowercasing and collapsing whitespace.
 ```ts
 oneOf(values: readonly Primitive[], options?: { readonly normalize?: "none" | "case"; }): Comparator
 ```
+
+Returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
 
 A closed vocabulary: the actual value must equal the expected one, and ground truth must be one of `values`.
 
@@ -75,6 +98,12 @@ A closed vocabulary: the actual value must equal the expected one, and ground tr
 setOf(element: Comparator, options?: { readonly minSimilarity?: number; }): Comparator
 ```
 
+Takes and returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
+
+Takes and returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
+
+Takes and returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
+
 An unordered collection compared as a whole. Elements pair by the best total similarity; the collection matches when every element pairs with a match and neither side has extras. Similarity is the share of matched elements.
 
 ### `boxIoU`
@@ -82,6 +111,8 @@ An unordered collection compared as a whole. Elements pair by the best total sim
 ```ts
 boxIoU(options: { readonly min: number; }): Comparator
 ```
+
+Returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
 
 Boxes that overlap by at least `min` intersection over union. Boxes on different pages never match.
 
@@ -91,4 +122,102 @@ Boxes that overlap by at least `min` intersection over union. Boxes on different
 intersectionOverUnion(a: Box, b: Box): number
 ```
 
+Takes [`Box`](/docs/evaluation/reference/types#box).
+
 Intersection over union of two boxes. 0 when they do not overlap or have no area.
+
+## Types
+
+### `Comparator`
+
+Decides whether an actual value matches an expected one. Typed by its members, so a comparator from any copy fits.
+
+```ts
+interface Comparator<E = unknown> {
+	readonly id: string;
+	/** Serializable options, shown by `spec.explain` and hashed into the spec fingerprint. */
+	readonly options?: JsonValue;
+	/** True when `compare` returns a promise. Specs with one need `scoreAsync`. */
+	readonly async?: boolean;
+	compare(expected: E, actual: unknown, ctx: CompareContext): Comparison | Promise<Comparison>;
+	/** Strict validation of a ground-truth value. Returns the problem, or `undefined` when the value is acceptable. */
+	check?(expected: unknown): string | undefined;
+}
+```
+
+### `CompareContext`
+
+Where a comparison happens.
+
+```ts check
+interface CompareContext {
+	/** Concrete expected path, such as `lineItems[2].amount`. */
+	readonly path: string;
+	/** Schema pattern, such as `lineItems[].amount`. */
+	readonly pattern: string;
+	readonly signal?: AbortSignal;
+}
+```
+
+### `Comparison`
+
+The outcome of comparing one expected value with one actual value.
+
+```ts
+interface Comparison {
+	readonly match: boolean;
+	/** 0 to 1. Alignment uses it to pair rows, so a near miss should score higher than a wild one. */
+	readonly similarity: number;
+	readonly hint?: RepairHint;
+	readonly note?: string;
+}
+```
+
+### `DateGranularity`
+
+How much of a date must agree. `instant` compares the exact moment of an ISO date-time.
+
+```ts check
+type DateGranularity = "year" | "month" | "day" | "instant";
+```
+
+### `DateOptions`
+
+Options for the `date` comparator.
+
+{/* options: DateOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `granularity` | `DateGranularity` | Default `"day"`. |
+| `formats` | `readonly string[]` | Extra accepted layouts built from `YYYY`, `MM`, `M`, `DD` and `D` with literal separators, such as `"DD/MM/YYYY"`. ISO dates and English month names are always accepted. |
+
+### `ExactNormalization`
+
+How `exact` normalizes strings before comparing.
+
+```ts check
+type ExactNormalization = "none" | "case" | "whitespace" | "case-and-whitespace";
+```
+
+### `NumberOptions`
+
+Options for the `number` comparator.
+
+{/* options: NumberOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `abs` | `number` | Absolute tolerance. Default 0 unless `rel` is given. |
+| `rel` | `number` | Tolerance relative to the expected magnitude. |
+| `minorUnits` | `number` | Decimal places of the currency's minor unit, used to recognize cents read as units. Default 2. |
+
+### `TextOptions`
+
+Options for the `text` comparator.
+
+{/* options: TextOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `minSimilarity` | `number` | Required. Similarity from 0 to 1 at which two strings match. |
+| `metric` | `"levenshtein" \| "anls"` | `levenshtein` (default) or `anls`, which drops to 0 once the normalized distance reaches `tau`. |
+| `tau` | `number` | ANLS cutoff. Default 0.5. |
+| `digits` | `"in-order" \| "ignore"` | `in-order` (default) requires the digits of both strings to be equal in order before similarity applies, so a changed digit in an address or name is never a near match. `ignore` compares by similarity alone. |

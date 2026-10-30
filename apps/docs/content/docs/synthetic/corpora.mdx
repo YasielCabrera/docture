@@ -1,15 +1,18 @@
 ---
 title: Build reproducible synthetic corpora
 description: Write verified cases, resume unchanged work, and preserve their provenance.
+type: how-to
 ---
 
-Reuse the quick start's model and PDF template. Install the [degradation engines](/docs/synthetic/degradation) for scanned renditions.
+`writeCorpus` renders many seeds, scenarios, and templates into a directory of verified cases that `@docture/eval` reads. Install the [degradation engines](/docs/synthetic/degradation) for scanned renditions.
 
 ## Write cases
 
+This example imports `model` and `template` from `bill.mts`, which the [quick start](/docs/synthetic/quick-start#define-the-model-and-template) defines.
+
 ```ts
 import { digital, scan, writeCorpus } from "@docture/synthetic/node";
-import { model, template } from "./synth.mjs";
+import { model, template } from "./bill.mjs";
 
 const report = await writeCorpus("corpus", {
 	model,

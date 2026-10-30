@@ -1,6 +1,7 @@
 ---
 title: Create synthetic React templates
 description: Build labeled PDFs from React components with react-pdf.
+type: how-to
 ---
 
 Write a template as React components with [`@react-pdf/renderer`](https://react-pdf.org). You get flexbox layout, reusable components, automatic page wrapping, repeating headers, and style sheets. Wrap each printed value in `<Field path>`. The renderer labels it with the box of its laid-out text, so you never compute coordinates. No browser is needed.
@@ -24,9 +25,9 @@ Compile JSX with the automatic runtime. Add this to `tsconfig.json`:
 
 ## Your first React template
 
-Create `bill.tsx`:
+Create `react-bill.tsx`:
 
-```tsx
+```tsx check
 import { Page, Text, View } from "@react-pdf/renderer";
 import { defineModel, gen, locales } from "@docture/synthetic";
 import { defineReactTemplate } from "@docture/synthetic/react-pdf";
@@ -61,7 +62,7 @@ await assertVerified(document);
 console.log(document.labels.map((label) => label.path));
 ```
 
-Run `npx tsx bill.tsx`. It prints `[ 'customerName', 'totalCents' ]`.
+The file uses top-level `await`, so the project needs `"type": "module"` in its `package.json`. Run `npx tsx react-bill.tsx`. It prints `[ 'customerName', 'totalCents' ]`.
 
 Three things make this a synthetic template:
 

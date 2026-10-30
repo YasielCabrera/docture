@@ -1,17 +1,20 @@
 ---
 title: Evaluation grounding API
 description: Evaluate expected pages and boxes against processor evidence.
+type: reference
 ---
 
-## `@docture/eval/grounding`
+Import source grounding analysis from `@docture/eval/grounding`. [Score evaluation source grounding](/docs/evaluation/grounding) shows it in use.
 
-- `GroundingOptions`
+## `@docture/eval/grounding`
 
 ### `grounding`
 
 ```ts
 grounding(result: EvalResult, options?: GroundingOptions): GroundingReport
 ```
+
+Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`GroundingOptions`](/docs/evaluation/reference/grounding#groundingoptions). Returns [`GroundingReport`](/docs/evaluation/reference/types#groundingreport).
 
 Grade correct predictions whose evidence supports a labelled expected page or box.
 
@@ -21,4 +24,19 @@ Grade correct predictions whose evidence supports a labelled expected page or bo
 groundingSection(options?: GroundingOptions): (result: EvalResult) => { grounding: GroundingReport; }
 ```
 
+Takes [`GroundingOptions`](/docs/evaluation/reference/grounding#groundingoptions). Returns a [`ResultSection`](/docs/evaluation/reference/runner#resultsection) that reads an [`EvalResult`](/docs/evaluation/reference/types#evalresult) and sets its `grounding` to a [`GroundingReport`](/docs/evaluation/reference/types#groundingreport).
+
 Add grounding through the runner's result sections hook.
+
+## Types
+
+### `GroundingOptions`
+
+Evidence support requirements and optional external expected locations.
+
+{/* options: GroundingOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `iou` | `number` | Minimum intersection over union between an expected box and an evidence box, in (0, 1]. Default `0.5`. |
+| `level` | `"box" \| "page"` | `box` needs a boxed evidence reference that overlaps the expected box by `iou` when the expected location has a box; a location without a box needs only the same page. `page` always needs only the same page. Default `box`. |
+| `locations` | `Readonly<Record<string, EvalCase["locations"]>>` | Expected locations keyed by case ID. A supplied path overrides the stored locations for that path; an omitted case or path falls back to the locations stored with the result, so an empty case map does not clear them. |

@@ -1,41 +1,55 @@
 ---
 title: Model telemetry API
 description: Per-call telemetry settings, recorded context, and cache behavior.
+type: reference
 ---
 
-Import these APIs from `docture/llm` or the narrow entries listed below. Install AI SDK 7 and Zod (3.25.76 or later 3.x, or 4.1.8 or later) in the application.
-For model components:
+Model telemetry sends AI SDK telemetry events for each model call Docture makes. Import `LlmTelemetryOptions` from `docture/llm`, or from any narrow model entry that exports a component: `docture/llm/text`, `docture/llm/vision`, `docture/llm/classifier`, `docture/llm/layout`, or `docture/llm/split`. [Record model telemetry](/docs/extraction/telemetry) shows it in use.
+
+Install AI SDK 7, Zod 3.25.76 or later 3.x or Zod 4.1.8 or later, and the provider you construct:
 
 ```sh
 npm install docture ai zod
 ```
 
-Also install the provider you construct, such as `@ai-sdk/openai`. The
-[complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model)
-includes the document engine and schema library.
-
-All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
-gateway model string.
-
 ## Telemetry
 
-Every text, vision, classifier, layout, splitter, and repair component accepts
-`telemetry?: LlmTelemetryOptions`. `LLM` passes its `telemetry` to every component it
-builds. Each entry point that exports a component also exports the type.
+### `LlmTelemetryOptions`
 
+The `telemetry` option of every text, vision, classifier, layout, splitter, and repair component. `LLM` passes its `telemetry` to every component it builds.
+
+```ts
+interface LlmTelemetryOptions
+  extends Pick<TelemetryOptions, "isEnabled" | "recordInputs" | "recordOutputs" | "integrations"> {
+  readonly runtimeContext?: Readonly<Record<string, unknown>>;
+  readonly documentLabel?: boolean;
+}
+```
+
+{/* options: LlmTelemetryOptions */}
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `isEnabled` | AI SDK default | Turns telemetry on or off for docture's calls. |
+| `isEnabled` | AI SDK default | Turns telemetry on or off for Docture's calls. |
 | `recordInputs` | `false` | Asks integrations to record prompts, document text, and page images. |
 | `recordOutputs` | `false` | Asks integrations to record model answers. |
 | `integrations` | registered integrations | Per-call AI SDK telemetry integrations. |
 | `runtimeContext` | none | Extra context recorded on every call. |
 | `documentLabel` | `true` | `false` keeps the source file name out of telemetry. |
 
+```ts
+import { llm } from "docture/llm/text";
+
+llm({ model, telemetry: { integrations: [myIntegration], runtimeContext: { tenant: "acme" } } });
+```
+
+### Recording flags
+
 `recordInputs` and `recordOutputs` are flags on each telemetry event, not filters. The
 AI SDK still passes the messages and the answer to every integration's callbacks, and
 each integration decides whether to honour the flags. Check that every integration you
 register honours them before you send it sensitive documents.
+
+### Call identity
 
 Each call sets `functionId` to `docture.<stage>.<component>`. The stages are `extract`,
 `vision`, `classify`, `layout`, `split`, and `repair`, and the component is the
@@ -49,9 +63,3 @@ A classifier call lists only the pages with text in its excerpt: with the defaul
 `text` is not its page texts joined by form feeds, as with a preloaded document whose
 text the caller wrote, the excerpt cannot be traced to pages and the classifier call
 has no `pages`. A cached answer makes no model call and emits no telemetry.
-
-```ts
-import { llm } from "docture/llm/text";
-
-llm({ model, telemetry: { integrations: [myIntegration], runtimeContext: { tenant: "acme" } } });
-```

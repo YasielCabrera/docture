@@ -1,5 +1,6 @@
 import { remarkMdxMermaid } from "fumadocs-core/mdx-plugins";
 import { defineConfig } from "fumadocs-mdx/config";
+import { codeThemes } from "./lib/code-themes";
 
 /**
  * Global MDX options.
@@ -21,5 +22,6 @@ import { defineConfig } from "fumadocs-mdx/config";
 export default defineConfig({
   mdxOptions: {
     remarkPlugins: (plugins) => [...plugins, remarkMdxMermaid],
+    rehypeCodeOptions: { themes: codeThemes },
   },
 });

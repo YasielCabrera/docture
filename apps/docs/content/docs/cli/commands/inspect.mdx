@@ -1,9 +1,10 @@
 ---
 title: "docture inspect"
-description: "Show what the loaders see , no model, no API key"
+description: "Show what the loaders see, without a model or API key"
+type: reference
 ---
 
-The answer to "why did no strategy run?". Loads the document exactly as `extract`
+Shows why a strategy did or did not run. Loads the document exactly as `extract`
 would and prints the features eligibility is decided from.
 
 ## Arguments
@@ -18,7 +19,7 @@ would and prints the features eligibility is decided from.
 | --- | --- | --- |
 | `--text` | Not set | Print the extracted text as well |
 | `--lines` | Not set | Print positioned lines with their coordinates |
-| `--format <fmt>` | text | JSON is a versioned envelope; NDJSON streams result items Choices: `json`, `ndjson`, `text`. |
+| `--format <fmt>` | text | JSON is a versioned envelope; NDJSON streams result items. Choices: `json`, `ndjson`, `text`. |
 | `--pages <n>` | Not set | Only report on the first n pages |
 | `--vision` | Not set | Also check that pages can be rendered |
 | `--timeout <ms>` | Not set | Per-stage deadline. Omit for none |

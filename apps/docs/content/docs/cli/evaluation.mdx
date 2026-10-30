@@ -1,13 +1,14 @@
 ---
 title: Evaluate from the CLI
-description: Run experiments, manage datasets, and gate saved or quick-mode results.
+description: Run docture.eval.ts experiments, work with stored runs, and score files against ground truth from a terminal.
+type: how-to
 ---
 
-## Evaluate in CI
+`docture eval` runs the evaluation described in `docture.eval.ts`, works with the runs it stores, and scores files against ground truth without a config. To write the config, start with the [evaluation quick start](/docs/evaluation/quick-start). To fail a CI job on thresholds or regressions, see [Gate evaluation regressions in CI](/docs/evaluation/ci). Every flag is listed in the [`docture eval run` reference](/docs/cli/commands/eval-run).
 
-`docture eval` runs the evaluation described in `docture.eval.ts` with
-[`@docture/eval`](/docs/evaluation/quick-start). The config names the dataset, the spec,
-the experiments, the reporters, the gate, the run store, and the baseline:
+## Run the configured evaluation
+
+The config names the dataset, the spec, the experiments, the gate, and the baseline:
 
 ```ts
 import { defineEval, exact } from "@docture/eval";
@@ -26,51 +27,63 @@ export default defineEvalConfig({
 });
 ```
 
+Run every experiment over the dataset:
+
+```sh
+docture eval run
+```
+
+`eval run` stores the run, writes the reporters, prints the scoreboard, and applies the gate. The config may also set `sections`, analyses such as `calibrationSection()` that run before the gate and the reporters.
+
+## Choose cases and experiments
+
+These flags narrow or repeat a run:
+
+- `--experiment <ids>` runs only the named experiments.
+- `--sample <n>` runs a deterministic stratified sample. `--strata <path>` and `--seed <text>` control it.
+- `--cases <ids>` runs only the listed case ids.
+- `--epochs <n>` runs every case `n` times.
+- `--resume <runId|latest>` continues an unfinished run and reuses its finished cases.
+- `--baseline <runId|auto|none>` selects the run to compare against. With `auto`, Docture uses the latest complete run of the dataset. When the current branch has no complete run, it searches the config's `fallbackBranch`, such as `main`.
+- `--no-gate` skips the gate. The run still records every metric.
+
+## Write reports
+
+`--reporter` accepts `terminal`, `html`, `md`, `json`, `csv`, `junit`, or a module path, comma-separated or repeated. It replaces the config's reporters for that command. Files go to `--out`, by default `eval-report`:
+
 ```sh
 docture eval run --reporter html,junit --out eval-report
 ```
 
-| Subcommand | Job |
+A module exports a reporter as `default` or `reporter`, or a function `(result) => string`. The CLI writes the function's text to the module's exported `fileName`, or to `<module name>.txt`. The text scoreboard always prints, so `terminal` changes nothing.
+
+A failing reporter does not lose the run. `eval run` saves the result, prints each reporter failure on stderr, also under `--quiet`, and exits with code `1`.
+
+## Work with stored runs
+
+Runs are stored in the config's `store`, by default `.docture/eval` beside the config. `--store <dir>` selects another directory. A `<run>` argument is a run id, `latest`, or a directory that holds `result.json`.
+
+| Command | Job |
 |---|---|
-| `eval run` | Run every experiment, store the run, write reporters, print the scoreboard, and apply the gate |
-| `eval report <run>` | Re-render a stored run in any format; `--rescore` scores its raw outputs again with the current spec |
-| `eval compare <base> <candidate>` | Compare two runs with paired bootstrap or McNemar tests; `--format md|json` |
-| `eval gate <run>` | Apply the config's gate to a stored run; `--baseline` adds regression budgets |
-| `eval runs` | List stored runs, newest first |
-| `eval validate` | Check every case's ground truth against the spec and list all problems |
-| `eval sample --size <n>` | Print the case ids of a deterministic stratified sample |
-| `eval migrate <module>` | Preview a ground-truth migration; `--write` applies it |
-| `eval draft` and `eval sign-off <id>` | Draft ground truth with one experiment, then mark it reviewed |
+| [`eval report <run>`](/docs/cli/commands/eval-report) | Render a stored run in any format. `--rescore` scores its raw outputs again with the current spec |
+| [`eval compare <base> <candidate>`](/docs/cli/commands/eval-compare) | Compare two runs with paired bootstrap or McNemar tests |
+| [`eval gate <run>`](/docs/cli/commands/eval-gate) | Apply the config's gate to a stored run. `--baseline` adds regression budgets |
+| [`eval runs`](/docs/cli/commands/eval-runs) | List stored runs, newest first |
 
-`eval run` accepts `--experiment`, `--sample` with `--strata` and `--seed`, `--cases`,
-`--epochs`, `--concurrency`, `--resume <runId|latest>`, `--baseline <runId|auto|none>`,
-`--no-gate`, and `--store`. A `<run>` argument is a run id, `latest`, or a directory that
-holds `result.json`. Runs are stored in the config's `store`, by default `.docture/eval`
-beside the config.
+`eval report <dir> --rescore` reads the run and its raw outputs from that directory, such as a run copied out of CI. It writes the re-scored run as a new run to the configured store, or to `--store`.
 
-The config may also set `sections`, analyses such as `calibrationSection()` that run before
-the gate and the reporters. `fallbackBranch` names the branch, such as `main`, that an
-automatic baseline searches when the current branch has no complete run.
+## Maintain ground truth
 
-`--reporter` accepts `terminal`, `html`, `md`, `json`, `csv`, `junit`, or a module path,
-comma-separated or repeated. It replaces the config's reporters for that command. Files go
-to `--out`, by default `eval-report`. A module exports a reporter as `default` or
-`reporter`, or a function `(result) => string`. The function's text is written to its
-exported `fileName`, or to `<module name>.txt`. The text scoreboard always prints, so
-`terminal` changes nothing.
+| Command | Job |
+|---|---|
+| [`eval validate`](/docs/cli/commands/eval-validate) | Check every case's ground truth against the spec and list all problems |
+| [`eval sample --size <n>`](/docs/cli/commands/eval-sample) | Print the case ids of a deterministic stratified sample |
+| [`eval migrate <module>`](/docs/cli/commands/eval-migrate) | Preview a ground-truth migration. `--write` applies it |
+| [`eval draft`](/docs/cli/commands/eval-draft) and [`eval sign-off <case>`](/docs/cli/commands/eval-sign-off) | Draft ground truth with one experiment, then mark a case reviewed |
 
-A failing reporter does not lose the run. `eval run` saves the result, prints each reporter
-failure on stderr, also under `--quiet`, and exits with code `1`.
+## Score files without a config
 
-`eval report <dir> --rescore` reads the run and its raw outputs from that directory, such as
-a run copied out of CI. It writes the re-scored run as a new run to the configured store, or
-to `--store`.
-
-### Quick mode
-
-Files without a config score each document against its ground truth with the loose
-comparisons of `looseEval`. `docture eval <files...>` and `docture eval run <files...>`
-are the same command:
+Quick mode scores each document against its ground truth with the loose comparisons of `looseEval`, using `docture.config.ts` for extraction. `docture eval <files...>` and `docture eval run <files...>` are the same command:
 
 ```sh
 docture eval 'corpus/*.pdf' \
@@ -81,20 +94,22 @@ docture eval 'corpus/*.pdf' \
   --report score.md
 ```
 
-A failed extraction is an errored case. Its expected fields count as omissions in the
-scoreboard and the gate, and it fails the command.
+A failed extraction is an errored case. Its expected fields count as omissions in the scoreboard and the gate, and it fails the command.
 
-`--min-f1` gates `meanDocumentF1`, the mean of per-document F1. A failed extraction scores
-0, so every document weighs the same however many fields it has. `--max-cost-usd` gates
-`costUsd`, the priced total, which includes the usage that failed extractions reported. It
-needs configured pricing, and it fails when no price is known. A failed check prints its
-reason on stderr, also under `--quiet`, and the JSON summary lists it in `reasons`:
+`--min-f1` gates `meanDocumentF1`, the mean of per-document F1. A failed extraction scores 0, so every document weighs the same however many fields it has. `--max-cost-usd` gates `costUsd`, the priced total, which includes the usage that failed extractions reported. It needs configured pricing, and it fails when no price is known. A failed check prints its reason on stderr, also under `--quiet`, and the JSON summary lists it in `reasons`:
 
 ```text
 ✗ Gate failed: 1 of 1 checks.
   Mean F1 0.500 is below the --min-f1 gate of 0.95.
 ```
 
-Exit code `0` means success. Exit code `1` means a gate failed, a document failed, a
-reporter failed, or the run was interrupted. Exit code `2` means the invocation was invalid. A run without a
-configured gate exits `0` and says that no gate ran.
+[Work with inputs and output streams](/docs/cli/inputs-and-outputs#output-streams) lists the fields of the quick-mode JSON summary.
+
+## Read the exit code
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | Success. A run without a configured gate also exits `0` and says that no gate ran |
+| `1` | A gate failed, a document failed, or a reporter failed |
+| `2` | The invocation was invalid |
+| `130` | The run was interrupted with Ctrl-C |

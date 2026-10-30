@@ -1,32 +1,32 @@
 ---
 title: Generate your first labeled PDF
-description: Sample two fields, draw them, and verify their labels.
+description: Sample two fields, draw them on a PDF, and verify that each label matches the printed text.
+type: tutorial
 ---
 
-Create a PDF with two fields and labels that point to the printed text. This example uses Node.js 22 or newer and needs no model credentials.
+In this tutorial you create a one-page bill with two fields, render it to `bill.pdf`, and check that each label points to the printed text. You need Node.js 22 or newer. No model credentials are needed.
 
 ## Install
 
 ```sh
-npm install --save-dev @docture/synthetic docture zod pdfkit pdfjs-dist
+npm install --save-dev @docture/synthetic docture zod pdfkit pdfjs-dist tsx
 ```
 
-## Render and verify
+## Define the model and template
 
-Create `synth.mts`:
+Create `bill.mts`. It exports the schema, a model that samples values, and a template that draws them. Later guides import `model`, `template`, and `Bill` from this file.
 
-```ts
-import { writeFile } from "node:fs/promises";
+```ts check
 import { defineModel, defineTemplate, gen, locales } from "@docture/synthetic";
-import { renderPdf } from "@docture/synthetic/pdfkit";
-import { assertVerified } from "@docture/synthetic/verify";
 import { z } from "zod";
 
 export const Bill = z.object({ customerName: z.string(), totalCents: z.number().int() });
 export type Bill = z.infer<typeof Bill>;
+
 export const model = defineModel(Bill, {
 	fields: { customerName: gen.pick(["Dana", "Kenji"]), totalCents: gen.int(100, 9000) },
 });
+
 export const template = defineTemplate<Bill>()({
 	key: "simple-bill",
 	family: "bill",
@@ -37,12 +37,35 @@ export const template = defineTemplate<Bill>()({
 		page.field("totalCents", format.money(bill.totalCents), { x: 50, y: 80 });
 	},
 });
+```
+
+## Render and verify
+
+Create `synth.mts` next to it:
+
+```ts
+import { writeFile } from "node:fs/promises";
+import { renderPdf } from "@docture/synthetic/pdfkit";
+import { assertVerified } from "@docture/synthetic/verify";
+import { model, template } from "./bill.mjs";
+
 const document = await renderPdf(template, await model.sample({ seed: 1 }));
 await assertVerified(document);
 await writeFile("bill.pdf", document.bytes);
-console.log(document.labels.length);
+console.log(document.labels.map((label) => `${label.path}: ${label.text}`));
 ```
 
-Run `npx tsx synth.mts`. It writes `bill.pdf` and prints `2`. Each label records `path`, `value`, `text`, `pageNumber`, and `box`. `document.expected` contains the values recoverable from this template.
+Run `npx tsx synth.mts`. It writes `bill.pdf` and prints the path of each label with the text drawn for it:
 
-Next, [add scenarios](/docs/synthetic/scenarios) or [write multiple cases](/docs/synthetic/corpora). The [complete corpus example](/docs/synthetic/evaluation#complete-example) also scores a processor.
+```txt
+[ 'customerName: Dana', 'totalCents: $20.58' ]
+```
+
+Each label also records the ground-truth `value`, the `pageNumber`, and the `box` in PDF points. `document.expected` holds the values a reader can recover from this page. The same seed gives the same values and the same PDF bytes on every run.
+
+## Next steps
+
+- [Add scenarios](/docs/synthetic/scenarios) such as a credit balance to cover harder cases.
+- [Build a corpus](/docs/synthetic/corpora) of many seeds, with scanned renditions.
+- [Evaluate a synthetic corpus](/docs/synthetic/evaluation#complete-example) against a processor.
+- [Choose a template kind](/docs/synthetic#choose-a-template-kind) for richer layouts.

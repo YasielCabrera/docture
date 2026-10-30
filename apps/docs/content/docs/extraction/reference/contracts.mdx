@@ -1,21 +1,22 @@
 ---
 title: Contracts and schemas API
 description: Contract definitions, supported schemas, inferred types, and validation.
+type: reference
 ---
 
-Import from `docture`.
+Contracts name a schema and add the prompt guidance a model uses; schema helpers resolve and validate any supported schema. Import them from `docture` or `docture/node`.
 
 ## Contracts
 
+### `contract`
+
+Names a schema and attaches a description, hints, and worked examples.
+
 ```ts
-contract<S extends FlexibleSchema>(
+function contract<S extends FlexibleSchema>(
   definition: ContractDefinition<S>,
 ): Contract<InferSchema<S>>
 ```
-
-`ContractDefinition<S>` has a required `name` and schema `S`, plus optional `description`,
-`hints` and `examples`. `Contract<T>` stores a `FlexibleSchema<T>` with the same metadata. Contracts
-are structural and are not branded.
 
 ```ts
 const Invoice = contract({
@@ -26,18 +27,49 @@ const Invoice = contract({
 });
 ```
 
-### Examples
+`contract()` copies the examples, so later edits do not reach the contract. Throws `TypeError`, naming the example and the path, when an example output contains a value JSON cannot carry. See [define schemas and contracts](/docs/extraction/schemas).
+
+### `ContractDefinition`
+
+The argument to `contract()`.
+
+{/* options: ContractDefinition */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `name` | `string` | Required. Appears in prompts, classification lists, and reports. |
+| `description` | `string` | Optional description of the document. |
+| `schema` | `S` | Required. Any supported schema. |
+| `hints` | `string` | Optional extraction guidance that precedes the examples in the system prompt. |
+| `examples` | `readonly ContractExample[]` | Optional worked examples typed by the schema's output. |
+
+### `Contract`
+
+A named output contract. It stores a `FlexibleSchema<T>` with the same metadata as `ContractDefinition`.
 
 ```ts
+interface Contract<T = unknown> {
+  readonly name: string;
+  readonly description?: string;
+  readonly schema: FlexibleSchema<T>;
+  readonly hints?: string;
+  readonly examples?: readonly ContractExample<T>[];
+}
+```
+
+Contracts are structural and are not branded. A hand-written `{ name, schema }` object is a contract.
+
+### `ContractExample`
+
+A worked example: document text and the data it should yield.
+
+```ts check
 interface ContractExample<T = unknown> {
   readonly text: string;
   readonly output: T;
 }
 ```
 
-`examples` are worked examples: document text and the data it should yield. `output` is
-typed by the schema's output type, so a wrong field or type does not compile, and the
-examples never widen the type that `contract()` infers.
+`output` is typed by the schema's output type, so a wrong field or type does not compile, and examples never widen the type that `contract()` infers.
 
 ```ts
 const Invoice = contract({
@@ -49,75 +81,125 @@ const Invoice = contract({
 });
 ```
 
-Every text and vision extraction prompt for the contract carries its examples, including
-repairs. A vision prompt gets the text examples only; it sends no example images. They go
-in the system prompt after the hints, each as `<example>` holding `<input>` and `<output>`.
-An opening or closing `example`, `input` or `output` tag inside the text or the JSON is
-escaped with a backslash. That keeps the blocks intact, but it does not stop an example
-from reading as an instruction, so only use examples you trust. Each example adds its
-text and JSON to every request, so it costs input tokens on every page or chunk. A
-changed example changes the request, so it gets its own cache entry.
+#### Examples
 
-`output` is sent as JSON. Plain objects, arrays, strings, booleans, `null`, finite
-numbers and a valid `Date`, sent as its ISO string, are allowed, and an `undefined`
-property is left out. Any other value, such as `NaN`, a function, a `Map` or an object that
-contains itself, makes
-`contract()` throw a `TypeError` that names the example and the path. `contract()` copies
-the examples, so later edits do not reach it.
+Every text and vision extraction prompt for the contract carries its examples, including repairs. A vision prompt gets the text examples only; it sends no example images. Examples go in the system prompt after the hints, each as `<example>` holding `<input>` and `<output>`. An opening or closing `example`, `input`, or `output` tag inside the text or the JSON is escaped with a backslash. The escaping keeps the blocks intact but does not stop an example from reading as an instruction, so use only examples you trust.
 
-When an extraction starts, each example's JSON is checked against the schema as a model
-answer is: the check runs the schema, discards the transformed value, and sends exactly the
-JSON. An example that fails rejects the extraction with a `TypeError` before any request.
-A schema whose transform changes a value's type, such as a `string` to a `Date`, takes an
-example output of the transformed type, and its JSON must still be a valid input:
-`new Date("2024-03-05")` is sent as `"2024-03-05T00:00:00.000Z"`.
+Each example adds its text and JSON to every request, so it costs input tokens on every page or chunk. A changed example changes the request and gets its own cache entry.
 
-`ContractLike` is a `Contract` or a bare supported schema. `InferContract<C>` resolves
-the data type produced by either form.
+`output` is sent as JSON. Plain objects, arrays, strings, booleans, `null`, finite numbers, and a valid `Date`, sent as its ISO string, are allowed. An `undefined` property is left out. Any other value, such as `NaN`, a function, a `Map`, or an object that contains itself, makes `contract()` throw a `TypeError`.
 
-| Helper | Signature | Return and failure behavior |
-| --- | --- | --- |
-| `isContract` | `(value: unknown) => value is Contract` | Checks for a string `name` and a `schema`. It does not validate the schema. |
-| `schemaOf` | `(value: ContractLike) => FlexibleSchema` | Returns a contract's schema or the bare schema unchanged. |
-| `contractName` | `(value: ContractLike) => string \| undefined` | Returns the contract name when present. |
+When an extraction starts, each example's JSON is checked against the schema as a model answer is. The check runs the schema, discards the transformed value, and sends exactly the JSON. An example that fails rejects the extraction with a `TypeError` before any request. A schema whose transform changes a value's type, such as a `string` to a `Date`, takes an example output of the transformed type, and its JSON must still be a valid input: `new Date("2024-03-05")` is sent as `"2024-03-05T00:00:00.000Z"`.
 
-These helpers do not throw for a bare supported schema.
+### `ContractLike`
 
+Anything the extraction API accepts as an output contract.
+
+```ts
+type ContractLike = Contract | FlexibleSchema;
+```
+
+### `InferContract`
+
+The data type that a contract or bare schema produces.
+
+```ts
+type InferContract<C> =
+  C extends Contract<infer T> ? T : C extends FlexibleSchema ? InferSchema<C> : never;
+```
+
+### `isContract`
+
+Returns `true` when `value` has a string `name` and a `schema`. It does not validate the schema.
+
+```ts
+function isContract(value: unknown): value is Contract
+```
+
+### `schemaOf`
+
+Returns a contract's schema, or a bare schema unchanged.
+
+```ts
+function schemaOf<C extends ContractLike>(source: C): FlexibleSchema<InferContract<C>>
+```
+
+### `contractName`
+
+Returns the contract name, or `undefined` for a bare schema.
+
+```ts
+function contractName(source: ContractLike): string | undefined
+```
+
+`isContract()`, `schemaOf()`, and `contractName()` do not throw for a bare supported schema.
 
 ## Schema types
 
-`FlexibleSchema<T>` and `InferSchema<S>` are re-exported from
-`@ai-sdk/provider-utils`. They cover the schema forms supported by the AI SDK, including
-Zod, Valibot, ArkType, lazy schemas, and AI SDK `Schema` objects. A raw JSON Schema object
-must first be wrapped with `jsonSchema()` from `ai`.
+### `FlexibleSchema`
 
-`JsonSchemaObject` is the object form stored in a resolved schema. `ValidateResult<T>` is
-either `{ ok: true, data: T }` or `{ ok: false, issues }`.
+The schema forms the AI SDK supports: Zod, Valibot, ArkType, and other Standard Schema implementations, lazy schemas, and AI SDK `Schema` objects. Re-exported from `@ai-sdk/provider-utils`.
 
-`ResolvedSchema<T>` contains:
+```ts
+type FlexibleSchema<T = any> = Schema<T> | LazySchema<T> | ZodSchema<T> | StandardSchema<T>;
+```
 
+Wrap a raw JSON Schema object with `jsonSchema()` from `ai` before passing it.
+
+### `InferSchema`
+
+The output type of a `FlexibleSchema`. Re-exported from `@ai-sdk/provider-utils`.
+
+```ts
+type InferSchema<S> =
+  S extends ZodSchema<infer T> ? T
+  : S extends StandardSchema<infer T> ? T
+  : S extends LazySchema<infer T> ? T
+  : S extends Schema<infer T> ? T
+  : never;
+```
+
+### `resolveSchema`
+
+Settles a schema once, before extraction, so strategies do not each await its JSON Schema.
+
+```ts
+function resolveSchema<T>(schema: FlexibleSchema<T>): Promise<ResolvedSchema<T>>
+```
+
+Rejects when a schema adapter cannot produce JSON Schema. A schema without a validator, including a plain JSON Schema wrapped by the AI SDK, accepts the returned value unchanged.
+
+### `ResolvedSchema`
+
+A schema with its JSON Schema and validator ready.
+
+{/* options: ResolvedSchema */}
 | Field | Meaning |
 | --- | --- |
 | `flexible` | Original `FlexibleSchema<T>`, kept for consumers that accept it directly. |
 | `jsonSchema` | JSON Schema representation used in prompts and model calls. |
-| `validate(value)` | Validates unknown data and returns `ValidateResult<T>`. |
+| `validate` | `(value: unknown) => Promise<ValidateResult<T>>`. Validates unknown data. |
 
-```ts
-resolveSchema<T>(schema: FlexibleSchema<T>): Promise<ResolvedSchema<T>>
+### `JsonSchemaObject`
+
+The object form stored in `ResolvedSchema.jsonSchema`.
+
+```ts check
+type JsonSchemaObject = Record<string, unknown>;
 ```
 
-`resolveSchema()` performs any asynchronous schema conversion once before extraction.
-It rejects when a schema adapter cannot produce JSON Schema. A schema without a validator,
-including a plain JSON Schema wrapped by the AI SDK, accepts the returned value unchanged.
+### `ValidateResult`
 
+The result of `ResolvedSchema.validate()`.
+
+```ts
+type ValidateResult<T> =
+  | { readonly ok: true; readonly data: T }
+  | { readonly ok: false; readonly issues: readonly ValidationIssue[] };
+```
 
 ## Validation in the pipeline
 
-Strategies receive `ResolvedSchema` and return unknown data. The pipeline calls its
-validator after each strategy returns. A validation failure records a failed attempt and
-allows the next strategy to run.
+Strategies receive a `ResolvedSchema` and return unknown data. The pipeline calls its validator after each strategy returns. A validation failure records a failed attempt and lets the next strategy run.
 
-The first strategy whose output validates becomes the result. If no strategy succeeds,
-the first validation failure takes precedence and extraction rejects with
-`ContractViolationError` and its `ValidationIssue` values. If every strategy threw before
-validation, extraction rejects with `ExtractionFailedError`.
+The first strategy whose output validates becomes the result. If no strategy succeeds, the first validation failure takes precedence and extraction rejects with `ContractViolationError` and its `ValidationIssue` values. If every strategy threw before validation, extraction rejects with `ExtractionFailedError`. See [validate results and repair answers](/docs/extraction/validation).

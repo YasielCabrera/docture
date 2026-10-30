@@ -1,10 +1,10 @@
 ---
 title: Chunking and merge helpers API
 description: Request chunking, token estimates, partial merging, and schema relaxation.
+type: reference
 ---
 
-Import these APIs from the narrow entries listed below, which need no model runtime.
-They are also available from `docture/llm`, whose model exports require `ai@^7` and a supported Zod release.
+These helpers split a long document into model requests and merge the partial answers. `LlmStrategy` uses them under `paginate` and `concatenate`; import them directly to build your own multi-request strategy. They come from `docture/llm/prompt`, `docture/llm/merge`, and `docture/llm/relax`, which need no model runtime, and are also exported from `docture/llm`, whose model exports require `ai@^7` and a supported Zod release. [Handle long documents](/docs/extraction/long-documents) describes the behavior they implement.
 
 ```sh
 npm install docture
@@ -14,66 +14,125 @@ npm install docture
 
 Import from `docture/llm/prompt`.
 
-`Chunk` contains text and its 1-based page numbers.
+### `chunkByPage`
+
+Returns one chunk per page with text.
 
 ```ts
-type ChunkContext = (pageNumber: number) => string | undefined;
-
-chunkByPage(document: LoadedDocument, context?: ChunkContext): Chunk[]
-chunkByBudget(document: LoadedDocument, maxChars: number, context?: ChunkContext): Chunk[]
-estimateTokens(text: string): number
+function chunkByPage(document: LoadedDocument, context?: ChunkContext): Chunk[]
 ```
 
-`chunkByPage()` skips empty pages. `chunkByBudget()` splits only at page boundaries and
-emits an oversized page whole. It returns no chunks for an empty document. A `context`
-function returns text to place, followed by a blank line, before a chunk that starts on
-the given page. `chunkByBudget()` counts that text against `maxChars`. `LlmStrategy` uses
-it to repeat the header rows of a table continuing from an earlier page.
-`estimateTokens()` returns `Math.ceil(text.length / 4)`.
+Skips empty pages.
 
+### `chunkByBudget`
+
+Groups whole pages into chunks of at most `maxChars` characters.
+
+```ts
+function chunkByBudget(document: LoadedDocument, maxChars: number, context?: ChunkContext): Chunk[]
+```
+
+Splits only at page boundaries and emits an oversized page whole. Returns no chunks for an empty document. Text from `context` counts against `maxChars`.
+
+### `Chunk`
+
+```ts check
+interface Chunk {
+  readonly text: string;
+  readonly pages: readonly number[];
+}
+```
+
+`pages` holds the chunk's 1-based page numbers.
+
+### `ChunkContext`
+
+Returns text to place, followed by a blank line, before a chunk that starts on the given page.
+
+```ts check
+type ChunkContext = (pageNumber: number) => string | undefined;
+```
+
+`LlmStrategy` uses it to repeat the header rows of a table continuing from an earlier page.
+
+### `estimateTokens`
+
+Estimates tokens as `Math.ceil(text.length / 4)`.
+
+```ts
+function estimateTokens(text: string): number
+```
+
+### `LlmStrategy`
+
+The text strategy that uses these helpers. See [text extraction API](/docs/extraction/reference/text#llmstrategy).
 
 ## Partial results
 
 Import from `docture/llm/merge`.
 
-```ts
-mergePartials(parts: readonly unknown[]): unknown
-```
+### `mergePartials`
 
-Arrays concatenate in document order. Plain objects merge recursively. For scalar or
-mismatched values, the first non-null, non-undefined, non-blank value wins, except that
-a later same-type non-zero value replaces an earlier `0` or `false`. A genuine early
-zero can therefore be replaced. No usable parts returns `undefined`.
+Folds partial answers into one value.
 
 ```ts
-mergePartialsWithDiagnostics(parts: readonly MergePart[]): MergeDiagnostics
+function mergePartials(parts: readonly unknown[]): unknown
 ```
 
-`MergePart` is `{ data, pages }`, with the 1-based pages the part came from.
-`MergeDiagnostics` is `{ data, conflicts }`. `data` is exactly what `mergePartials()`
-returns for the same data; `mergePartials()` is this fold without the pages.
-`conflicts` lists each `ExtractionConflict` in order of first appearance: a field
-`path` and every distinct present value with the pages that gave it. Strings compare
-after trimming and numbers by value. A `0` or `false` replaced by a later value still
-counts as one of the disagreeing values. A path where a scalar met an object or an
-array also conflicts, and its values include that object or array. A literal key
-`"a.b"` and the nested field `a.b` are separate paths, `` `a.b` `` and `a.b`, so they
-never conflict with each other. Objects at one path
-merge and arrays concatenate, so they never conflict with each other there. Values
-inside arrays are never compared, because concatenated rows are separate records.
-Absent values never conflict.
+Arrays concatenate in document order. Plain objects merge recursively. For scalar or mismatched values, the first non-null, non-undefined, non-blank value wins, except that a later same-type non-zero value replaces an earlier `0` or `false`. A genuine early zero can therefore be replaced. No usable parts returns `undefined`.
 
+### `mergePartialsWithDiagnostics`
+
+Folds partial answers and reports the fields they disagreed on.
+
+```ts
+function mergePartialsWithDiagnostics(parts: readonly MergePart[]): MergeDiagnostics
+```
+
+`data` is exactly what `mergePartials()` returns for the same data. `conflicts` lists each `ExtractionConflict` in order of first appearance: a field `path` and every distinct present value with the pages that gave it.
+
+Strings compare after trimming and numbers by value. A `0` or `false` replaced by a later value still counts as one of the disagreeing values. A path where a scalar met an object or an array also conflicts, and its values include that object or array. A literal key `"a.b"` and the nested field `a.b` are separate paths, `` `a.b` `` and `a.b`, so they never conflict with each other. Objects at one path merge and arrays concatenate, so they never conflict there. Values inside arrays are never compared, because concatenated rows are separate records. Absent values never conflict.
+
+### `MergePart`
+
+One partial answer and the 1-based pages it came from.
+
+```ts check
+interface MergePart {
+  readonly data: unknown;
+  readonly pages: readonly number[];
+}
+```
+
+### `MergeDiagnostics`
+
+```ts
+interface MergeDiagnostics {
+  readonly data: unknown;
+  readonly conflicts: readonly ExtractionConflict[];
+}
+```
+
+### `ExtractionConflict`
+
+One disagreeing field, exported from `docture`. See [results API](/docs/extraction/reference/results#extractionconflict).
 
 ## Schema relaxation
 
 Import from `docture/llm/relax`.
 
-`JsonSchemaLike` is `Record<string, unknown>`.
+### `relaxJsonSchema`
+
+Recursively removes `required` arrays so a partial request can omit fields.
 
 ```ts
-relaxJsonSchema(schema: unknown): unknown
+function relaxJsonSchema(schema: unknown): unknown
 ```
 
-`relaxJsonSchema()` recursively removes `required` arrays and keeps schema properties
-named `required`, including nested properties. It is used for partial model requests.
-Core still validates the merged data against the original schema.
+Keeps schema properties named `required`, including nested ones. Core still validates the merged data against the original schema.
+
+### `JsonSchemaLike`
+
+```ts check
+type JsonSchemaLike = Record<string, unknown>;
+```

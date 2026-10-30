@@ -1,7 +1,10 @@
 ---
 title: Evaluation utilities API
 description: Canonical JSON, fingerprints, path formatting, and slice values.
+type: reference
 ---
+
+Import JSON, fingerprint, path, and slice helpers from `@docture/eval`. Reporters and custom metrics use them to read results.
 
 ## `@docture/eval`
 
@@ -10,6 +13,8 @@ description: Canonical JSON, fingerprints, path formatting, and slice values.
 ```ts
 toJsonValue(value: unknown): JsonValue
 ```
+
+Returns [`JsonValue`](/docs/evaluation/reference/types#jsonvalue).
 
 Convert any value to its JSON form the way `JSON.stringify` would, so a result holds exactly what a saved copy holds. `undefined`, functions, symbols and non-finite numbers become `null`; dates become ISO strings.
 
@@ -43,6 +48,8 @@ Order strings by UTF-16 code unit, the same on every host. Use it wherever order
 formatPath(segments: readonly PathSegment[]): string
 ```
 
+Takes [`PathSegment`](/docs/evaluation/reference/utilities#pathsegment).
+
 Format path segments as a concrete path: `formatPath(["lineItems", 3, "amount"])` is `lineItems[3].amount`.
 
 ### `patternOf`
@@ -59,4 +66,40 @@ Turn a concrete path into its pattern: `lineItems[3].amount` becomes `lineItems[
 sliceValues<C>(slices: Readonly<Record<string, SliceSpec<C>>>, item: C): Record<string, TagValue>
 ```
 
+Takes [`SliceSpec`](/docs/evaluation/reference/utilities#slicespec). Returns [`TagValue`](/docs/evaluation/reference/types#tagvalue).
+
 Evaluate slices for one item. Absent values are left out.
+
+## Types
+
+### `PathSegment`
+
+One step of a path: an object key or an array index.
+
+```ts check
+type PathSegment = string | number;
+```
+
+### `SliceMap`
+
+Named slices over cases, the type of the `slices` option in [`RunEvalOptions`](/docs/evaluation/reference/runner#runevaloptions) and [`EvalConfig`](/docs/evaluation/reference/config#evalconfig).
+
+```ts
+type SliceMap<T = unknown> = Readonly<Record<string, SliceSpec<EvalCase<T>>>>;
+```
+
+### `SliceSpec`
+
+How to read a slice: a path into the case such as `tags.rendition`, or a function.
+
+```ts
+type SliceSpec<C> = string | ((item: C) => SliceValue);
+```
+
+### `SliceValue`
+
+A value a slice function may return. `null` and `undefined` leave the case out of the slice.
+
+```ts
+type SliceValue = TagValue | null | undefined;
+```

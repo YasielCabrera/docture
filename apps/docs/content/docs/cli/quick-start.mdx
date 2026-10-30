@@ -1,34 +1,159 @@
 ---
-title: CLI quick start
-description: Install the CLI and inspect or convert a document.
+title: Run your first CLI commands
+description: Install the docture command, then inspect, convert, and dry-run an extraction of a sample invoice PDF.
+type: tutorial
 ---
 
-The `@docture/cli` package supplies the `docture` executable.
+In this tutorial you install the `docture` command in a project, inspect a sample invoice PDF, convert it to Markdown, and check an extraction setup before any model call. You need Node.js 22 or later.
 
-Install it in a project:
+## Install the CLI
+
+Install `@docture/cli` as a development dependency and print its help:
 
 ```sh
 npm install --save-dev @docture/cli
 npx docture --help
 ```
 
-Run it once without installing:
+The package installs `ai` and `pdfjs-dist` with it, so the CLI reads digital PDFs without further setup. It also tries to install `@napi-rs/canvas` as an optional dependency for page rendering. Extraction also needs a schema library and a model provider package. You add both in [Dry-run an extraction](#dry-run-an-extraction).
+
+To run one command without adding the package to a project, use `npx --package @docture/cli docture --help`.
+
+## Create a sample invoice
+
+Any PDF with a text layer works. To get the output shown on this page, generate the sample invoice that ships with `docture/testing/fixtures`. The fixture renders with `pdfkit`:
 
 ```sh
-npx --package @docture/cli docture --help
+npm install --save-dev docture pdfkit
 ```
 
-The CLI requires `ai` and `pdfjs-dist`. For a Zod schema and a local OpenAI provider:
+Save this script as `make-invoice.mjs`:
+
+```js
+import { writeFile } from "node:fs/promises";
+import { makeInvoicePdf } from "docture/testing/fixtures";
+
+const sample = await makeInvoicePdf({ seed: 301 });
+await writeFile("invoice.pdf", sample.bytes);
+```
+
+Run it with `node make-invoice.mjs`. The script writes a one-page `invoice.pdf` to the current directory.
+
+## Inspect the document
+
+`inspect` reads a document without a schema, model, or API key. Add `--text` to print the text the loader found:
 
 ```sh
-npm install --save-dev @docture/cli @ai-sdk/openai zod
+npx docture inspect invoice.pdf --text
 ```
 
+```text
+invoice.pdf
+  loader      pdfjs
+  type        application/pdf
+  pages       1
+  form        digital
+  text        422 chars
+  geometry    yes
+  renderable  no
 
+  a strategy requiring TEXT_LAYER ✓  GEOMETRY ✓  RENDERABLE_PAGES ✗
+
+  text
+INVOICE
+Invoice Number: INV-2026-6526
+Issue Date: 2026-02-09
+Due Date: 2026-04-08
+...
+TOTAL (EUR) 8,327.86
+```
+
+`form digital` means the PDF has a text layer, so a text strategy can read it. `renderable` stays `no` until you add `--vision`, which also renders the first page and reports its image size in bytes.
+
+## Convert to Markdown
+
+`convert` writes one file per input into the `--out` directory. Markdown is the default format:
 
 ```sh
-docture inspect invoice.pdf --text
-docture convert invoice.pdf --out converted --to md
+npx docture convert invoice.pdf --out converted
 ```
 
-Inspection prints document facts and selected text. Conversion writes `converted/invoice.md`. Extracting fields also requires a schema and configured strategy or model. See [configuration](/docs/cli/configuration), [command reference](/docs/cli/commands), and [input and output behavior](/docs/cli/inputs-and-outputs).
+The command reports each document on stderr and writes `converted/invoice.md`:
+
+```md
+<!-- page: 1 -->
+
+# INVOICE
+
+Invoice Number: INV-2026-6526
+
+...
+
+| Description | Qty | Unit Price | Amount |
+| --- | --- | --- | --- |
+| Mounting plate #100 | 10 | 111.84 | 1,118.40 |
+```
+
+Pass `--to html`, `--to txt`, or `--to json` for the other formats.
+
+## Dry-run an extraction
+
+Extraction needs a schema and a model. Install Zod and the OpenAI provider package:
+
+```sh
+npm install --save-dev zod @ai-sdk/openai
+```
+
+Save the schema as `invoice.ts`:
+
+```ts check
+import { z } from "zod";
+
+export default z.object({
+  invoiceNumber: z.string(),
+  issueDate: z.string(),
+  total: z.number(),
+  currency: z.string(),
+});
+```
+
+Node 22.18 and later import a TypeScript schema directly. On earlier Node 22 releases, write the schema as `invoice.mjs` instead.
+
+Set `OPENAI_API_KEY`, then add `--dry-run` to check the schema, model route, and credentials without calling the model:
+
+```sh
+npx docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5 --dry-run
+```
+
+The command prints the plan it would run and exits with code `0`:
+
+```json
+{
+  "version": 1,
+  "command": "extract",
+  "ok": true,
+  "results": [{
+    "file": "invoice.pdf",
+    "ok": true,
+    "plan": {
+      "input": { "kind": "path", "path": "/work/invoice.pdf" },
+      "loaders": ["pdfjs"],
+      "strategies": ["llm"],
+      "classifiers": [],
+      "model": "openai/gpt-5",
+      "schema": "/work/invoice.ts#default",
+      "output": { "to": "stdout" }
+    }
+  }],
+  "summary": { "dryRun": true }
+}
+```
+
+Remove `--dry-run` to call the model. The command then prints the extracted fields under `results[0].data`.
+
+## Next steps
+
+- [Configure the CLI](/docs/cli/configuration) to keep the schema, model, and loaders in `docture.config.ts`.
+- [Configure CLI models and vision](/docs/cli/models) to choose a provider or read scanned pages.
+- [Work with inputs and output streams](/docs/cli/inputs-and-outputs) to process batches and pipe JSON results.
+- [Command reference](/docs/cli/commands) for every command and flag.

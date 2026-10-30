@@ -1,104 +1,222 @@
 ---
 title: CLI package
-description: Public library API for @docture/cli.
+description: Run the docture command from Node, type docture.config.ts, and start the MCP server in code.
+type: reference
 ---
 
-Install and import from `@docture/cli`. The executable name is `docture`.
+`@docture/cli` runs the `docture` command as a function, types its configuration, and starts its MCP server. Import from `@docture/cli`, `@docture/cli/config`, and `@docture/cli/mcp`.
 
 ## Configuration
+
+### `defineConfig`
+
+Identity helper that types a `docture.config.ts` default export. Import it from `@docture/cli/config`.
 
 ```ts
 defineConfig(config: DoctureConfig): DoctureConfig
 ```
 
-`defineConfig()` is an identity helper for `docture.config.ts` type inference. Import it
-from `@docture/cli/config`. That entry has no runtime imports, so a tool that reads a
-config loads neither the CLI nor `docture`. The root `@docture/cli` entry still exports
-`defineConfig` and `DoctureConfig`.
+Returns `config` unchanged. `@docture/cli/config` has no runtime imports, so a tool that reads a config loads neither the CLI nor `docture`. The root `@docture/cli` entry also exports `defineConfig` and `DoctureConfig`. See [Configure the CLI](/docs/cli/configuration).
 
-`DoctureConfig` may provide a complete `extractor` or `converter`, or its component parts: `loaders`,
-`strategies`, `classifiers`, `classifications`, `policy`, and `stageTimeoutMs`. When a
-complete composition root is present, its component fields are ignored. Conversion may
-also provide a `layoutAnalyzer`.
+### `DoctureConfig`
 
-`extractor` and `converter` accept the value or a function that returns it, directly or
-through a promise. Their types name only the methods the CLI calls: `extract`,
-`extractBatch`, `classify`, and `dispose` for an extractor, and `convertBatch` and
-`dispose` for a converter, and `@docture/cli/config` exports them as `CliExtractor` and
-`CliConverter`. An `Extractor` or `DocumentConverter` built by another installed copy of
-`docture` therefore satisfies them.
+The shape of a `docture.config.ts` default export.
 
-The CLI disposes what it composes. `docture review` renders pages with the configured
-`loaders` and disposes them when it finishes or fails, including when the input or schema
-cannot be read and when a complete `extractor` or `converter` is present. A loader in
-`loaders` that the config also passes to its own converter or extractor is disposed once.
+{/* options: DoctureConfig */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `extractor` | `CliExtractor` or a function returning one, directly or through a promise | A complete extractor. When present, the CLI ignores the component fields for extraction |
+| `converter` | `CliConverter` or a function returning one, directly or through a promise | A complete converter used by `docture convert` |
+| `loaders` | `readonly DocumentLoader[]` | Document loaders |
+| `strategies` | `readonly ExtractionStrategy[]` | Extraction strategies. When present, the CLI builds no strategies and ignores `--model` |
+| `classifiers` | `readonly Classifier[]` | Classifiers |
+| `classifications` | `readonly Classification[]` | Classifications |
+| `policy` | `RoutingPolicy` | Strategy routing policy |
+| `stageTimeoutMs` | `number` | Per-stage deadline |
+| `layoutAnalyzer` | `LayoutAnalyzer` | Deterministic conversion refinement, used unless `--assist-layout` supplies one |
+| `model` | `LanguageModel` | A model instance or a `provider/id` string. Used when `strategies` is absent |
+| `vision` | `boolean` | Also register a vision strategy. Used when `strategies` is absent |
+| `pricing` | `PricingTable` | USD per million tokens by model id. Without it, cost is unknown |
+| `instructions` | `string` | Text appended to the system prompt |
+| `schema` | `FlexibleSchema` | Default schema when `--schema` is not passed. The MCP `extract` tool also uses it |
+| `schemas` | `Readonly<Record<string, ContractLike>>` | Named contracts that MCP `extract` may select |
+| `cacheDir` | `string` | Model response cache. A relative path resolves against the config file |
+| `concurrency` | `number` | Extraction concurrency |
+| `paperless` | `PaperlessCliConfig` | Paperless connection and mappings |
 
-When explicit strategies are absent, config may provide `model`, `vision`, `pricing`, and
-`instructions`. It may also provide a default `schema`, model `cacheDir`, and extraction
-`concurrency`. Command-line flags override config defaults.
+Command-line flags override config defaults. The CLI disposes what it composes. `docture review` renders pages with the configured `loaders` and disposes them when it finishes or fails, including when the input or schema cannot be read and when a complete `extractor` or `converter` is present. A loader that the config also passes to its own converter or extractor is disposed once. Invalid config fields and unknown keys are usage errors that name the field.
+
+### `CliExtractor`
+
+The extractor methods the CLI calls.
+
+```ts
+type CliExtractor = Pick<Extractor, "extract" | "extractBatch" | "classify" | "dispose">
+```
+
+An `Extractor` built by another installed copy of `docture` satisfies it. Import it from `@docture/cli/config`.
+
+### `CliConverter`
+
+The converter methods the CLI calls.
+
+```ts
+type CliConverter = Pick<DocumentConverter, "convertBatch" | "dispose">
+```
+
+A `DocumentConverter` built by another installed copy of `docture` satisfies it. Import it from `@docture/cli/config`.
 
 ## Run the CLI in process
+
+### `run`
+
+Runs one `docture` invocation without spawning a process.
 
 ```ts
 run(argv: readonly string[], options: RunOptions): Promise<ExitCode>
 ```
 
-The CLI `RunOptions` type contains required `io` and optional abort `signal`. `run()`
-returns `0`, `1`, or `2` and writes through the supplied I/O object. It reports user and
-document errors as an exit code instead of rejecting in normal operation.
+`argv` excludes the executable, for example `["inspect", "invoice.pdf"]`. `run()` writes through `options.io` and resolves to an exit code. It reports user and document errors as exit codes instead of rejecting.
 
-`ExitCode` is `0 | 1 | 2`: success, command or document failure, and usage or
-configuration failure. The process executable uses exit code `130` for SIGINT.
+### `RunOptions`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `io` | `Io` | Required. The streams, working directory, and environment of the run |
+| `signal` | `AbortSignal` | Stops the pipeline between stages when aborted |
+
+### `ExitCode`
+
+```ts check
+type ExitCode = 0 | 1 | 2
+```
+
+`0` is success, `1` is a command or document failure, and `2` is a usage or configuration failure. The `docture` executable exits with `130` on SIGINT.
 
 ## I/O
 
-`Io` has `write()` for stdout data, `diagnostic()` for stderr messages,
-`readStdin(signal?)` for the bytes behind a `-` file argument, plus `cwd`, `env`, and color
-support. The CLI calls `readStdin()` at most once per run, and never under `--dry-run`. A
-host without stdin returns an empty `Uint8Array`. `Style` contains the text styling
-functions used by the CLI.
+### `Io`
+
+The streams, working directory, and environment that a run reads and writes.
+
+{/* options: Io */}
+| Member | Type | Meaning |
+| --- | --- | --- |
+| `write` | `(chunk: string) => void` | Machine-readable output for stdout |
+| `diagnostic` | `(chunk: string) => void` | Progress, warnings, errors, and summaries for stderr |
+| `readStdin` | `(signal?: AbortSignal) => Promise<Uint8Array>` | The bytes behind a `-` file argument. Called at most once per run, and never under `--dry-run` |
+| `cwd` | `string` | Directory that relative paths resolve against |
+| `env` | `Readonly<Record<string, string \| undefined>>` | Environment variables |
+| `color` | `boolean` | Whether stderr takes ANSI color |
+| `stdoutColor` | `boolean` | Whether stdout takes ANSI color |
+
+A host without stdin returns an empty `Uint8Array` from `readStdin()`. Both color flags honor `NO_COLOR` and `--no-color`. JSON and NDJSON error messages and hints strip terminal control sequences.
+
+### `processIo`
+
+Binds an `Io` to the current Node process.
 
 ```ts
 processIo(): Io
+```
+
+Honors `NO_COLOR`. Its `readStdin(signal)` rejects with the signal's reason as soon as the signal aborts, even while stdin is open and idle, and destroys stdin so the process can exit.
+
+### `captureIo`
+
+Creates an `Io` that collects both streams in memory, for tests and wrappers.
+
+```ts
 captureIo(overrides?: CaptureOptions): CapturedIo
+```
+
+Defaults to the current directory, an empty environment, no color, and empty stdin.
+
+### `CaptureOptions`
+
+{/* options: CaptureOptions */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `write` | `(chunk: string) => void` | Replaces the stdout collector |
+| `diagnostic` | `(chunk: string) => void` | Replaces the stderr collector |
+| `cwd` | `string` | Working directory. Default: `process.cwd()` |
+| `env` | `Readonly<Record<string, string \| undefined>>` | Environment. Default: empty |
+| `color` | `boolean` | stderr color. Default: `false` |
+| `stdoutColor` | `boolean` | stdout color. Default: `false` |
+| `stdin` | `Uint8Array` | The bytes `readStdin()` returns. Default: empty |
+
+### `CapturedIo`
+
+An `Io` with two extra read-only fields, `stdout` and `stderr`, holding everything written to each stream.
+
+```ts
+interface CapturedIo extends Io {
+  readonly stdout: string;
+  readonly stderr: string;
+}
+```
+
+### `Style`
+
+The text styling functions the CLI uses: `bold`, `dim`, `red`, `green`, `yellow`, and `cyan`, each `(text: string) => string`.
+
+### `styleFor`
+
+```ts
 styleFor(color: boolean): Style
 ```
 
-`processIo()` binds the interface to the current Node process and honors `NO_COLOR`.
-Its `readStdin(signal)` rejects with the signal's reason as soon as the signal aborts,
-even while stdin is open and idle, and destroys stdin so the process can exit.
-`CaptureOptions` accepts any `Io` field except `readStdin`, plus `stdin`, the bytes its
-`readStdin()` returns.
-`captureIo()` defaults to the current directory, an empty environment, no color, and empty
-stdin. Its
-`CapturedIo` result exposes accumulated `stdout` and `stderr`. `styleFor(false)` returns
-plain text functions; `true` returns ANSI styling.
+`styleFor(false)` returns functions that return text unchanged. `styleFor(true)` returns ANSI styling.
 
 ## Errors
 
+### `UsageError`
+
+An invalid invocation or configuration. `exitCode` is `2`.
+
 ```ts
 new UsageError(message: string, hint?: string)
+```
+
+### `CliError`
+
+A command failure. `exitCode` is `1`.
+
+```ts
 new CliError(message: string, hint?: string, options?: { cause?: unknown })
+```
+
+### `explain`
+
+Turns any thrown value into a printable message, code, and hint.
+
+```ts
 explain(error: unknown): Explained
 ```
 
-`UsageError` has exit code `2`. `CliError` has exit code `1`. `Explained` contains a
-required message and code, plus an optional hint. `explain()` preserves core
-`DoctureError` codes and adds recovery hints. Other errors use `USAGE`, `CLI`, or
-`INTERNAL` and a printable message.
+Core `DoctureError` codes are preserved, with recovery hints added. `UsageError` maps to `USAGE`, `CliError` to `CLI`, and any other value to `INTERNAL`.
+
+### `Explained`
+
+```ts check
+interface Explained {
+  readonly message: string;
+  readonly code: string;
+  readonly hint?: string;
+}
+```
 
 ## MCP server
 
-Import from `@docture/cli/mcp`. It needs the optional peer
-`@modelcontextprotocol/sdk@1.32.2`; `@docture/cli` itself never loads it.
+### `createMcpServer`
+
+Creates the MCP server that `docture mcp` serves, with the `convert`, `inspect`, `extract`, and configured Paperless tools. Import it from `@docture/cli/mcp`.
 
 ```ts
 createMcpServer(options: McpServerOptions): Promise<McpServer>
-ENGINE_RANGES: { "@modelcontextprotocol/sdk": "1.32.2" }
 ```
 
-`createMcpServer()` returns the SDK's `McpServer` with `convert`, `inspect`, configured `extract`, and configured Paperless tools
-that `docture mcp` serves. Connect it to any SDK transport:
+Returns the SDK's `McpServer`. Connect it to any SDK transport:
 
 ```ts
 import { processIo } from "@docture/cli";
@@ -109,84 +227,93 @@ const server = await createMcpServer({ io: processIo() });
 await server.connect(new StdioServerTransport());
 ```
 
-`McpServerOptions` contains required `io`, whose `cwd` resolves relative sources and the
-config and whose `diagnostic()` receives warnings. Optional `signal` cancels every call in
-flight. Optional `configPath` and `noConfig` match `--config` and `--no-config`. The server
-never calls `io.write()`. It owns the tools handlers, so register no further tools on it.
-Without the SDK, `createMcpServer()` rejects with `MissingEngineError` naming the range in
-`ENGINE_RANGES`. See the [CLI guide](/docs/cli/mcp#mcp-server) for tool arguments and
-results.
+The server owns the tool handlers, so register no further tools on it. It never calls `io.write()`. Configuration is fixed for the server's lifetime and pipelines stay loaded across calls. `server.close()` cancels active calls, waits for them to settle, and disposes shared configured resources once.
+
+Rejects with `MissingEngineError` naming the range in `ENGINE_RANGES` when `@modelcontextprotocol/sdk` is not installed. The root `@docture/cli` entry never loads the SDK. See [Connect an MCP host](/docs/cli/mcp) and the [MCP tool reference](/docs/cli/mcp-tools).
+
+### `McpServerOptions`
+
+{/* options: McpServerOptions */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `io` | `Io` | Required. `cwd` resolves relative sources and the config. `diagnostic()` receives warnings |
+| `signal` | `AbortSignal` | Cancels every call in flight when aborted |
+| `configPath` | `string` | Config file to use instead of the nearest `docture.config.*`, like `--config` |
+| `noConfig` | `boolean` | Ignore any config file, like `--no-config` |
+
+### `ENGINE_RANGES`
+
+The supported version range of the MCP SDK peer.
+
+```ts
+const ENGINE_RANGES: { readonly "@modelcontextprotocol/sdk": "1.32.2" }
+```
 
 ## Version
+
+### `version`
 
 ```ts
 version(): string
 ```
 
-`version()` reads and caches the package version. If package metadata cannot be read, it
-returns `0.0.0` instead of throwing.
-
-See the [CLI guide](/docs/cli/quick-start) for commands, flags, streams, configuration files,
-and CI use.
+Returns the package version and caches it. Returns `0.0.0` instead of throwing when the package metadata cannot be read.
 
 ## Environment and credentials
 
-| Variable | Purpose |
-| --- | --- |
-| `OPENAI_API_KEY` | Credential for the locally installed model provider. |
-| `ANTHROPIC_API_KEY` | Credential for the locally installed model provider. |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | Credential for the locally installed model provider. |
-| `MISTRAL_API_KEY` | Credential for the locally installed model provider. |
-| `GROQ_API_KEY` | Credential for the locally installed model provider. |
-| `XAI_API_KEY` | Credential for the locally installed model provider. |
-| `DEEPSEEK_API_KEY` | Credential for the locally installed model provider. |
-| `COHERE_API_KEY` | Credential for the locally installed model provider. |
-| `PERPLEXITY_API_KEY` | Credential for the locally installed model provider. |
-| `CEREBRAS_API_KEY` | Credential for the locally installed model provider. |
-| `FIREWORKS_API_KEY` | Credential for the locally installed model provider. |
-| `TOGETHER_AI_API_KEY` | Credential for the locally installed model provider. |
-| `DEEPINFRA_API_KEY` | Credential for the locally installed model provider. |
-| `OPENROUTER_API_KEY` | Credential for the locally installed model provider. |
-| `AI_GATEWAY_API_KEY` | Credential when routing through AI Gateway. |
-| `VERCEL_OIDC_TOKEN` | Alternative AI Gateway credential. |
-| `NO_COLOR` | Disable ANSI color on both streams. |
-| `OPENAI_BASE_URL` | Custom OpenAI-compatible endpoint, including keyless local endpoints. |
+| Variable | `--model` prefix | Purpose |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | `openai/` | Credential for the openai provider. |
+| `ANTHROPIC_API_KEY` | `anthropic/` | Credential for the anthropic provider. |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | `google/` | Credential for the google provider. |
+| `MISTRAL_API_KEY` | `mistral/` | Credential for the mistral provider. |
+| `GROQ_API_KEY` | `groq/` | Credential for the groq provider. |
+| `XAI_API_KEY` | `xai/` | Credential for the xai provider. |
+| `DEEPSEEK_API_KEY` | `deepseek/` | Credential for the deepseek provider. |
+| `COHERE_API_KEY` | `cohere/` | Credential for the cohere provider. |
+| `PERPLEXITY_API_KEY` | `perplexity/` | Credential for the perplexity provider. |
+| `CEREBRAS_API_KEY` | `cerebras/` | Credential for the cerebras provider. |
+| `FIREWORKS_API_KEY` | `fireworks/` | Credential for the fireworks provider. |
+| `TOGETHER_AI_API_KEY` | `togetherai/` | Credential for the togetherai provider. |
+| `DEEPINFRA_API_KEY` | `deepinfra/` | Credential for the deepinfra provider. |
+| `OPENROUTER_API_KEY` | `openrouter/` | Credential for the openrouter provider. |
+| `AI_GATEWAY_API_KEY` | None | Credential when routing through AI Gateway. |
+| `VERCEL_OIDC_TOKEN` | None | Alternative AI Gateway credential. |
+| `NO_COLOR` | None | Disable ANSI color on both streams. |
+| `OPENAI_BASE_URL` | None | Custom OpenAI-compatible endpoint, including keyless local endpoints. |
+| `DOCTURE_SERVE_TOKEN` | None | Bearer token that `docture serve` requires outside localhost. |
 
-Known provider routes and gateway model strings require credentials before document
-processing. A cache-enabled run may continue without a key to reuse cached responses.
-Configured model strings use the SDK gateway route and its credential checks. A
-configured provider instance controls its own credentials and supports keyless compatible
-endpoints. Missing dependencies name the failed import and suggest installation or a
-corrected path. Invalid config fields and unknown keys are usage errors naming the field.
-
-`Io.stdoutColor` controls stdout styling independently of diagnostic `Io.color`. Both
-honor `NO_COLOR` and `--no-color`. JSON and NDJSON error messages and hints strip terminal
-control sequences.
-
-Quick-mode `eval --min-f1 <number> --max-cost-usd <number>` gates the run's
-`meanDocumentF1` and `costUsd` metrics with the public eval gate. `meanDocumentF1` is the
-mean of per-document F1. A failed extraction scores 0, so every document weighs the same.
-The JSON summary reports it as `meanF1`, beside the per-document `meanPrecision` and
-`meanRecall`. Its `metrics` holds `meanDocumentF1` and `f1`, the field F1 pooled over every
-field. Cost includes the usage that failed extractions reported. Cost requires configured
-pricing. Unpriced usage is excluded, and a cost gate fails when no price is known.
-
-Failed thresholds exit with code 1, including when extraction itself succeeds. The output
-summary contains `passed`, `reasons`, and the configured `minF1` and `maxCostUsd`. A reason
-names its flag, such as `Mean F1 0.500 is below the --min-f1 gate of 0.9.` Any other failed
-check keeps the gate's message. Verbose output includes the worst fields.
-
-`docture eval run` saves the result even when a reporter fails. It then prints each reporter
-failure on stderr, also under `--quiet`, and exits with code 1. `docture eval report <dir>
---rescore` reads the run and its raw outputs from that directory and writes the re-scored
-run to the configured store or `--store`. `docture.eval.ts` accepts `sections`, such as
-`calibrationSection()`, and `fallbackBranch`, the branch an automatic baseline searches when
-the current branch has no complete run.
+Known provider routes and gateway model strings require credentials before document processing. A run with a model cache may continue without a key to reuse cached responses. Configured model strings use the SDK gateway route and its credential checks. A configured provider instance controls its own credentials and supports keyless compatible endpoints. A missing dependency error names the failed import and suggests an install command or a corrected path.
 
 ## Configure named extraction and Paperless mappings
 
-`DoctureConfig.schemas` allowlists named caller contracts for MCP `extract`; `schema` remains the default. Model input can select a configured name and source, but cannot replace schema, model or server credentials. Full extraction envelopes retain citations, native evidenceSources, validation and conflicts.
+`DoctureConfig.schemas` allowlists named contracts for MCP `extract`, and `schema` stays the default. Model input can select a configured name and source, but cannot replace the schema, model, or server credentials. CLI `paperless` actions and MCP Paperless tools share the library source and sink. See [Paperless workflows](/docs/integrations/paperless-workflow).
 
-`PaperlessCliConfig` configures the connection, named schemas, query bound and `enableApply` gate. Each `PaperlessSchemaConfig` supplies a caller contract, source variant, mapping identity, existing field IDs, additive tag IDs and evidence policy. CLI `paperless` actions and MCP Paperless tools share the library source and sink. Apply is absent from default MCP listings and rejected unless enabled in config. CLI `--dry-run` prints the plan and writes no Paperless metadata.
+### `PaperlessCliConfig`
 
-MCP configuration is fixed for the server lifetime. Pipelines stay warm across calls. `server.close()` cancels active calls, waits for settlement, and disposes shared configured resources once. Like the HTTP service, it waits for cancellation-ignoring engines to finish before disposal.
+The `paperless` field of `DoctureConfig`.
+
+{/* options: PaperlessCliConfig */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `connection` | `PaperlessConnectionOptions` | Required. The Paperless instance and credentials |
+| `schemas` | `Readonly<Record<string, PaperlessSchemaConfig>>` | Required. Named schemas and mappings that actions select with `--schema` or `schemaName` |
+| `enableApply` | `boolean` | Allows `apply`. Without it, MCP does not list `paperless_apply` and the CLI rejects apply |
+| `maxResults` | `number` | Upper bound on query results, at most 1000. Default: 100 |
+
+`docture paperless apply --dry-run` prints the plan and writes no Paperless metadata.
+
+### `PaperlessSchemaConfig`
+
+One named mapping from an extraction contract to Paperless fields.
+
+{/* options: PaperlessSchemaConfig */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `contract` | `ContractLike` | Required. The extraction contract |
+| `source` | `{ mode: "content" \| "archive" \| "original"; archiveFallback?: "original" }` | Required. Which Paperless variant to read |
+| `mappingId` | `string` | Required. Stable identity of this mapping |
+| `fields` | `readonly PaperlessFieldMapping[]` | Required. Existing Paperless custom field IDs for each extracted path |
+| `tagIds` | `readonly number[]` | Tags to add |
+| `auditNote` | `string` | Note that each plan adds to the document, 1 to 8192 characters |
+| `evidence` | `PaperlessEvidencePolicy` | Citation status a value needs before it is written: `"verified"`, `"cited"`, or `"any"`. Default: `"verified"` |

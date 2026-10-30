@@ -1,12 +1,12 @@
 ---
 title: Docture evaluation adapter API
 description: Adapt an existing Docture extractor to the evaluation processor contract.
+type: reference
 ---
 
-## `@docture/eval/docture`
+Import `fromDocture` from `@docture/eval/docture` to evaluate a Docture extractor. [Connect an evaluation processor](/docs/evaluation/processors) also covers custom processors.
 
-- `FromDoctureOptions`
-- `FromDoctureProjection`
+## `@docture/eval/docture`
 
 ### `fromDocture`
 
@@ -15,4 +15,32 @@ fromDocture<C extends ContractLike>(extractor: DoctureExtractor, contract: C, op
 fromDocture<C extends ContractLike, T>(extractor: DoctureExtractor, contract: C, options: FromDoctureProjection<C, T>): EvalExtractor<ExtractionResult<InferContract<C>>, T>
 ```
 
+Takes [`FromDoctureOptions`](/docs/evaluation/reference/processors#fromdoctureoptions) and [`FromDoctureProjection`](/docs/evaluation/reference/processors#fromdoctureprojection). Returns [`EvalExtractor`](/docs/evaluation/reference/runner#evalextractor).
+
 Adapt a structural Docture extractor; each case must contain one non-empty document. Every Docture failure, including `UnsupportedSourceError`, becomes an errored row: Docture has no signal for a document outside the project's scope. Usage has no `calls`, because one Docture attempt can make several model calls and the result does not count them. When a failed extraction carries usage without a price, `fromDocture` prices it as it prices a successful result, so the errored row records what the failed attempts cost.
+
+## Types
+
+### `FromDoctureOptions`
+
+Configure identity, expected method and cost accounting for a Docture extractor.
+
+{/* options: FromDoctureOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Processor ID. Default `docture`. |
+| `config` | `JsonValue` | Settings that change extraction. A change prevents a resumed run from reusing earlier rows. |
+| `expectedMethod` | `string` | The extraction method you expect. A result with another method counts as a fallback. Without it, a failed extraction attempt counts as a fallback. |
+| `pricing` | `PricingTable` | Pricing table used to compute `costUsd` for successful and failed attempts. |
+| `modelId` | `string` | Model id used to look up an explicit pricing table; Docture results do not contain a model id. |
+
+### `FromDoctureProjection`
+
+Options with a projection from Docture's result to a comparable view other than the contract's data.
+
+```ts
+interface FromDoctureProjection<C extends ContractLike, T> extends FromDoctureOptions {
+	/** Confidence and evidence are keyed by contract paths, which a projection can move, so they are dropped. */
+	readonly project: (result: ExtractionResult<InferContract<C>>) => T;
+}
+```

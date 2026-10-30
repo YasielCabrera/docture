@@ -1,11 +1,12 @@
 ---
 title: Define schemas and contracts
 description: Define inferred result types, missing values, prompt guidance, and worked examples.
+type: how-to
 ---
 
 Use the same schema to name fields, infer `result.data`, and validate extracted values. Use a contract when the document needs a name, hints, or examples.
 
-```ts
+```ts check
 import { contract } from "docture";
 import { z } from "zod";
 

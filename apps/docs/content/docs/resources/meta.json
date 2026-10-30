@@ -2,14 +2,16 @@
   "title": "Resources",
   "root": false,
   "pages": [
+    "---Guides---",
     "examples",
     "custom-components",
     "testing",
+    "troubleshooting",
+    "---Reference---",
     "testing-api",
     "errors",
-    "troubleshooting",
+    "---Releases---",
     "migration",
-    "architecture",
     "changelog"
   ],
   "pagesIndex": "index"

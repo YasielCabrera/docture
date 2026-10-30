@@ -1,9 +1,10 @@
 ---
 title: "docture eval compare"
 description: "Compare two runs with paired significance tests"
+type: reference
 ---
 
-Compare two runs with paired significance tests
+Compare two runs with paired significance tests.
 
 ## Arguments
 
@@ -16,8 +17,8 @@ Compare two runs with paired significance tests
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--test <test>` | auto | Significance test: paired bootstrap for continuous metrics, McNemar for binary ones Choices: `auto`, `bootstrap`, `mcnemar`. |
-| `--format <fmt>` | md | Markdown tables, or the comparison as JSON Choices: `md`, `json`. |
+| `--test <test>` | auto | Significance test: paired bootstrap for continuous metrics, McNemar for binary ones. Choices: `auto`, `bootstrap`, `mcnemar`. |
+| `--format <fmt>` | md | Markdown tables, or the comparison as JSON. Choices: `md`, `json`. |
 | `--experiment <id\|base:candidate>` | Not set | One experiment, or a baseline and candidate pair. Default: every shared experiment |
 | `--store <dir>` | Not set | Run store directory. Default: the config's store, else .docture/eval beside the config |
 | `--config <path>` | Not set | Eval config. Default: the nearest docture.eval.&#123;ts,mts,js,mjs&#125; |
@@ -33,4 +34,4 @@ docture eval compare <baseRunId> latest
 docture eval compare base/ candidate/ --test mcnemar --format json
 ```
 
-See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).
+See [Evaluate from the CLI](/docs/cli/evaluation) and [input and output behavior](/docs/cli/inputs-and-outputs).

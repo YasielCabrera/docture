@@ -1,7 +1,10 @@
 ---
 title: Synthetic documents and CLI configuration API
-description: Public signatures, types, behavior, and defaults for synthetic documents and cli configuration.
+description: Fields of a rendered synthetic document, its evaluation case, and the docture.synth.ts CLI config.
+type: reference
 ---
+
+The root entry `@docture/synthetic` describes every rendered document and turns it into an evaluation case without depending on `@docture/eval`. The [synthetic evaluation guide](/docs/synthetic/evaluation) shows these APIs in use.
 
 ## `@docture/synthetic`
 
@@ -11,9 +14,7 @@ description: Public signatures, types, behavior, and defaults for synthetic docu
 toEvalCase(document: SyntheticDocument, options?: { readonly id?: string }): SyntheticCase
 ```
 
-An `EvalCase` for `@docture/eval`, built without depending on it. Tags hold the template's tags plus `template`, `family`, `scenario`, `rendition` and a severity bucket. Params hold the seed, the scenario tags and the rendition. `locations` group the labels by path.
-
-A `SyntheticDocument` holds `bytes`, `mimeType`, `pages` (`PageInfo` with size in points), `expected`, `labels` (`FieldLabel`: `path`, ground-truth `value`, drawn `text`, `pageNumber` and `box`), the `sample` identity, the `template` identity, the `rendition` and `provenance`.
+Returns a [`SyntheticCase`](#syntheticcase), the `EvalCase` shape of `@docture/eval`. Tags hold the template's tags plus `template`, `family`, `scenario`, `rendition` and a severity bucket. Params hold the seed, the scenario tags and the rendition. `locations` group the labels by path.
 
 ### `caseIdOf`
 
@@ -53,4 +54,86 @@ Below 0.4 is mild, below 0.75 moderate, the rest severe.
 defineSynthConfig<T>(config: SynthConfig<T>): SynthConfig<T>
 ```
 
-Type a `docture.synth.ts` file for [`docture synth`](/docs/synthetic/corpora#use-the-cli): `model`, `templates`, `scenarios`, default `seeds`, `renditions` (default digital), `out` and `createdAt`. A `SynthRendition` is the shape that `digital()`, `scan()` and the other rendition helpers return, so the root entry stays free of Node imports.
+Types a `docture.synth.ts` file for [`docture synth`](/docs/synthetic/corpora#use-the-cli) and returns `config` unchanged. The fields are listed under [`SynthConfig`](#synthconfig).
+
+## Document types
+
+### `SyntheticDocument`
+
+What every renderer and `degrade` return.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `bytes` | `Uint8Array` | The rendered PDF or image. |
+| `mimeType` | `string` | `application/pdf`, `image/png`, or `image/jpeg`. |
+| `pages` | `readonly PageInfo[]` | Page sizes in points. |
+| `expected` | `unknown` | The sample with every unprinted position `null`. |
+| `labels` | `readonly FieldLabel[]` | One label per printed field position and page. |
+| `sample` | `{ seed, scenario, tags }` | The sample identity. |
+| `template` | `{ key, family, tags }` | The template identity. |
+| `rendition` | `Rendition` | How this rendition was produced from the digital original. See [`Rendition`](/docs/synthetic/reference/models#rendition). |
+| `provenance` | `Record<string, unknown>` | Inputs and engine versions that reproduce these bytes. |
+
+### `FieldLabel`
+
+{/* options: FieldLabel */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `path` | `string` | Concrete path in the `@docture/eval` format, such as `lineItems[3].amount`. |
+| `value` | `unknown` | The ground-truth value of this position. |
+| `text` | `string` | The text drawn for it. |
+| `pageNumber` | `number` | The page it is drawn on. |
+| `box` | `LayoutBox` | Where it is drawn, in points with a top-left origin. |
+
+### `PageInfo`
+
+{/* options: PageInfo */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `pageNumber` | `number` | One-based page number. |
+| `width` | `number` | Page width in points. |
+| `height` | `number` | Page height in points. |
+
+### `SyntheticCase`
+
+{/* options: SyntheticCase */}
+| Field | Meaning |
+| --- | --- |
+| `id` | The case id from `caseIdOf`, unless `options.id` overrides it. |
+| `documents` | One document with `name`, `mimeType`, and `bytes()`. |
+| `expected` | The document's `expected` value. |
+| `tags` | Template tags plus `template`, `family`, `scenario`, `rendition`, and a severity bucket. |
+| `params` | The seed, the scenario tags, and the rendition. |
+| `group` | The group from `groupOf`. |
+| `locations` | Label boxes by path, from `locationsOf`. |
+
+## CLI configuration
+
+### `SynthConfig`
+
+{/* options: SynthConfig */}
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `model` | required | The `Model` to sample. |
+| `templates` | required | PDFKit, React, or other rendering templates. |
+| `scenarios` | `[]` | Scenarios to sample in addition to the base case. |
+| `seeds` | none | Seeds `docture synth corpus` renders when `--seeds` is absent. |
+| `renditions` | `[digital()]` | `SynthRendition` values to write for each rendering. |
+| `out` | none | Corpus directory, relative to the config file. |
+| `createdAt` | fixed date | Written into every PDF and part of each case key, so a rebuild is byte-identical. |
+
+### `SynthRendition`
+
+```ts check
+type SynthRendition =
+	| { readonly kind: "digital" }
+	| {
+			readonly kind: "degrade";
+			readonly profile: "scan" | "scan-lq" | "photo" | "fax" | { readonly key: string };
+			readonly severity: number;
+			readonly dpi?: number;
+			readonly output?: "pdf" | "png" | "jpeg";
+		};
+```
+
+The shape that `digital()`, `scan()`, and the other [rendition helpers](/docs/synthetic/reference/node#digital) return. The root entry declares it so a config file can type renditions without importing Node modules.

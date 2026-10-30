@@ -1,11 +1,12 @@
 ---
 title: "docture synth"
 description: "Generate labeled synthetic documents from docture.synth.ts"
+type: reference
 ---
 
 Samples values from the model in docture.synth.ts, renders them with its templates and
-writes each document with its ground truth and field boxes. Every subcommand is a thin
-shell over @docture/synthetic. PDF templates need pdfkit, React templates react and
+writes each document with its ground truth and field boxes. Every subcommand uses the
+@docture/synthetic APIs, so results match the library. PDF templates need pdfkit, React templates react and
 @react-pdf/renderer, degraded renditions sharp, and verification the CLI's PDF.js.
 Node does not compile JSX: run with NODE_OPTIONS="--import tsx" when the config
 imports .tsx templates.
@@ -44,4 +45,4 @@ docture synth corpus --seeds 1-40
 - [`docture synth corpus`](/docs/cli/commands/synth-corpus). Write a labeled corpus that @docture/eval's jsonlDataset reads.
 - [`docture synth verify`](/docs/cli/commands/synth-verify). Read every digital case of a corpus back and confirm its labels.
 
-See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).
+See [synthetic corpora from the command line](/docs/synthetic/corpora#use-the-cli) and [input and output behavior](/docs/cli/inputs-and-outputs).

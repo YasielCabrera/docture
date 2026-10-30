@@ -1,14 +1,20 @@
 ---
 title: Running header and footer detection
 description: Detection examples, output behavior, and limits for running header and footer detection.
+type: reference
 ---
+
+Conversion marks running headers and footers as `page-header` and `page-footer` elements,
+described in [`PageHeaderElement`](/docs/conversion/reference/layout#pageheaderelement)
+and [`PageFooterElement`](/docs/conversion/reference/layout#pagefooterelement). This page
+lists when a line becomes furniture and how each format renders it.
 
 ## Running headers and footers
 
-Core marks running headers and footers as `page-header` and `page-footer` elements.
-Markdown and HTML leave them out of the body, so chunks built from that output do not
-repeat a company name or page number per page. TXT and JSON keep them, in place at the
-top and bottom of each page.
+Markdown and HTML leave furniture out of the body, so chunks built from that output do
+not repeat a company name or page number per page. TXT and JSON keep it, in place at the
+top and bottom of each page. A layout analyzer never receives furniture, and core ignores
+annotations that name it.
 
 ```ts
 const result = await converter.convert(source, { format: "markdown" });
@@ -18,15 +24,32 @@ const footers = result.pages.flatMap((page) =>
 console.log(footers.map((footer) => footer.text)); // ["Page 1 of 3", ...]
 ```
 
-A tagged PDF's `header` and `footer` hints count when the line sits in the top or bottom
-10% of the page. Without tags, core infers furniture from text that repeats in those bands
-on at least three pages, including odd-page and even-page running heads. Page numbers
-match when they follow the page. These thresholds are heuristics. A one-page or two-page
-document gets furniture only from tags. A page number such as `Page 2 of 6` can sit up to
-15% from the top or bottom when it follows the pages, keeps the same height and indent, and
-has a line of blank space between it and the body. Bold text there, such as a numbered
-`Question 1` heading, stays in the body. Other text lower than 10% of the page
-stays in the body. A band line that repeats at the same place on another page without meeting these
-rules, such as a running header on a two-page document, also stays in the body. It is never
-a table row, and a table does not continue across it. The [reference](/docs/conversion/reference/layout#semantic-layout) lists the
-rules.
+## Detection rules
+
+Detection is a heuristic, not a measured accuracy claim.
+
+- A tagged PDF's `header` or `footer` hint counts on a single page when the line lies in
+  the top or bottom 10% of the page. The element's `evidence` is `tagged`.
+- Without a tag, a line is eligible when it lies wholly in the top or bottom 10% of the
+  page. It qualifies when the same text appears on at least three pages and on at least
+  60% of all pages, of odd pages, or of even pages, within 2% of the page height of its
+  median position. The element's `evidence` is `repeated`.
+- A digit run matches across pages only when it follows the page number, as in
+  `Page 2 of 9`.
+- Between 10% and 15% of the page, only page-number text qualifies. It has digits with at
+  most three words around them, no final `.`, `!`, or `?`, no bold type, and a different
+  number on every page. Its position is within 1% of the page height and 2% of the page
+  width of the median, with a gap of at least one line height to the body.
+- Heading-size text, continuation lines such as `Table 4 (continued)`, table rows,
+  text-only pages, and pages without dimensions are never inferred as furniture.
+
+## Limits
+
+- A one-page or two-page document gets furniture only from tags.
+- Bold text between 10% and 15% of the page, such as a numbered `Question 1` heading,
+  stays in the body.
+- A band line whose text repeats within 2% of the page height on another page, without
+  meeting these rules, is suspected furniture. An example is a running header on a
+  two-page document. It stays body text outside any table, unless every copy is a table
+  row, as a repeated header row is. A table never
+  [continues across it](/docs/conversion/reference/continuations#continuation-rules).

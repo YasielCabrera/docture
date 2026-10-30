@@ -1,25 +1,22 @@
 ---
 title: Evaluation runner API
 description: Experiments, bounded concurrency, resume, re-scoring, and lifecycle.
+type: reference
 ---
+
+Import the runner and the processor contract from `@docture/eval/runner` to process cases and score them. `EvalExtractor`, `ExtractContext`, and `ExtractOutput` are also exported by `@docture/eval`. [Run evaluation experiments](/docs/evaluation/experiments) and [Save, resume, and re-score evaluation runs](/docs/evaluation/run-history) show it in use.
 
 ## `@docture/eval/runner`
 
 `runEval` defaults to concurrency 1 and one epoch. Baseline, store, reporters and sections are opt-in. `resume: "latest"` selects an unfinished compatible run. `rescore` reads stored raw output and applies the current spec without extraction. Processors preflight before work and dispose after success, error or cancellation.
-
-- `EvalExtractor`
-- `ExtractContext`
-- `ExtractOutput`
-- `RescoreOptions`
-- `ResultOptions`
-- `ResultSection`
-- `RunEvalOptions`
 
 ### `runEval`
 
 ```ts
 runEval<T>(options: RunEvalOptions<T>): Promise<EvalResult>
 ```
+
+Takes [`RunEvalOptions`](/docs/evaluation/reference/runner#runevaloptions). Returns [`EvalResult`](/docs/evaluation/reference/types#evalresult).
 
 Run every case through every experiment with bounded concurrency and return the stored result. Lanes share one cursor, and the first lane failure aborts the others. Rows interrupted by an abort are dropped so a resume extracts them again. `dispose` runs once on success, failure and abort: on success its failures become warnings; on failure the original error is thrown with `disposalErrors` attached. Reporter failures become warnings, persisted after every hook ran.
 
@@ -31,6 +28,8 @@ When `extract` throws a value with a `usage` member, such as Docture's `Extracti
 memoryRunStore(): RunStore
 ```
 
+Returns [`RunStore`](/docs/evaluation/reference/types#runstore).
+
 Create an isolated in-memory store, including raw outputs for re-scoring.
 
 ### `rescore`
@@ -39,4 +38,127 @@ Create an isolated in-memory store, including raw outputs for re-scoring.
 rescore<T>(store: RunStore, runId: string, spec: EvalSpec<T>, options?: RescoreOptions<T>): Promise<EvalResult>
 ```
 
+Takes [`RunStore`](/docs/evaluation/reference/types#runstore), [`EvalSpec`](/docs/evaluation/reference/types#evalspec), and [`RescoreOptions`](/docs/evaluation/reference/runner#rescoreoptions). Returns [`EvalResult`](/docs/evaluation/reference/types#evalresult).
+
 Score a stored run again from its raw outputs, without calling `extract`, and store the outcome as a new run whose `run.rescoredFrom` names the source run. The source run is never changed. Warnings, comparison and gate describe the new run, so they come from `options`, not from the source.
+
+## Types
+
+### `EvalExtractor`
+
+Turns a case's documents into output. Typed by the methods the runner calls, so any copy or implementation fits.
+
+```ts
+interface EvalExtractor<Raw = unknown, T = unknown> {
+	readonly id: string;
+	/** Hashed into the experiment's config hash, which keys resume and comparison. */
+	readonly config?: JsonValue;
+	preflight?(ctx: { readonly signal: AbortSignal }): Promise<void>;
+	/**
+	 * Throw `OutOfScopeError` to skip the case. Any other throw records an errored case; when the thrown value
+	 * has a `usage` member shaped like {@link UsageInfo}, as Docture's extraction errors do, the case keeps that
+	 * usage, so a failed paid call still counts toward cost and tokens.
+	 */
+	extract(input: EvalCase<unknown>, ctx: ExtractContext): Promise<ExtractOutput<Raw>>;
+	/** Raw output to the comparable view. Runs again on rescore. */
+	project?(raw: Raw): T;
+	/** Always called once the run ends, whether it succeeded, failed or was aborted. */
+	dispose?(): void | Promise<void>;
+}
+```
+
+### `ExtractContext`
+
+What the runner passes to a processor with each case.
+
+```ts check
+interface ExtractContext {
+	readonly signal: AbortSignal;
+	readonly epoch: number;
+	readonly experiment: string;
+}
+```
+
+### `ExtractOutput`
+
+A processor's answer for one case.
+
+```ts
+interface ExtractOutput<Raw> {
+	readonly raw: Raw;
+	readonly usage?: UsageInfo;
+	readonly method?: string;
+	readonly fallback?: boolean;
+	/** Confidence in 0 to 1 keyed by concrete output path. */
+	readonly confidence?: Readonly<Record<string, number>>;
+	readonly evidence?: readonly FieldEvidence[];
+	readonly diagnostics?: JsonValue;
+}
+```
+
+### `RescoreOptions`
+
+Replacement truth, projections and analyses for `rescore`.
+
+{/* options: RescoreOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `dataset` | `Dataset<T>` | Re-read ground truth, tags, groups and locations from these cases. Required when `slices` is given. |
+| `extractors` | `Readonly<Record<string, Pick<EvalExtractor<unknown, T>, "project">>>` | The `project` of each experiment, keyed by experiment id. Without one, the stored raw output is scored as is. |
+| `source` | `Pick<RunStore, "readResult" \| "readRaw">` | Where the source run and its raw outputs are read, such as a copied run directory. Default: `store`. |
+| `metrics` | `readonly MetricDefinition[]` | Custom metrics added after the built-in metrics. |
+| `slices` | `SliceMap<T>` | Named groups of cases. Requires `dataset`. |
+| `sections` | `readonly ResultSection[]` | Analyses applied before the gate and reporters, such as `calibrationSection()`. |
+| `baseline` | `string \| false` | A run id, `"auto"` for the latest complete run of the same dataset on this branch, or `false`. Needs a store. |
+| `fallbackBranch` | `string` | Branch searched when `baseline: "auto"` finds no complete run on the run's own branch. Default: none. |
+| `gate` | `GateOptions` | Checked by `gate`, which also fails a run that is not `complete`. |
+| `enrich` | `(result: EvalResult) => Readonly<Record<string, JsonValue>>` | Returns project data stored in `result.extensions`. |
+
+### `ResultOptions`
+
+Analyses and checks applied to finished rows. `runEval` and `rescore` both accept them.
+
+{/* options: ResultOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `metrics` | `readonly MetricDefinition[]` | Custom metrics added after the built-in metrics. |
+| `slices` | `SliceMap<T>` | Named groups of cases for reports and gate thresholds. |
+| `sections` | `readonly ResultSection[]` | Analyses applied before the gate and reporters, such as `calibrationSection()`. |
+| `baseline` | `string \| false` | A run id, `"auto"` for the latest complete run of the same dataset on this branch, or `false`. Needs a store. |
+| `fallbackBranch` | `string` | Branch searched when `baseline: "auto"` finds no complete run on the run's own branch. Default: none. |
+| `gate` | `GateOptions` | Checked by `gate`, which also fails a run that is not `complete`. |
+| `enrich` | `(result: EvalResult) => Readonly<Record<string, JsonValue>>` | Returns project data stored in `result.extensions`. |
+
+### `ResultSection`
+
+An optional analysis, such as calibration or grounding, applied before the gate and reporters see the result.
+
+```ts
+type ResultSection = (result: EvalResult) => Partial<Pick<EvalResult, "calibration" | "grounding">>;
+```
+
+### `RunEvalOptions`
+
+Inputs to the portable evaluation runner.
+
+{/* options: RunEvalOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `dataset` | `Dataset<T>` | Required. The cases to evaluate. |
+| `spec` | `EvalSpec<T>` | Required. The scoring spec. |
+| `experiments` | `Readonly<Record<string, EvalExtractor<unknown, T>>> \| EvalExtractor<unknown, T>` | Required. One processor, or several keyed by experiment ID. |
+| `select` | `{ readonly ids?: readonly string[]; readonly sample?: SampleOptions<T> }` | Run only the listed case IDs, a deterministic sample, or both. Unknown IDs throw `DatasetError`. |
+| `concurrency` | `number` | Cases processed at once. Default `1`. |
+| `epochs` | `number` | Times each case runs. Default `1`. |
+| `signal` | `AbortSignal` | Cancels the run. Interrupted rows are dropped so a resume extracts them again. |
+| `git` | `NonNullable<RunInfo["git"]>` | Git provenance stored with the run and used by `baseline: "auto"`. On resume, a supplied value replaces the stored provenance; when omitted, the stored value is kept. |
+| `store` | `RunStore` | Where the run, its rows, and raw outputs are saved. Resume and re-scoring need one. |
+| `resume` | `string \| false` | Continue an unfinished run: its id, or `"latest"` for the most recently started `in-progress` or `aborted` run of the same dataset id and experiment ids. A `complete` run is never resumed. Rows are reused when case content, experiment config and epoch match; reused rows are re-scored from stored raw output with the current spec, and errored rows are retried. |
+| `reporters` | `readonly Reporter[]` | Reporters that receive progress and the finished result. |
+| `metrics` | `readonly MetricDefinition[]` | Custom metrics added after the built-in metrics. |
+| `slices` | `SliceMap<T>` | Named groups of cases for reports and gate thresholds. |
+| `sections` | `readonly ResultSection[]` | Analyses applied before the gate and reporters, such as `calibrationSection()`. |
+| `baseline` | `string \| false` | A run id, `"auto"` for the latest complete run of the same dataset on this branch, or `false`. Needs a store. |
+| `fallbackBranch` | `string` | Branch searched when `baseline: "auto"` finds no complete run on the run's own branch. Default: none. |
+| `gate` | `GateOptions` | Checked by `gate`, which also fails a run that is not `complete`. |
+| `enrich` | `(result: EvalResult) => Readonly<Record<string, JsonValue>>` | Returns project data stored in `result.extensions`. |

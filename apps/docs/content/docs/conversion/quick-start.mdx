@@ -1,48 +1,124 @@
 ---
 title: Convert your first PDF
-description: Convert a digital PDF to Markdown and write its assets without a model.
+description: Generate a sample invoice PDF and convert it to Markdown with PDF.js, without a model or API key.
+type: tutorial
 ---
 
-Use a PDF with selectable text. This example writes `converted/report.md` and its referenced assets without calling a model.
+In this tutorial you generate a sample invoice PDF, convert it to Markdown, and check the
+result. Conversion reads the PDF's text layer with PDF.js, so it needs no model and no API
+key.
 
 ## Install
 
-Use Node 22 or later:
+Use Node 22 or later. Install Docture and PDF.js, and add `pdfkit` as a development
+dependency to generate the sample PDF:
 
 ```sh
 npm install docture pdfjs-dist zod
+npm install --save-dev tsx pdfkit
 ```
+
+## Create a sample PDF
+
+Save this source as `make-sample.mts`. It uses `makeInvoicePdf()` from
+`docture/testing/fixtures` to write `report.pdf`, a one-page invoice with a real text
+layer:
+
+<SourceExample file="conversion-sample-pdf.ts" title="make-sample.mts" />
+
+Run it with your TypeScript runner:
+
+```sh
+npx tsx make-sample.mts
+```
+
+The script prints the invoice number it generated:
+
+```txt
+Wrote report.pdf for invoice INV-2026-4682
+```
+
+The same seed produces the same invoice on every machine.
 
 ## Convert the document
 
-Save this source as `convert.mts` and place `report.pdf` beside it:
+Save this source as `convert.mts` in the same directory:
 
 <SourceExample file="document-conversion.ts" title="convert.mts" />
 
-Run it with your TypeScript runner:
+Run it:
 
 ```sh
 npx tsx convert.mts
 ```
 
-The output is Markdown with page markers. Assets stay separate under stable relative names. The library returns bytes; the example writes them to disk and disposes the converter.
+The script prints nothing. The converter returns the Markdown and any image assets as
+values, and the script writes them under `converted/`. It then calls `dispose()` to
+release the PDF.js loader.
 
-## Select pages
+## Check the output
 
+The sample invoice has no embedded images, so the script writes one file:
 
-Pass `pages` to convert part of a document. PDF loaders read only those pages, and the
-result keeps their original numbers:
+```txt
+converted/report.md
+```
+
+Open `converted/report.md`. Each page starts with a `<!-- page: N -->` marker, and the
+line items become a Markdown table:
+
+```md
+<!-- page: 1 -->
+
+# INVOICE
+
+Invoice Number: INV-2026-4682
+
+Issue Date: 2026-03-10
+
+Due Date: 2026-04-07
+
+From: To:
+
+Northwind Industrial GmbH Trellis Logistics AG
+
+| Description | Qty | Unit Price | Amount |
+| --- | --- | --- | --- |
+| Mounting plate #100 | 10 | 111.84 | 1,118.40 |
+| Cable harness #101 | 20 | 253.60 | 5,072.00 |
+```
+
+The file continues with the remaining line items and the subtotal, VAT, and total rows.
+For a PDF that contains images, the script also writes each one to the relative path that
+the Markdown references, such as `converted/report.assets/page-1-image-1.png`.
+
+## Convert selected pages
+
+Pass `pages` to convert part of a multi-page document. PDF loaders read only those pages, and the
+result keeps their original page numbers:
 
 ```ts
 const result = await converter.convert("report.pdf", { format: "json", pages: [2, 3] });
 result.pages.map((page) => page.pageNumber); // [2, 3]
 ```
 
+The sample invoice has one page, so `pages: [2, 3]` on it throws
+`PageSelectionError` with code `PAGE_OUT_OF_RANGE`.
+
 Running headers and table continuations are detected among the selected pages only. An
 element that lies wholly on a selected page keeps its ID unless that detection changes
 its kind or rows.
 
+## Convert a scanned PDF
 
-PDF.js reads the text layer. A scan without convertible text raises `NoConvertibleContentError`. Configure [OCR](/docs/integrations/scanned-documents) or [selected-page OCR fallback](/docs/integrations/selected-page-ocr) when scans are expected. Conversion does not switch OCR mode after a loader succeeds.
+PDF.js reads the text layer. A scan without convertible text raises
+`NoConvertibleContentError`. Configure [OCR](/docs/integrations/scanned-documents) or
+[selected-page OCR fallback](/docs/integrations/selected-page-ocr) when you expect scans.
+Conversion does not switch to OCR after a loader succeeds.
 
-Choose [output formats](/docs/conversion/formats), [assets](/docs/conversion/assets), or [retrieval chunks](/docs/conversion/retrieval-chunks) next.
+## Next steps
+
+- [Choose an output format](/docs/conversion/formats) for text, HTML, or document JSON.
+- [Export images and assets](/docs/conversion/assets) as references, data URLs, or not at all.
+- [Chunk documents for retrieval](/docs/conversion/retrieval-chunks) with page and box citations.
+- [Trace content to source evidence](/docs/conversion/evidence) to find the PDF region behind each element.

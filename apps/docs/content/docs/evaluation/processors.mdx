@@ -1,7 +1,10 @@
 ---
 title: Connect an evaluation processor
 description: Adapt Docture or supply a structural processor with raw output and optional evidence.
+type: how-to
 ---
+
+A processor is the code under test: it receives a case and returns raw output for scoring. Wrap a Docture extractor or your own code as a processor.
 
 ## Adapt an extractor
 
@@ -15,9 +18,13 @@ const processor = fromDocture(extractor, Invoice, { id: "invoice-parser" });
 
 Each case must contain one non-empty document. The runner calls the processor and disposes its extractor at the end. Construct a fresh extractor for another independent run.
 
+## Write a custom processor
+
 A custom processor needs `id` and `extract(item, context)`. Return `{ raw }`; add `usage`, `confidence`, `evidence`, `method`, or `fallback` when measured. Return confidence by concrete actual field path in `[0, 1]`. Evidence uses actual paths, one-based page numbers, and optional boxes.
 
 Use `project(raw)` when processor output differs from the expected scoring view. The runner stores raw output, so a saved run can be re-scored with a new projection. Put settings that change extraction in the processor's serializable `config` so resume detects the change.
+
+## Handle setup, cleanup, and failures
 
 `preflight` prepares a processor before work. `dispose` releases it after success, failure, or cancellation. Honor `context.signal` in external operations. Throw `OutOfScopeError` only for deliberately excluded inputs. Other failures produce errored cases; valid failure `usage` still contributes cost and tokens.
 

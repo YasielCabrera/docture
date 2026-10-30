@@ -8,6 +8,7 @@ import legacyContract from "../lib/legacy-doc-contract.json";
 import { legacyDocs } from "../lib/docs-migration.js";
 import { checkDocsStructure } from "./check-docs-structure.js";
 import { checkAdditionalDocs } from "./additional-docs.js";
+import { checkInboundLinks, checkMetadata, checkOpening, checkOutboundLinks, checkPageType, checkPortableLocalPaths, checkSections, countInstallCommands, versionedInstallSpecs } from "./page-rules.js";
 
 const ROOT = process.cwd();
 const DOCS_ROOT = resolve(ROOT, "content/docs");
@@ -196,14 +197,41 @@ async function checkInstallRecipes(files: readonly string[]): Promise<number> {
   let count = 0;
   for (const file of files) {
     const source = await readFile(file, "utf8");
-    for (const command of source.matchAll(/\b(?:npm (?:install|i)|pnpm add|yarn add)\b[^`"\n]*/g)) {
-      count += 1;
-      for (const [spec] of command[0].matchAll(/(?<![\w@/-])'?(?:@[\w.-]+\/)?[\w.-]+@[^\s'`]+/g)) {
-        fail(`${relative(ROOT, file)}: install commands name packages without versions; drop the version from ${spec}`);
-      }
+    count += countInstallCommands(source);
+    for (const spec of versionedInstallSpecs(source)) {
+      fail(`${relative(ROOT, file)}: install commands name packages without versions; drop the version from ${spec}`);
     }
+    for (const failure of checkPortableLocalPaths(source)) fail(`${relative(ROOT, file)}: ${failure}`);
   }
   return count;
+}
+
+async function checkRepositoryLinks(files: readonly string[]): Promise<void> {
+  const repository = resolve(ROOT, "../..");
+  for (const file of files) {
+    const source = await readFile(file, "utf8");
+    const targets = [
+      ...[...source.matchAll(/github\.com\/YasielCabrera\/docture\/(?:blob|tree)\/main\/([^)#"\s]+)/g)].map((match) => resolve(repository, match[1] ?? "")),
+      ...[...source.matchAll(/\]\((?!https?:|#|mailto:|\/)([^)#\s]+)/g)].map((match) => resolve(file, "..", match[1] ?? "")),
+    ];
+    for (const target of targets) {
+      if (!existsSync(target)) fail(`${relative(repository, file)}: links to a missing repository file ${relative(repository, target)}`);
+    }
+  }
+}
+
+async function checkNpmInstalls(files: readonly string[]): Promise<void> {
+  for (const file of files) {
+    for (const match of (await readFile(file, "utf8")).matchAll(/\b(?:pnpm add|yarn add|bun add)\b/g)) {
+      fail(`${relative(ROOT, file)}: documentation installs with npm; replace "${match[0]}" with npm install or a package-install fence`);
+    }
+  }
+}
+
+async function checkPages(files: readonly string[]): Promise<void> {
+  const pages = await Promise.all(files.map(async (file) => ({ route: routeFor(file), source: await readFile(file, "utf8") })));
+  for (const page of pages) for (const failure of [...checkSections(page), ...checkPageType(page), ...checkOpening(page), ...checkOutboundLinks(page)]) fail(failure);
+  for (const failure of [...checkMetadata(pages), ...checkInboundLinks(pages)]) fail(failure);
 }
 
 async function checkLinksAndExamples(files: readonly string[]): Promise<void> {
@@ -263,22 +291,28 @@ async function checkProse(files: readonly string[]): Promise<void> {
   const banned = [
     "additionally",
     "boasts",
+    "comprehensive",
     "crucial",
     "delve",
+    "effortless",
     "elevate",
     "enhance",
     "fostering",
     "garner",
     "game-changer",
+    "in order to",
     "intricate",
     "landscape",
     "leverage",
     "numerous",
     "pivotal",
     "powerful solution",
+    "robust",
+    "seamless",
     "seamlessly",
     "serves as",
     "showcase",
+    "simply",
     "stands as",
     "tapestry",
     "testament",
@@ -289,7 +323,7 @@ async function checkProse(files: readonly string[]): Promise<void> {
   const allowedDiagramRoutes = new Set([
     "/docs/getting-started/how-it-works",
     "/docs/extraction/splitting",
-    "/docs/resources/architecture",
+    "/docs/getting-started/architecture",
   ]);
 
   for (const file of files) {
@@ -328,6 +362,8 @@ const importCount = await checkPublicImports([
   resolve(ROOT, "../../packages/cli/README.md"),
   resolve(ROOT, "../../packages/docture/AGENTS.md"),
   resolve(ROOT, "../../packages/cli/AGENTS.md"),
+  resolve(ROOT, "../../packages/eval/AGENTS.md"),
+  resolve(ROOT, "../../packages/synthetic/AGENTS.md"),
 ]);
 const examples = resolve(ROOT, "../examples");
 const exampleReadmes = [
@@ -345,10 +381,19 @@ const recipeCount = await checkInstallRecipes([
   resolve(ROOT, "../../packages/cli/README.md"),
   resolve(ROOT, "../../packages/docture/AGENTS.md"),
   resolve(ROOT, "../../packages/cli/AGENTS.md"),
+  resolve(ROOT, "../../packages/eval/AGENTS.md"),
+  resolve(ROOT, "../../packages/synthetic/AGENTS.md"),
+  ...exampleReadmes,
+]);
+await checkRepositoryLinks([
+  resolve(ROOT, "../../README.md"),
+  ...(await readdir(resolve(ROOT, "../../packages"))).flatMap((name) => ["README.md", "AGENTS.md"].map((file) => resolve(ROOT, "../../packages", name, file))).filter((file) => existsSync(file)),
   ...exampleReadmes,
 ]);
 await checkLinksAndExamples(files);
 await checkProse(files);
+await checkPages(files);
+await checkNpmInstalls([...files, ...await walk(resolve(ROOT, "components"), ".tsx")]);
 
 if (failures.length > 0) {
   console.error(`Documentation checks failed (${failures.length}):`);

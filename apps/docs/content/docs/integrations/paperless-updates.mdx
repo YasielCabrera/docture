@@ -1,13 +1,14 @@
 ---
 title: Plan and apply Paperless updates
 description: Plan and explicitly apply typed field changes while preserving existing Paperless values.
+type: how-to
 ---
 
-`docture/sinks/paperless` exports `PaperlessSink`, `paperlessSink`, `PaperlessError`, `PaperlessProvenance`, `PaperlessFieldType`, `PaperlessValue`, `PaperlessCustomFieldDefinition`, `PaperlessSinkOptions`, `PaperlessFieldMapping`, `PaperlessEvidencePolicy`, `PaperlessPlanInput`, `PaperlessPlan`, `PaperlessPlanExtraction`, `PaperlessPlanIssue`, `PaperlessPlannedSkip`, `PaperlessOperation`, `PaperlessOperationOutcome` and `PaperlessApplyResult`.
+`PaperlessSink` turns an extraction result into a plan of Paperless custom field, tag, and note changes, and applies that plan when you call `apply`. Import it from `docture/sinks/paperless`. Existing nonempty field values and existing tags are never overwritten or removed. To read documents first, see [Read and search Paperless documents](/docs/integrations/paperless-read).
 
-The entry uses fetch only. It imports shared transport and validation helpers without importing the source facade, models, PDF engines or a store. Construction performs no network requests.
+## Configure the sink
 
-```ts
+```ts check
 import { PaperlessSink } from "docture/sinks/paperless";
 
 function configuredSink(baseUrl: string, token: string) {
@@ -22,13 +23,53 @@ function configuredSink(baseUrl: string, token: string) {
 }
 ```
 
-`PaperlessSinkOptions` extends the connection options of the [source entry](/docs/integrations/paperless-read). Each field mapping contains a segment array and an existing native field ID. A literal dotted key is one segment, such as `["total.net"]`. Duplicate paths, field IDs or tag IDs reject. Tags and custom fields must already exist. The sink does not create taxonomy.
+`paperlessSink(options)` returns the same object. The sink uses `fetch` only, and construction makes no network request. `PaperlessSinkOptions` extends the connection options of `PaperlessSource`:
 
-`PaperlessEvidencePolicy` defaults to `verified`. `cited` also permits `cited-unverified`. `any` explicitly permits uncited or derived values. A field mapping can set its own policy. A saved plan cannot replace constructor configuration. Evidence status describes the extraction's evidence and does not prove semantic correctness.
+{/* options: PaperlessSinkOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `baseUrl` | required | HTTP or HTTPS service root. |
+| `apiVersion` | required | `9` or `10`. |
+| `token` | none | API token. |
+| `headers` | none | Extra request headers. |
+| `fetch` | global `fetch` | Transport to use. |
+| `timeoutMs` | `30000` | Deadline for each request. |
+| `maxResponseBytes` | 32 MiB | Maximum streamed response size. |
+| `fields` | required | `PaperlessFieldMapping` entries from extraction paths to existing custom field IDs. |
+| `tagIds` | none | Existing tags to add. |
+| `auditNote` | none | Text of a note to add once per extraction. |
+| `evidence` | `verified` | Default `PaperlessEvidencePolicy` for every field. |
+| `maxOperations` | `1000` | Maximum operations in a plan. |
+| `maxPlanBytes` | 4 MiB | Maximum serialized plan size. |
 
-`plan` accepts exact source provenance, an extraction result, `schemaId`, `mappingId` and an optional `extractionId`. It reads current source identity, metadata and native definitions without mutating Paperless. Validation failures, conflicts affecting mapped paths, missing definitions, permission failures and rejected evidence become `blocked` issues. Existing nonempty fields and empty extracted values have explicit `skipped` reasons.
+## Map extraction paths to fields
 
-The plan records native operations, evidence status, source digest, root and selected file identity, schema and mapping identity, validation and conflict data, and limitations. Its stable note marker binds the source, extraction data and current sink configuration. A caller-supplied extraction ID does not replace that binding. The marker identifies an extraction for note deduplication. It is not an approval token.
+Each `PaperlessFieldMapping` has a `path` array, an existing `fieldId`, and an optional `evidence` policy. Each array item is one path segment, so a literal dotted key is one segment, such as `["total.net"]`. Duplicate paths, field IDs, or tag IDs reject. Tags and custom fields must already exist, because the sink never creates them.
+
+The `PaperlessEvidencePolicy` decides which values the sink may write:
+
+- `verified`, the default, accepts only values whose citations were verified.
+- `cited` also accepts `cited-unverified` values.
+- `any` also accepts uncited or derived values.
+
+A saved plan cannot replace the constructor's policy. Evidence status describes the extraction's citations. It does not prove the value is correct.
+
+## Create a plan
+
+`plan(input)` takes a `PaperlessPlanInput`: the exact source `provenance` from `PaperlessSource.read`, the `extraction` result, a `schemaId`, a `mappingId`, and an optional `extractionId`. It reads the current source identity, metadata, and field definitions, and changes nothing in Paperless.
+
+The returned `PaperlessPlan` contains:
+
+- `operations`, each a `PaperlessOperation` that sets a field, adds a tag, or adds a note.
+- `blocked`, a `PaperlessPlanIssue` for each validation failure, conflict on a mapped path, missing definition, permission failure, or rejected evidence.
+- `skipped`, a `PaperlessPlannedSkip` for each field that already has a value or whose extracted value is empty.
+- The source digest, root and file identity, schema and mapping IDs, evidence status, the `PaperlessPlanExtraction` with validation and conflict data, and limitations.
+
+The plan's `marker` binds the source, the extraction data, and the sink configuration. The sink uses it to avoid adding the same note twice. A caller-supplied `extractionId` does not replace that binding, and the marker is not an approval token.
+
+## Check proposed values
+
+Each proposed value must fit its `PaperlessFieldType`:
 
 | Native type | Proposed value |
 | --- | --- |
@@ -39,22 +80,48 @@ The plan records native operations, evidence status, source digest, root and sel
 | `boolean` | A JSON boolean. |
 | `integer` | A signed 32-bit integer. |
 | `float` | A finite JSON number. |
-| `monetary` | A value with at most two decimal places, or a native currency string such as `USD12.30`. Numeric inputs become native strings. |
+| `monetary` | A value with at most two decimal places, or a native currency string such as `USD12.30`. Numbers become native strings. |
 | `documentlink` | Distinct existing root document IDs, excluding the source ID. |
 | `select` | An existing option ID from the field definition. |
 
-Missing and null fields are empty. Blank strings are empty for text, date, URL, monetary and select fields. An empty documentlink array is empty. `0` and `false` are present values and remain untouched.
+Missing and `null` values are empty. Blank strings are empty for text, date, URL, monetary, and select fields. An empty document link array is empty. `0` and `false` are values, so a field holding them is not overwritten.
 
-Documentlinks have native reciprocal effects. Planning requires confirmed change permission on each target. A target's reverse field must be empty or already contain the source ID. Apply checks these conditions again before submission. The native server still has a read/write race. A target can change after its last check.
+## Update document links
 
-`inspect(unknownSavedPlan)` validates bounded JSON, supported versions, allowed operations, configured mappings and evidence policy. It performs no network calls. Unknown keys, duplicate operations and mismatched configuration reject. The defaults are 1,000 operations and a 4 MiB serialized plan, with additional traversal bounds.
+Paperless also updates the reverse field of each linked document. Planning requires change permission on each target. Each target's reverse field must be empty or already contain the source ID. `apply` checks these conditions again before it writes. A target can still change between that check and the write, because Paperless has no conditional write.
 
-`apply(plan)` is an explicit caller operation. It needs no approval record, confirmation hash or durable receipt. It checks the selected source digest again, re-reads each field before writing, and skips any field that became nonempty. It uses native targeted `modify_custom_fields` with an empty removal array, and additive `add_tag`. Unrelated fields and existing tags remain present.
+## Validate a saved plan
 
-Before a note POST, apply reads notes and checks the stable extraction marker. It reconciles uncertain responses by reading the field, tag or note marker again. A disconnect, timeout, 5xx response, native 400 after mutation, or an error-shaped note response cannot prove that nothing changed. Apply never blindly retries a note POST. Repeated explicit calls inspect current state again.
+`inspect(savedPlan)` checks unknown JSON before you apply it, without network calls. It checks the size, the plan version, the allowed operations, the configured mappings, and the evidence policy. Unknown keys, duplicate operations, and a configuration mismatch reject.
 
-`PaperlessApplyResult` contains per-operation `applied`, `skipped`, `failed` or `unknown` outcomes with reasons. The `skipped` property retains skips found during planning. `partial` preserves confirmed work when another operation fails or remains uncertain. `cancelled` preserves completed outcomes, marks a possibly submitted operation unknown and skips later work.
+## Apply a plan
 
-The pinned Paperless-ngx 3.3.4 metadata methods return `OK` after updating native values and queue background indexing without a task ID. Metadata read-back does not prove indexing completion. Paperless offers neither a multi-operation transaction nor conditional field writes. Stable markers support retry reconciliation but cannot guarantee exactly-once concurrent notes. The caller owns result persistence, retry policy and retention.
+`apply(plan)` writes the plan. It needs no approval record, confirmation hash, or saved receipt. Before writing, it:
 
-Run `pnpm --dir apps/examples exec tsx 21-paperless/index.ts` for source reads, schema extraction, a partial apply, co-writer preservation, additive tags, one marked note and a repeated apply against a local mock server.
+1. Checks the selected source digest again.
+2. Reads each field again and skips any field that now has a value.
+3. Reads existing notes and skips the note if one already carries the plan's marker.
+
+Fields are set with Paperless's targeted `modify_custom_fields` and an empty removal list. Tags are added with `add_tag`. Other fields and existing tags stay unchanged.
+
+A disconnect, timeout, 5xx response, a 400 response after a change, or an error-shaped note response cannot prove that nothing changed. In those cases, `apply` reads the field, tag, or note marker again to find out. It never retries a note POST blindly. Calling `apply` again inspects the current state again.
+
+## Read the apply result
+
+`PaperlessApplyResult` has a `status`, the plan's `marker`, the `skipped` entries from planning, and one `PaperlessOperationOutcome` per operation. Each outcome is `applied`, `skipped`, `failed`, or `unknown`, with a reason.
+
+- `complete` means every operation finished.
+- `partial` keeps the confirmed work when another operation failed or stayed uncertain.
+- `cancelled` keeps finished outcomes, marks an operation that may have been sent as `unknown`, and skips the rest.
+
+Your application owns saving results, retries, and retention.
+
+## Know what Paperless guarantees
+
+Paperless-ngx 3.3.4 returns `OK` after it updates values and queues search indexing without a task ID, so reading metadata back does not prove indexing finished. Paperless offers no multi-operation transaction and no conditional field write. The marker supports reconciling retries, but cannot guarantee exactly one note when several writers run at once.
+
+Failures throw `PaperlessError`, as described in [Read and search Paperless documents](/docs/integrations/paperless-read#handle-errors). `PaperlessProvenance`, `PaperlessValue`, and `PaperlessCustomFieldDefinition` are the same types the source entry exports.
+
+## Run the example
+
+The repository example in [`apps/examples/21-paperless`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/21-paperless), `index.ts`, runs source reads, schema extraction, a partial apply, preservation of another writer's value, added tags, one marked note, and a repeated apply against a local mock server.

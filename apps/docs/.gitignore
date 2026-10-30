@@ -2,3 +2,4 @@
 .source/
 next-env.d.ts
 out/
+.fence-check/

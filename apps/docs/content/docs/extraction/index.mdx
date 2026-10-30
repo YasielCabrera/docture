@@ -1,18 +1,20 @@
 ---
 title: Extraction overview
 description: Turn documents into schema-typed data with deterministic code, models, or both.
+type: overview
 ---
 
 Docture loads a document, selects eligible extraction strategies, validates their answers, and returns typed data with attempt history and usage.
 
-Start with [your first extraction](/docs/extraction/quick-start), or [parse a known layout without a model](/docs/extraction/without-a-model).
+Start with [your first extraction](/docs/extraction/quick-start), which runs without an API key. Then [extract with a model](/docs/extraction/with-a-model) to read layouts you have not written a parser for, or [parse a known layout without a model](/docs/extraction/without-a-model).
 
 ## Choose a task
 
 - [Define schemas and contracts](/docs/extraction/schemas) for typed fields, missing values, and examples.
+- [Understand strategies](/docs/extraction/strategies), [configure routing and fallback](/docs/extraction/routing), and [configure prompts, caching, and pricing](/docs/extraction/model-settings).
 - [Classify documents](/docs/extraction/classification) or [split document bundles](/docs/extraction/splitting).
 - [Read scans and images](/docs/integrations/scanned-documents), or [handle long documents](/docs/extraction/long-documents).
 - [Validate and repair](/docs/extraction/validation), [verify citations](/docs/extraction/citations), and [inspect results](/docs/extraction/results).
-- [Process batches](/docs/extraction/batches), [manage lifecycle](/docs/extraction/lifecycle), and [tune concurrency](/docs/extraction/performance).
+- [Process batches](/docs/extraction/batches), [manage lifecycle](/docs/extraction/lifecycle), [tune concurrency](/docs/extraction/performance), and [record model telemetry](/docs/extraction/telemetry).
 
 Use the [extraction API reference](/docs/extraction/reference) for exact options and contracts. Use [conversion](/docs/conversion) when you need document text and layout rather than schema fields. [Evaluation](/docs/evaluation) measures processor quality against ground truth.

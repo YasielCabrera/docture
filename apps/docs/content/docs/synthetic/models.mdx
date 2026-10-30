@@ -1,15 +1,18 @@
 ---
-title: Define synthetic models and generators
+title: Define synthetic value models and generators
 description: Choose seeded values from a schema and override fields by path.
+type: how-to
 ---
 
-Pass your extraction schema to `defineModel`. Supported inputs are Docture contracts, Standard Schema values with JSON Schema output, AI SDK schemas, and plain JSON Schema. Zod needs version 4.2 or newer for JSON Schema output. Use `typedJsonSchema<T>()` to retain a plain JSON Schema's TypeScript type.
+A synthetic value model describes how to sample values for your schema. Pass your extraction schema to `defineModel`. Supported inputs are Docture contracts, Standard Schema values with JSON Schema output, AI SDK schemas, and plain JSON Schema. Zod needs version 4.2 or newer for JSON Schema output. Use `typedJsonSchema<T>()` to retain a plain JSON Schema's TypeScript type.
 
 ## Override fields
 
+This example imports the `Bill` schema from `bill.mts`, which the [quick start](/docs/synthetic/quick-start#define-the-model-and-template) defines.
+
 ```ts
 import { defineModel, gen } from "@docture/synthetic";
-import { Bill } from "./synth.mjs";
+import { Bill } from "./bill.mjs";
 
 const model = defineModel(Bill, {
 	fields: { customerName: gen.pick(["Dana", "Kenji"]), totalCents: gen.int(100, 9000) },
@@ -24,8 +27,16 @@ Use `gen.array({ length: [2, 5] })` for array length and item generators for con
 
 ## Generate realistic text
 
-Install `@faker-js/faker@10.6.0` to use `fakerFor` from `@docture/synthetic/faker`. It reseeds each field and uses a fixed reference date for relative dates. Its locale names follow Faker, such as `de` or `en_US`.
+Install `@faker-js/faker` to use `fakerFor` from `@docture/synthetic/faker`:
 
-For model-written strings, install `ai@^7` and use `llmTextPool` from `@docture/synthetic/llm`. Sample its result with `gen.pick(pool)`. Supply a persistent `TextPoolCache` to rebuild without another model call. The cache key includes model, prompt, count, and temperature. A seed alone does not reproduce a fresh provider response.
+```sh
+npm install --save-dev @faker-js/faker
+```
 
-See [model and generator options](/docs/synthetic/reference/models) and [Faker and text pools](/docs/synthetic/reference/text-generators).
+`fakerFor` reseeds Faker for each field and uses a fixed reference date for relative dates. Its locale names follow Faker, such as `de` or `en_US`.
+
+## Generate text with an AI model
+
+For strings written by an AI model, install `ai` and use `llmTextPool` from `@docture/synthetic/llm`. Sample its result with `gen.pick(pool)`. Supply a persistent `TextPoolCache` to rebuild without another AI model call. The cache key includes the AI model, prompt, count, and temperature. A seed alone does not reproduce a fresh provider response.
+
+See [value model and generator options](/docs/synthetic/reference/models) and [Faker and text pools](/docs/synthetic/reference/text-generators).

@@ -1,15 +1,14 @@
 ---
 title: Evaluation model judge API
 description: Cached asynchronous semantic comparisons.
+type: reference
 ---
+
+Import the model judge comparator from `@docture/eval/judge`. [Use model judges in evaluation](/docs/evaluation/judges) shows it in use.
 
 ## `@docture/eval/judge`
 
 `judge` is async and needs the optional `ai` peer on first use. Temperature is zero. The default cache is a map per comparator. Aligned rows need a synchronous weighted field in addition to judge-only features.
-
-- `ENGINE_RANGES`
-- `JudgeCache`
-- `JudgeOptions`
 
 ### `judge`
 
@@ -17,4 +16,38 @@ description: Cached asynchronous semantic comparisons.
 judge(options: JudgeOptions): Comparator
 ```
 
-Compare string leaves with a cached, temperature-zero structured verdict. Use scoreAsync.
+Takes [`JudgeOptions`](/docs/evaluation/reference/judges#judgeoptions). Returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
+
+Compare string leaves with a cached, temperature-zero structured verdict. Score with `spec.scoreAsync` or `runEval`, because `spec.score` rejects async comparators.
+
+## Types
+
+### `ENGINE_RANGES`
+
+The supported version range of the optional `ai` engine that the judge loads.
+
+```ts check
+const ENGINE_RANGES = { ai: "^7.0.0" } as const;
+```
+
+### `JudgeCache`
+
+A persistent or in-memory store for structured judge verdicts.
+
+```ts
+interface JudgeCache {
+	get(key: string): Comparison | undefined | Promise<Comparison | undefined>;
+	set(key: string, verdict: Comparison): unknown;
+}
+```
+
+### `JudgeOptions`
+
+Model, rubric and optional verdict store for a string leaf comparator.
+
+{/* options: JudgeOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `model` | `LanguageModel` | Required. The AI SDK language model that judges each pair of strings. |
+| `rubric` | `string` | Required. What the model checks, such as "The summary preserves the same factual meaning." |
+| `cache` | `JudgeCache` | Store for verdicts keyed by model, rubric, and values. Default: an in-memory map per comparator. |

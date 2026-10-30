@@ -1,0 +1,51 @@
+---
+title: How synthetic labels stay correct
+description: Understand how sampled values, printed fields, and rendered geometry become ground truth for evaluation.
+type: explanation
+---
+
+`@docture/synthetic` generates labeled documents by sampling values, declaring which values a template prints, and recording where it draws them. The resulting ground truth describes what the document shows, including fields it leaves blank.
+
+## Value models and generators
+
+A [value model](/docs/synthetic/models) combines a schema with generators for specific fields. `defineModel` uses schema-based generators where you do not supply an override. Each concrete field path has a random stream keyed by the seed and path, so adding an unrelated field does not shift its random draws.
+
+A value model does not require an AI model. Optional AI-generated text pools supply strings that field generators can sample. Reproducing those strings requires retaining the pool or its cache because a seed does not reproduce a fresh AI provider response.
+
+## Scenarios and constraints
+
+A [scenario](/docs/synthetic/scenarios) describes a variation such as a long table or a zero total. Its field generators take precedence over the value model's generators. Within each layer, a concrete path takes precedence over an array-item pattern.
+
+Sampling runs `derive` after generating values. If the scenario supplies `shape`, sampling applies that transformation and runs `derive` again. This keeps derived totals consistent after a scenario changes line items. Constraints check relationships between fields, and the scenario's `expect` checks its promise. Sampling rejects violations and runs the schema's validator when one is available.
+
+## Templates and the printed mask
+
+A template separates the sampled value from the ground truth a reader can recover. Its [printed mask](/docs/synthetic/printed-fields) declares which fields appear. Projection replaces unprinted positions with `null`. An object or array with no printed children collapses to `null`; an empty array declared printed remains an empty array.
+
+The mask can depend on the sampled value. A `prints()` transformation can also define a different expected value when the display loses information. This matters when a template shows a shortened identifier or maps several source values to one visible label.
+
+## Rendering and labels
+
+The [PDF](/docs/synthetic/pdf-templates), [React](/docs/synthetic/react-templates), and [HTML](/docs/synthetic/html-templates) renderers produce a digital PDF with expected values and field labels. Each label records a concrete field path, its expected value, the drawn text, a page number, and a box in PDF points with a top-left origin.
+
+Renderers check that every declared printed leaf has a label and that every labeled path belongs to the printed mask. These checks catch omissions in template wiring. They do not prove that a reader can see the text inside the recorded box.
+
+## Verification against the digital PDF
+
+[Label verification](/docs/synthetic/verification) reads the digital PDF back through PDF.js. It checks that each label box stays on its page and that text spans near the box contain the label's text. Failures distinguish missing text, text outside its box, and boxes outside the page.
+
+`verifyLabels` returns a report, and `assertVerified` throws when verification fails. Verification accepts digital renditions only. It checks text and geometry, so a passing report does not establish that a degraded rendition remains legible.
+
+## Renditions and degradation
+
+A rendition is one version of a rendered document. [Degradation](/docs/synthetic/degradation) rasterizes the PDF and applies a profile at a chosen severity. The image and label boxes undergo the same geometric transformation. Expected values stay unchanged, so you can compare extraction from a digital original with extraction from its scan or photo rendition.
+
+`writeCorpus` verifies a newly rendered digital original by default before creating its renditions. This separates template errors from extraction failures caused by image quality. Disabling verification removes that check.
+
+## Corpora and evaluation
+
+A [corpus](/docs/synthetic/corpora) combines seeds, scenarios, templates, and renditions. `writeCorpus` stores document files, expected values, labels, and a `manifest.jsonl` that `jsonlDataset` from `@docture/eval` can read.
+
+For an in-memory document, `toEvalCase` produces an evaluation case with expected values and label boxes grouped by field path. Cases include template, scenario, and rendition tags. Renditions of one rendering share a `group`, so evaluation can account for their shared ground truth.
+
+[Evaluate the corpus](/docs/synthetic/evaluation) to compare extraction results with these expected values and locations. Scores cover the cases your value models and templates describe. [Real datasets](/docs/evaluation/datasets) provide evidence about documents outside those cases.

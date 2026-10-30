@@ -1,31 +1,40 @@
 ---
 title: Command reference
 description: Look up commands, flags, defaults, and exit behavior.
+type: reference
 ---
+
+Every `docture` command, with links to its flags and defaults.
+
+Commands exit 0 on success, 1 when a document or command fails, 2 on a usage error, and 130 when interrupted.
 
 ## Commands
 
 | Command | Job |
 |---|---|
-| `extract <file...>` | Extract data that matches a schema |
-| `convert <file...>` | Convert PDFs to TXT, Markdown, HTML, or JSON |
-| `classify <file...>` | Choose a document classification without extracting it |
-| `inspect <file...>` | Show loaded text, geometry, and document facts without a model |
-| `eval <command>` | Run, report, compare, and gate evaluations from `docture.eval.ts`, or score files against ground truth |
-| `review [file]` | Write an offline HTML page of element boxes or cited fields over the page images |
-| `synth <command>` | Generate labeled synthetic documents and corpora from `docture.synth.ts`; see [synthetic corpora from the command line](/docs/synthetic/corpora#use-the-cli) |
-| `mcp` | Serve conversion, inspection, configured extraction, and Paperless tools over MCP stdio |
+| [`extract <file...>`](/docs/cli/commands/extract) | Extract data that matches a schema |
+| [`convert <file...>`](/docs/cli/commands/convert) | Convert PDFs to TXT, Markdown, HTML, or JSON |
+| [`classify <file...>`](/docs/cli/commands/classify) | Choose a document classification without extracting it |
+| [`inspect <file...>`](/docs/cli/commands/inspect) | Show loaded text, geometry, and document facts without a model |
+| [`eval <command>`](/docs/cli/commands/eval) | Run, report, compare, and gate evaluations from `docture.eval.ts`, or score files against ground truth. See [Evaluate from the CLI](/docs/cli/evaluation) |
+| [`synth <command>`](/docs/cli/commands/synth) | Generate labeled synthetic documents and corpora from `docture.synth.ts`. See [synthetic corpora from the command line](/docs/synthetic/corpora#use-the-cli) |
+| [`review [file]`](/docs/cli/commands/review) | Write an offline HTML page of element boxes or cited fields over the page images |
+| [`mcp`](/docs/cli/commands/mcp) | Serve conversion, inspection, configured extraction, and Paperless tools over MCP stdio |
+| [`serve`](/docs/cli/commands/serve) | Serve byte-based conversion, inspection, and configured-schema extraction over HTTP |
+| [`paperless <action> [source]`](/docs/cli/commands/paperless) | Read, extract, plan, and apply configured Paperless mappings |
+| [`help [command...]`](/docs/cli/commands/help) | Show help for every command, or for one |
 
 Run `docture <command> --help` for the flags accepted by that command.
 
-Add `--json` for a machine-readable list. `docture help --json` and `docture --help --json`
-print every command.
-`docture help extract --json` and `docture extract --help --json` print the same document
-for one command. The output is a version 1 envelope with command `help`. Each result's
-`spec` lists the positionals and the flags, with each flag's short alias, choices, default
-label, and description. `summary.environment` lists the environment variables. A flag
-value outside its listed choices exits with code `2`, and so does `docture help` with an
-unknown command.
+## Print help as JSON
+
+Add `--json` to the help route for a machine-readable list. `docture help --json` and
+`docture --help --json` print every command. `docture help extract --json` and
+`docture extract --help --json` print the same document for one command. The output is a
+version 1 envelope with command `help`. Each result's `spec` lists the positionals and the
+flags, with each flag's short alias, choices, default label, and description.
+`summary.environment` lists the environment variables. A flag value outside its listed
+choices exits with code `2`, and so does `docture help` with an unknown command.
 
 ## Convert
 
@@ -73,6 +82,3 @@ docture inspect scan.pdf --text --lines
 
 Use it to check the selected loader, media type, page count, form, text length, geometry,
 and rendering support.
-
-
-The command pages below list the flags and defaults from the CLI command definitions.

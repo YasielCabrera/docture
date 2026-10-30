@@ -1,15 +1,24 @@
 ---
 title: Add model-assisted layout
 description: Refine element roles and order while preserving source text.
+type: how-to
 ---
 
-Add a model layout component after the document loader:
+A model layout analyzer refines the roles and reading order that deterministic conversion
+detects. It cannot change the text. The model returns annotations for existing elements,
+and the converter applies them only when they are valid.
+
+## Add the model analyzer
+
+Install the model packages and the provider you use:
 
 ```sh
 npm install docture pdfjs-dist ai @ai-sdk/openai zod
 ```
 
-```ts
+Register the model after the document loader:
+
+```ts check
 import { DocumentConverter } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { LLM } from "docture/llm";
@@ -26,8 +35,26 @@ try {
 }
 ```
 
-Set the provider credential before running. The model receives existing element IDs, roles, boxes, and grounded content. It returns IDs, roles, heading levels, groups, and order. Its response has no text field.
+Set the provider credential, such as `OPENAI_API_KEY`, before you run it. `result.method`
+becomes `deterministic+llm-layout` when the converter applies the model's annotations.
+`result.usage` reports the model's tokens.
 
-Core rejects unknown or duplicate IDs and invalid page-local order permutations. Failure leaves deterministic conversion in place, records a failed attempt, and adds a warning. The model does not see running headers or footers. Joined cross-page elements retain their protected structure.
+## Know what the model can change
 
-Use `llmLayout()` from `docture/llm/layout` for a direct component, or `defineLayoutAnalyzer()` for a custom analyzer. See [model layout API](/docs/conversion/reference/model-layout) and [analyzer contract](/docs/conversion/reference/analyzers).
+The model receives each element's ID, role, box, and content, without running headers and
+footers. It returns an annotation per element with an optional role, heading level, group
+label, and page-local order. The response schema has no text field.
+
+The converter ignores the whole analysis when an annotation names an unknown or repeated
+ID, assigns a role the element cannot take, or orders only part of a page. The
+deterministic layout stays in place, `result.warnings` gets an `INVALID_LAYOUT_ANALYSIS`
+warning, and `result.attempts` records a failed layout attempt. A model call that fails
+adds `LAYOUT_ANALYZER_FAILED` instead. A table or paragraph that continues onto the next
+page stays last on its page, and annotations that would retype or group it are ignored.
+
+## Use a direct or custom analyzer
+
+To configure the model analyzer on its own, pass `llmLayout()` from `docture/llm/layout`
+to `loadLayoutAnalyzer()`. To write your own, implement the contract with
+`defineLayoutAnalyzer()`. See the [model layout API](/docs/conversion/reference/model-layout)
+and the [analyzer contract](/docs/conversion/reference/analyzers).

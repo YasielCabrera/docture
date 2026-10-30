@@ -1,7 +1,10 @@
 ---
 title: Evaluation specs API
 description: Schema rules, validation, field resolution, and exploratory scoring.
+type: reference
 ---
+
+Import `defineEval` and `looseEval` from `@docture/eval` to build the spec that scores answers. [Define evaluation scoring rules](/docs/evaluation/scoring-rules) shows it in use.
 
 ## `@docture/eval`
 
@@ -16,6 +19,8 @@ defineEval<C extends ContractLike>(schema: C, rules?: EvalRules): EvalSpec<Infer
 defineEval<T = unknown>(schema: JsonSchemaObject, rules?: EvalRules): EvalSpec<T>
 ```
 
+Takes a [`SchemaInput`](/docs/evaluation/reference/specs#schemainput) schema and [`EvalRules`](/docs/evaluation/reference/specs#evalrules). Returns [`EvalSpec`](/docs/evaluation/reference/types#evalspec).
+
 Build a spec from a schema and rules. Every leaf gets its comparator from, in order: the most specific `fields` rule, an `x-docture-eval` annotation, an unambiguous type default, or `strings` for strings. Unresolved fields, unused rules and unsegmented leaves throw one `EvalSpecError` listing them all.
 
 ### `looseEval`
@@ -24,4 +29,90 @@ Build a spec from a schema and rules. Every leaf gets its comparator from, in or
 looseEval(options?: LooseEvalOptions): EvalSpec<unknown>
 ```
 
+Takes [`LooseEvalOptions`](/docs/evaluation/reference/specs#looseevaloptions). Returns [`EvalSpec`](/docs/evaluation/reference/types#evalspec).
+
 A spec with no schema that reproduces the defaults of Docture's previous `scoreExtraction`: numbers within 0.01, strings at similarity 0.9 once their digits agree, date-like strings by calendar day, arrays by index. It is the one spec that does not fail closed; use it for quick checks.
+
+## Types
+
+### `EvalRules`
+
+The rules of a spec, keyed by path pattern.
+
+```ts
+interface EvalRules {
+	/** Comparator for strings no rule or annotation covers. Without it such strings are unresolved. */
+	readonly strings?: Comparator;
+	readonly nulls?: NullHandling;
+	/** Named groups of leaves. When given, every leaf must fall in exactly one. A pattern also covers everything below it. */
+	readonly segments?: Readonly<Record<string, string | readonly string[]>>;
+	/**
+	 * Leaf rules. The most specific pattern wins: exact paths, then `*`, then `**`. An exact path naming an object or array compares it as one value.
+	 * An object whose schema allows unknown keys (`additionalProperties: true` or `{}`) needs a rule for them, such as `"meta.*"`,
+	 * or a rule comparing the whole object; otherwise `defineEval` reports it. A missing `additionalProperties` counts as closed,
+	 * since Zod and most generators omit it on ordinary objects.
+	 */
+	readonly fields?: Readonly<Record<string, FieldRule>>;
+	/**
+	 * Alignment rules for arrays, keyed by array pattern. Every array of rows needs one. `ordered` and `hungarian` pair rows by
+	 * similarity over every row field, nested arrays included, so a row needs at least one weighted field with a synchronous comparator.
+	 */
+	readonly arrays?: Readonly<Record<string, ArrayRule>>;
+	readonly assertions?: readonly Assertion[];
+}
+```
+
+### `FieldRule`
+
+A comparator, or field settings with an optional comparator.
+
+```ts
+type FieldRule = Comparator | FieldRuleOptions;
+```
+
+### `FieldRuleOptions`
+
+Field-level settings. A rule without `compare` keeps the comparator from the annotation or type default.
+
+{/* options: FieldRuleOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `compare` | `Comparator` | The comparator. Default: the comparator from the schema annotation or type default. |
+| `weight` | `number` | Weight in precision, recall and F1. Default 1. |
+| `critical` | `boolean` | A case with a critical field that does not match reports `metrics.critical: false`. |
+| `segment` | `string` | Overrides segment membership from `segments`. |
+
+### `JsonSchemaObject`
+
+A plain JSON Schema object that `defineEval` accepts as its schema.
+
+```ts check
+type JsonSchemaObject = Readonly<Record<string, unknown>>;
+```
+
+### `LooseEvalOptions`
+
+Options for `looseEval`.
+
+{/* options: LooseEvalOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `numericTolerance` | `number` | Absolute tolerance for numbers. Default 0.01. |
+| `stringSimilarity` | `number` | String similarity at which two strings match, after digits agree in order. Default 0.9. |
+| `alignArraysBy` | `string` | Sort arrays of objects by this key before pairing rows by index. |
+
+### `NullHandling`
+
+How null, undefined and empty strings count. `absent` (default) treats all three as missing, and a null or empty object or array as an absent container. `strict` keeps null as a value: a null leaf is compared, and a null container, or an empty one where the other side has none, is scored as one field at the container's path.
+
+```ts check
+type NullHandling = "absent" | "strict";
+```
+
+### `SchemaInput`
+
+What `defineEval` accepts: a Docture contract, any AI SDK `FlexibleSchema` (Zod, Standard Schema, `jsonSchema()`), or plain JSON Schema.
+
+```ts
+type SchemaInput = ContractLike | JsonSchemaObject;
+```

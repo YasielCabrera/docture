@@ -1,6 +1,7 @@
 ---
 title: "docture serve"
 description: "Serve byte-based convert, inspect and configured-schema extract over HTTP"
+type: reference
 ---
 
 Keeps configured loaders and clients warm. Binds to localhost by default. Non-loopback binding requires DOCTURE_SERVE_TOKEN.
@@ -9,18 +10,18 @@ Keeps configured loaders and clients warm. Binds to localhost by default. Non-lo
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--host` | 127.0.0.1 | Address to bind |
-| `--port` | 8787 | Port to bind; 0 selects an ephemeral port |
-| `--schema <name=module>` | Not set | Allow a named schema; a plain module uses default Repeatable. |
-| `--concurrency` | 4 | Maximum active requests |
-| `--max-queue` | 16 | Maximum queued requests |
-| `--max-body-bytes` | 16777216 | Maximum encoded JSON request bytes |
-| `--body-timeout` | 30000 | Request body deadline in milliseconds |
-| `--shutdown-timeout` | 30000 | Drain deadline before aborting active work |
+| `--host <addr>` | 127.0.0.1 | Address to bind |
+| `--port <port>` | 8787 | Port to bind; 0 selects an ephemeral port |
+| `--schema <name=module>` | Not set | Allow a named schema; a plain module uses default. Repeatable. |
+| `--concurrency <n>` | 4 | Maximum active requests |
+| `--max-queue <n>` | 16 | Maximum queued requests |
+| `--max-body-bytes <bytes>` | 16777216 | Maximum encoded JSON request bytes |
+| `--body-timeout <ms>` | 30000 | Request body deadline in milliseconds |
+| `--shutdown-timeout <ms>` | 30000 | Drain deadline before aborting active work |
 | `--model <provider/id>`, `-m` | Not set | The AI SDK model, e.g. openai/gpt-5 or anthropic/claude-opus-5 |
 | `--gateway` | Not set | Route through the Vercel AI Gateway even if the provider package is installed |
 | `--pricing <path>` | Not set | JSON prices by model id with inputPerMillion and outputPerMillion; optional cacheReadPerMillion and cacheWritePerMillion default to inputPerMillion |
-| `--cache <dir>` | Not set | Cache model responses on disk, so a re-run is free |
+| `--cache <dir>` | Not set | Cache model responses on disk and reuse them on a rerun |
 | `--instructions <text>` | Not set | Domain guidance appended to the system prompt |
 | `--temperature <n>` | 0 | Sampling temperature |
 | `--config <path>` | Not set | Config file. Default: the nearest docture.config.&#123;ts,mts,js,mjs&#125; |

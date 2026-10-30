@@ -1,18 +1,32 @@
 ---
-title: Migrate existing applications
-description: Replace scoped integration packages and move model imports out of the root.
+title: Upgrade between releases
+description: Required code, install, and data changes for each Docture upgrade, from 0.1.x to the unreleased 0.3.0.
+type: how-to
 ---
 
-This release consolidates the library into `docture`, with `@docture/cli` as the second
-published package. It changes import paths and engine installation. Extraction,
-conversion, classification, splitting, OCR, evaluation, and testing APIs remain available.
+Each section below covers one upgrade, oldest first, and lists the changes it requires. From 0.3.0, `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic` share one version number, so upgrade them together.
 
-## Replace the removed scoped packages
+| You use | Follow |
+| --- | --- |
+| 0.1.x | [0.1.x to 0.2.0](#upgrade-from-01x-to-020), then [0.2.x to 0.3.0](#upgrade-from-02x-to-030-unreleased) |
+| 0.2.x, including scoped packages such as `@docture/core` or `@docture/loader-pdfjs` | [0.2.x to 0.3.0](#upgrade-from-02x-to-030-unreleased) |
 
-Remove the old integration dependencies:
+## Upgrade from 0.1.x to 0.2.0
+
+Version 0.2.0 adds deterministic PDF conversion to text, Markdown, and HTML, and the `docture convert` command. It removes nothing. No code changes are required. Update `docture`, `@docture/cli`, `@docture/core`, `@docture/llm`, `@docture/loader-pdfjs`, and `@docture/loader-mupdf` to 0.2.0. The other scoped packages kept their own versions in that release: `@docture/loader-tesseract` and `@docture/loader-paddleocr` 0.1.1, `@docture/testing` 0.1.0, `@docture/raster-canvas` 0.0.3, and `@docture/eval` 0.0.3.
+
+## Upgrade from 0.2.x to 0.3.0 (unreleased)
+
+Version 0.3.0 is not published yet. The latest release on npm is 0.2.0. These steps describe the main branch, which these docs document, and become final when 0.3.0 is released.
+
+Version 0.3.0 reduces the eleven 0.2.x packages to four: `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic`. Integrations become subpaths of `docture`, their engines become peers you install, and evaluation becomes a new `@docture/eval` API. `@docture/synthetic` is new and needs no migration. Work through the sections in order.
+
+### Replace the removed scoped packages
+
+Remove the scoped packages that `docture` replaces:
 
 ```sh
-npm uninstall @docture/core @docture/llm @docture/loader-pdfjs @docture/loader-mupdf @docture/loader-tesseract @docture/loader-paddleocr @docture/raster-canvas @docture/eval @docture/testing
+npm uninstall @docture/core @docture/llm @docture/loader-pdfjs @docture/loader-mupdf @docture/loader-tesseract @docture/loader-paddleocr @docture/raster-canvas @docture/testing
 ```
 
 For a PDF.js and OpenAI application, install:
@@ -21,12 +35,11 @@ For a PDF.js and OpenAI application, install:
 npm install docture pdfjs-dist ai @ai-sdk/openai zod
 ```
 
-Use the [installation recipes](/docs/getting-started/installation) for other adapters or testing
-peers. The old scoped package paths are not aliases supplied by the new `docture` package.
+Use the [installation recipes](/docs/getting-started/installation) for other adapters and testing peers. The new `docture` package does not alias the old scoped names.
 
 Replace imports according to this mapping:
 
-| Previous import | Replacement |
+| 0.2.x import | 0.3.0 import |
 | --- | --- |
 | `@docture/core` | `docture` |
 | `@docture/llm` | `docture/llm`, or a narrow entry such as `docture/llm/text` |
@@ -35,20 +48,20 @@ Replace imports according to this mapping:
 | `@docture/loader-tesseract` | `docture/loaders/tesseract` |
 | `@docture/loader-paddleocr` | `docture/loaders/paddleocr` |
 | `@docture/raster-canvas` | `docture/raster/canvas` |
-| `@docture/eval` | `docture/eval` |
 | `@docture/testing` for doubles | `docture/testing/doubles` |
 | `@docture/testing` for conformance | `docture/testing/conformance` |
 | `@docture/testing` for PDF fixtures | `docture/testing/fixtures` |
+| `@docture/eval` 0.0.x | `@docture/eval` 0.3.0, with a new API. See [move evaluation to @docture/eval](#move-evaluation-to-doctureeval). |
 | `@docture/cli` | `@docture/cli` |
 
-## Move model imports out of the root
+### Move model imports out of the root
 
 The root `docture` entry now exports core only. Move `LLM`, `model`, strategies, splitters,
 and model utilities to their documented subpaths.
 
 Replace the previous combined root import with:
 
-```ts
+```ts check
 import { contract } from "docture";
 import { Extractor } from "docture/node";
 import { LLM } from "docture/llm";
@@ -57,7 +70,7 @@ import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 
 For text extraction without the convenience backend:
 
-```ts
+```ts check
 import { Extractor } from "docture/node";
 import { llm } from "docture/llm/text";
 import { fileCache } from "docture/llm/cache";
@@ -74,7 +87,7 @@ The [package reference](/docs/getting-started/reference/packages#public-entry-po
 entry, including vision, classifier, layout, split, extractor, prompt, pricing, merge,
 and schema relaxation.
 
-## Install selected engines explicitly
+### Install selected engines explicitly
 
 An adapter's third-party engine is now an optional peer. Importing the adapter still
 requires that peer at runtime, and TypeScript consumers can need its declarations.
@@ -86,7 +99,7 @@ Installing `docture` alone requests no engine. Installing `@docture/cli` still b
 required AI SDK and PDF.js dependencies and attempts its optional canvas dependency.
 
 The OCR engines are exact peers: `tesseract.js@7.0.0`, `ppu-paddle-ocr@6.3.0`, and
-`onnxruntime-node@1.27.0`. The previous OCR packages kept these engines as their own
+`onnxruntime-node@1.27.0`. The 0.2.x OCR packages kept these engines as their own
 dependencies. If your application already depends on another release of one of them, npm
 now refuses to install `docture`, even when you use only core APIs. If it depends only on
 `@docture/cli`, npm instead installs the pinned release as a second copy under
@@ -108,7 +121,7 @@ The OCR adapters stay supported only at the pinned versions. See
 
 Separate the testing imports so test doubles do not load PDFKit or Vitest:
 
-```ts
+```ts check
 import { fixedStrategy, inMemoryLoader } from "docture/testing/doubles";
 import { describeLoaderConformance } from "docture/testing/conformance";
 import { makeInvoicePdf } from "docture/testing/fixtures";
@@ -116,7 +129,7 @@ import { makeInvoicePdf } from "docture/testing/fixtures";
 
 The conformance entry needs Vitest 3 or newer and PDFKit. The fixtures entry needs PDFKit.
 
-## Check CLI invocations and bundle assumptions
+### Check CLI invocations and bundle assumptions
 
 Install the CLI before using its binary:
 
@@ -129,13 +142,21 @@ For a one-off run, use
 `npx --package @docture/cli docture` so npm selects the package that owns the executable. Update imports in
 `docture.config.ts` using the same mapping as application code.
 
-All Docture wrappers now arrive in one tarball. Optional peers isolate engine installs;
+Every command that prints JSON now writes one envelope, `{ version: 1, command, ok, results, summary? }`. Update scripts that read the output:
+
+- `extract` prints the envelope by default, for one input or many. Replace `jq .total` with `jq '.results[0].data.total'`.
+- `--format json|ndjson|text` selects the output encoding on every command. `classify --json` and `inspect --json` are removed.
+- `convert --format md|html|txt` is now `convert --to md|html|txt`.
+
+See [inputs and outputs](/docs/cli/inputs-and-outputs) for the envelope fields.
+
+All Docture wrappers now arrive in one tarball. Optional peers isolate engine installs, and
 narrow ESM imports let a production bundler remove unrelated modules. A used `LLM` class
 can retain the implementations its methods reference. Unbundled Node dependencies are
 not pruned. See [bundling and download size](/docs/getting-started/reference/packages#bundling-and-download-size)
 for the limits of tree shaking.
 
-## Update loader names and constructed records
+### Update loader names and constructed records
 
 Loader entries now expose one class and one matching options type. Replace the old
 aliases and `Config` names with these canonical exports:
@@ -153,32 +174,57 @@ The root export `loadDocument` is now `readDocument`. It takes the same argument
 | --- | --- | --- |
 | `docture` | `loadDocument` | `readDocument` |
 
+A missing pipeline component or a call in the wrong order now throws `MissingComponentError`
+(`MISSING_COMPONENT`) instead of `TypeError`. Replace `instanceof TypeError` checks around
+extractor setup with `instanceof MissingComponentError`.
+
 Custom code that constructs `Attempt` records must supply `stage`: `load`, `classify`,
 `extract`, `repair`, or `layout`. Keep `strategy` as the component name.
 
 Custom CLI `Io` implementations must supply `stdoutColor` separately from `color`.
 Use the stdout terminal capability for `stdoutColor` and the stderr capability for
-`color`. `NO_COLOR` and `--no-color` disable both streams.
+`color`. `NO_COLOR` and `--no-color` disable both streams. They must also supply
+`readStdin(signal?)`, which returns the bytes of standard input. Return an empty
+`Uint8Array` when your host has no standard input.
 
 For custom OCR rasterizers, `maxPages` caps source page numbers, rather than the number
 of returned rasters. With `maxPages: 3`, a sparse response containing pages 2 and 5
 runs OCR only on page 2. Selected pages remain unique and in document order.
 
-## Move local files to the Node entry
+### Move local files to the Node entry
 
 The root now loads in browsers and workers. Code that passes a path or file URL imports its constructors from `docture/node`, or passes `sourceResolver: resolveNodeSource` from that entry. Raw bytes, HTTP URLs and loaded sources keep their portable root imports. The Node entry reuses core modules and error identities. It performs no resolver registration at import time.
 
-## Move evaluation to @docture/eval
+### Move evaluation to @docture/eval
 
-Install `@docture/eval` beside `docture`. The old `docture/eval` entry is removed in the same pre-1.0 minor release. There is no compatibility layer.
+`@docture/eval` 0.3.0 replaces the 0.0.x package of the same name with a new API. Install it beside `docture`. There is no compatibility layer.
 
-| Previous API | Replacement |
+| Published `@docture/eval` 0.0.x API | 0.3.0 replacement |
 | --- | --- |
-| `scoreExtraction` | `looseEval().score` for exploratory comparisons; `defineEval` for schema-driven rules |
-| `recordRun`, `aggregate` | `buildResult` from `@docture/eval` or `runEval` from `@docture/eval/runner` |
-| `formatScoreboard` | `renderScoreboard` from `@docture/eval/reporters/terminal`, or `renderMarkdown` from `/reporters/markdown` |
+| `scoreExtraction` | `looseEval().score` for exploratory comparisons, or `defineEval` for schema-driven rules |
+| `recordRun`, `aggregate` | `buildResult` from `@docture/eval`, or `runEval` from `@docture/eval/runner` |
+| `formatScoreboard` | `renderScoreboard` from `@docture/eval/reporters/terminal`, or `renderMarkdown` from `@docture/eval/reporters/markdown` |
+
+If you used the unreleased `docture/eval` entry from the main branch, replace it with `@docture/eval` or its narrow subpaths; the old entry is removed.
+
+| Unreleased `docture/eval` API | 0.3.0 replacement |
+| --- | --- |
 | `calibrateFields` | `calibrate` from `@docture/eval/calibration` |
 | `gate` | `gate` from `@docture/eval` |
 | `checkConversion` | `checkConversion` from `@docture/eval/conversion` |
 
-Case scores expose `score.metrics.f1`, not `score.f1`. Empty denominators are `null`. Results contain per-experiment summaries and field comparisons. Use `readEvalResult` to load saved runs for reporters and comparison. Projects keep their own dataset layout through a `Dataset` adapter.
+Case scores expose `score.metrics.f1`, not `score.f1`. Empty denominators are `null`. Results contain per-experiment summaries and field comparisons. Load saved runs for reporters and comparison with `readEvalResult` from `@docture/eval/node`. Projects keep their own dataset layout through a `Dataset` adapter.
+
+### Expect one repair request for invalid answers
+
+Invalid model answers now receive one repair request before the pipeline tries the next strategy. The repair is a billed model call. Set `maxRepairs: 0` on the extractor or the run options to keep one request per strategy. `maxRetries` still controls only transport retries. See [bound repairs](/docs/extraction/validation#bound-repairs).
+
+### Convert documents again for new element IDs
+
+Conversion JSON is now `schemaVersion: 2`. Version 2 adds the `page-header` and `page-footer` element kinds, so an exhaustive `switch` over `element.kind` needs two new cases. Read saved version 1 or version 2 JSON with `parseDoctureDocument()`, which returns a version 2 document.
+
+Element IDs now come from each element's content and position instead of its order on the page, so every converted ID changes. Old ordinal IDs such as `p1-text-4` do not map to the new scheme. Convert the source again, and rebuild retrieval chunks and indexes keyed by element ID. Update layout analyzers and tests that hard-code ordinal IDs to read IDs from `ctx.document`. See [document JSON](/docs/conversion/document-json).
+
+### Expect a cold model cache
+
+Cache keys now include the provider, the resolved temperature, and, for vision, the rendered page content. Entries written by 0.2.x are not reused, so the first run after the upgrade calls the model again and is billed again. Old file-cache entries stay on disk until you delete them. Code that builds `CacheKeyParts` itself must supply `provider` and `temperature`.

@@ -1,16 +1,18 @@
 ---
 title: Architecture
-description: Layers, data flow, extension boundaries, and tested invariants.
+description: How the docture package layers its core, where custom components plug in, and which behaviors it guarantees.
+type: explanation
 ---
 
 Docture separates document data, component contracts, pipeline control flow, and
-composition inside `packages/docture/src`. Adapter modules depend on core, while core does not depend on a document
-parser or model runtime.
+composition. Adapter modules depend on core, and core depends on no document parser or
+model runtime. Read this page to decide where a custom component fits or to understand
+why an import does not load an engine.
 
 ```mermaid
 flowchart TB
   accTitle: Docture package architecture
-  accDescr: Applications and the CLI use Extractor, DocumentConverter, or Process to reach the core pipeline, component contracts, and domain types. Loader, LLM, and rasterizer modules depend on component contracts. Evaluation and testing depend on domain types.
+  accDescr: Applications and the CLI use Extractor, DocumentConverter, or Process to reach the core pipeline, component contracts, and domain types. Loader, LLM, and rasterizer modules depend on component contracts. Testing modules and `@docture/eval` depend on domain types.
   A[Application or CLI] --> B[Extractor, DocumentConverter, or Process]
   B --> C[Core pipeline]
   C --> D[Component contracts]
@@ -18,7 +20,7 @@ flowchart TB
   F[Loader modules] --> D
   G[LLM modules] --> D
   H[Rasterizer modules] --> D
-  I[Evaluation and testing] --> E
+  I[Testing and @docture/eval] --> E
 ```
 
 ## Core layers
@@ -32,8 +34,8 @@ flowchart TB
 | `DocumentConverter` | Shared loading, deterministic layout analysis, text-format export, batches, and disposal. |
 | `Process` | Load-once bundle splitting and extraction by classification. |
 
-`DocumentLoaderData` is the only loader in core because it uses `TextDecoder` and no
-third-party document library.
+`DocumentLoaderData` is the only loader in core. It decodes plain text with `TextDecoder`, and
+loads the bundled HTML and XHTML syntax parsers on first HTML or XHTML input.
 
 ## Extension boundaries
 
@@ -82,7 +84,7 @@ their roles and order, and the exporter produces TXT, Markdown, HTML, or version
 
 ## Tested invariants
 
-The test suites enforce these behaviors:
+Docture's test suites enforce these behaviors:
 
 1. Domain and contract layers do not import higher layers.
 2. Importing `docture` does not load a PDF parser, HTML syntax parser, OCR engine, canvas, ONNX
@@ -98,9 +100,9 @@ The test suites enforce these behaviors:
 10. Split groups preserve every page, and unknown groups fail unless the caller chooses to
     skip them.
 11. `Extractor.dispose()` is idempotent and reports all disposal failures.
-12. The root exports core only. Public subpaths expose model, adapter, evaluation, and testing modules.
+12. The root exports core only. Public subpaths expose model, adapter, and testing modules. Evaluation lives in `@docture/eval`.
 13. Conversion assistance cannot carry text or reference unknown element IDs.
 
-Loader and rasterizer modules run shared conformance suites. Type tests cover generic
-inference and APIs that explicitly require capability-specific loader types. Generated
-fixtures keep test bytes and expected values in the same source.
+Built-in loaders and rasterizers pass the same conformance suites that
+`docture/testing/conformance` exports for your own components. See
+[testing pipelines and components](/docs/resources/testing).

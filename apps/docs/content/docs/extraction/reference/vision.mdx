@@ -1,46 +1,65 @@
 ---
 title: Vision extraction API
 description: Vision model options, page limits, rendering, and request budgets.
+type: reference
 ---
 
-Import these APIs from `docture/llm` or the narrow entries listed below. Install AI SDK 7 and Zod (3.25.76 or later 3.x, or 4.1.8 or later) in the application.
-For model components:
+The vision strategy renders pages to images and sends them to a multimodal model, for scans and documents without a usable text layer. Import it from `docture/llm/vision` or `docture/llm`. [Read scans and images](/docs/integrations/scanned-documents) shows it in use.
+
+Install AI SDK 7, Zod 3.25.76 or later 3.x or Zod 4.1.8 or later, and the provider you construct, such as `@ai-sdk/openai`:
 
 ```sh
 npm install docture ai zod
 ```
 
-Also install the provider you construct, such as `@ai-sdk/openai`. The
-[complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model)
-includes the document engine and schema library.
-
-All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
-gateway model string.
+The [complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model) includes the document engine and schema library.
 
 ## Vision extraction
 
-Import from `docture/llm/vision`.
+### `vision`
+
+Creates a vision extraction strategy.
 
 ```ts
-new VisionStrategy(options: VisionStrategyOptions)
-vision(options: VisionStrategyOptions): ExtractionStrategy
+function vision(options: VisionStrategyOptions): ExtractionStrategy & Pick<VisionStrategy, "requires">
 ```
 
-`VisionStrategy` requires `RENDERABLE_PAGES`, is named `vision` by default, and uses
-classification as a hint by default.
+### `VisionStrategy`
 
-`VisionStrategyOptions` contains the same model, prompt, cache, price, retry, temperature,
-and classification fields as text extraction. Vision-specific options are:
+The class behind `vision()`. It requires `RENDERABLE_PAGES`, is named `vision` by default, and uses classification as a hint by default.
 
+```ts
+class VisionStrategy implements ExtractionStrategy {
+  readonly name: string;
+  readonly requires: readonly ["RENDERABLE_PAGES"];
+  readonly needsClassification: ClassificationNeed;
+  constructor(options: VisionStrategyOptions);
+}
+```
+
+The strategy rejects when there are no pages, a page cannot render, the model fails, or the caller aborts. Per-page results are merged before core validation. It does not cite values, and it implements `repair()` as described in [text extraction repair](/docs/extraction/reference/text#repair).
+
+### `VisionStrategyOptions`
+
+{/* options: VisionStrategyOptions */}
 | Option | Default | Meaning |
 | --- | --- | --- |
+| `model` | required | AI SDK multimodal language model. |
+| `name` | `vision` | Strategy name. |
 | `dpi` | `200` | Render resolution. |
 | `maxEdge` | `1568` | Maximum image edge in pixels. |
 | `format` | `png` | Render format. |
 | `maxPages` | all | Maximum pages sent. |
-| `pageMode` | `together` | Consecutive page groups or one request per page. |
-| `pagesPerRequest` | `20` | Maximum pages in a together group. Positive integer. |
+| `pageMode` | `together` | `together` sends consecutive groups of up to `pagesPerRequest` pages; `perPage` sends one request per page and merges. |
+| `pagesPerRequest` | `20` | Maximum pages in a `together` group. Positive integer. |
+| `system` | `DEFAULT_SYSTEM_PROMPT` | Replacement system prompt. |
+| `instructions` | none | Text appended to the system prompt. |
+| `hints` | `{}` | Guidance keyed by classification name. |
+| `cache` | none | Optional `LlmCache`. |
+| `pricing` | none | Optional prices by model id. |
+| `temperature` | `0` | AI SDK temperature. |
+| `providerOptions` | none | Provider-specific settings forwarded to the AI SDK and included in cache identity. |
+| `maxRetries` | `2` | AI SDK retry count. |
 | `concurrency` | `4` | Maximum model requests in flight. Positive integer. |
-
-The strategy rejects when there are no pages, a page cannot render, the model fails, or
-the caller aborts. Per-page results are merged before core validation.
+| `needsClassification` | `hint` | Core classification requirement. |
+| `telemetry` | none | AI SDK telemetry. See [model telemetry API](/docs/extraction/reference/telemetry). |

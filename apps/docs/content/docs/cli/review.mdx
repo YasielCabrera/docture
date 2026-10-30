@@ -1,11 +1,14 @@
 ---
 title: Review documents and extracted fields
 description: Inspect layout boxes and citation status in an offline HTML file.
+type: how-to
 ---
 
-## Review
+`review` writes one HTML file that shows what Docture found on each page.
 
-`review` writes one HTML file that shows what Docture found on each page:
+## Write a review page
+
+Pass a document and an output path:
 
 ```sh
 docture review report.pdf -o review.html
@@ -13,12 +16,12 @@ docture review report.pdf -o review.html
 
 The file is self-contained. Page images are data URIs rendered at `--dpi`, 96 by
 default, and a Content-Security-Policy blocks every network request, so you can open it
-offline or attach it to a ticket. The output defaults to `review.html`. Pages are
-rendered with the configured loaders, or with PDF.js and `@napi-rs/canvas` by default.
+offline or attach it to a ticket. The output defaults to `review.html`. The CLI renders
+pages with the configured loaders, or with PDF.js and `@napi-rs/canvas` by default.
 Without the canvas package, the command exits with code `1` and prints its install
 command.
 
-### Conversion view
+## Conversion view
 
 Without `--schema` or `--model`, `review` converts the document and draws each
 element's box over the page. Hover a box for its id and kind. The list under each page
@@ -36,7 +39,7 @@ docture review --conversion converted/report.json --source report.pdf
 Version 1 and version 2 files are accepted. A file that is not valid conversion JSON
 exits with code `2` and names the first invalid fields.
 
-### Extraction view
+## Extraction view
 
 With `--schema` or `--model`, `review` extracts with citations turned on. It lists every
 present field beside the pages, colored by status: `verified`, `cited-unverified`, or
@@ -58,3 +61,5 @@ docture review --extraction result.json --source invoice.pdf
 `--extraction` accepts one result record or a JSON envelope. An envelope with several
 results needs `--item <n>`, counted from `0`. A result saved without `--citations` lists
 its fields as not requested. Invalid citations, or a failed result, exit with code `2`.
+
+To produce an extraction with cited fields, see [Verify field citations](/docs/extraction/citations). The [`docture review` reference](/docs/cli/commands/review) lists every flag.

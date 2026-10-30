@@ -216,15 +216,15 @@ async function checkPackedPackage(directory, manifest, ts, sourceDirectory) {
   const requiredFiles = {
     docture: ["README.md", "CHANGELOG.md", "AGENTS.md"],
     "@docture/cli": ["README.md", "AGENTS.md"],
-    "@docture/eval": ["README.md", "CHANGELOG.md"],
-    "@docture/synthetic": ["README.md", "CHANGELOG.md"],
+    "@docture/eval": ["README.md", "CHANGELOG.md", "AGENTS.md"],
+    "@docture/synthetic": ["README.md", "CHANGELOG.md", "AGENTS.md"],
   };
   for (const file of requiredFiles[manifest.name]) {
     assert.ok(manifest.files.includes(file), `${manifest.name} declares ${file}`);
     assert.ok((await stat(join(directory, file))).isFile(), `${manifest.name} ships ${file}`);
   }
   if (requiredFiles[manifest.name].includes("AGENTS.md")) {
-    assert.match(await readFile(join(directory, "AGENTS.md"), "utf8"), /Codex/);
+    assert.ok((await readFile(join(directory, "AGENTS.md"), "utf8")).includes(`node_modules/${manifest.name}/AGENTS.md`), `${manifest.name} AGENTS.md names its installed path`);
   }
   if (manifest.name === "@docture/eval" || manifest.name === "@docture/synthetic") assert.equal(manifest.sideEffects, false, `${manifest.name} supports tree shaking`);
   if (manifest.name === "docture") {

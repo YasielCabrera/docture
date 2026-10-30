@@ -1,13 +1,15 @@
 ---
 title: Trace content to source evidence
 description: Follow page regions, line IDs, native pointers, and stable element identities.
+type: how-to
 ---
+
+Every element in a conversion result records the page, box, and source lines it came
+from. Use that provenance to highlight a passage in the PDF or to cite it from an answer.
 
 ## Result provenance
 
-`ConversionResult` contains whole-document `content`, MIME type, page fragments,
-semantic elements, in-memory assets, loader and method names, document features,
-attempts, warnings, model usage, and wall time.
+Read each element's `provenance` for the page where it starts and its bounding box:
 
 ```ts
 for (const page of result.pages) {
@@ -17,11 +19,14 @@ for (const page of result.pages) {
 }
 ```
 
-Use `safeConvert()` for a non-throwing result and `convertBatch()` for bounded parallel
-conversion. Call `dispose()` when the converter owns loaders or a model analyzer.
-
+Coordinates use PDF points with a top-left origin, x to the right, and y down. The
+segment also lists the loader's `sourceIds` and, when the page has positioned lines, the
+`lineIds` of the lines behind the element.
 
 ## Follow continued elements
+
+A table or paragraph that continues across a page break has one segment per page.
+`provenanceSegments()` returns them in page order:
 
 ```ts
 import { provenanceSegments } from "docture";
@@ -33,10 +38,27 @@ for (const page of result.pages) {
 }
 ```
 
-Coordinates use PDF points with a top-left origin, x right, and y down. A multi-page element has one segment per page. A table's row provenance identifies the pages behind each row.
+A table built from positioned lines also has `rowProvenance`, which gives the page and box
+of each row. See [cross-page continuation detection](/docs/conversion/reference/continuations)
+for when elements join.
 
-Element IDs describe normalized content and position. They are anchors, not checksums. Reflow, a different loader, changed segmentation, or page insertion can change them. Line IDs name positioned lines and have a different stability contract.
+## Choose an ID to store
 
-Native Docling input can provide element and cell evidence without physical line boxes. Preserve its source identity and pointer sidecar; do not invent placement when the input lacks it.
+Store element IDs when you need an anchor that survives an unrelated edit. An element ID
+describes the element's normalized content and position. Reflow, a different loader,
+changed segmentation, or an inserted page can still change it, so treat it as an anchor,
+not a checksum.
 
-See [identity and evidence API](/docs/conversion/reference/evidence) for source IDs, exact stability limits, and native evidence. [Field citations](/docs/extraction/citations) link extracted values to supporting text.
+Store line IDs when you need the exact physical line. A line ID such as `p3-line-12` names
+the twelfth positioned line on page 3. It is stable for the same file and loader, but an
+inserted line renumbers the lines after it.
+
+The [identity and evidence API](/docs/conversion/reference/evidence) lists the exact
+stability limits of both.
+
+## Keep native evidence
+
+[Imported Docling documents](/docs/integrations/docling-import) can carry element and
+table-cell evidence without physical line boxes. Keep that evidence and its source
+identity with the document, and do not invent a page position when the input lacks one.
+[Field citations](/docs/extraction/citations) link extracted values to supporting text.

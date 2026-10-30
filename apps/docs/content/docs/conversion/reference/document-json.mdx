@@ -1,34 +1,23 @@
 ---
 title: Document JSON API
 description: Versioned document JSON, parser contracts, and round-trip behavior.
+type: reference
 ---
 
-Import from `docture`.
+Document JSON is the versioned, portable form of a conversion result. Import its types
+and parser from `docture`. For saving and loading steps, see
+[Save and load document JSON](/docs/conversion/document-json).
 
 ## Versioned JSON
 
-`ConversionFormat` also accepts `"json"`. Its MIME type is `application/json`.
-`DoctureDocument` has `schemaVersion: 2`, loader, method, normalized layout pages, assets,
-and final warnings. Page dimensions, element IDs, boxes, source and line IDs, and ordering
-match the in-process conversion result. The
-[version 2 JSON Schema](/schemas/docture-document-v2.schema.json) is generated from the
-TypeScript type. Breaking format changes require a new version. Version 2 added the page
-furniture kinds and `lineIds`. The published
+`format: "json"` returns a `DoctureDocument` serialized as JSON, with MIME type
+`application/json`. Page dimensions, element IDs, boxes, source and line IDs, and ordering
+match the in-process conversion result.
+
+The [version 2 JSON Schema](/schemas/docture-document-v2.schema.json) is generated from
+the TypeScript type. Breaking format changes require a new version. Version 2 added the
+page furniture kinds and `lineIds`. The published
 [version 1 JSON Schema](/schemas/docture-document-v1.schema.json) is frozen.
-
-```ts
-parseDoctureDocument(value: unknown): DoctureDocumentParse
-```
-
-Read saved JSON with `parseDoctureDocument()`. It validates version 1 and version 2
-documents and returns `{ ok: true, document, sourceVersion }` or `{ ok: false, issues }`.
-A valid version 1 document comes back as version 2, its structural superset. Each
-`ValidationIssue` has a dotted path. Beyond the schema, the parser requires unique element
-IDs, a provenance page equal to the holding page, and line IDs on that page.
-
-`DoctureDocumentAsset` contains either `{ id, mimeType, reference }` for referenced assets
-or `{ id, mimeType, data }` for embedded base64 bytes. Omitted assets produce an empty
-array. Original link targets remain data; an HTML renderer must apply its own URL policy.
 
 ```ts
 const result = await converter.convert(source, { format: "json", assets: "embedded" });
@@ -36,4 +25,66 @@ const parsed = parseDoctureDocument(JSON.parse(result.content));
 if (parsed.ok) console.log(parsed.document.schemaVersion); // 2
 ```
 
-`sourceResolver` in `DocumentConverterOptions` selects source access. The portable default rejects local paths and file URLs. The Node entry supplies file access explicitly.
+### `DoctureDocument`
+
+A saved conversion.
+
+{/* options: DoctureDocument */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `schemaVersion` | `2` | The format version. |
+| `loader` | `string` | Name of the loader that read the source. |
+| `method` | `string` | `deterministic` or `deterministic+<analyzer name>` for a conversion. A Docling import records `native-import`. |
+| `pages` | `readonly LayoutPage[]` | The [normalized layout pages](/docs/conversion/reference/layout#layoutpage). |
+| `assets` | `readonly DoctureDocumentAsset[]` | Image assets. Empty when assets were omitted. |
+| `warnings` | `readonly ConversionWarning[]` | The final conversion warnings. |
+| `sourceDigest` | `string` | SHA-256 digest of the imported source representation, such as a Docling JSON export, when the loader records one. |
+| `physicalSourceDigest` | `string` | SHA-256 digest of separately bound original bytes, such as the PDF behind a Docling export. Physical evidence locations name this digest. |
+
+### `DoctureDocumentAsset`
+
+One saved asset, referenced or embedded.
+
+```ts check
+type DoctureDocumentAsset =
+  | { readonly id: string; readonly mimeType: string; readonly reference: string }
+  | { readonly id: string; readonly mimeType: string; readonly data: string };
+```
+
+A referenced asset has a relative `reference` path. An embedded asset has base64 `data`.
+Link targets in element runs stay as data. An application that renders saved HTML from
+them applies its own URL policy.
+
+## Read saved JSON
+
+### `parseDoctureDocument`
+
+Validate saved document JSON and upgrade version 1 to version 2.
+
+```ts
+parseDoctureDocument(value: unknown): DoctureDocumentParse
+```
+
+Returns a `DoctureDocumentParse`. A valid version 1 document comes back as version 2, its
+structural superset, with `sourceVersion: 1`. Beyond the schema, the parser requires
+unique element IDs, a provenance page equal to the holding page, line IDs on that page,
+and valid [table spans](/docs/conversion/reference/layout#tablecellspan) and
+[continuations](/docs/conversion/reference/continuations#continuation-rules). It does not
+throw for invalid input.
+
+### `DoctureDocumentParse`
+
+```ts
+type DoctureDocumentParse =
+  | { readonly ok: true; readonly document: DoctureDocument; readonly sourceVersion: 1 | 2 }
+  | { readonly ok: false; readonly issues: readonly ValidationIssue[] };
+```
+
+Each `ValidationIssue` has a dotted `path`, such as `pages.0.elements.3.id`, and a
+`message`. An empty path names the whole value.
+
+## Read local files
+
+The `docture` converter's default source resolver rejects local paths and file URLs. Import
+`DocumentConverter` from `docture/node` to read them, or pass a `sourceResolver` in
+[`DocumentConverterOptions`](/docs/conversion/reference/converter#documentconverteroptions).

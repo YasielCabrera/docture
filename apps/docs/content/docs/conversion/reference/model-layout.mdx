@@ -1,36 +1,67 @@
 ---
 title: Model layout API
 description: Model-assisted layout options, annotation limits, and usage.
+type: reference
 ---
 
-Import these APIs from `docture/llm` or the narrow entries listed below. Install AI SDK 7 and Zod (3.25.76 or later 3.x, or 4.1.8 or later) in the application.
-For model components:
+The model layout analyzer asks a language model to refine element roles and reading
+order. Import it from `docture/llm/layout`, or from `docture/llm`. For a full setup, see
+[Add model-assisted layout](/docs/conversion/model-layout).
 
 ```sh
 npm install docture ai zod
 ```
 
-Also install the provider you construct, such as `@ai-sdk/openai`. The
+The application needs AI SDK 7 and Zod 3.25.76 or later 3.x, or 4.1.8 or later. Also
+install the provider you construct, such as `@ai-sdk/openai`. The
 [complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model)
 includes the document engine and schema library.
 
-All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
-gateway model string.
-
 ## Layout assistance
 
-Import from `docture/llm/layout`.
+### `LlmLayoutAnalyzer`
+
+A `LayoutAnalyzer` backed by an AI SDK model.
 
 ```ts
+import { LlmLayoutAnalyzer } from "docture/llm/layout";
+
 new LlmLayoutAnalyzer(options: LlmLayoutAnalyzerOptions)
-llmLayout(options: LlmLayoutAnalyzerOptions): LayoutAnalyzer
-new LLM(model).layout(): LayoutAnalyzer
 ```
 
-`LlmLayoutAnalyzer` is named `llm-layout` by default. Its options contain the required
-model plus optional name, instructions, cache, pricing, temperature, and retries.
+The model sees each element's ID, role, box, and content, without running headers and
+footers. Its strict response schema accepts annotations only: ID, role, optional heading
+level, group, and order. It has no text field. Core validates the response as described
+in [analyzer validation](/docs/conversion/reference/analyzers#validation) before using it.
 
-The model sees existing element IDs, roles, boxes, and grounded content. Its strict
-response schema accepts annotations only: ID, role, optional heading level, group, and order.
-It contains no text field. Core validates known IDs and page-local permutations before
-using the response. Calls support response caching and report token and cost usage.
+`analyze()` reports token and cost usage, and returns usage from the cache on a hit. A
+response that does not match the schema rejects with a `ModelOutputError` that carries the
+call's usage. Other failures reject with the AI SDK error. The converter records either as
+a `LAYOUT_ANALYZER_FAILED` warning and keeps the deterministic layout.
+
+### `llmLayout`
+
+Create an `LlmLayoutAnalyzer`.
+
+```ts
+import { llmLayout } from "docture/llm/layout";
+
+llmLayout(options: LlmLayoutAnalyzerOptions): LayoutAnalyzer
+```
+
+`new LLM(model).layout()` from `docture/llm` returns the same analyzer with the backend's
+shared options. `DocumentConverter.loadLlm()` registers it.
+
+### `LlmLayoutAnalyzerOptions`
+
+{/* options: LlmLayoutAnalyzerOptions */}
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `model` | `LanguageModel` | Required | An AI SDK model, such as a provider instance or a gateway model string. |
+| `name` | `string` | `"llm-layout"` | The analyzer name in `ConversionResult.method` and attempt records. |
+| `instructions` | `string` | None | Text appended to the built-in system prompt. |
+| `cache` | `LlmCache` | None | Response cache. A hit skips the model call. |
+| `pricing` | `PricingTable` | None | Prices used to compute the cost in `usage`. |
+| `temperature` | `number` | `0` | Sampling temperature. |
+| `maxRetries` | `number` | `2` | AI SDK retries for a failed call. |
+| `telemetry` | `LlmTelemetryOptions` | None | AI SDK telemetry. Inputs and outputs are not recorded unless enabled here. |

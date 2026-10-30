@@ -1,9 +1,18 @@
 ---
 title: Build a Docture container
 description: Build the two package artifacts into a Linux PDF service image.
+type: how-to
 ---
 
-The Dockerfile packs `docture` and `@docture/cli` from this checkout and installs those tarballs in a Node 22 Debian runtime. Its selected target is Linux amd64 with PDF.js 6.2.108, native canvas 1.0.10 and its GNU x64 binding. It includes fonts and Zod 4.4.3. OCR engines, OCR models and MuPDF are absent. Model calls require explicit caller configuration and credentials.
+The repository's Dockerfile builds a Linux image whose entry point is the `docture` command. It packs `docture` and `@docture/cli` from a checkout and installs those tarballs in a Node 22 Debian runtime.
+
+## Know what the image contains
+
+The image targets Linux amd64 with PDF.js 6.2.108, native canvas 1.0.10 and its GNU x64 binding, fonts, and Zod 4.4.3. OCR engines, OCR models, and MuPDF are absent. Model calls require explicit caller configuration and credentials. `/opt/docture/versions.json` records the Node version, the platform, and the installed package versions.
+
+## Build and check the image
+
+From the repository root:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -12,24 +21,26 @@ docker build --platform linux/amd64 --tag docture:local .
 node scripts/container-smoke.mjs docture:local
 ```
 
-The smoke script mounts a generated PDF, converts it through the actual CLI, renders it through the selected native canvas pair, compares HTTP conversion and inspection with the CLI, exercises configured extraction, and checks graceful SIGTERM exit. Run this check before claiming support for the image or platform. `node --test scripts/container-build.test.mjs` runs the recipe check and attempts the real build when a Linux Docker daemon is available. Without a working daemon, it reports the image/native-platform check as skipped. Set `RUN_CONTAINER=1` to require it.
+The smoke script mounts a generated PDF and converts it through the CLI. It renders the PDF with the native canvas package, compares HTTP conversion and inspection with the CLI, runs a configured extraction, and checks that SIGTERM exits cleanly. Run it before you rely on the image on a new platform.
 
-Convert a mounted file with the container command.
+## Convert a mounted file
 
 ```sh
 docker run --rm --platform linux/amd64 -v "$PWD:/work" docture:local convert report.pdf --out converted --to txt --no-config
 ```
 
-The process runs as the image's `node` user. Make the mounted output directory writable by that user. Input filenames are never interpreted as host paths outside the mounted directories.
+The process runs as the image's `node` user, so make the mounted output directory writable by that user. The container sees only the directories you mount.
 
-For a service, mount configuration at `/opt/docture/docture.config.mjs` so its ESM imports resolve beside the installed packages. Supply the token through the environment. The following command reads `DOCTURE_SERVE_TOKEN` from your existing environment.
+## Run the HTTP service
+
+Mount the configuration at `/opt/docture/docture.config.mjs` so its ESM imports resolve beside the installed packages. Supply the token through the environment. This command passes `DOCTURE_SERVE_TOKEN` from your shell:
 
 ```sh
 docker run --rm --platform linux/amd64 --stop-timeout 45 -p 8787:8787 -e DOCTURE_SERVE_TOKEN -v "$PWD/docture.config.mjs:/opt/docture/docture.config.mjs:ro" docture:local serve --host 0.0.0.0 --port 8787 --config /opt/docture/docture.config.mjs
 ```
 
-The runtime contains no bundled model files. Provision licensed model assets and install the corresponding exact optional engine in a separate derived image before configuring OCR. Do not treat first-use downloads as offline deployment. The initial recipe has no tested OCR or other-architecture claim.
+`--stop-timeout 45` gives the service longer than its 30-second drain deadline. See [Run a local HTTP service](/docs/cli/http-service) for requests, authentication, limits, and shutdown.
 
-The manual container-release workflow takes a Git ref and a tag matching the CLI artifact version, builds and runs the smoke check, then publishes only if its `publish` input is true. Tags are `<version>` and `<version>-linux-amd64`; it creates no `latest` tag. `/opt/docture/versions.json` records both package versions, the selected engine versions, Node and platform. Adding the workflow does not publish an image.
+## Add OCR to a derived image
 
-See the [HTTP service guide](/docs/cli/http-service) for the byte-only request protocol, authentication, bounds and shutdown behavior.
+The image contains no model files. To use OCR, build a derived image that installs the OCR engine at its exact supported version and provisions licensed model assets. Do not rely on first-use downloads for an offline deployment. The base recipe makes no OCR or other-architecture support claim.

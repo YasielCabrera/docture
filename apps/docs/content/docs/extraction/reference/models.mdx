@@ -1,61 +1,149 @@
 ---
 title: Model backend and factory API
 description: Shared model backend options and the convenience extractor factory.
+type: reference
 ---
 
-Import these APIs from `docture/llm` or the narrow entries listed below. Install AI SDK 7 and Zod (3.25.76 or later 3.x, or 4.1.8 or later) in the application.
-For model components:
+The model backend and extractor factory build text, vision, classification, splitting, and layout components from one AI SDK model. Import them from `docture/llm` or the narrow entries named below. [Extract with a model](/docs/extraction/with-a-model) shows them in use.
+
+Install AI SDK 7, Zod 3.25.76 or later 3.x or Zod 4.1.8 or later, and the provider you construct, such as `@ai-sdk/openai`:
 
 ```sh
 npm install docture ai zod
 ```
 
-Also install the provider you construct, such as `@ai-sdk/openai`. The
-[complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model)
-includes the document engine and schema library.
-
-All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
-gateway model string.
+The [complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model) includes the document engine and schema library. Every `model` field accepts an AI SDK `LanguageModel`: a provider instance or a gateway model string.
 
 ## Model backend
 
 Import from `docture/llm`.
 
+### `LLM`
+
+A `ModelBackend` that creates every model component from one set of shared options.
+
 ```ts
-new LLM(languageModel: LanguageModel, options?: LlmOptions)
-model(languageModel: LanguageModel, options?: LlmOptions): LLM
+class LLM implements ModelBackend {
+  readonly id: string;
+  readonly model: LanguageModel;
+  constructor(model: LanguageModel, options?: LlmOptions);
+  extraction(): ExtractionStrategy;
+  vision(): ExtractionStrategy;
+  classifier(): Classifier;
+  layout(): LayoutAnalyzer;
+  splitter(): Splitter;
+}
 ```
 
-`LLM` implements core's `ModelBackend`. It creates text, vision, classifier, splitter,
-and layout components that share one set of model options. Its `id` defaults to
-`modelIdOf(model)`.
+`id` is `options.name`, or `modelIdOf(model)` when `name` is absent. Each method returns a new component built from the shared options and the matching override object. Pass an `LLM` to [`Extractor.loadLlm()`](/docs/extraction/reference/extractor#extractor).
 
-`LlmOptions` contains `name`, `completion`, `instructions`, `cache`, `pricing`,
-`temperature`, and `maxRetries`. It also accepts `extraction`, `vision`, `classifier`, and
-`splitter` and `layout` override objects. Splitter mode defaults to `text`; the other
-value is `image`.
-Completion defaults to `forbidden`, and temperature defaults to `0` in generated
-components.
+Model provider errors reject strategy and splitter calls. The pipeline records strategy failures and may continue. The LLM classifier converts its own failures to abstentions.
 
-Model provider errors reject strategy and splitter calls. The pipeline records strategy
-failures and may continue. The LLM classifier converts its own failures to abstentions.
+### `model`
 
+The factory form of `new LLM()`.
+
+```ts
+function model(languageModel: LanguageModel, options?: LlmOptions): LLM
+```
+
+### `LlmOptions`
+
+{/* options: LlmOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `name` | `modelIdOf(model)` | Backend `id`. |
+| `completion` | `"forbidden"` | Completion mode for the text strategy. |
+| `instructions` | none | Text appended to every system prompt. |
+| `cache` | none | `LlmCache` shared by every component. |
+| `pricing` | none | `PricingTable` used to report `costUsd`. |
+| `temperature` | `0` | Sampling temperature. |
+| `maxRetries` | `2` | Transport retries for a failed request. |
+| `telemetry` | none | AI SDK telemetry for every component. |
+| `extraction` | none | Overrides for the text strategy. See [text extraction API](/docs/extraction/reference/text). |
+| `vision` | none | Overrides for the vision strategy. See [vision extraction API](/docs/extraction/reference/vision). |
+| `classifier` | none | Overrides for the classifier. See [model classification API](/docs/extraction/reference/model-classification). |
+| `layout` | none | Overrides for conversion layout assistance. |
+| `splitter` | `mode: "text"` | Overrides for the splitter, plus `mode: "text" \| "image"`. See [model splitting API](/docs/extraction/reference/model-splitting). |
+
+### `modelIdOf`
+
+Returns a model's id: the string itself for a gateway model string, otherwise its `modelId`, or `"unknown"`. Also exported from `docture/llm/text`.
+
+```ts
+function modelIdOf(model: LanguageModel): string
+```
+
+### `llm`
+
+Creates a text extraction strategy. Also exported from `docture/llm/text`. See [text extraction API](/docs/extraction/reference/text#text-extraction) for its options.
+
+```ts
+function llm(options: LlmStrategyOptions): ExtractionStrategy & Pick<LlmStrategy, "requires">
+```
+
+### `vision`
+
+Creates a vision extraction strategy. Also exported from `docture/llm/vision`. See [vision extraction API](/docs/extraction/reference/vision#vision-extraction) for its options.
+
+```ts
+function vision(options: VisionStrategyOptions): ExtractionStrategy & Pick<VisionStrategy, "requires">
+```
+
+### `LlmClassifier`
+
+A model classifier. Also exported from `docture/llm/classifier`. See [model classification API](/docs/extraction/reference/model-classification#llm-classifier) for its options.
+
+```ts
+class LlmClassifier implements Classifier {
+  readonly name: string;
+  readonly requires: readonly ["TEXT_LAYER"];
+  constructor(options: LlmClassifierOptions);
+  classify(ctx: ClassifyContext): Promise<ClassificationSignal | null>;
+}
+```
 
 ## Extractor factory
 
 Import from `docture/llm/extractor`.
 
+### `createLlmExtractor`
+
+Builds an `Extractor` with a text model strategy, optional deterministic strategies before it, and optional vision and classification.
+
 ```ts
-createLlmExtractor(options: LlmExtractorOptions): Extractor
+function createLlmExtractor(options: LlmExtractorOptions): Extractor
 ```
 
-`LlmExtractorOptions` extends `ExtractorOptions` without `strategies`. It requires a
-`model` and accepts `completion`, text strategy options under `llm`, deterministic
-strategies under `before`, optional `vision`, and `classifyWithModel`.
+Loader requirements and duplicate component errors follow core rules.
 
-`before` strategies are registered before the text model. `vision: true` adds a default
-vision strategy; an object configures it. `classifyWithModel: true` appends an
-`LlmClassifier`. Loader requirements and duplicate component errors follow core rules.
+### `LlmExtractorOptions`
+
+`ExtractorOptions` without `strategies`, plus model settings.
+
+```ts
+interface LlmExtractorOptions extends Omit<ExtractorOptions, "strategies"> {
+  readonly model: LanguageModel;
+  readonly vision?: boolean | Omit<VisionStrategyOptions, "model">;
+  readonly classifyWithModel?: boolean;
+  readonly completion?: CompletionStrategy;
+  readonly llm?: Omit<LlmStrategyOptions, "model" | "completion">;
+  readonly before?: readonly ExtractionStrategy[];
+}
+```
+
+| Option | Meaning |
+| --- | --- |
+| `model` | Required AI SDK model. |
+| `vision` | `true` adds a default vision strategy; an object configures it. Requires a loader that can render pages. |
+| `classifyWithModel` | `true` appends an `LlmClassifier`. |
+| `completion` | Completion mode for the text strategy. |
+| `llm` | Other text strategy options. |
+| `before` | Deterministic strategies registered before the text model. |
+
+See [extractor options](/docs/extraction/reference/extractor#extractoroptions) for the inherited fields.
+
+### Requests, merging, and page images
 
 Both extraction capabilities call `generateText` with `Output.object`. They merge results
 and account usage in document order even when requests finish out of order. A failure

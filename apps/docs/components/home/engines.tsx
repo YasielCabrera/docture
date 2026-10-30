@@ -14,15 +14,18 @@ const csvLoader = defineLoader({
     mimeTypes: ["text/csv"],
   },
   async load(raw) {
-    /* bytes to pages */
+    const text = new TextDecoder().decode(raw.bytes);
+    const page = { pageNumber: 1, width: 0, height: 0, text };
+    return { pages: [page], text, form: "digital", loader: "invoice-csv" };
   },
 });
 
 const csvInvoice = defineStrategy({
   name: "invoice-csv",
-  requires: [],
   async extract({ document }) {
-    /* pages to data */
+    const row = document.text.trim().split("\\n").at(-1) ?? "";
+    const [number, total] = row.split(",");
+    return { data: { number, total: Number(total) } };
   },
 });
 
@@ -38,7 +41,7 @@ export async function Engines() {
     <Section
       id="engines-heading"
       title="Use the engines you trust. Plug in the ones we do not ship."
-      body="Every built-in engine is an optional peer that loads only when you import it. Anything else becomes a loader or strategy with one function."
+      body="Every built-in engine is an optional peer that loads when you use its integration. Anything else becomes a loader or strategy with one function."
     >
       <div className="grid divide-y divide-fd-border overflow-hidden rounded-surface border border-fd-border bg-fd-card lg:grid-cols-3 lg:divide-x lg:divide-y-0">
         {engineGroups.map((group) => (

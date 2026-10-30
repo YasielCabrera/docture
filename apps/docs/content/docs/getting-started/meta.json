@@ -3,11 +3,14 @@
   "root": false,
   "defaultOpen": true,
   "pages": [
-    "choose-workflow",
     "installation",
+    "build-the-loop",
     "how-it-works",
+    "concepts",
+    "architecture",
     "sources",
     "runtime",
+    "ai-agents",
     "reference"
   ],
   "pagesIndex": "index"

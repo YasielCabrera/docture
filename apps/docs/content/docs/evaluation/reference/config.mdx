@@ -1,13 +1,14 @@
 ---
 title: Evaluation configuration API
 description: The docture.eval.ts configuration contract.
+type: reference
 ---
+
+Import `defineEvalConfig` from `@docture/eval/config` to type the `docture.eval.ts` file that `docture eval` loads. [Run evaluation experiments](/docs/evaluation/experiments) shows the runner options the file mirrors.
 
 ## `@docture/eval/config`
 
-`defineEvalConfig` returns its input unchanged. Dataset, spec and experiments are required. `sections` adds result analyses before reporting; `fallbackBranch` is used when automatic baseline lookup finds no run on the current branch. `baseline: "auto"` requires Git provenance and a store. `store` accepts a directory or a structural `RunStore`.
-
-- `EvalConfig`
+`defineEvalConfig` returns its input unchanged. Dataset, spec and experiments are required. `sections` adds result analyses before reporting; `fallbackBranch` is used when automatic baseline lookup finds no run on the current branch. `baseline: "auto"` requires a store. Git provenance restricts automatic lookup to the current branch; without it or `fallbackBranch`, lookup can select a run from any branch. `store` accepts a directory or a structural `RunStore`.
 
 ### `defineEvalConfig`
 
@@ -15,4 +16,34 @@ description: The docture.eval.ts configuration contract.
 defineEvalConfig<T>(config: EvalConfig<T>): EvalConfig<T>
 ```
 
+Takes and returns [`EvalConfig`](/docs/evaluation/reference/config#evalconfig).
+
+Takes and returns [`EvalConfig`](/docs/evaluation/reference/config#evalconfig).
+
+Takes and returns [`EvalConfig`](/docs/evaluation/reference/config#evalconfig).
+
 Type a `docture.eval.ts` config. Identity at runtime.
+
+## Types
+
+### `EvalConfig`
+
+The configuration `docture eval` loads from `docture.eval.ts`.
+
+{/* options: EvalConfig */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `dataset` | `Dataset<T>` | Required. The cases to evaluate. |
+| `spec` | `EvalSpec<T>` | Required. The scoring spec. |
+| `experiments` | `Readonly<Record<string, EvalExtractor<unknown, T>>> \| EvalExtractor<unknown, T>` | Required. One processor, or several keyed by experiment id. |
+| `slices` | `SliceMap<T>` | Named groups of cases for reports and gate thresholds. |
+| `metrics` | `readonly MetricDefinition[]` | Custom metrics added after the built-in metrics. |
+| `sections` | `readonly ResultSection[]` | Analyses applied before the gate and reporters, such as `calibrationSection()` or `groundingSection()`. |
+| `reporters` | `readonly Reporter[]` | Reporters that receive progress and the finished result. |
+| `gate` | `GateOptions` | Thresholds and regression budgets the run must pass. |
+| `store` | `string \| RunStore` | A store directory, or a store object. |
+| `baseline` | `string \| false` | A run id, `auto` for the latest complete run of the same dataset on the current branch, or `false`. |
+| `fallbackBranch` | `string` | Branch `auto` searches when the current branch has no complete run, such as `main`. Default: none. |
+| `concurrency` | `number` | Cases processed at once. Default `1`. |
+| `epochs` | `number` | Times each case runs. Default `1`. |
+| `enrich` | `(result: EvalResult) => Readonly<Record<string, JsonValue>>` | Project data added to `result.extensions`. |

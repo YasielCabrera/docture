@@ -1,64 +1,12 @@
 ---
 title: Synthetic models and generators API
-description: Public signatures, types, behavior, and defaults for synthetic models and generators.
+description: Define a model from your extraction schema, sample seeded values, and write custom generators.
+type: reference
 ---
 
+The root entry `@docture/synthetic` defines models from your extraction schema and samples reproducible values from them. It needs no engine. The [models guide](/docs/synthetic/models) and the [scenarios guide](/docs/synthetic/scenarios) show these APIs in use.
+
 ## `@docture/synthetic`
-
-A model samples values, a template draws them, and the template's printed mask decides what the ground truth holds. Randomness comes only from `streamFor(seed, key)`, keyed by a field's path, so equal inputs give equal values on every platform and adding a field never changes the values of the others. Nothing reads the wall clock.
-
-- `ArrayLength`
-- `At`
-- `ConcretePath`
-- `Constraint`
-- `FieldLabel`
-- `FieldSpec`
-- `Fields`
-- `Flag`
-- `FontSource`
-- `Formatter`
-- `GenContext`
-- `Generator`
-- `InferSchema`
-- `JsonSchema`
-- `LabelFailure`
-- `LabelFailureKind`
-- `Locale`
-- `Mask`
-- `Model`
-- `ModelOptions`
-- `ObjectMask`
-- `PageInfo`
-- `PageSize`
-- `PathPattern`
-- `PathSegment`
-- `Printed`
-- `PrintedMask`
-- `Projection`
-- `Rendition`
-- `Sample`
-- `SampleOptions`
-- `Scenario`
-- `SchemaSource`
-- `Stream`
-- `Surface`
-- `SynthConfig`
-- `SynthRendition`
-- `SynthesisProblem`
-- `SyntheticCase`
-- `SyntheticDocument`
-- `TableColumn`
-- `TableOptions`
-- `TagValue`
-- `Template`
-- `TemplateDefinition`
-- `TemplateProblem`
-- `TemplateProblemCode`
-- `TextStyle`
-- `TypedJsonSchema`
-- `ValueAt`
-
-`PathPattern<T>` names every schema position of `T` with `[]` for array items, such as `lineItems[].amount`. `ConcretePath<T>` names one position, such as `lineItems[3].amount`. `ValueAt<T, P>` is the type at a pattern. `FieldSpec` is a `Generator` or, for an array, an `ArrayLength`. `Fields<T>` maps patterns or concrete paths to field specs; a concrete path wins over its pattern.
 
 ### `defineModel`
 
@@ -66,9 +14,17 @@ A model samples values, a template draws them, and the template's printed mask d
 defineModel<const S extends object>(schema: S, options?: ModelOptions<InferSchema<S>>): Model<InferSchema<S>>
 ```
 
-A model of the values `schema` describes. `schema` is a Docture contract, a Standard Schema with JSON Schema output (Zod 4.2 and later, ArkType, Valibot), an AI SDK schema or a plain JSON Schema. Positions without a generator get defaults from the schema. `model.sample({ seed, scenario })` samples, applies the scenario's `shape`, runs `derive`, checks the constraints and the scenario's `expect`, validates against the schema, and returns a deep-frozen `Sample`. Any failure throws `SynthesisError` listing every problem.
+Returns a `Model` of the values `schema` describes. `schema` is a Docture contract, a Standard Schema with JSON Schema output (Zod 4.2 and later, ArkType, Valibot), an AI SDK schema or a plain JSON Schema. Positions without a generator get defaults from the schema. `model.sample({ seed, scenario })` samples, applies the scenario's `shape`, runs `derive`, checks the constraints and the scenario's `expect`, validates against the schema, and returns a deep-frozen `Sample`. A sample that breaks the schema, a constraint, or the scenario's `expect` throws `SynthesisError` listing every problem. An error thrown by a generator, `derive`, or a scenario callback propagates unchanged.
 
-`ModelOptions` holds `fields`, `derive`, `constraints`, `presence` (probability an optional property without a generator is present, default 0.85), `nulls` (probability a nullable position without a generator is `null`, default 0.1) and `arrays` (length range of arrays without a length, default `[1, 4]`). `derive` runs after sampling and again after a scenario's `shape`, so it must be idempotent.
+{/* options: ModelOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `fields` | `{}` | `Fields<T>` generators by pattern or concrete path. |
+| `derive` | none | `(value) => value` that recomputes every derived field from its inputs. It runs after sampling and again after a scenario's `shape`, so it must be idempotent. |
+| `constraints` | `[]` | [Constraints](/docs/synthetic/reference/constraints#constraint) every sample must satisfy. |
+| `presence` | `0.85` | Probability that an optional property without a generator is present. |
+| `nulls` | `0.1` | Probability that a nullable position without a generator is `null`. |
+| `arrays` | `[1, 4]` | Length range of arrays without a length, clamped to the schema's bounds. |
 
 ### `scenario`
 
@@ -76,7 +32,16 @@ A model of the values `schema` describes. `schema` is a Docture contract, a Stan
 scenario<T>(definition: Scenario<T>): Scenario<T>
 ```
 
-A named variation such as "many line items" or "credit balance". `fields` replace the model's generators at the same positions; `shape` rewrites a derived sample; `expect` returns `false` or a message when a sample breaks the scenario's promise. `tags` reach each case's params.
+Returns its argument typed as a `Scenario<T>`, a named variation such as "many line items" or "credit balance".
+
+{/* options: Scenario */}
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `name` | required | The scenario name recorded on each sample and case. |
+| `tags` | `[]` | Tags copied into each case's params. |
+| `fields` | `{}` | Generators that replace the model's at the same positions. Other positions keep their values. |
+| `shape` | none | `(value, stream) => value` that rewrites a derived sample. `derive` runs again afterwards. |
+| `expect` | none | `(value) => boolean \| string \| undefined`. Return `false` or a message when the sample breaks the scenario's promise. |
 
 ### `typedJsonSchema`
 
@@ -84,7 +49,7 @@ A named variation such as "many line items" or "credit balance". `fields` replac
 typedJsonSchema<T>(schema: JsonSchema): TypedJsonSchema<T>
 ```
 
-Brand a plain JSON Schema with the type of its values, so `defineModel` infers `T` without a schema library.
+Brands a plain JSON Schema with the type of its values, so `defineModel` infers `T` without a schema library.
 
 ### `readSchema`
 
@@ -92,7 +57,7 @@ Brand a plain JSON Schema with the type of its values, so `defineModel` infers `
 readSchema(input: unknown): SchemaSource
 ```
 
-Read the JSON Schema and the optional validator of a contract, Standard Schema, AI SDK schema or JSON Schema. Returns `{ ok: false, message }` for anything else.
+Reads the JSON Schema and the optional validator of a contract, Standard Schema, AI SDK schema or JSON Schema. Returns `{ ok: false, message }` for anything else.
 
 ### `gen`
 
@@ -104,4 +69,96 @@ gen.iban(country?) gen.luhn(prefix, length) gen.absent() gen.null() gen.maybe(in
 gen.array({ length })
 ```
 
-Built-in generators. Each draws only from its position's own stream. In `gen.pattern`, `#` is a digit, `A` an uppercase letter, `?` either, and a backslash escapes the next character. `gen.dateAfter` reads the ISO date at another concrete path. `gen.luhn` returns `length` digits whose last digit is the Luhn check digit. `gen.array` sets a length; items come from the item generators. `gen.from` receives a `GenContext` with the position's `stream`, `path`, `segments`, schema node, nearest array `index`, `get(path)` for another position, `sibling(key)` and `fallback()` for the schema default.
+Built-in generators. Each one draws only from its position's own stream. In `gen.pattern`, `#` is a digit, `A` an uppercase letter, `?` either, and a backslash escapes the next character. `gen.dateAfter` reads the ISO date at another concrete path. `gen.luhn` returns `length` digits whose last digit is the Luhn check digit. `gen.array` sets a length; items come from the item generators. `gen.from` receives a [`GenContext`](#gencontext).
+
+## Samples
+
+### `SampleOptions`
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `seed` | required | A number or string. Equal seeds give equal samples. |
+| `scenario` | base | A `Scenario` to apply. Without one, the sample belongs to scenario `base`. |
+
+### `Sample`
+
+{/* options: Sample */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `value` | `T` | The sampled value, deep-frozen. |
+| `seed` | `number \| string` | The seed that reproduces it. |
+| `scenario` | `string` | The scenario name, or `base`. |
+| `tags` | `readonly string[]` | The scenario's tags. |
+
+### `Model`
+
+{/* options: Model */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `schema` | `JsonSchema` | The JSON Schema read from the input schema. |
+| `options` | `ModelOptions<T>` | The options the model was defined with, so a corpus can tell when they change. |
+| `sample` | `(options: SampleOptions<T>) => Promise<Sample<T>>` | Samples one value. Throws `SynthesisError` listing every problem. |
+
+## Generators and paths
+
+### `GenContext`
+
+{/* options: GenContext */}
+| Member | Type | Meaning |
+| --- | --- | --- |
+| `stream` | `Stream` | A random stream keyed by this position's concrete path. |
+| `path` | `string` | The concrete path, such as `lineItems[2].amount`. |
+| `segments` | `readonly PathSegment[]` | The parsed path. |
+| `schema` | `JsonSchema` | The JSON Schema node at this position. |
+| `index` | `number \| undefined` | The nearest enclosing array index. |
+| `get` | `(path) => V` | The value at another concrete path, resolved on demand. `undefined` when absent. |
+| `sibling` | `(key) => V` | The value of a sibling key in the enclosing object. |
+| `fallback` | `() => unknown` | The value the schema alone would produce here. |
+
+### `FieldSpec` and `ArrayLength`
+
+```ts check
+type FieldSpec<V> = Generator<V> | (NonNullable<V> extends readonly unknown[] ? ArrayLength : never);
+interface ArrayLength {
+	readonly kind: "length";
+	readonly length: number | readonly [min: number, max: number];
+}
+```
+
+A `FieldSpec` is a `Generator`, an object with `kind: "generator"` and `generate(context: GenContext)`, or, for an array position, an `ArrayLength` from `gen.array`.
+
+### Path types
+
+| Type | Meaning |
+| --- | --- |
+| `Fields<T>` | Maps patterns or concrete paths of `T` to field specs. A concrete path wins over its pattern. |
+| `PathPattern<T>` | Every schema position of `T` with `[]` for array items, such as `lineItems[].amount`. |
+| `ConcretePath<T>` | One position, such as `lineItems[3].amount`. |
+| `ValueAt<T, P>` | The value type at pattern `P`. |
+
+## Schemas
+
+| Type | Meaning |
+| --- | --- |
+| `JsonSchema` | `Readonly<Record<string, unknown>>`, a plain JSON Schema object. |
+| `TypedJsonSchema<T>` | A `JsonSchema` branded with the type of its values by `typedJsonSchema`. |
+| `InferSchema<S>` | The value type `defineModel` infers from a Standard Schema, a Docture contract, or a typed JSON Schema. |
+| `SchemaSource` | The result of `readSchema`: `{ ok: true, schema, validate? }` or `{ ok: false, message }`. |
+
+## Shared types
+
+### `Rendition`
+
+{/* options: Rendition */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `kind` | `string` | `digital`, or the [degradation profile](/docs/synthetic/reference/degrade#profiles) key. |
+| `severity` | `number` | Degradation severity, absent for `digital`. |
+| `dpi` | `number` | Raster resolution, absent for `digital`. |
+| `output` | `"png" \| "jpeg"` | Set for image renditions and absent for PDF. |
+
+How a rendition was produced from the digital original. Every `SyntheticDocument` carries one.
+
+### `PageSize`, `TagValue`, and `Mask`
+
+`PageSize` is `{ width, height }` in points, as in [`pageSizes`](/docs/synthetic/reference/templates#pagesizes). `TagValue` is `string | number | boolean`, the value type of template and case tags. `Mask<V, R, P>` is the declaration for one position of a [printed mask](/docs/synthetic/reference/templates#prints): a `Flag`, `{ items }` for an array, or an `ObjectMask` for an object.

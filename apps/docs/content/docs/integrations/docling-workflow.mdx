@@ -1,56 +1,59 @@
 ---
 title: Extract from Docling documents
-description: Keep native elements, table cells, source identity and caller schemas.
+description: Extract with your own schema from Docling exports or a docling-serve instance, keeping native elements, table cells, and source identity.
+type: how-to
 ---
 
-Install docture and the engines your extraction strategy uses. The importer and
-HTTP service adapter need no Docling npm peer.
+Use Docling output as an extraction source. Your schema, validation rules, repair, and conflict reports work as with any other loader, and citations point to native Docling elements and table cells.
+
+## Install
+
+Install `docture` and the engines your extraction strategy uses. The importer and the service adapter need no Docling npm package.
 
 ```sh
 npm install docture ai zod
 ```
 
-Import an existing Python or official-client export with
-`importDoclingDocument(nativeJson)` from `docture/import/docling`. Pass its `source`
-to your configured extractor and its `document` to `chunkDocument()` from
-`docture/chunk`. Keep `provenance` beside saved JSON for native pointer lookup.
+## Extract from an existing Docling export
 
-For a service, configure `DocumentLoaderDoclingServe` from
-`docture/loaders/docling` in your existing extractor or CLI config's `loaders`.
-The normal extraction pipeline applies your schema, validation rules, bounded
-repair and conflict reporting. Select `llm({ model, citations: true })` to verify
-field values against native element or table-cell text.
+If you already have native JSON from Docling in Python or the official client, import it with `importDoclingDocument(nativeJson)` from `docture/import/docling`:
 
-Use `DoclingServeClient` when you need normalized JSON, diagnostics, the native
-sidecar or an explicit job reference. `submit()` returns a reference you can save;
-`resume(reference).wait()` follows that task without another POST. An interrupted
-submission can have an unknown outcome, and abort does not stop the remote job.
+1. Pass the returned `source` to your configured extractor.
+2. Pass the returned `document` to `chunkDocument()` from `docture/chunk` for retrieval.
+3. Save `provenance` beside the JSON to look up native pointers later.
 
-Run the deterministic local example from the repository:
+[Import Docling JSON](/docs/integrations/docling-import) lists the import options and what the import keeps.
+
+## Extract through Docling Serve
+
+Add `DocumentLoaderDoclingServe` from `docture/loaders/docling` to the `loaders` of your extractor or CLI config. Select `llm({ model, citations: true })` to verify field values against native element or table-cell text.
+
+Use `DoclingServeClient` instead when you need the normalized JSON, diagnostics, the native sidecar, or a job reference. `submit()` returns a reference you can save, and `resume(reference).wait()` follows that task without another POST. An interrupted submission can have an unknown outcome, and aborting does not stop the remote job. [Connect to Docling Serve](/docs/integrations/docling-serve) covers the client and loader options.
+
+## Review extractions with native evidence
+
+Save CLI extractions with `--full --citations`. The result keeps `evidenceSources` beside the line-based `citationSources`. Open the review with the original file:
+
+```sh
+docture review --extraction result.json --source original.epub
+```
+
+The review shows native text and citation status without page images, and states when physical placement or page images are unavailable.
+
+## Highlight evidence on original pages
+
+Element and table-cell highlights need three things: known native units, the original bytes bound at import, and matching page images. Review rejects a source with a different digest before it draws overlays. Logical pages and multipage cells without a location have no physical box. A matching JSON digest does not prove that a PDF supplied separately was the original source.
+
+## Run the example
+
+The repository example in [`apps/examples/18-docling`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/18-docling), `index.ts`, runs against a local mock service. From a clone of the repository, run:
 
 ```sh
 pnpm --dir apps/examples exec tsx 18-docling/index.ts
 ```
 
-The example imports real Python-export fixtures generated with core 2.104.0,
-models the serve 1.38.2 protocol, extracts two document kinds with different caller
-schemas, and saves conversion/provenance artifacts with the same native digest.
-Its mock service and model need no credentials. Live conversion was not run.
+The example imports real Python export fixtures, extracts two document kinds with different schemas, and saves conversion and provenance files that share one native digest. Its mock service and model need no credentials.
 
-Save CLI extraction with `--full --citations`. The result retains `evidenceSources`
-beside real-line `citationSources`. `docture review --extraction result.json
---source original.epub` can display native text and citation status without images.
-The review states when physical placement or page images are unavailable.
+## Choose between Docture and the official client
 
-Physical element/cell highlights require known native units, explicit original-byte
-binding and matching page images. Review rejects a different source digest before
-rendering overlays. Logical pages and unlocated multipage cells have no physical
-box. A canonical JSON digest does not certify that a separately supplied PDF was
-the original source.
-
-Keep the official Docling client when you need its broader artifact, storage or
-native chunking features. Feed its native JSON into the independent importer.
-Docture's service adapter documents a bounded subset of that protocol.
-
-Reference details are in [Docling JSON import](/docs/integrations/docling-import)
-and [Docling service loader](/docs/integrations/docling-serve).
+Docture's service adapter covers a bounded subset of the docling-serve protocol. Keep the official Docling client when you need its other artifacts, storage, or native chunking, and pass its native JSON to `importDoclingDocument`.

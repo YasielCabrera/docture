@@ -1,13 +1,12 @@
 ---
 title: Evaluation framework adapters API
 description: Structural adapters for Vitest, Evalite, promptfoo, and autoevals.
+type: reference
 ---
 
-## `@docture/eval/vitest`
+Import an adapter from the entry for your test or evaluation host to reuse one spec there. [Integrate evaluation frameworks](/docs/evaluation/frameworks) compares the hosts.
 
-- `DescribeEvalHost`
-- `ExtractionMatchers`
-- `MatchExtractionOptions`
+## `@docture/eval/vitest`
 
 `MatchExtractionOptions` holds `minF1`, the lowest passing F1, default 1. `ExtractionMatchers` is the matcher's type. Vitest does not see it until you add it to Vitest's `Matchers` once, as shown in [framework adapter wiring](/docs/evaluation/reference/frameworks#framework-adapter-wiring). `DescribeEvalHost` holds the Vitest functions `describeEval` registers with: `test`, `beforeAll` and `afterAll`.
 
@@ -16,6 +15,8 @@ description: Structural adapters for Vitest, Evalite, promptfoo, and autoevals.
 ```ts
 toMatchExtraction<T>(actual: unknown, expected: T, spec: Pick<EvalSpec<T>, "scoreAsync">, options?: MatchExtractionOptions): Promise<{ pass: boolean; message: () => string; }>
 ```
+
+Takes [`EvalSpec`](/docs/evaluation/reference/types#evalspec) and [`MatchExtractionOptions`](/docs/evaluation/reference/frameworks#matchextractionoptions).
 
 Score `actual` against `expected` and pass at or above `minF1`. The message lists every differing field. Nothing gradable fails. The matcher is asynchronous: an assertion that is not awaited never fails the test. `minF1` outside [0, 1] throws `RangeError`.
 
@@ -33,6 +34,8 @@ Matchers for `expect.extend(extractionMatchers())`, written without importing Vi
 describeEval<T, Raw>(dataset: Dataset<T>, spec: Pick<EvalSpec<T>, "scoreAsync">, processor: EvalExtractor<Raw, T>, options: DescribeEvalHost & MatchExtractionOptions): Promise<void>
 ```
 
+Takes [`Dataset`](/docs/evaluation/reference/core#dataset), [`EvalSpec`](/docs/evaluation/reference/types#evalspec), [`EvalExtractor`](/docs/evaluation/reference/runner#evalextractor), [`DescribeEvalHost`](/docs/evaluation/reference/frameworks#describeevalhost), and [`MatchExtractionOptions`](/docs/evaluation/reference/frameworks#matchextractionoptions).
+
 Register one test per dataset case. The processor's `preflight` runs once in `beforeAll` and `dispose` once in `afterAll`. A case whose processor throws `OutOfScopeError` is skipped. A case below `minF1` fails with the differing fields. Await the call so every case is registered before Vitest collects the file.
 
 ## `@docture/eval/evalite`
@@ -43,6 +46,8 @@ Register one test per dataset case. The processor's `preflight` runs once in `be
 extractionScorer<T>(spec: Pick<EvalSpec<T>, "scoreAsync">, options?: { readonly metric?: "f1" | "precision" | "recall" | "anls"; }): { name: string; scorer: ({ output, expected }: { output: unknown; expected: T; }) => Promise<number>; }
 ```
 
+Takes [`EvalSpec`](/docs/evaluation/reference/types#evalspec).
+
 Create an Evalite scorer with its structural name/scorer contract. Ungraded values score zero.
 
 ## `@docture/eval/promptfoo`
@@ -52,6 +57,8 @@ Create an Evalite scorer with its structural name/scorer contract. Ungraded valu
 ```ts
 extractionAssertion<T>(spec: Pick<EvalSpec<T>, "scoreAsync">, options?: { readonly threshold?: number; }): (output: unknown, context: { readonly vars: { readonly expected: T; }; }) => Promise<{ pass: boolean; score: number; reason: string; }>
 ```
+
+Takes [`EvalSpec`](/docs/evaluation/reference/types#evalspec).
 
 Create a promptfoo JavaScript assertion; context.vars.expected holds the ground truth. String output is parsed as JSON. String output that is not JSON fails with score 0 and a reason. `threshold` defaults to 0.95; a value outside [0, 1] throws `RangeError`.
 
@@ -111,3 +118,37 @@ const autoevalsScore = await ExtractionF1(spec)({ output: actual, expected });
 ```
 
 Evalite's default metric is `f1`; `precision`, `recall` and `anls` are also supported. Ungraded values score zero. Promptfoo reads truth from `context.vars.expected`; its default threshold is 0.95. String output that is not JSON fails with score 0 and a reason. Autoevals returns `{ name, score, metadata }`, including counts and an ungraded flag.
+
+## Vitest types
+
+### `DescribeEvalHost`
+
+The Vitest functions `describeEval` registers with, typed by what it calls. Pass `{ test: it, beforeAll, afterAll }`.
+
+```ts check
+interface DescribeEvalHost {
+	readonly test: (name: string, run: (context: { skip(note?: string): never }) => Promise<void>) => unknown;
+	readonly beforeAll: (run: () => Promise<void>) => unknown;
+	readonly afterAll: (run: () => Promise<void>) => unknown;
+}
+```
+
+### `ExtractionMatchers`
+
+The matcher type for Vitest. Add it to Vitest's `Matchers` interface as shown in [framework adapter wiring](#framework-adapter-wiring).
+
+```ts
+interface ExtractionMatchers {
+	/** Asynchronous: `await expect(actual).toMatchExtraction(expected, spec)`. An assertion that is not awaited never fails the test. */
+	toMatchExtraction<T>(expected: T, spec: Pick<EvalSpec<T>, "scoreAsync">, options?: MatchExtractionOptions): Promise<void>;
+}
+```
+
+### `MatchExtractionOptions`
+
+Options for the `toMatchExtraction` matcher.
+
+{/* options: MatchExtractionOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `minF1` | `number` | Lowest passing F1. Default `1`. |

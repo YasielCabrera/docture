@@ -1,86 +1,102 @@
 ---
 title: Extract your first document
-description: Install docture and extract a typed invoice.
+description: Generate a sample invoice PDF and extract typed fields from it without an API key.
+type: tutorial
 ---
 
-This example reads the text layer of a PDF and sends that text to an AI SDK model.
+In this tutorial you generate a sample invoice PDF, define the fields you want from it, and extract them with a small parser. Every step runs locally on Node.js 22 or newer. You need a model API key only for the optional last step.
 
 ## Install
 
-Node 22 or newer is required.
-
-```package-install
-docture pdfjs-dist@6.2.108 ai@^7 @ai-sdk/openai zod@^4
+```sh
+npm install docture zod pdfjs-dist
+npm install --save-dev tsx pdfkit
 ```
 
-`pdfjs-dist` and `ai` are optional peers used by this example. The PDF.js adapter needs
-`pdfjs-dist@6.2.108`; model calls need AI SDK 7 and a provider. This example uses
-`@ai-sdk/openai`. See [other install recipes](/docs/getting-started/installation) or
-[the migration guide](/docs/resources/migration).
+`pdfjs-dist` reads the text layer of a PDF. `pdfkit` draws the sample invoice and `tsx` runs the scripts, so both are development dependencies. Docture declares `pdfjs-dist` and `pdfkit` as optional peers, so you install them explicitly. See [installation](/docs/getting-started/installation) for other document engines and model providers.
+
+## Create a sample invoice
+
+Create `make-invoice.mts`:
+
+<SourceExample file="quick-start/make-invoice.ts" title="make-invoice.mts" />
+
+Run it:
+
+```sh
+npx tsx make-invoice.mts
+```
+
+```txt
+Wrote invoice.pdf, 1 page
+```
+
+`makeInvoicePdf` draws the same invoice for the same seed, so your `invoice.pdf` matches the values on this page. Open it to see the invoice number, issue date, and total that you extract next.
 
 ## Define the result
 
 Create `invoice.ts`:
 
-<SourceExample file="invoice.ts" title="invoice.ts" />
+<SourceExample file="quick-start/invoice.ts" title="invoice.ts" />
 
-The `contract()` wrapper adds a name and description to a schema. It is optional for
-plain extraction. A bare Zod, Valibot, ArkType, or other Standard Schema value also works.
-Wrap a JSON Schema object with the AI SDK's `jsonSchema()` helper before passing it to the
-library. The CLI performs that wrapping when it reads a `.json` schema file.
+The schema names the fields, sets the type of the result, and validates every answer. The descriptions tell a model what each field means; the parser in the next step does not read them. Docture also accepts Valibot, ArkType, and other Standard Schema libraries, as [define schemas and contracts](/docs/extraction/schemas) shows.
 
 ## Build the extractor
 
 Create `extract.mts`:
 
-<SourceExample file="quick-start.ts" title="extract.mts" />
+<SourceExample file="quick-start/extract.ts" title="extract.mts" />
 
-Set the provider credential, then run the file:
+`readLabels` is an extraction strategy. `requires: ["TEXT_LAYER"]` limits it to documents with readable text. It finds each printed label and returns the value after it. When a label is missing, it throws, and the extractor reports a failure instead of accepting a partial answer.
+
+The extractor loads `invoice.pdf` with PDF.js, runs `readLabels`, and validates its answer against `Invoice`.
+
+Run it:
 
 ```sh
-OPENAI_API_KEY=your-key npx tsx extract.mts
+npx tsx extract.mts
 ```
 
 ## Read the result
 
-The schema determines the type of `result.data`. TypeScript rejects fields that are not
-in the schema.
+The script prints:
 
-The rest of the result explains the run:
-
-| Field | Meaning |
-|---|---|
-| `method` | Strategy that returned data which passed validation |
-| `loader` | Loader that read the document |
-| `attempts` | Failed loaders followed by strategies that ran, with status, duration, usage, and errors |
-| `features` | Page count, text length, document form, geometry, and rendering facts |
-| `usage` | Input tokens, output tokens, total tokens, wall time, and optional cost |
-| `validation` | Rule outcome for returned data; schema validation already accepted its shape |
-
-When loader fallback succeeds, `attempts` includes each failed loader before the strategy
-attempts. The successful loader is recorded in `result.loader`. If all eligible loaders
-fail, `LoadFailedError.attempts` contains their errors and no extraction strategies run.
-
-## Other return forms
-
-Return only the data:
-
-```ts
-const invoice = await extractor.extractData("invoice.pdf", Invoice);
-invoice.total;
-```
-
-Return failures as values:
-
-```ts
-const outcome = await extractor.safeExtract("invoice.pdf", Invoice);
-
-if (outcome.ok) {
-  console.log(outcome.result.data.total);
-} else {
-  console.error(outcome.error.message);
+```txt
+{
+  invoiceNumber: 'INV-2026-4311',
+  issuedAt: '2026-02-01',
+  total: 10768.68
 }
+read-labels used 0 model tokens
 ```
 
-Next, read [how it works](/docs/getting-started/how-it-works) or choose a task from the
-[documentation index](/docs).
+`result.data` has the type of `Invoice`, so TypeScript rejects a field that the schema does not define. `result.method` names the strategy whose answer passed validation. The result also records the loader, every attempt, validation, and usage; [inspect results](/docs/extraction/results) explains each one.
+
+## Add a model
+
+A parser reads only the layouts you write it for. To extract from documents you have not seen, let a model read the text. Install the AI SDK and the OpenAI provider:
+
+```sh
+npm install ai @ai-sdk/openai
+```
+
+Create `extract-with-a-model.mts`:
+
+<SourceExample file="quick-start/with-a-model.ts" title="extract-with-a-model.mts" />
+
+Run it with your OpenAI key:
+
+```sh
+OPENAI_API_KEY=your-key npx tsx extract-with-a-model.mts
+```
+
+`LLM` sends the PDF text and the schema, including its field descriptions, to the model. The extractor validates the model's answer against `Invoice`, as it did the parser's. The last line names the `llm` strategy and the tokens it used.
+
+To keep the parser and call the model only when it fails, [add model fallback](/docs/extraction/without-a-model#add-model-fallback).
+
+## Next steps
+
+- [Extract with a model](/docs/extraction/with-a-model) to add vision, caching, cost tracking, and per-strategy settings.
+- [Define schemas and contracts](/docs/extraction/schemas) for missing values, prompt hints, and worked examples.
+- [Extract without a model](/docs/extraction/without-a-model) to parse positioned lines from a known layout.
+- [Build the extract, generate, and evaluate loop](/docs/getting-started/build-the-loop) to generate a corpus and gate the parser's accuracy without an API key.

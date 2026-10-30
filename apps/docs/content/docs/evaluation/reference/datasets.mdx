@@ -1,24 +1,22 @@
 ---
 title: Evaluation dataset management API
 description: Fingerprints, deterministic sampling, draft truth, and guarded migrations.
+type: reference
 ---
+
+Import sampling, drafting, fingerprints, and migrations from `@docture/eval/dataset`. [Sample and migrate evaluation datasets](/docs/evaluation/dataset-management) and [Draft and approve evaluation ground truth](/docs/evaluation/ground-truth) show them in use.
 
 ## `@docture/eval/dataset`
 
 `runMigration` previews by default. With `write: true` it writes only after target checks and optional `spec` validation pass for every case. `draftExpected` writes drafts, never sign-off. Sampling is deterministic for a given seed.
-
-- `DraftableDataset`
-- `Migration`
-- `MigrationDiff`
-- `MigrationReport`
-- `PendingCase`
-- `SampleOptions`
 
 ### `caseFingerprint`
 
 ```ts
 caseFingerprint(item: EvalCase): string
 ```
+
+Takes [`EvalCase`](/docs/evaluation/reference/core#evalcase).
 
 Hash the content and metadata that determine whether a case can be resumed.
 
@@ -28,6 +26,8 @@ Hash the content and metadata that determine whether a case can be resumed.
 datasetFingerprint(items: readonly EvalCase[]): string
 ```
 
+Takes [`EvalCase`](/docs/evaluation/reference/core#evalcase).
+
 Hash a dataset independently of its discovery order.
 
 ### `sample`
@@ -35,6 +35,8 @@ Hash a dataset independently of its discovery order.
 ```ts
 sample<T>(items: readonly EvalCase<T>[], options: SampleOptions<T>): readonly EvalCase<T>[]
 ```
+
+Takes [`EvalCase`](/docs/evaluation/reference/core#evalcase) and [`SampleOptions`](/docs/evaluation/reference/datasets#sampleoptions). Returns [`EvalCase`](/docs/evaluation/reference/core#evalcase).
 
 Select a nested prefix by incremental largest remainder; whole groups can exceed `size`.
 
@@ -44,6 +46,12 @@ Select a nested prefix by incremental largest remainder; whole groups can exceed
 defineMigration<T>(migration: Migration<T>): Migration<T>
 ```
 
+Takes and returns [`Migration`](/docs/evaluation/reference/datasets#migration).
+
+Takes and returns [`Migration`](/docs/evaluation/reference/datasets#migration).
+
+Takes and returns [`Migration`](/docs/evaluation/reference/datasets#migration).
+
 Define the paths and transformation of a migration.
 
 ### `runMigration`
@@ -51,6 +59,8 @@ Define the paths and transformation of a migration.
 ```ts
 runMigration<T>(dataset: WritableDataset<T>, migration: Migration<T>, options?: { readonly write?: boolean; readonly spec?: EvalSpec<T>; }): Promise<MigrationReport>
 ```
+
+Takes [`WritableDataset`](/docs/evaluation/reference/datasets#writabledataset), [`Migration`](/docs/evaluation/reference/datasets#migration), and [`EvalSpec`](/docs/evaluation/reference/types#evalspec). Returns [`MigrationReport`](/docs/evaluation/reference/datasets#migrationreport).
 
 Preview every change and validate guards for every case, then optionally write. A draft case stays a draft.
 
@@ -60,4 +70,87 @@ Preview every change and validate guards for every case, then optionally write. 
 draftExpected<T>(dataset: WritableDataset<T> & Partial<Pick<DraftableDataset<T>, "pendingCases">>, processor: EvalExtractor<unknown, T>): Promise<readonly string[]>
 ```
 
+Takes [`WritableDataset`](/docs/evaluation/reference/datasets#writabledataset), [`DraftableDataset`](/docs/evaluation/reference/datasets#draftabledataset), and [`EvalExtractor`](/docs/evaluation/reference/runner#evalextractor).
+
 Extract proposed truth for every case without signed-off truth and write it as a draft, replacing an existing draft. Uses `pendingCases()` when the dataset has it, otherwise the cases whose status is `draft`. Returns the drafted case ids.
+
+## Types
+
+### `DraftableDataset`
+
+A writable dataset that also lists cases without signed-off truth, so `draftExpected` can reach cases that have none.
+
+```ts
+interface DraftableDataset<T = unknown> extends WritableDataset<T> {
+	pendingCases(options?: { readonly signal?: AbortSignal }): Promise<readonly PendingCase[]>;
+}
+```
+
+### `Migration`
+
+A guarded, idempotent ground-truth transformation.
+
+```ts
+interface Migration<T> {
+	readonly id: string;
+	readonly description: string;
+	/** Paths or patterns the migration may change, such as `totals.net` or `lineItems[].amount`. A target also covers everything below it. */
+	readonly targets: readonly string[];
+	apply(expected: T, item: EvalCase<T>): T;
+}
+```
+
+### `MigrationDiff`
+
+One changed leaf of a migration.
+
+```ts check
+interface MigrationDiff {
+	readonly path: string;
+	readonly before: unknown;
+	readonly after: unknown;
+}
+```
+
+### `MigrationReport`
+
+Per-case migration changes, including whether they were written.
+
+```ts
+interface MigrationReport {
+	readonly migration: string;
+	readonly written: boolean;
+	readonly cases: readonly { readonly caseId: string; readonly diff: readonly MigrationDiff[] }[];
+}
+```
+
+### `PendingCase`
+
+A case whose documents exist but whose truth is not signed off yet.
+
+```ts
+type PendingCase = Omit<EvalCase, "expected" | "status">;
+```
+
+### `SampleOptions`
+
+Settings for a deterministic, nested stratified sample.
+
+{/* options: SampleOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `size` | `number` | Required. Number of cases to select. A nonnegative integer. |
+| `strata` | `(item: EvalCase<T>) => string` | Returns a stratum key per case so each stratum keeps its share of the sample. |
+| `keepGroups` | `boolean` | Select cases that share a `group` together. Whole groups can exceed `size`. |
+| `seed` | `string` | Seed for the deterministic order. Default: the empty string. |
+
+### `WritableDataset`
+
+A [`Dataset`](/docs/evaluation/reference/core#dataset) that can also record drafted ground truth and sign-offs. Only drafting and migrations need it. Import it from `@docture/eval`.
+
+```ts
+interface WritableDataset<T = unknown> extends Dataset<T> {
+	writeExpected(caseId: string, value: T, options: { readonly draft: boolean }): Promise<void>;
+	signOff(caseId: string): Promise<void>;
+}
+```

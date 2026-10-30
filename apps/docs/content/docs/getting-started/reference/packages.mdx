@@ -1,6 +1,7 @@
 ---
 title: Packages and imports
 description: The four published packages, every public subpath, and required peers.
+type: reference
 ---
 
 Docture publishes four packages: `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic`. All
@@ -13,6 +14,7 @@ Its root exports core only. The CLI supplies the `docture` executable.
 | Import | Purpose | Optional peers used by that entry |
 | --- | --- | --- |
 | `docture` | Contracts, extraction, deterministic conversion, errors, classification, and `Process` | Zod through its schema helper |
+| `docture/node` | Core plus `Extractor`, `DocumentConverter`, and `Process` that read file paths and `file:` URLs, and `resolveNodeSource`. Node.js only | Zod through its schema helper |
 | `docture/llm` | All model components, including the `LLM` convenience class and `model()` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
 | `docture/llm/text` | `LlmStrategy`, `LlmStrategyOptions`, `llm`, and `modelIdOf` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
 | `docture/llm/vision` | `VisionStrategy`, `VisionStrategyOptions`, and `vision` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
@@ -20,6 +22,7 @@ Its root exports core only. The CLI supplies the `docture` executable.
 | `docture/llm/layout` | `LlmLayoutAnalyzer`, its options, and `llmLayout` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
 | `docture/llm/split` | Text and image splitters and their options | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
 | `docture/llm/extractor` | `createLlmExtractor` and `LlmExtractorOptions` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
+| `docture/llm/tool` | `extractTool`, an AI SDK tool that runs an extractor | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
 | `docture/llm/cache` | Response caches, fingerprints, and cache keys | None |
 | `docture/llm/pricing` | Prices and token usage accounting | None |
 | `docture/llm/prompt` | Prompt construction, chunks, and token estimates | None |
@@ -29,6 +32,13 @@ Its root exports core only. The CLI supplies the `docture` executable.
 | `docture/loaders/mupdf` | MuPDF text, geometry, and rendering | `mupdf@~1.28.0` |
 | `docture/loaders/tesseract` | OCR through Tesseract.js | `tesseract.js@7.0.0` |
 | `docture/loaders/paddleocr` | OCR through PaddleOCR and ONNX Runtime | `ppu-paddle-ocr@6.3.0`, `onnxruntime-node@1.27.0`; `utif2@4.1.0` for TIFF |
+| `docture/loaders/mammoth` | DOCX text through Mammoth. Node.js only | `mammoth@1.13.0` |
+| `docture/loaders/azure-di` | Text and line positions through the Azure Document Intelligence Read REST API | None; uses `fetch` |
+| `docture/loaders/docling` | Docling Serve client and loader | None; uses `fetch` |
+| `docture/import/docling` | Native DoclingDocument JSON import | None |
+| `docture/inputs/email` | Email body and attachment expansion | `postal-mime@4.1.4` |
+| `docture/sources/paperless` | Paperless document reads and searches | None; uses `fetch` |
+| `docture/sinks/paperless` | Paperless field update plans and their application | None; uses `fetch` |
 | `docture/raster/canvas` | PDF.js page rendering with canvas | `pdfjs-dist@^6.2.108`, `@napi-rs/canvas@^1.0.10` |
 | `docture/chunk` | Retrieval chunks with page, box, and source-id provenance | None |
 | `docture/testing/doubles` | In-memory documents, loaders, and fixed or failing strategies | None |
@@ -37,7 +47,7 @@ Its root exports core only. The CLI supplies the `docture` executable.
 | `@docture/cli` | CLI configuration, IO, errors, and `run` | See CLI dependencies below |
 | `@docture/cli/mcp` | The `convert` and `inspect` MCP server | `@modelcontextprotocol/sdk@1.32.2` |
 
-Files under `src` and `dist` are internal. The [API reference](/docs/api)
+Files under `src` and `dist` are internal. The [API index](/docs/api)
 documents the named exports of each supported entry point. The
 [migration guide](/docs/resources/migration) maps the removed scoped packages.
 
@@ -132,7 +142,7 @@ control engine installation separately from that download.
 The library emits ESM modules and declares `sideEffects: false`. A production bundler can
 remove unused modules. Narrow entries expose the capabilities you select:
 
-```ts
+```ts check
 import { Extractor } from "docture";
 import { llm } from "docture/llm/text";
 import { fileCache } from "docture/llm/cache";

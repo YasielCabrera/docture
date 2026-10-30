@@ -1,7 +1,10 @@
 ---
 title: Evaluation gates and baselines API
 description: Thresholds, regression budgets, and compatible baseline selection.
+type: reference
 ---
+
+Import `gate` and `resolveBaseline` from `@docture/eval` to pass or fail a result. [Gate evaluation regressions in CI](/docs/evaluation/ci) shows a CI setup.
 
 ## `@docture/eval`
 
@@ -11,6 +14,8 @@ description: Thresholds, regression budgets, and compatible baseline selection.
 resolveBaseline(store: Pick<RunStore, "listRuns">, query?: BaselineQuery): Promise<string | undefined>
 ```
 
+Takes [`RunStore`](/docs/evaluation/reference/types#runstore) and [`BaselineQuery`](/docs/evaluation/reference/gates#baselinequery).
+
 The id of the most recently started `complete` run on `branch`, then on `fallbackBranch`, or `undefined` when none qualifies. Throws `EvalSpecError` when `requireSameDataset` has no `datasetFingerprint` to compare against.
 
 ### `gate`
@@ -19,4 +24,69 @@ The id of the most recently started `complete` run on `branch`, then on `fallbac
 gate(result: EvalResult, options: GateOptions): GateResult
 ```
 
+Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`GateOptions`](/docs/evaluation/reference/gates#gateoptions). Returns [`GateResult`](/docs/evaluation/reference/types#gateresult).
+
 Check a result against thresholds and regression budgets. Equality passes. A run that is not `complete` fails. A missing value fails unless `onNull` is `pass`. Invalid options throw one `EvalSpecError` listing every problem.
+
+## Types
+
+### `BaselineQuery`
+
+How `resolveBaseline` picks a run.
+
+```ts check
+interface BaselineQuery {
+	/** Look on this branch first. Default: any branch. */
+	readonly branch?: string;
+	/** Look here when `branch` has no complete run, such as `main`. */
+	readonly fallbackBranch?: string;
+	/** Only runs over the dataset whose fingerprint is `datasetFingerprint`. */
+	readonly requireSameDataset?: boolean;
+	readonly datasetFingerprint?: string;
+	/** A run id never to pick, such as the run being compared. */
+	readonly exclude?: string;
+}
+```
+
+### `GateOptions`
+
+Pass and fail rules for a result.
+
+{/* options: GateOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `thresholds` | `readonly GateThreshold[]` | Bounds on metric values, optionally restricted to an experiment, segment, slice, or path pattern. |
+| `regressions` | `{ readonly maxDrop?: Readonly<Record<string, number>>; readonly requireSignificance?: boolean; }` | Budgets against every experiment in the result's run comparison. |
+| `maxErrorRate` | `number` | Highest allowed share of errored cases. |
+| `maxFallbackRate` | `number` | Highest allowed share of non-skipped cases that used a fallback. |
+| `onNull` | `"fail" \| "pass"` | What a missing value means. Default `fail`. |
+
+### `GateThreshold`
+
+A bound on one metric. Restrict it to one of a segment, a slice value or a path pattern, or leave all three out for the whole experiment.
+
+```ts
+interface GateThreshold {
+	/** Metric id, such as `f1`, `errorRate` or a custom metric. */
+	readonly metric: string;
+	/** For precision, recall and F1. Default `run`, which counts errored cases' fields as omissions. */
+	readonly scope?: PrfScope;
+	/** Default: every experiment in the result. */
+	readonly experiment?: string;
+	readonly segment?: string;
+	/** Exactly one slice name and value, such as `{ rendition: "scan-lq" }`. */
+	readonly slice?: SliceFilter;
+	/** Path pattern, such as `totals.total`. Precision, recall and F1 at run scope only. */
+	readonly path?: string;
+	readonly min?: number;
+	readonly max?: number;
+}
+```
+
+### `SliceFilter`
+
+A slice filter in a gate threshold, such as `{ rendition: "scan-lq" }`.
+
+```ts
+type SliceFilter = Readonly<Record<string, TagValue>>;
+```

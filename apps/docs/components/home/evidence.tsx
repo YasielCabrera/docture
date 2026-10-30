@@ -39,7 +39,7 @@ export function Evidence() {
         <span className="font-mono">
           Output of examples/synthetic-corpus.ts over {String(evalEvidence.caseCount)} generated cases
         </span>
-        <ArrowLink href="/docs/evaluation/quick-start">Read the evaluation guide</ArrowLink>
+        <ArrowLink href="/docs/synthetic/evaluation">Read how synthetic corpora are scored</ArrowLink>
       </div>
     </Section>
   );

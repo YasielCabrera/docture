@@ -83,15 +83,15 @@
       "output-streams": "/docs/cli/inputs-and-outputs#output-streams",
       "batches": "/docs/cli/inputs-and-outputs#batches",
       "standard-input": "/docs/cli/inputs-and-outputs#standard-input",
-      "dry-run": "/docs/cli/dry-run#dry-run",
-      "models-and-vision": "/docs/cli/models#models-and-vision",
-      "review": "/docs/cli/review#review",
+      "dry-run": "/docs/cli/dry-run#check-an-invocation-before-it-runs",
+      "models-and-vision": "/docs/cli/models#choose-a-model",
+      "review": "/docs/cli/review#write-a-review-page",
       "conversion-view": "/docs/cli/review#conversion-view",
       "extraction-view": "/docs/cli/review#extraction-view",
-      "configuration-file": "/docs/cli/configuration#configuration-file",
-      "evaluate-in-ci": "/docs/cli/evaluation#evaluate-in-ci",
-      "quick-mode": "/docs/cli/evaluation#quick-mode",
-      "mcp-server": "/docs/cli/mcp#mcp-server"
+      "configuration-file": "/docs/cli/configuration#create-a-configuration-file",
+      "evaluate-in-ci": "/docs/cli/evaluation#run-the-configured-evaluation",
+      "quick-mode": "/docs/cli/evaluation#score-files-without-a-config",
+      "mcp-server": "/docs/cli/mcp#install-the-mcp-sdk"
     }
   },
   "/docs/guides/container-images": {
@@ -122,7 +122,7 @@
       "digital-and-scanned-pdfs": "/docs/conversion/quick-start",
       "selected-pages": "/docs/conversion/quick-start",
       "output-formats": "/docs/conversion/formats#output-formats",
-      "assets": "/docs/conversion/assets#assets",
+      "assets": "/docs/conversion/assets#choose-an-asset-mode",
       "deterministic-and-model-assisted-layout": "/docs/conversion/layout",
       "running-headers-and-footers": "/docs/conversion/reference/furniture#running-headers-and-footers",
       "tables-and-merged-cells": "/docs/conversion/reference/tables#tables-and-merged-cells",
@@ -335,7 +335,7 @@
       "define-the-result": "/docs/extraction/quick-start#define-the-result",
       "build-the-extractor": "/docs/extraction/quick-start#build-the-extractor",
       "read-the-result": "/docs/extraction/quick-start#read-the-result",
-      "other-return-forms": "/docs/extraction/quick-start#other-return-forms"
+      "other-return-forms": "/docs/extraction/results#choose-a-return-form"
     }
   },
   "/docs/reference/api": {
@@ -751,12 +751,12 @@
     }
   },
   "/docs/reference/architecture": {
-    "to": "/docs/resources/architecture",
+    "to": "/docs/getting-started/architecture",
     "anchors": {
-      "core-layers": "/docs/resources/architecture#core-layers",
-      "extension-boundaries": "/docs/resources/architecture#extension-boundaries",
-      "data-flow": "/docs/resources/architecture#data-flow",
-      "tested-invariants": "/docs/resources/architecture#tested-invariants"
+      "core-layers": "/docs/getting-started/architecture#core-layers",
+      "extension-boundaries": "/docs/getting-started/architecture#extension-boundaries",
+      "data-flow": "/docs/getting-started/architecture#data-flow",
+      "tested-invariants": "/docs/getting-started/architecture#tested-invariants"
     }
   },
   "/docs/reference/changelog": {
@@ -788,5 +788,18 @@
       "evaluation-entries": "/docs/getting-started/reference/packages#evaluation-entries",
       "synthetic-data-entries": "/docs/getting-started/reference/packages#synthetic-data-entries"
     }
+  },
+  "/docs/resources/architecture": {
+    "to": "/docs/getting-started/architecture",
+    "anchors": {
+      "core-layers": "/docs/getting-started/architecture#core-layers",
+      "extension-boundaries": "/docs/getting-started/architecture#extension-boundaries",
+      "data-flow": "/docs/getting-started/architecture#data-flow",
+      "tested-invariants": "/docs/getting-started/architecture#tested-invariants"
+    }
+  },
+  "/docs/getting-started/choose-workflow": {
+    "to": "/docs/getting-started",
+    "anchors": {}
   }
 }

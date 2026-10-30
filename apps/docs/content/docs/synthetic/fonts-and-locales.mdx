@@ -1,11 +1,16 @@
 ---
 title: Configure synthetic fonts and locale formatting
 description: Choose fonts that cover your text and format values reproducibly.
+type: how-to
 ---
+
+Each template formats values for one locale and draws with fonts that must cover every character it prints.
+
+## Format numbers, money, and dates
 
 Set `locale` on each template. Presets are `en-US`, `en-GB`, `de-DE`, `fr-FR`, and `es-ES`. The formatter passed to `draw` or `render` supplies `number`, `money`, and `date`.
 
-`money` accepts integer minor units. For example, `money(-5951)` prints `-$59.51` in `en-US` and `-59,51 €` in `de-DE`. Dates use explicit patterns with `DD`, `MM`, `YYYY`, and `MON`. Formatting avoids runtime ICU differences.
+`money` accepts integer minor units. For example, `money(-5951)` prints `-$59.51` in `en-US` and `-59,51 €` in `de-DE`. Dates use explicit patterns with `DD`, `MM`, `YYYY`, and `MON`. The formatter uses these patterns rather than `Intl`, so printed text does not change with the runtime's ICU version.
 
 ## Supply fonts
 
@@ -16,6 +21,8 @@ Pass TrueType or OpenType bytes in the template's `fonts` map for other scripts.
 React templates list faces in `fonts` with a `family`, font bytes or a path as `src`, and an optional weight and style, then select them with `fontFamily`. The same `missing-glyph` check applies. See [React fonts](/docs/synthetic/react-templates#styles-fonts-and-images).
 
 HTML templates embed fonts as data URLs in CSS. Keep the Chromium build and font assets fixed when comparing rendered bytes.
+
+## Rebuild after changing fonts
 
 Changing a font or asset captured by a template does not change its function source fingerprint. Change the corpus `createdAt` or rebuild into a new directory after changing those inputs.
 

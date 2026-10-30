@@ -1,0 +1,48 @@
+---
+title: Use Docture with AI coding agents
+description: Give a coding agent the Docture documentation as Markdown and the usage guide each package ships.
+type: how-to
+---
+
+A coding agent's training data can predate the Docture API you install, so give it the current documentation. This site serves every page as Markdown, and each package ships an `AGENTS.md` usage guide inside `node_modules`.
+
+## Give an agent the documentation
+
+Pick the source that fits how much context the agent can hold:
+
+| Source | Contents | Use it when |
+| --- | --- | --- |
+| [`/llms.txt`](/llms.txt) | An index of every page, grouped by area, as Markdown links with each page's description | The agent fetches pages as it needs them |
+| [`/llms-full.txt`](/llms-full.txt) | Every page in one file, about 1 MB | The agent can hold the whole documentation in context |
+| `/llms-full/<area>.txt`, for example [`/llms-full/extraction.txt`](/llms-full/extraction.txt) | Every page of one area in one file, 50 to 160 KB | The task stays inside one area, such as extraction or evaluation |
+| Any page URL with `.md` appended | One page as Markdown, for example `/docs/extraction/quick-start.md` | You want the agent to read one guide |
+
+Each documentation page also has two actions at the top:
+
+- **Copy page** copies the page as Markdown, ready to paste into a chat.
+- **View as Markdown** opens the same Markdown in the browser. Its URL is the page URL with `.md` appended.
+
+## Point the agent at the package guides
+
+Each Docture package ships an `AGENTS.md` file that covers its imports and install rules. [Install the components you use](/docs/getting-started/installation) lists the commands for each package. After you install a package, the guide is in `node_modules`:
+
+| Package | Guide |
+| --- | --- |
+| `docture` | `node_modules/docture/AGENTS.md` |
+| `@docture/cli` | `node_modules/@docture/cli/AGENTS.md` |
+| `@docture/eval` | `node_modules/@docture/eval/AGENTS.md` |
+| `@docture/synthetic` | `node_modules/@docture/synthetic/AGENTS.md` |
+
+Agents do not discover these guides automatically. Name them in the instructions file your agent loads, such as `AGENTS.md` or `CLAUDE.md` at the root of your project. Replace `<docs-url>` with the address of this site and keep the lines for the packages you install:
+
+```md title="AGENTS.md"
+## Docture
+
+Before you change code that imports docture, read node_modules/docture/AGENTS.md.
+Before you edit docture.config.ts or a docture command, read node_modules/@docture/cli/AGENTS.md.
+Before you change evaluation code, read node_modules/@docture/eval/AGENTS.md.
+Before you change synthetic templates or corpora, read node_modules/@docture/synthetic/AGENTS.md.
+For anything else, find the page in <docs-url>/llms.txt and read its Markdown.
+```
+
+The guides match the installed version, so they stay correct after an upgrade. The site documents one release line, named at the top of `llms.txt` and of each Markdown page.

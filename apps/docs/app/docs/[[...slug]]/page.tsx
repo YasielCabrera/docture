@@ -7,10 +7,12 @@ import {
   DocsDescription,
   DocsPage,
   DocsTitle,
+  EditOnGitHub,
 } from "fumadocs-ui/layouts/notebook/page";
 import { createRelativeLink } from "fumadocs-ui/mdx";
 import { getMDXComponents } from "@/components/mdx";
 import { PageActions } from "@/components/page-actions";
+import { gitConfig, repositoryUrl } from "@/lib/shared";
 import { getPageMarkdownUrl, source } from "@/lib/source";
 
 export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
@@ -40,6 +42,7 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
       <DocsBody>
         <MDX components={getMDXComponents({ a: createRelativeLink(source, page) })} />
       </DocsBody>
+      <EditOnGitHub href={`${repositoryUrl}/blob/${gitConfig.branch}/apps/docs/content/docs/${page.path}`} />
     </DocsPage>
   );
 }
@@ -59,5 +62,5 @@ export async function generateMetadata(
     return { title: "Documentation moved", robots: { index: false, follow: true }, alternates: { canonical: entry.to } };
   }
 
-  return { title: page.data.title, description: page.data.description };
+  return { title: page.data.title, description: page.data.description, alternates: { canonical: page.url } };
 }

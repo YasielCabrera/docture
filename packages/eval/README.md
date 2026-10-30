@@ -70,4 +70,4 @@ console.log(verdict.pass, html.length);
 
 The judge compares string leaves through `scoreAsync`. Temperature zero and cached structured verdicts improve repeatability; model providers do not guarantee bitwise determinism. An aligned array still needs a synchronous weighted field for pairing rows.
 
-[Guide](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/evaluation/quick-start.mdx) · [API](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/evaluation/reference.mdx) · [Migration](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/resources/migration.mdx)
+[Guide](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/evaluation/quick-start.mdx) · [API](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/evaluation/reference/index.mdx) · [Migration](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/resources/migration.mdx)

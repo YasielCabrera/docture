@@ -1,7 +1,10 @@
 ---
 title: Synthetic constraints and paths API
-description: Public signatures, types, behavior, and defaults for synthetic constraints and paths.
+description: Cross-field constraints, IBAN and Luhn check digits, seeded random streams, and path helpers for synthetic models.
+type: reference
 ---
+
+The root entry `@docture/synthetic` exports the constraints a model checks after sampling, plus the check-digit, random stream, and path helpers that generators use. The [scenarios guide](/docs/synthetic/scenarios) shows constraints in use.
 
 ## `@docture/synthetic`
 
@@ -99,7 +102,7 @@ Every concrete path and value at a pattern. Absent positions are skipped.
 streamFor(seed: number | string, key: string): Stream
 ```
 
-The deterministic stream for `key` under `seed`. A `Stream` has `next()`, `int(min, max)`, `float(min, max)`, `pick(items)`, `chance(p)` and `fork(key)`. Equal inputs give equal sequences on every platform.
+Returns the deterministic [`Stream`](#stream) for `key` under `seed`. Equal inputs give equal sequences on every platform.
 
 ### `formatPath`
 
@@ -124,3 +127,29 @@ parsePath(text: string): PathSegment[] | undefined
 ```
 
 Parse a concrete path or a pattern. `[]` parses to `-1`. Text that no path formats to returns `undefined`.
+
+## Types
+
+### `Constraint`
+
+{/* options: Constraint */}
+| Member | Meaning |
+| --- | --- |
+| `name` | The name reported in `SynthesisError.problems`. |
+| `check` | `(value) => readonly string[]`. Returns one message per violation, or an empty list. |
+
+### `Stream`
+
+{/* options: Stream */}
+| Method | Returns |
+| --- | --- |
+| `next` | `() => number`, a float in `[0, 1)`. |
+| `int` | `(min, max) => number`, an integer in `[min, max]` inclusive. |
+| `float` | `(min, max) => number`, a float in `[min, max)`. |
+| `pick` | `(items) => T`, one of `items`. |
+| `chance` | `(probability) => boolean`. |
+| `fork` | `(key) => Stream`, an independent stream for a sub-key. |
+
+### `PathSegment` and `PathPattern`
+
+A `PathSegment` is an object key or an array index. `PathPattern<T>` names every schema position of `T` with `[]` for array items, such as `lineItems[].amount`.

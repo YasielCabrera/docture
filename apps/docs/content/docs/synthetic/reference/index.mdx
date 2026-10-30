@@ -1,11 +1,12 @@
 ---
 title: Synthetic data API reference
 description: Public entry points for generation, rendering, verification, and corpora.
+type: reference
 ---
 
 `@docture/synthetic` generates labeled documents from your extraction schema. Each document carries ground truth that is correct by construction: the value of every printed field, and the page and box where it is printed. Boxes use Docture's `LayoutBox` convention: PDF points, top-left origin, y down.
 
-The root entry is portable and engine-free. Every other entry loads its engine on first use and throws `MissingEngineError` naming the package and range when it is absent. The [synthetic corpus guide](/docs/synthetic/quick-start) walks through a complete corpus.
+The root entry is portable and engine-free. Every other entry loads its engine on first use and throws `MissingEngineError` naming the package and range when it is absent. The [quick start](/docs/synthetic/quick-start) renders and verifies one PDF, and the [corpus guide](/docs/synthetic/corpora) writes a complete corpus.
 
 | Entry | Purpose | Engines |
 | --- | --- | --- |
@@ -19,7 +20,6 @@ The root entry is portable and engine-free. Every other entry loads its engine o
 | `@docture/synthetic/react-pdf` | React templates laid out by react-pdf, with a box for every `<Field>` | `react`, `@react-pdf/renderer` |
 | `@docture/synthetic/html` | HTML and CSS templates printed by Chromium | `playwright-core` and a Chromium build |
 | `@docture/synthetic/llm` | Model-written text pools, cached for offline rebuilds | `ai` |
-
 
 ## Reference pages
 

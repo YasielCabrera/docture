@@ -1,14 +1,18 @@
 ---
 title: Extraction results API
 description: Result fields, attempt records, usage, conflicts, and field paths.
+type: reference
 ---
 
-Import from `docture`.
+These types describe what an extraction returns and how to address its fields. Import them from `docture` or `docture/node`. [Inspect results](/docs/extraction/results) shows them in use.
 
 ## Results
 
-`ExtractionResult<T>` contains:
+### `ExtractionResult`
 
+The value that `extract()` returns.
+
+{/* options: ExtractionResult */}
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `data` | `T` | Validated extracted data. |
@@ -24,35 +28,106 @@ Import from `docture`.
 | `citationSources` | `readonly SourceLine[]?` | The real lines `citations` name, by page then line. Present exactly when `citations` is. |
 | `evidenceSources` | `readonly SourceEvidence[]?` | Cited native elements or cells, with actual granularity and optional locations. Separate from real-line `citationSources`. |
 | `sourceDigest` | `string?` | Source identity retained from the loaded document. |
-| `physicalSourceDigest` | `string?` | Identity of the physical source representation, when supplied. |
+| `physicalSourceDigest` | `string?` | Identity of the physical source bytes, when supplied. A physical digest binds highlights to the exact original file. |
 | `sourceMetadata` | `Readonly<Record<string, unknown>>?` | Opaque loader provenance retained from the source. |
 
-`AttemptStatus` is `"ok" | "failed" | "skipped"`. An `Attempt` contains required `stage`, `strategy`, `status`, and `ms`. Its stage is
-`load`, `classify`, `extract`, `repair`, or `layout`. Optional fields are `error`,
-`errorCode`, `usage`, `rawOutput`, `finishReason`, and validation `issues`. Raw output is
-capped at 10,000 JavaScript string characters. Loader attempts use the
-historical `strategy` field for the loader name. A successful loader is represented by
-`result.loader` and is not duplicated in `attempts`.
+### `Attempt`
 
-`Usage` contains `inputTokens`, `outputTokens`, `totalTokens`, optional `costUsd`, and
-`wallMs`. Optional `cacheReadTokens` and `cacheWriteTokens` are subsets of input tokens
-reported by the provider. `EMPTY_USAGE` is the zero-valued usage object.
+One loader or strategy run.
 
-`sumUsage(parts, wallMs)` combines partial usage records. Missing counts add zero.
-Optional cache counts and costs appear when at least one part reports them. The caller
-supplies elapsed `wallMs`. Missing totals are not derived by this reducer.
+{/* options: Attempt */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `stage` | `"load" \| "classify" \| "extract" \| "repair" \| "layout"` | Pipeline stage. |
+| `strategy` | `string` | Strategy name. Loader attempts put the loader name here. |
+| `status` | `AttemptStatus` | Outcome of the run. |
+| `ms` | `number` | Elapsed time. |
+| `error` | `string?` | Present when `status` is not `"ok"`. |
+| `errorCode` | `string?` | The error's `code` when it was a Docture error. |
+| `usage` | `Partial<Usage>?` | Usage the attempt reported. |
+| `rawOutput` | `string?` | Model response text, capped at 10,000 JavaScript string characters. |
+| `finishReason` | `string?` | Provider finish reason. |
+| `issues` | `readonly ValidationIssue[]?` | Validation issues for a failed answer. |
 
-A field path names one field of `data`. Plain keys and array indexes join with dots, as
-in `lineItems.3.amount`, and `""` is the whole value. A key that is empty or contains a
-dot or a backtick is wrapped in backticks, with backslashes and backticks inside it
-escaped by a backslash. The key `"total.net"` is `` `total.net` ``, which never reads as
-`total` then `net`, and an empty key is ``` `` ```. Conflicts, citations and schema
-issues write the same text for the same field, so their `path` values can be matched.
-`formatFieldPath(segments)` writes a path from keys and indexes.
-`parseFieldPath(path)` returns the keys, with indexes as decimal strings, or `undefined`
-for text that no path formats to.
+A successful loader is recorded in `result.loader` and is not duplicated in `attempts`.
+
+### `AttemptStatus`
+
+```ts check
+type AttemptStatus = "ok" | "failed" | "skipped";
+```
+
+### `Usage`
+
+Model usage and elapsed time.
+
+{/* options: Usage */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `inputTokens` | `number` | Input tokens. |
+| `outputTokens` | `number` | Output tokens. |
+| `totalTokens` | `number` | Total tokens. |
+| `cacheReadTokens` | `number?` | Provider prompt-cache reads, included in `inputTokens`. |
+| `cacheWriteTokens` | `number?` | Provider prompt-cache writes, included in `inputTokens`. |
+| `costUsd` | `number?` | Absent when no model ran or no matching price was configured. Absent does not mean zero. |
+| `wallMs` | `number` | Elapsed wall time. |
+
+See [cache and pricing API](/docs/extraction/reference/cache-pricing#pricing-and-usage) for how cost is computed.
+
+### `EMPTY_USAGE`
+
+The zero-valued `Usage` object.
 
 ```ts
+const EMPTY_USAGE: Usage
+```
+
+### `sumUsage`
+
+Combines partial usage records.
+
+```ts
+function sumUsage(parts: readonly (Partial<Usage> | undefined)[], wallMs: number): Usage
+```
+
+Missing counts add zero. Optional cache counts and costs appear when at least one part reports them. The caller supplies elapsed `wallMs`. Missing totals are not derived.
+
+### `ValidationOutcome`
+
+The rule outcome for returned data.
+
+```ts
+interface ValidationOutcome {
+  readonly valid: boolean;
+  readonly issues: readonly ValidationIssue[];
+}
+```
+
+Schema validation already accepted the data's shape; report-mode rules can still leave `valid` false. See [validation and repair API](/docs/extraction/reference/validation#validation-rules).
+
+## Field paths
+
+A field path names one field of `data`. Plain keys and array indexes join with dots, as in `lineItems.3.amount`, and `""` is the whole value. A key that is empty or contains a dot or a backtick is wrapped in backticks, with backslashes and backticks inside it escaped by a backslash. The key `"total.net"` is `` `total.net` ``, which never reads as `total` then `net`, and an empty key is ``` `` ```. Conflicts, citations, and schema issues write the same text for the same field, so their `path` values can be matched. A validation rule writes its own paths; use `formatFieldPath()` to match the schema's issues.
+
+### `formatFieldPath`
+
+Writes a path from keys and indexes.
+
+```ts
+function formatFieldPath(segments: readonly (string | number)[]): string
+```
+
+### `parseFieldPath`
+
+Splits a path back into its keys, with indexes as decimal strings.
+
+```ts
+function parseFieldPath(path: string): string[] | undefined
+```
+
+Returns `undefined` for text that no path formats to, such as `a..b` or an unclosed backtick.
+
+```ts check
 import { formatFieldPath, parseFieldPath } from "docture";
 
 formatFieldPath(["lineItems", 0, "amount"]); // "lineItems.0.amount"
@@ -60,13 +135,30 @@ formatFieldPath(["total.net"]); // "`total.net`"
 parseFieldPath("`total.net`.currency"); // ["total.net", "currency"]
 ```
 
-`ValidationIssue` contains a field `path` and `message`. A rule writes its own paths;
-use `formatFieldPath` to match the schema's issues. `ValidationOutcome` contains `valid`
-and `issues`.
+## Conflicts
 
-`ExtractionConflict` contains a field `path` and `values`, one `ConflictingValue`
-(`value` and `pages`) per distinct present value in document order. A value is a scalar,
-or an object or array that met a scalar at the same path. A strategy reports conflicts
-through `StrategyOutcome.conflicts`; the pipeline copies a non-empty list from the
-winning attempt onto the result. A repair outcome without its own conflicts keeps the
-list of the extract attempt it replaced.
+### `ExtractionConflict`
+
+A field on which the winning strategy's requests disagreed.
+
+```ts
+interface ExtractionConflict {
+  readonly path: string;
+  readonly values: readonly ConflictingValue[];
+}
+```
+
+`path` is written by `formatFieldPath()`. `values` holds one entry per distinct present value, in document order. A strategy reports conflicts through `StrategyOutcome.conflicts`; the pipeline copies a non-empty list from the winning attempt onto the result. A repair outcome without its own conflicts keeps the list of the extract attempt it replaced. See [conflicting values](/docs/extraction/long-documents#conflicting-values).
+
+### `ConflictingValue`
+
+One value a field took, and the pages that gave it.
+
+```ts check
+interface ConflictingValue {
+  readonly value: string | number | boolean | readonly unknown[] | { readonly [key: string]: unknown };
+  readonly pages: readonly number[];
+}
+```
+
+The value is a scalar, or an object or array that met a scalar at the same path.

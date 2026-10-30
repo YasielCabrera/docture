@@ -1,7 +1,10 @@
 ---
 title: Concurrency controls and measurements
 description: Defaults, benchmark conditions, measured results, and limits of concurrency.
+type: reference
 ---
+
+This page lists every concurrency and rendering control with its default, and the measurements behind the advice in [tune concurrency and memory](/docs/extraction/performance).
 
 ## Controls and defaults
 
@@ -25,8 +28,8 @@ share the same two ONNX sessions.
 
 ## Measured results
 
-The checked-in benchmark creates its own PDFs with `docture/testing/fixtures`, so it needs
-no corpus download. Run it from the repository root after `pnpm install` and `pnpm build`:
+The benchmark script in the Docture repository creates its own PDFs with `docture/testing/fixtures`, so it needs
+no corpus download. To reproduce the numbers, run it from a clone of the repository after `pnpm install` and `pnpm build`:
 
 ```sh
 pnpm --filter @docture/examples exec node benchmarks/concurrency.ts --reps 5

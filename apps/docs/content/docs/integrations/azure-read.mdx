@@ -1,16 +1,66 @@
 ---
 title: Azure Document Intelligence Read
-description: Read PDF and image text through a fetch-only Azure Document Intelligence adapter.
+description: Read text and line positions from PDF and image files with the Azure Document Intelligence Read model.
+type: how-to
 ---
 
-`docture/loaders/azure-di` exports `DocumentLoaderAzureRead`, `DocumentLoaderAzureReadOptions`, `AzureReadAuthentication` and `AzureReadError`. The adapter uses built-in fetch, API `2024-11-30`, `prebuilt-read` and UTF-16 span indexing. No SDK peer is required. Import and construction make no service request.
+`DocumentLoaderAzureRead` sends a PDF or image to the Azure Document Intelligence `prebuilt-read` model and returns its text and line positions. Import it from `docture/loaders/azure-di`. The adapter calls the REST API `2024-11-30` with built-in `fetch`, so you install no Azure SDK.
 
-Options require an `endpoint` and `auth`. Key authentication uses `{ kind: "key", key }`; bearer authentication uses `{ kind: "bearer", token }`. `fetch` allows transport injection. `timeoutMs` is a finite total deadline with a default of 120000 ms. `pollIntervalMs` defaults to 1000 ms. Caller cancellation covers requests, response bodies and polling delays. Credentials stay in headers and do not enter logs or metadata. Operation links must remain on the configured origin, and redirects are rejected.
+## Configure the loader
 
-The tested MIME types are PDF, PNG, JPEG and TIFF. The service receives selected original page numbers through `LoadRequest.pages`, and the returned pages keep those numbers. Office formats are outside this adapter's contract. `images` is false; compose a rasterizer with `withRasterizer` when a vision strategy needs images.
+Pass your resource endpoint and a credential. Use `{ kind: "key", key }` for an API key or `{ kind: "bearer", token }` for a bearer token.
 
-Inch polygons scale by 72 into top-left PDF points. Pixel polygons need a caller-confirmed `imageDpi`; an image's pixel dimensions alone do not establish physical size. Rotated polygons become axis-aligned boxes. Words join lines through source spans and retain confidence. Unknown units or missing scale produce zero dimensions and text-only pages with diagnostics. Missing word geometry also keeps text without fabricated line boxes. Runtime feature checks remain authoritative for actual geometry.
+```ts check
+import { DocumentConverter } from "docture";
+import { DocumentLoaderAzureRead } from "docture/loaders/azure-di";
 
-HTTP, service-state and result-contract failures raise `AzureReadError` with `LOAD_FAILED`. The total deadline raises `TIMEOUT`; caller abort keeps its reason. Metadata records the API/model, original page units and geometry diagnostics without endpoint, credentials or source text.
+async function readScan(pdfBytes: Uint8Array, endpoint: string, key: string) {
+  const converter = new DocumentConverter({
+    loaders: [new DocumentLoaderAzureRead({ endpoint, auth: { kind: "key", key } })],
+  });
+  try {
+    return await converter.convert({ bytes: pdfBytes, mimeType: "application/pdf" }, { format: "text" });
+  } finally {
+    await converter.dispose();
+  }
+}
+```
 
-`apps/examples/20-input-loaders/azure.ts` runs against a deterministic local mock server. No live Azure check was run.
+Importing the module and constructing the loader make no service request.
+
+`DocumentLoaderAzureReadOptions` accepts these fields:
+
+{/* options: DocumentLoaderAzureReadOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `endpoint` | required | Your Document Intelligence resource endpoint. |
+| `auth` | required | An `AzureReadAuthentication` key or bearer credential. |
+| `fetch` | global `fetch` | Transport to use, for example in tests. |
+| `timeoutMs` | `120000` | Total deadline for the request, polling, and response bodies. |
+| `pollIntervalMs` | `1000` | Delay between operation status checks. |
+| `imageDpi` | none | Resolution of image input. Required to turn pixel polygons into PDF points. |
+
+Credentials stay in request headers and never enter logs or metadata. The loader rejects redirects and operation links that leave the configured origin. Caller cancellation covers requests, response bodies, and polling delays.
+
+## Choose inputs and pages
+
+The loader is named `azure-read` and accepts PDF, PNG, JPEG, and TIFF. It does not accept Office formats. When a request selects pages through `LoadRequest.pages`, the service reads only those pages, and the returned pages keep their original numbers.
+
+The loader returns no page images. To give a vision strategy images, compose it with a rasterizer through `withRasterizer`, as described in [Compose page rasterizers](/docs/integrations/rasterizers).
+
+## Understand the returned geometry
+
+Azure reports each page in inches or in pixels. The loader converts its polygons to top-left PDF points:
+
+- Inch polygons scale by 72.
+- Pixel polygons need `imageDpi`, because an image's pixel size alone does not give its physical size.
+- Rotated polygons become axis-aligned boxes.
+- Words join lines through their source spans and keep their confidence.
+
+When the unit is unknown or the scale is missing, pages have zero dimensions, carry text without lines, and record a diagnostic. Missing word geometry also keeps the text without line boxes. Metadata records the API and model, the original page units, and geometry diagnostics. It never contains the endpoint, credentials, or source text.
+
+## Handle errors
+
+HTTP, service-state, and result-format failures throw `AzureReadError` with code [`LOAD_FAILED`](/docs/resources/errors#error-catalogue). Exceeding `timeoutMs` fails with code [`TIMEOUT`](/docs/resources/errors#error-catalogue). A caller abort keeps the abort reason.
+
+The repository example in [`apps/examples/20-input-loaders`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/20-input-loaders), `azure.ts`, runs the loader against a local mock server, so it needs no Azure account.

@@ -1,7 +1,11 @@
 ---
 title: Choose an output format
 description: Select text, Markdown, HTML, or versioned document JSON.
+type: how-to
 ---
+
+Every conversion returns one format as a string in `result.content`. Pick the format your
+next step reads.
 
 ## Output formats
 
@@ -13,13 +17,13 @@ await converter.convert(source, { format: "json" });
 ```
 
 - TXT joins pages with form feeds and adds no image placeholders.
-- Markdown uses CommonMark, GFM tables, and `<!-- page: N -->` markers.
+- Markdown, the default, uses CommonMark, GFM tables, and `<!-- page: N -->` markers.
 - HTML is a complete escaped HTML5 document. Each page is a numbered `section`.
 - JSON exports the versioned `DoctureDocument` with semantic elements, provenance, and assets.
 
-All four formats read the same semantic elements. Headings, paragraphs, lists, tables,
-code, figures, page breaks, and running headers and footers retain page and bounding-box
-provenance.
+All four formats read the same semantic elements, and `result.pages[].elements` holds
+them in every format. Each element keeps its page and bounding-box provenance. Markdown and
+HTML omit running headers and footers from the body. TXT and JSON keep them.
 
 
 ## Serverless and in-memory use
@@ -38,11 +42,11 @@ return new Response(result.content, {
 ```
 
 This works in a request handler, queue worker, or indexing job without a temporary output
-directory. Chunking, embeddings, and index writes remain application concerns.
-
+directory. For retrieval, pass the result to [`chunkDocument()`](/docs/conversion/retrieval-chunks).
+Embeddings and index writes stay in your application.
 
 Use [document JSON](/docs/conversion/document-json) for validated storage and [assets](/docs/conversion/assets) for image handling.
 
 ## Use the CLI
 
-`docture convert report.pdf --out converted --to md` writes the selected format to disk. Referenced assets go under `<out>/<stem>.assets/`. Basename collisions reject before any document loads. A failed batch input leaves successful outputs in place and exits with code `1`. See [command reference](/docs/cli/commands).
+`docture convert report.pdf --out converted --to md` writes the selected format to disk. Referenced assets go under `<out>/<stem>.assets/`. Basename collisions reject before any document loads. A failed batch input leaves successful outputs in place and exits with code `1`. See the [command reference](/docs/cli/commands).

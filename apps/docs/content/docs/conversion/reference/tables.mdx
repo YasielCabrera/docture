@@ -1,20 +1,17 @@
 ---
 title: Table and merged-cell detection
 description: Detection examples, output behavior, and limits for table and merged-cell detection.
+type: reference
 ---
+
+Conversion groups aligned rows into `table` elements, described in
+[`TableElement`](/docs/conversion/reference/layout#tableelement) and
+[`TableCellSpan`](/docs/conversion/reference/layout#tablecellspan). This page lists how
+rows, header rows, and merged cells are detected and how each format renders them.
 
 ## Tables and merged cells
 
-Core groups aligned rows into `table` elements. Rows with the same number of cells at
-matching positions form a plain table. When rows differ in cell count, the rows with the
-most cells set the column bands. A shorter row joins the table when each of its cells
-falls in a band, so a totals row stays with its table. A row more than 1.5 times the row
-spacing below the row above starts a new form section instead, unless it holds a number
-without letters in the table's last column, as a totals row does. That holds for a shorter row, such as
-`Booking ID` and `Payment Mode` labels under a `Check In`/`Check Out`/`Rooms` table, and
-for a row in a different font weight. The section and the rows above it become tables
-only if each is a table on its own. A label over two columns becomes
-a merged cell:
+A label over two columns becomes a merged cell:
 
 ```ts
 const result = await converter.convert(source, { format: "json" });
@@ -35,16 +32,55 @@ slot it covers holds `""`. Each format renders spans differently:
 - TXT keeps the original source lines.
 - JSON keeps `rows`, `headerRows`, and `spans`.
 
-Detection is a heuristic. A label must cover more than half of each column it merges,
-and those columns must be empty in its row. A bold label in a bold header row can instead
-sit centred over two or more columns, such as `Quarters` above `Q1` and `Q2`, even when it
-overlaps neither. A centred line without bold type stays outside the table with a
-`LAYOUT_DEGRADED` warning, because it could also be a caption. A caption such as
-`Table 1` or `Table A`, heading-size text, or a line more than 1.5 row spacings above the table never
-merges. Rows above the band rows join only as header
-rows that a merged label proves. A row span needs a cell box that covers at least half of
-each row line, which OCR or synthetic geometry can provide and PDF text layers rarely do.
-An empty cell never makes a row span. Text layers that emit one span per word keep the
-plain table rule. A layout analyzer group that would produce an invalid table is
-ignored, and the tables stay separate. The
-[reference](/docs/conversion/reference/layout#semantic-layout) lists the rules.
+## Detection rules
+
+Table detection is a heuristic.
+
+- Rows with the same cell count at matching positions form a plain table without spans,
+  with `headerRows: 1`.
+- When counts differ, the first two or more matching rows set column bands from their
+  horizontal extent. A following row with no more cells joins when each cell overlaps a
+  band and no two cells claim one band. A totals row with fewer cells therefore stays with
+  its table.
+- Under both rules, an untagged row joins only when it starts within three times the
+  median row spacing of the table's rows so far, measured from the row above.
+- Under the band rule, a row more than 1.5 times that spacing below the row above starts a
+  new section when it has fewer cells than the table or a different font weight from the
+  row above. An example is `Booking ID` and `Payment Mode` labels under a `Check In`,
+  `Check Out`, and `Rooms` table. The section and the rows above it become tables only if
+  each is a table on its own.
+- A row whose last-column value holds a digit and no letters, when that column's body
+  cells hold digits, is a totals row and still joins. Every neighbouring pair of cells in
+  such a row is at least one line height apart.
+
+Merged cells and header rows follow these rules:
+
+- A cell gets `colSpan: k` when it covers more than half of each of `k` bands that hold no
+  other cell of its row.
+- A cell of a bold first row over rows that are not all bold also gets `colSpan: k` when
+  all of these hold: it lies within `k` contiguous bands, its centre is within 10% of
+  their combined width from theirs, at least two rows follow, and the next row is within
+  1.5 times their spacing. It must be neither a caption such as `Table 1` or `Table A` nor
+  heading-size text. A bold label such as `Quarters` above `Q1` and `Q2` merges this way
+  even when it overlaps neither.
+- A lone line in that position leads the table only when the row below it is bold.
+- The first row is a header. The next row is also a header while the row above it holds a
+  column span and its cells sit under that span or under empty slots. Rows above the band
+  rows join only as those header rows.
+- `rowSpan` grows when the cell's box covers at least half the height of the next row's
+  line and that row's slot is empty. It never crosses the header rows.
+
+## Limits
+
+- A centred line without bold type stays outside the table with a `LAYOUT_DEGRADED`
+  warning that names its line, because it could also be a caption.
+- A caption such as `Table 1` or `Table A`, heading-size text, or a line more than 1.5 row
+  spacings above the table never merges.
+- A row span needs a cell box that covers at least half of each row line. OCR or synthetic
+  geometry can provide one. PDF text layers rarely do. An empty cell never makes a row
+  span.
+- Text layers that emit one span per word keep the plain table rule.
+- A layout analyzer group that would produce an invalid table is ignored, and the tables
+  stay separate.
+- A table that runs over a page break follows the
+  [continuation rules](/docs/conversion/reference/continuations#continuation-rules).

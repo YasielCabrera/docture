@@ -1,112 +1,269 @@
 ---
 title: Classification API
 description: Document kinds, classifier contracts, verdict selection, and trees.
+type: reference
 ---
 
-Import from `docture`.
+Classifications describe the document kinds a classifier chooses between, and classifiers propose a kind for a loaded document. Import them from `docture` or `docture/node`. [Classify documents](/docs/extraction/classification) shows them in use.
 
 ## Classifications
 
-`Classification<Name, S, E>` contains:
+### `defineClassification`
 
-| Field | Required | Meaning |
-| --- | --- | --- |
-| `name` | yes | Literal document kind and result discriminant. |
-| `description` | yes | Recognition guidance. |
-| `schema` | yes | Schema used for this kind. |
-| `hints` | no | Additional recognition or extraction guidance. |
-| `extractor` | no | Extractor used only for this kind. |
-| `extractionContract` | no | Contract used for extraction instead of `schema`. |
-| `examples` | no | Worked examples typed by the extraction contract. When this kind is selected, they replace that contract's own. |
-| `image` | no | Reference image path or bytes for supporting classifiers. |
+Declares a document kind and preserves its literal name.
 
 ```ts
-defineClassification<
+function defineClassification<
   const Name extends string,
   S extends FlexibleSchema,
   E extends ContractLike = S,
 >(classification: Classification<Name, S, E>): Classification<Name, S, E>
 ```
 
-`defineClassification()` preserves the literal name. It does not validate the schema or
-check whether an image exists.
+It does not validate the schema or check whether an image exists.
+
+### `Classification`
+
+One document kind.
+
+{/* options: Classification */}
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `name` | yes | Literal document kind and result discriminant. |
+| `description` | yes | Recognition guidance for a model or a person. |
+| `schema` | yes | Schema used for this kind. |
+| `hints` | no | Additional recognition or extraction guidance. |
+| `extractor` | no | Extractor used only for this kind, instead of the one that classified. |
+| `extractionContract` | no | Contract used for extraction instead of `schema`. |
+| `examples` | no | Worked examples typed by the extraction contract. When this kind is selected, they replace that contract's own. |
+| `image` | no | Reference image path or bytes for a vision classifier. |
+
+### `classificationOf`
+
+Builds a classification from a contract.
 
 ```ts
-classificationOf<S extends FlexibleSchema>(
-  contract: Contract<InferSchema<S>> & { schema: S },
+function classificationOf<S extends FlexibleSchema>(
+  source: Contract<InferSchema<S>> & { readonly schema: S },
   overrides?: Omit<Partial<Classification<string, S, S>>, "schema">,
 ): Classification<string, S, S>
-extractionContractOf(classification: Classification): ContractLike
 ```
 
-`classificationOf()` copies a contract's name, description, schema, hints, and examples, then
-applies overrides. `extractionContractOf()` returns `extractionContract` when present and
-otherwise returns `schema`.
+Copies the contract's name, description, schema, hints, and examples, then applies `overrides`.
 
-`ClassificationNames<C>` is the union of names in a classification list.
-`ClassifiedExtraction<C>` is the discriminated result union produced by `Process`; each
-member contains `name`, typed `data`, full `result`, and 1-based original `pages`.
+### `extractionContractOf`
 
+Returns the contract used to extract a kind: `extractionContract` when present, otherwise `schema`.
+
+```ts
+function extractionContractOf(classification: Classification): ContractLike
+```
+
+### `ClassificationNames`
+
+The union of names in a classification list.
+
+```ts
+type ClassificationNames<C extends readonly Classification[]> = C[number]["name"];
+```
+
+### `ClassifiedExtraction`
+
+The discriminated result union that `Process` produces. Each member has `name`, typed `data`, the full `result`, and 1-based original `pages`.
+
+```ts
+type ClassifiedExtraction<C extends readonly Classification[]> = {
+  [K in keyof C]: C[K] extends Classification<infer Name, infer S, infer E>
+    ? {
+        readonly name: Name;
+        readonly data: InferContract<E>;
+        readonly result: ExtractionResult<InferContract<E>>;
+        readonly pages: readonly number[];
+      }
+    : never;
+}[number];
+```
+
+### `Process`
+
+Splits a multi-document source and extracts each part by its classification. See [splitting and Process API](/docs/extraction/reference/splitting#process).
 
 ## Classifier contract
 
-`Classifier` has a stable `name`, optional runtime `requires`, `classify(context)`, and
-optional `dispose()`.
+### `Classifier`
 
-`ClassifyContext` contains the loaded `document`, runtime `features`, candidate kinds,
-`signal`, `logger`, and optional `documentLabel`, the source's file name when it has one.
+A component that proposes a document kind.
 
 ```ts
-defineClassifier(classifier: Classifier): Classifier
+interface Classifier {
+  readonly name: string;
+  readonly requires?: readonly DocumentFact[];
+  classify(ctx: ClassifyContext): Promise<ClassificationSignal | null>;
+  dispose?(scope?: DisposalScope): Promise<void>;
+}
 ```
 
-The classifier method returns `ClassificationSignal | null`. `null` means abstain.
-Classifier failures are recorded as abstentions unless they are caller aborts.
+`classify()` returns `null` to abstain. Classifier failures are recorded as abstentions unless they are caller aborts.
 
-`ClassificationResponse<C>` contains the selected candidate name or `UNKNOWN`, confidence,
-all signals, and the matched `classification` when known. If the candidate list is empty,
-core allows a free-form classifier name and leaves `classification` absent.
+### `defineClassifier`
 
-`ClassifyOptions` has `strategy?: ConsensusStrategy` and `threshold?: number`.
-`ConsensusStrategy` is `"consensus" | "higherOrder" | "consensusWithThreshold"`. The
-default is `higherOrder` with threshold `0`.
+An identity helper for writing a classifier.
 
+```ts
+function defineClassifier(classifier: Classifier): Classifier
+```
+
+### `ClassifyContext`
+
+The argument to `Classifier.classify()`.
+
+{/* options: ClassifyContext */}
+| Field | Meaning |
+| --- | --- |
+| `document` | The `LoadedDocument`. |
+| `features` | Runtime `DocumentFeatures`. |
+| `candidates` | Candidate kinds. |
+| `signal` | Abort signal. |
+| `logger` | Pipeline logger. |
+| `documentLabel` | Optional source file name, when the source has one. Model telemetry may record it. |
+
+### `ClassificationSignal`
+
+One classifier's proposal.
+
+```ts
+interface ClassificationSignal {
+  readonly classifier: string;
+  readonly name: string | null;
+  readonly confidence: number;
+  readonly note?: string;
+  readonly usage?: Partial<Usage>;
+}
+```
+
+### `ClassificationResult`
+
+The selected kind recorded on an extraction result.
+
+```ts
+interface ClassificationResult<Name extends string = string> {
+  readonly name: Name | "UNKNOWN";
+  readonly confidence: number;
+  readonly signals: readonly ClassificationSignal[];
+}
+```
+
+### `ClassificationResponse`
+
+What `classify()` and `classifyTree()` return.
+
+```ts
+interface ClassificationResponse<C extends readonly Classification[] = readonly Classification[]> {
+  readonly name: ClassificationNames<C> | "UNKNOWN";
+  readonly confidence: number;
+  readonly signals: readonly ClassificationSignal[];
+  readonly classification?: C[number];
+}
+```
+
+`classification` is the matched candidate when one is known. If the candidate list is empty, core accepts a free-form classifier name and leaves `classification` absent.
+
+### `ClassifyOptions`
+
+How signals reduce to one verdict.
+
+{/* options: ClassifyOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `strategy` | `"higherOrder"` | A `ConsensusStrategy`. |
+| `threshold` | `0` | Minimum confidence to accept a verdict. Below it, the answer is `UNKNOWN`. |
+
+### `ConsensusStrategy`
+
+```ts check
+type ConsensusStrategy = "consensus" | "higherOrder" | "consensusWithThreshold";
+```
+
+See [choosing a verdict](/docs/extraction/classification#choosing-a-verdict).
 
 ## Classification trees
 
-`ClassificationNode<C>` contains a classification and optional children.
-`ClassificationTree` contains its root nodes.
+### `classify`
+
+An `Extractor` method that classifies a document without extracting it.
 
 ```ts
-classificationNode(classification, children?): ClassificationNode
-classificationTree(nodes): ClassificationTree
-isClassificationTree(value): value is ClassificationTree
-flattenTree(tree): Classification[]
-```
-
-The construction helpers return the supplied values without external calls.
-`flattenTree()` walks depth-first.
-
-```ts
-extractor.classify<const C extends readonly Classification[]>(
+classify<const C extends readonly Classification[]>(
   source: DocumentSource,
   classifications?: C,
   options?: RunOptions,
 ): Promise<ClassificationResponse<C>>
+```
 
-extractor.classifyTree(
+`name` is a literal union of the candidates, so a `switch` over it is exhaustive. Without `classifications`, the extractor's default candidates apply.
+
+Direct classification tries eligible loaders in order until one succeeds. Each loader uses `stageTimeoutMs`; a failed or timed-out loader lets the next loader run. A `LoadedSource` skips loading. Eligible classifiers run concurrently with independent deadlines, and their signals keep registration order. A classifier deadline becomes an abstention. Caller cancellation stops classification and preserves its reason.
+
+### `classifyTree`
+
+An `Extractor` method that descends a tree one level at a time.
+
+```ts
+classifyTree(
   source: DocumentSource,
   tree: ClassificationTree,
   options?: RunOptions,
-): Promise<{ leaf: ClassificationResponse; path: readonly ClassificationResponse[] }>
+): Promise<{ readonly leaf: ClassificationResponse; readonly path: readonly ClassificationResponse[] }>
 ```
 
-Direct classification tries eligible loaders in order until one succeeds. Each loader
-uses `stageTimeoutMs`; a failed or timed-out loader allows the next loader to run.
-A `LoadedSource` skips loading. Eligible classifiers run concurrently with independent
-deadlines, and their signals retain registration order. A classifier deadline becomes
-an abstention. Caller cancellation stops classification and preserves its reason.
+`path` holds every verdict on the way down, root first. Descent stops at a leaf or when a level returns no matched classification.
 
-`ClassificationSignal` contains `classifier`, proposed `name` or `null`, `confidence`, and
-optional `note` and `usage`. `ClassificationResult<Name>` contains the selected name or `UNKNOWN`,
-confidence, and every signal.
+### `ClassificationTree`
+
+```ts
+interface ClassificationTree {
+  readonly nodes: readonly ClassificationNode[];
+}
+```
+
+### `ClassificationNode`
+
+```ts
+interface ClassificationNode<C extends Classification = Classification> {
+  readonly classification: C;
+  readonly children?: readonly ClassificationNode[];
+}
+```
+
+### `classificationNode`
+
+```ts
+function classificationNode<const C extends Classification>(
+  classification: C,
+  children?: readonly ClassificationNode[],
+): ClassificationNode<C>
+```
+
+### `classificationTree`
+
+```ts
+function classificationTree(nodes: readonly ClassificationNode[]): ClassificationTree
+```
+
+`classificationNode()` and `classificationTree()` return the supplied values without external calls.
+
+### `isClassificationTree`
+
+```ts
+function isClassificationTree(
+  value: readonly Classification[] | ClassificationTree,
+): value is ClassificationTree
+```
+
+### `flattenTree`
+
+Returns every classification in a tree, depth-first. `Extractor.flatten()` is the same function.
+
+```ts
+function flattenTree(tree: ClassificationTree): Classification[]
+```

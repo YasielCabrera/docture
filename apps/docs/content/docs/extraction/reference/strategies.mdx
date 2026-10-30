@@ -1,108 +1,176 @@
 ---
 title: Strategies and routing API
 description: Strategy definitions, eligibility, routing policies, and pipeline enums.
+type: reference
 ---
 
-Import from `docture`.
+Strategies turn a loaded document into data, and routing policies order the eligible ones. Import them from `docture` or `docture/node`.
 
 ## Extraction strategies
 
-`ExtractionStrategy` has a stable `name`, optional `requires`, optional
-`needsClassification`, `extract(context)`, and optional `dispose()`.
+### `ExtractionStrategy`
 
-`ClassificationNeed` is `"required" | "hint" | "none"`.
-
-`StrategyContext` contains `document`, runtime `features`, resolved `schema`, optional
-`classification`, optional `hints`, optional `examples`, `signal`, `logger`, and optional `documentLabel`, the
-source's file name when it has one. Core picks `hints` from the
-first source that applies:
-
-1. `Process` uses its selected kind's hints, or that kind's extraction contract's hints
-   when the kind has none. A selection with neither sends no hints.
-2. A `Contract` passed to an extraction method sends its own `hints` when it defines
-   them, including an empty string.
-3. The candidate named by the classification sends its hints, or none when it has
-   none.
-4. When no candidate is named, a sole candidate sends its hints only when you passed a
-   bare schema or a `Contract` with the same name.
-
-Otherwise `hints` is absent. Hint selection does not change the classification or its
-usage.
-
-`examples` holds the extracted contract's [worked examples](/docs/extraction/reference/contracts#examples),
-each `{ text, output }` with `output` as JSON text, already checked against the schema.
-`Process` sends its selected kind's examples, or that kind's extraction contract's
-examples when the kind has none. Otherwise a `Contract` passed to an extraction method
-sends its own. A classification candidate's examples never apply to another contract.
-
-`StrategyContext.reportFailureUsage(usage)` records known usage before a strategy
-throws. Each call replaces the previous report for that attempt. Successful strategies
-return usage through `StrategyOutcome`. Ordinary provider errors keep their identity.
-
-`StrategyOutcome` contains unknown `data` and optional `usage`, `classification`,
-`conflicts`, and `citations`. Core validates the data after the method returns and
-applies the schema's transforms once, so return the data before those transforms run.
+A component that returns unvalidated data for a loaded document.
 
 ```ts
-interface OutcomeCitation {
-  path: readonly (string | number)[];
-  status: "verified" | "cited-unverified";
-  ids: readonly LineSourceId[];
-  value: unknown;
-  spans?: readonly { line: LineSourceId; span: number }[];
+interface ExtractionStrategy {
+  readonly name: string;
+  readonly requires?: readonly DocumentFact[];
+  readonly needsClassification?: ClassificationNeed;
+  extract(ctx: StrategyContext): Promise<StrategyOutcome>;
+  repair?(ctx: StrategyContext, previous: RepairInput): Promise<StrategyOutcome>;
+  dispose?(scope?: DisposalScope): Promise<void>;
 }
 ```
 
-A strategy that cites returns `citations`, possibly empty, holding only the values its
-model cited. `path` is object keys and array indexes from the root of `data`, and `value`
-is the leaf the status describes, before the caller's schema ran. Core turns them into
-[`result.citations`](/docs/extraction/reference/citations#field-citations): it keeps a
-status only while `value` still equals the validated leaf, downgrades `verified` when an id
-is not a line of the loaded document, and marks every other present leaf `uncited`. For a
-`verified` value, `spans` names the spans the matched text covers, as indexes into the
-`spans` of each loaded line. Core reads `minOcrConfidence` from those spans; leave `spans`
-out when the match cannot be pinned to spans.
+| Member | Meaning |
+| --- | --- |
+| `name` | Stable id. It appears in `result.method` and attempts, and must be unique within an extractor. |
+| `requires` | Document facts that must hold after loading, such as `TEXT_LAYER`, `GEOMETRY`, or `RENDERABLE_PAGES`. |
+| `needsClassification` | Whether the strategy needs a classification before it runs. |
+| `extract()` | Returns data, or throws when it cannot produce data. Non-abort errors are recorded and allow fallback. Caller aborts stop the run. |
+| `repair()` | Re-asks the strategy with its failed answer and the validation issues. See [validation and repair API](/docs/extraction/reference/validation#repair). |
+| `dispose()` | Releases resources the strategy owns. |
+
+See [strategies and document facts](/docs/extraction/strategies) for eligibility and fallback.
+
+### `defineStrategy`
+
+An identity helper that keeps a strategy's literal types, including its `requires` tuple for `createCheckedExtractor()`.
 
 ```ts
-defineStrategy(strategy: ExtractionStrategy): ExtractionStrategy
+function defineStrategy<const S extends ExtractionStrategy>(strategy: S): S
 ```
 
-`defineStrategy()` is an identity helper. A strategy throws when it cannot produce data.
-Non-abort errors are recorded and allow fallback. Caller aborts stop the run.
+Used in [extract your first document](/docs/extraction/quick-start) and [extract without a model](/docs/extraction/without-a-model).
 
+### `ClassificationNeed`
+
+Whether a strategy needs to know the document kind.
+
+```ts check
+type ClassificationNeed = "required" | "hint" | "none";
+```
+
+### `StrategyContext`
+
+The argument to `extract()` and `repair()`.
+
+{/* options: StrategyContext */}
+| Field | Meaning |
+| --- | --- |
+| `document` | The `LoadedDocument`. |
+| `features` | Runtime `DocumentFeatures` for the loaded document. |
+| `schema` | The `ResolvedSchema` for the requested contract. |
+| `classification` | Optional `ClassificationResult`. |
+| `hints` | Optional extraction guidance. See the selection order below. |
+| `examples` | Optional worked examples, each `{ text, output }` with `output` as JSON text, already checked against the schema. |
+| `signal` | Abort signal for the attempt. |
+| `logger` | Pipeline logger. |
+| `documentLabel` | Optional source file name, when the source has one. |
+| `reportFailureUsage` | Optional `(usage: Partial<Usage>) => void`. Records known usage before the strategy throws. Each call replaces the previous report for that attempt. |
+
+Core picks `hints` from the first source that applies:
+
+1. `Process` uses its selected kind's hints, or that kind's extraction contract's hints when the kind has none. A selection with neither sends no hints.
+2. A `Contract` passed to an extraction method sends its own `hints` when it defines them, including an empty string.
+3. The candidate named by the classification sends its hints, or none when it has none.
+4. When no candidate is named, a sole candidate sends its hints only when you passed a bare schema or a `Contract` with the same name.
+
+Otherwise `hints` is absent. Hint selection does not change the classification or its usage.
+
+`examples` holds the extracted contract's [worked examples](/docs/extraction/reference/contracts#examples). `Process` sends its selected kind's examples, or that kind's extraction contract's examples when the kind has none. Otherwise a `Contract` passed to an extraction method sends its own. A classification candidate's examples never apply to another contract.
+
+### `StrategyOutcome`
+
+The value that `extract()` and `repair()` return.
+
+{/* options: StrategyOutcome */}
+| Field | Meaning |
+| --- | --- |
+| `data` | Unvalidated data. Return it before the schema's transforms run; core validates it and applies the transforms once. |
+| `usage` | Optional `Partial<Usage>` for the attempt. |
+| `classification` | Optional `ClassificationResult` the strategy produced. |
+| `conflicts` | Optional `ExtractionConflict[]` from merged requests. |
+| `citations` | Optional `OutcomeCitation[]`. |
+
+Ordinary provider errors thrown by a strategy keep their identity.
+
+### `OutcomeCitation`
+
+A cited value as the strategy saw it, before the caller's schema ran.
+
+```ts
+interface OutcomeCitation {
+  readonly path: readonly (string | number)[];
+  readonly status: "verified" | "cited-unverified";
+  readonly ids: readonly EvidenceSourceId[];
+  readonly value: unknown;
+  readonly spans?: readonly { readonly line: LineSourceId; readonly span: number }[];
+}
+```
+
+A strategy that cites returns `citations`, possibly empty, holding only the values its model cited. `path` is object keys and array indexes from the root of `data`, and `value` is the leaf the status describes. Core turns them into [`result.citations`](/docs/extraction/reference/citations#field-citations): it keeps a status only while `value` still equals the validated leaf, downgrades `verified` when an id matches none of the loaded document's lines or native evidence records, and marks every other present leaf `uncited`. For a `verified` value, `spans` names the spans the matched text covers, as indexes into the `spans` of each loaded line. Core reads `minOcrConfidence` from those spans; leave `spans` out when the match cannot be pinned to spans.
 
 ## Routing
+
+### `RoutingPolicy`
+
+Orders the eligible strategies for a document.
 
 ```ts
 type RoutingPolicy = (
   features: DocumentFeatures,
   eligible: readonly ExtractionStrategy[],
-  classification: { name: string; confidence: number } | undefined,
-) => readonly ExtractionStrategy[]
+  classification: { readonly name: string; readonly confidence: number } | undefined,
+) => readonly ExtractionStrategy[];
 ```
 
-A policy receives only eligible strategies. Strategies it returns that were not offered
-are ignored. It may reorder or omit eligible strategies.
+A policy receives only eligible strategies. It may reorder or omit them. Returned strategies that were not offered are ignored. See [configure routing and fallback](/docs/extraction/routing#custom-routing-policy).
+
+### `declarationOrder`
+
+The default policy. Returns eligible strategies in registration order.
 
 ```ts
-declarationOrder(
+function declarationOrder(
   features: DocumentFeatures,
   eligible: readonly ExtractionStrategy[],
 ): readonly ExtractionStrategy[]
 ```
 
-`declarationOrder` is the default and returns candidates in registration order.
-
-
 ## Enums
 
 The enum-like exports are plain objects with matching string-union types.
 
-| Export | Values | Meaning |
-| --- | --- | --- |
-| `CompletionStrategy` | `FORBIDDEN`, `PAGINATE`, `CONCATENATE` | One request, one request per page, or token-budget chunks. |
-| `SplittingStrategy` | `EAGER`, `LAZY` | Whole-bundle or adjacent-page splitting. |
-| `ClassificationStrategy` | `CONSENSUS`, `HIGHER_ORDER`, `CONSENSUS_WITH_THRESHOLD` | Classifier signal selection. |
+### `CompletionStrategy`
 
-The runtime values are lowercase strings except `higherOrder` and
-`consensusWithThreshold`.
+How a document too large for one request becomes one answer.
+
+```ts
+const CompletionStrategy: {
+  readonly FORBIDDEN: "forbidden";
+  readonly PAGINATE: "paginate";
+  readonly CONCATENATE: "concatenate";
+};
+```
+
+One request, one request per page, or chunks formed from a character budget. See [handle long documents](/docs/extraction/long-documents).
+
+### `ClassificationStrategy`
+
+How several classifiers' disagreeing verdicts reduce to one.
+
+```ts
+const ClassificationStrategy: {
+  readonly CONSENSUS: "consensus";
+  readonly HIGHER_ORDER: "higherOrder";
+  readonly CONSENSUS_WITH_THRESHOLD: "consensusWithThreshold";
+};
+```
+
+See [classify documents](/docs/extraction/classification#choosing-a-verdict).
+
+### `SplittingStrategy`
+
+Whole-bundle (`EAGER`) or adjacent-page (`LAZY`) splitting. See [splitting and Process API](/docs/extraction/reference/splitting).

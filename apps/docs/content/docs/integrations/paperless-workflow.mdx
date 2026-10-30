@@ -1,13 +1,22 @@
 ---
 title: Extract and plan Paperless updates
 description: Use configured schemas through the library, CLI and MCP, with explicit application-owned triggers.
+type: how-to
 ---
 
-Configure a service account with native document view permissions. Add change permission only for the documents and reciprocal documentlink targets that your application may update. Read the [source contract](/docs/integrations/paperless-read) and [write-back contract](/docs/integrations/paperless-updates) for supported Paperless 3.x API 9 and 10 behavior.
+Extract fields from Paperless-ngx documents with your own schemas, review the planned changes, and write them back from the CLI, MCP, or your own application. [Read and search Paperless documents](/docs/integrations/paperless-read) and [Plan and apply Paperless updates](/docs/integrations/paperless-updates) describe the library behavior for Paperless 3.x with API 9 and 10.
 
-Keep credentials in environment-backed application configuration. Configure named schemas and field mappings once. CLI and MCP arguments select those names and cannot replace the instance, token or mappings.
+## Set up the service account
 
-```ts
+Give a Paperless service account view permission on the documents it reads. Add change permission only for the documents your application may update, and for the targets of any document link fields it writes.
+
+Keep the token in environment-backed application configuration. CLI and MCP arguments select configured names and cannot replace the instance, token, or mappings.
+
+## Configure schemas and mappings
+
+Name each schema and its field mappings once in the CLI config:
+
+```ts check
 import { defineConfig } from "@docture/cli/config";
 import { jsonSchema } from "ai";
 
@@ -41,42 +50,70 @@ export default defineConfig({
 });
 ```
 
-Add your extractor, strategies or model to the same config using the [CLI configuration guide](/docs/cli/quick-start). Select a PDF loader for archived PDFs or configure a Docling loader for native element and cell evidence. Content mode uses exact stored OCR text without inventing positioned lines. To permit content's uncited values, set the profile's evidence policy to `any` explicitly.
+Add your extractor, strategies, or model to the same config, as described in [CLI configuration](/docs/cli/configuration). Choose a loader for the source mode:
 
-Read or search without model calls. Omitted query limits default to the smaller of 10 and `paperless.maxResults`; explicit limits must fit the configured maximum.
+- For `archive`, select a PDF loader, or a Docling loader for native element and cell evidence.
+- For `content`, the stored OCR text is used as is, without positioned lines. To write its uncited values, set the schema's `evidence` to `any`.
+
+## Read and search without a model
+
+These commands make no model calls. An omitted `--limit` defaults to the smaller of 10 and `paperless.maxResults`. An explicit limit must not exceed `paperless.maxResults`.
 
 ```sh
 docture paperless read 42 --version 42
 docture paperless search --query 'supplier' --limit 10
 ```
 
-Extract using a configured schema name. Query extraction remains bounded by the configured maximum.
+## Extract with a configured schema
+
+Pass a schema name. Query extraction is bounded by the configured maximum.
 
 ```sh
 docture paperless extract 42 --schema reference
 docture paperless extract --query 'supplier' --limit 10 --schema reference
 ```
 
-Create a plan without writing to Paperless. `--dry-run` also prints a plan. The JSON includes exact source identity, evidence, validation, conflicts and skip reasons.
+## Plan updates without writing
+
+`plan` writes nothing to Paperless, and `extract --dry-run` also prints a plan. The plan JSON includes the exact source identity, evidence, validation, conflicts, and skip reasons.
 
 ```sh
 docture paperless plan 42 --schema reference --out plan.json
 docture paperless extract 42 --schema reference --dry-run
 ```
 
-Apply a saved single-document plan through an explicit caller command. The current configured schema fingerprint and mapping must still match the plan. Apply rechecks source identity and each current field. A co-writer's newly filled value becomes a reasoned skip.
+## Apply a saved plan
+
+Apply one saved single-document plan at a time. The configured schema fingerprint and mapping must still match the plan. Apply checks the source identity and each current field again, and skips a field that another writer filled since planning.
 
 ```sh
 docture paperless apply plan.json --schema reference --dry-run
 docture paperless apply plan.json --schema reference
 ```
 
-A query plan envelope can contain several plans. Pass one selected plan object at a time to apply. The caller chooses whether to save returned partial results and when to retry. No docture receipt store or approval record is required.
+A query plan can contain several plans. Pass each selected plan object to `apply` separately. You decide whether to save partial results and when to retry. Docture keeps no receipt store and needs no approval record.
 
-With Paperless configuration present, MCP lists `paperless_read`, `paperless_search`, `paperless_extract` and `paperless_plan`. The named schema controls the source representation, extraction contract and mappings. `paperless_apply` appears and accepts calls only when `paperless.enableApply` is `true`. A tool argument cannot enable it. MCP output preserves the CLI envelope, source descriptor and evidence fields, and stdout carries only the protocol.
+## Use Paperless from MCP
 
-Use the deterministic trigger example at `apps/examples/21-paperless/triggers.ts` for an application-owned webhook ingress and queue. Create the ingress explicitly with a configured instance, bearer token and queue. Configure Paperless's Document Added webhook body with the document ID and configured instance. The example rejects foreign instances and invalid IDs, deduplicates Added deliveries and ignores Updated events to prevent a write-back loop.
+With Paperless configuration present, the [MCP server](/docs/cli/mcp) lists `paperless_read`, `paperless_search`, `paperless_extract`, and `paperless_plan`. The named schema controls the source mode, the extraction contract, and the mappings.
 
-The post-consume recipe reads `DOCUMENT_ID`, `PAPERLESS_INSTANCE`, `PAPERLESS_INGRESS_URL` and `PAPERLESS_INGRESS_TOKEN` from its environment. It enqueues the ID and returns after HTTP 202. It does not extract inside the native consumption hook. The worker validates the queued instance and fetches a fresh versioned source before processing. Production queue durability, deduplication retention and retries belong to your application. No server, queue or daemon starts when the example module is imported.
+`paperless_apply` appears only when `paperless.enableApply` is `true`. A tool argument cannot enable it. MCP output keeps the CLI envelope, source descriptor, and evidence fields, and stdout carries only the protocol.
 
-Paperless already provides native AI suggestions and chat. paperless-gpt already supplies OCR, custom-field workflows and review. Use docture when you need caller-defined TypeScript schemas, field evidence status, reusable validation and repair, conflict reports, chunking and eval across document sources. The executable example uses a local authenticated mock server and deterministic providers. Live Paperless, Docling and model checks require separate credentials and are not part of that example.
+## Trigger extraction when documents arrive
+
+The repository example in [`apps/examples/21-paperless`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/21-paperless), `triggers.ts`, shows a webhook endpoint and queue that your application owns:
+
+1. Create the endpoint with a configured instance, a bearer token, and a queue.
+2. Configure the Paperless Document Added webhook to send the document ID and the configured instance.
+3. The endpoint rejects foreign instances and invalid IDs, ignores duplicate Added deliveries, and ignores Updated events so that write-back does not trigger another run.
+4. The worker checks the queued instance and reads a fresh, version-pinned source before it extracts.
+
+A post-consume script variant reads `DOCUMENT_ID`, `PAPERLESS_INSTANCE`, `PAPERLESS_INGRESS_URL`, and `PAPERLESS_INGRESS_TOKEN` from its environment, queues the ID, and returns after HTTP 202. It does not extract inside the Paperless consumption hook.
+
+Your application owns queue durability, deduplication retention, and retries. Importing the example module starts no server, queue, or daemon.
+
+## Choose Docture or Paperless AI tools
+
+Paperless provides AI suggestions and chat, and paperless-gpt provides OCR, custom field workflows, and review. Use Docture when you need TypeScript schemas you define, field evidence status, reusable validation and repair, conflict reports, chunking, and evaluation across document sources.
+
+The repository example uses a local authenticated mock server and deterministic providers. Running against a live Paperless instance, Docling, or a model needs your own credentials.

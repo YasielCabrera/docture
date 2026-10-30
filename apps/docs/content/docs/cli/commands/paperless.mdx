@@ -1,6 +1,7 @@
 ---
 title: "docture paperless"
 description: "Read, extract, plan and explicitly apply configured Paperless mappings"
+type: reference
 ---
 
 Uses the configured Paperless instance and named schemas. Credentials and mappings cannot be replaced by command arguments.
@@ -17,10 +18,10 @@ Uses the configured Paperless instance and named schemas. Credentials and mappin
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--schema <name>` | Not set | Configured schema and mapping name |
-| `--query` | Not set | Bounded native document query |
-| `--limit` | Not set | Maximum query results within the configured bound |
-| `--version` | Not set | Selected file-version ID |
-| `--out`, `-o` | Not set | Save the returned artifact to this path |
+| `--query <text>` | Not set | Bounded native document query |
+| `--limit <n>` | Not set | Maximum query results within the configured bound |
+| `--version <id>` | Not set | Selected file-version ID |
+| `--out <path>`, `-o` | Not set | Save the returned artifact to this path |
 | `--dry-run` | Not set | Print the proposed plan and perform no Paperless writes |
 | `--config <path>` | Not set | Config file. Default: the nearest docture.config.&#123;ts,mts,js,mjs&#125; |
 | `--no-config` | Not set | Ignore any config file that is found |

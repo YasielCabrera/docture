@@ -1,11 +1,12 @@
 ---
 title: Score evaluation source grounding
 description: Check correct values against labeled document pages and boxes.
+type: how-to
 ---
 
 Add expected locations to dataset cases, keyed by concrete expected paths:
 
-```ts
+```ts check
 const locations = {
 	total: [{ pageNumber: 1, box: { x: 20, y: 40, width: 80, height: 12 } }],
 };

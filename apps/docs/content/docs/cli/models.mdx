@@ -1,13 +1,24 @@
 ---
 title: Configure CLI models and vision
 description: Select a provider, gateway route, cache, and page rendering.
+type: how-to
 ---
 
-## Models and vision
+The `--model`, `--gateway`, `--cache`, and `--vision` flags choose which model reads a document, how the CLI reaches it, and whether pages are rendered as images.
 
-`--model` accepts `provider/model-id`. The CLI uses a provider package installed in the
-current project when it can resolve one. Otherwise it uses the AI Gateway. `--gateway`
-forces the gateway path.
+## Choose a model
+
+`--model` accepts `provider/model-id`, such as `openai/gpt-5`. The CLI uses a provider package installed in the current project when it can resolve one, such as `@ai-sdk/openai`. Otherwise it uses the AI Gateway. `--gateway` forces the gateway path even when the provider package is installed.
+
+Each route needs its credential before the CLI processes a document. The [environment and credentials table](/docs/cli/reference/cli#environment-and-credentials) lists the variable for each provider and for the gateway.
+
+## Cache model responses
+
+`--cache <dir>` stores model responses on disk, so a repeated run reuses them instead of calling the model. A run with a cache can continue without an API key to reuse cached responses.
+
+## Read scanned pages with vision
+
+`--vision` renders pages and adds a vision strategy, which reads documents that have no text layer. `--dpi` sets the render resolution, 200 by default:
 
 ```sh
 docture extract scan.pdf \
@@ -17,9 +28,7 @@ docture extract scan.pdf \
   --dpi 200
 ```
 
-The CLI uses `docture/raster/canvas` with its optional default dependency
-`@napi-rs/canvas`. A normal install attempts the native prebuild. If optional dependencies
-were omitted, install it explicitly:
+The CLI renders with `docture/raster/canvas` and its optional default dependency `@napi-rs/canvas`. A normal install attempts the native prebuild. If optional dependencies were omitted, install it explicitly:
 
 ```sh
 npm install --save-dev @docture/cli @napi-rs/canvas

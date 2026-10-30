@@ -1,6 +1,7 @@
 ---
 title: Document sources
 description: Extract from paths, URLs, bytes, raw documents, and loaded documents.
+type: how-to
 ---
 
 Every extraction starts with a `DocumentSource`.
@@ -22,7 +23,8 @@ await extractor.extract(new URL("https://example.com/invoice.pdf"), Invoice);
 ```
 
 A string without a URL protocol is a filesystem path. `file:`, `http:`, and `https:` URLs
-are supported. HTTP errors raise `UnsupportedSourceError`. So does a path or `file:` URL
+are supported. Paths and `file:` URLs need an extractor from `docture/node`, as described in
+[Select a runtime entry](#select-a-runtime-entry). HTTP errors raise `UnsupportedSourceError`. So does a path or `file:` URL
 that cannot be read, such as a missing file, a directory, or a file without read
 permission. Its message names the path and the fix, and `cause` keeps the file-system
 error with its `code`, such as `ENOENT` or `EACCES`.
@@ -132,6 +134,19 @@ The low-level `sniffMimeType()` and `resolveSource()` functions are documented i
 
 ## Select a runtime entry
 
-The root `docture` and `docture/chunk` support portable byte, HTTP and preloaded workflows. Import local-file constructors or `resolveNodeSource` from `docture/node`. Node wrappers use the same core modules and errors. They do not register a process-wide resolver. Existing path-based applications must change the import or pass `sourceResolver: resolveNodeSource` explicitly.
+Import from the `docture` root when your sources are bytes, `RawDocument` values, loaded documents, or HTTP URLs. The root and `docture/chunk` run in Node, browsers, and workers. A path or `file:` URL passed through the root raises `UnsupportedSourceError`.
 
-DOCX text is isolated at `docture/loaders/mammoth`, MIME expansion at `docture/inputs/email`, Azure Read at `docture/loaders/azure-di`, and stored Paperless sources at `docture/sources/paperless`. Docling JSON enters through `docture/import/docling`; the service adapter is `docture/loaders/docling`. Service adapters use fetch and require no npm service SDK. Select and install optional local engines explicitly.
+To read local files, import `Extractor`, `DocumentConverter`, `Process`, or their factory functions from `docture/node`. Those exports read paths and `file:` URLs by default. To keep a root import, pass `sourceResolver: resolveNodeSource` from `docture/node` instead:
+
+```ts check
+import { createExtractor } from "docture";
+import { resolveNodeSource } from "docture/node";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+
+const extractor = createExtractor({
+  loaders: [new DocumentLoaderPdfJs()],
+  sourceResolver: resolveNodeSource,
+});
+```
+
+Other source formats enter through their own entries: DOCX text at `docture/loaders/mammoth`, email expansion at `docture/inputs/email`, Azure Read at `docture/loaders/azure-di`, and stored Paperless sources at `docture/sources/paperless`. Docling JSON enters through `docture/import/docling`, and the Docling Serve adapter is `docture/loaders/docling`. Service adapters use `fetch` and need no npm service SDK. Install each local engine you select. The [Node file sources API](/docs/getting-started/reference/node) lists every export of `docture/node`.

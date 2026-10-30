@@ -1,11 +1,14 @@
 ---
 title: Use extraction as an AI SDK tool
 description: Borrow an extractor from an AI SDK tool with explicit source access.
+type: how-to
 ---
 
-`docture/llm/tool` exports `extractTool`, `ExtractToolOptions`, `ExtractionToolInput` and `ExtractionToolResult`. The tool has no model or extractor factory. It uses the caller's extractor and contract across invocations and never disposes them.
+`extractTool` wraps your extractor and contract as an AI SDK tool, so a model can request a schema-bound extraction from a document. Import it from `docture/llm/tool`.
 
-```ts
+## Create the tool
+
+```ts check
 import { extractTool } from "docture/llm/tool";
 import { resolveNodeSource } from "docture/node";
 import type { Extractor, ContractLike } from "docture";
@@ -21,6 +24,19 @@ function toolsFor(extractor: Extractor, contract: ContractLike) {
 }
 ```
 
-Pass the returned tools to AI SDK `generateText`. Input contains one source string. `resolveSource` defines authorized paths or URLs and the working-directory policy. The example allows one relative path in the process working directory. Applications can resolve against a fixed directory or reject network sources.
+Pass the returned tools to AI SDK `generateText`. `ExtractToolOptions` takes the `extractor`, the `contract`, a `resolveSource` callback, and an optional tool `description`.
 
-Execution propagates the AI SDK abort signal through source resolution and extraction. Success returns `{ ok: true, result }` after JSON serialization. Dates therefore become strings. Failure returns `{ ok: false, error: { code, message } }`; cancellation uses `CANCELLED`. Raw Error instances do not cross this interface. An answer that cannot serialize returns a failure. Keep and dispose the extractor after its final invocation.
+The tool uses your extractor and contract for every call and never disposes them. Dispose the extractor yourself after the last call.
+
+## Control which sources the tool reads
+
+The model sends an `ExtractionToolInput` with one `source` string. `resolveSource` turns that string into a document source, and decides which paths or URLs are allowed and how relative paths resolve. The example allows one relative path in the process working directory. Your application can resolve paths against a fixed directory or reject network sources.
+
+## Read the tool result
+
+The tool returns an `ExtractionToolResult`:
+
+- On success, `{ ok: true, result }`, where `result` has passed through JSON serialization. Dates become strings.
+- On failure, `{ ok: false, error: { code, message } }`. Cancellation uses the code [`CANCELLED`](/docs/resources/errors#abort-and-timeout-behavior).
+
+Raw `Error` instances never reach the model. A result that cannot be serialized returns a failure. The AI SDK abort signal applies to source resolution and extraction.

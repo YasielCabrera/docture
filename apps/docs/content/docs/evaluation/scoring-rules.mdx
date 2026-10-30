@@ -1,13 +1,16 @@
 ---
 title: Define evaluation scoring rules
 description: Choose field comparators, weights, null handling, segments, and assertions.
+type: how-to
 ---
+
+A spec decides how each field of the expected answer is compared with the processor's answer. Set comparators, weights, null handling, and segments with `defineEval`.
 
 ## Configure field rules
 
 Use the schema of the comparable answer, which may differ from the processor's raw output.
 
-```ts
+```ts check
 import { defineEval, exact, number } from "@docture/eval";
 import { z } from "zod";
 
@@ -25,8 +28,18 @@ The first two values are `true` and `1`. `explain` identifies the comparator and
 
 Rules resolve in this order: the most specific `fields` pattern, schema `x-docture-eval` annotations, unambiguous type defaults, then `strings`. Unresolved fields, unused rules, and incomplete segment assignments fail together in `EvalSpecError`. Arrays of rows also require [alignment rules](/docs/evaluation/array-matching).
 
+## Weight fields and require matches
+
 Use `weight` for weighted precision, recall, and F1. A zero-weight field still affects the unweighted `exact` metric. Use `critical: true` for fields that must match. If you declare `segments`, assign each leaf to one segment. Use `assertions` for relationships across fields.
+
+## Handle nulls and empty metrics
 
 The default `nulls: "absent"` treats null, undefined, and empty strings as missing. `nulls: "strict"` keeps null as a value. Empty metric denominators produce `null`, so an ungraded metric is not a perfect score.
 
-`looseEval()` supplies exploratory JSON rules without a schema. Use explicit rules for a repeatable comparison or CI gate. See [specs](/docs/evaluation/reference/specs), [comparators](/docs/evaluation/reference/comparators), and [metrics](/docs/evaluation/reference/metrics).
+## Score without a schema
+
+`looseEval()` supplies exploratory JSON rules without a schema. This recipe scores a Docture extraction of a generated invoice against its known answer. It runs without a model but needs the `pdfjs-dist` peer:
+
+<SourceExample file="measure-accuracy.ts" title="Score an extraction result" />
+
+It prints F1 `1` and an empty list of mismatched fields. Use explicit rules for a repeatable comparison or CI gate. See [specs](/docs/evaluation/reference/specs), [comparators](/docs/evaluation/reference/comparators), and [metrics](/docs/evaluation/reference/metrics).

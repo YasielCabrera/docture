@@ -2,14 +2,19 @@
   "title": "Conversion and retrieval",
   "root": false,
   "pages": [
+    "---Get started---",
     "quick-start",
+    "---Output formats---",
     "formats",
+    "assets",
+    "---Layout---",
     "layout",
     "model-layout",
-    "assets",
+    "---Evidence and retrieval---",
     "evidence",
     "document-json",
     "retrieval-chunks",
+    "---Reference---",
     "reference"
   ],
   "pagesIndex": "index"

@@ -1,13 +1,32 @@
 ---
 title: Prepare evaluation datasets
 description: Adapt project-owned documents and ground truth without changing their storage layout.
+type: how-to
 ---
+
+A dataset supplies the cases an evaluation runs: documents plus the approved answer for each. Connect your existing files to `@docture/eval` without moving them.
+
+## Know the dataset contract
 
 A dataset exposes an `id` and an async `cases()` method. Each case has a unique `id`, `documents`, and `expected`. A document provides `name`, `mimeType`, and lazy `bytes()`. Add a content `hash` when your adapter supports resume.
 
-For one folder per case, configure the files explicitly:
+## Load one folder per case
 
-```ts
+For one folder per case, put each case's documents and its approved answer in its own folder:
+
+```text
+fixtures/
+  case-001/
+    invoice.pdf
+    expected.json
+  case-002/
+    invoice.pdf
+    expected.json
+```
+
+Then name the files explicitly:
+
+```ts check
 import { folderDataset } from "@docture/eval/node";
 
 const dataset = folderDataset("fixtures", {
@@ -18,9 +37,13 @@ const dataset = folderDataset("fixtures", {
 console.log((await dataset.cases()).map(item => item.id));
 ```
 
-Each non-dot subdirectory of `fixtures` becomes a case. The adapter hashes document contents during discovery, loads bytes lazily, and rejects missing files and unsigned drafts by default.
+This prints `[ 'case-001', 'case-002' ]`. Each non-dot subdirectory of `fixtures` becomes a case, named after the folder. The adapter hashes document contents during discovery, loads bytes lazily, and rejects missing files and unsigned drafts by default.
+
+## Use other dataset sources
 
 Use `inMemoryDataset` for tests or generated values. Use `jsonlDataset` for a manifest with `id`, document paths, and `expected` per line. Paths resolve relative to the manifest unless `base` is set. A custom `Dataset` can read any layout.
+
+## Add tags, groups, and locations
 
 Add `tags` for report slices and `params` for processor inputs. Set `group` on related renditions of one original document; comparisons use it as the bootstrap cluster. Add `locations`, keyed by concrete expected paths, for [grounding evaluation](/docs/evaluation/grounding).
 

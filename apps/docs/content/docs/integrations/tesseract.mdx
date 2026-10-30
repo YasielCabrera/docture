@@ -1,56 +1,69 @@
 ---
 title: Tesseract OCR
-description: Public API for docture/loaders/tesseract.
+description: Recognize text in PNG, JPEG, TIFF, and rasterized PDF pages with the Tesseract.js loader from docture/loaders/tesseract.
+type: reference
 ---
 
-Import from `docture/loaders/tesseract`.
+`DocumentLoaderTesseract` reads a document by recognizing its pixels with Tesseract.js, which runs Tesseract as WASM. Import it from `docture/loaders/tesseract`.
+
+## Install
 
 ```sh
 npm install docture tesseract.js
 ```
 
-For PDF inputs, also install and configure a rasterizer. See the
-[complete OCR install commands](/docs/getting-started/installation).
+To read PDFs, also install and configure a rasterizer. [Installation](/docs/getting-started/installation) lists the complete OCR install commands. Tesseract.js loads on first use. If it is not installed, the load fails with `MissingEngineError`.
+
+## Loader
+
+### `DocumentLoaderTesseract`
+
+Creates a loader named `tesseract` that reports text, geometry, and image capabilities.
 
 ```ts
 new DocumentLoaderTesseract(options?: DocumentLoaderTesseractOptions)
 ```
 
+Without a rasterizer, the loader accepts PNG, JPEG, and TIFF. With one, it also accepts PDF. Each page keeps a lazy image function, and spans keep the OCR word confidence.
+
+The load rejects on rasterization, language-data, worker, recognition, image, or caller abort failures. [Extract from scans and images](/docs/integrations/scanned-documents#use-tesseract-ocr) shows the loader in an extractor.
+
+### `DocumentLoaderTesseractOptions`
+
+{/* options: DocumentLoaderTesseractOptions */}
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `rasterizer` | none | Required to accept PDFs; direct PNG, JPEG, and TIFF inputs need none. |
+| `rasterizer` | none | Required to accept PDFs. Direct PNG, JPEG, and TIFF inputs need none. |
 | `languages` | `["eng"]` | Tesseract trained-data language codes. |
 | `dpi` | `300` | Render and OCR resolution. |
 | `maxPages` | all | Maximum pages to read. |
-| `pageSegmentation` | `auto` | Layout mode. |
+| `pageSegmentation` | `auto` | Layout mode, a `PageSegmentation` value. |
 | `minConfidence` | `0` | Minimum word confidence from 0 to 1. |
 | `lineTolerance` | core default `0.5` | Word-to-line vertical band. |
 | `autoRotate` | `false` | Run skew detection and correction. |
-| `concurrency` | CPU-based, at most `4` | `max(1, min(4, availableParallelism() - 1))`; explicit values override it. |
-| `langPath` | jsDelivr | Directory or base URL for trained data. |
-| `cachePath` | platform cache directory | Trained-data cache. |
+| `concurrency` | `max(1, min(4, availableParallelism() - 1))` | Pages recognized at once, one worker each. |
+| `langPath` | jsDelivr CDN | Directory or base URL for trained data. Set it to run offline against vendored models. |
+| `cachePath` | `$XDG_CACHE_HOME/docture/tesseract` or `~/.cache/docture/tesseract` | Trained-data cache. |
 | `parameters` | none | Raw Tesseract variables. |
 
-`PageSegmentation` is `auto`, `singleColumn`, `singleBlock`, `singleLine`, or `sparse`.
+### `PageSegmentation`
 
-The loader is named `tesseract` and reports text, geometry, and images. Without a
-rasterizer it accepts PNG, JPEG, and TIFF. With one it also accepts PDF. Pages keep a lazy image
-function, and OCR word confidence is kept on spans.
+The layout mode passed to Tesseract.
 
-A TIFF loads one page per image file directory, in file order, and `maxPages` and
-requested pages apply before recognition. Classic TIFF in either byte order is supported
-with no compression, LZW, PackBits, CCITT Group 3, or CCITT Group 4, up to 8192 x 8192
-pixels per page whose samples decode to at most 256 MiB, as in 8-bit RGBA at that size.
-A 16-bit RGBA page fits at up to 8192 x 4096. The load rejects before recognition when the
-file is malformed, uses another compression, such as Deflate, or has a larger page. TIFF bytes labelled PNG or
-JPEG are read as TIFF. BigTIFF is not supported. `page.image()` on a TIFF page returns the PNG that
-Tesseract decoded, so its pixels match the OCR geometry.
+```ts check
+type PageSegmentation = "auto" | "singleColumn" | "singleBlock" | "singleLine" | "sparse";
+```
 
-The engine and worker pool are created on first use and reused. `dispose()` releases them
-and is safe to call more than once.
+## Read TIFF files
 
-The load rejects on rasterization, language-data, worker, recognition, image, or caller
-abort failures. Tesseract.js and its OCR engine run through WASM.
+A TIFF loads one page per image file directory, in file order. `maxPages` and requested pages apply before recognition.
 
-Workers start on demand and may each use roughly 100 MB. This is an estimate; model and
-image sizes affect memory use. Disposing during worker creation waits for cleanup.
+The loader supports classic TIFF in either byte order with no compression, LZW, PackBits, CCITT Group 3, or CCITT Group 4. Each page can be up to 8192 x 8192 pixels, and its samples must decode to at most 256 MiB, as in 8-bit RGBA at that size. A 16-bit RGBA page fits at up to 8192 x 4096.
+
+The load rejects before recognition when the file is malformed, uses another compression such as Deflate, or has a larger page. BigTIFF is not supported. TIFF bytes labelled PNG or JPEG are read as TIFF. `page.image()` on a TIFF page returns the PNG that Tesseract decoded, so its pixels match the OCR geometry.
+
+## Manage workers and memory
+
+The engine and its worker pool start on the first load and are reused by later loads. Each worker has its own WASM engine and model. In a four-page, 300 DPI benchmark, each extra worker used about 210 MiB more memory. Lower `concurrency` to reduce memory use.
+
+`dispose()` releases the workers and is safe to call more than once. Disposing while workers start waits for their cleanup.

@@ -1,17 +1,30 @@
 ---
 title: Conversion and retrieval API reference
-description: Public interfaces, defaults, results, and failure behavior.
+description: Types and functions for converting documents, reading layout and evidence, and chunking for retrieval.
+type: reference
 ---
 
-- [Layout analyzer API](/docs/conversion/reference/analyzers)
-- [Retrieval chunking API](/docs/conversion/reference/chunk)
-- [Cross-page continuation detection](/docs/conversion/reference/continuations)
-- [Document converter API](/docs/conversion/reference/converter)
-- [Document JSON API](/docs/conversion/reference/document-json)
-- [Element identity and evidence API](/docs/conversion/reference/evidence)
-- [Running header and footer detection](/docs/conversion/reference/furniture)
-- [Semantic layout API](/docs/conversion/reference/layout)
-- [Model layout API](/docs/conversion/reference/model-layout)
-- [Table and merged-cell detection](/docs/conversion/reference/tables)
+These pages list the conversion and retrieval APIs in `docture`, `docture/chunk`, and
+`docture/llm/layout`. For task guides, start at the
+[conversion and retrieval overview](/docs/conversion).
+
+## Convert documents
+
+- [Document converter API](/docs/conversion/reference/converter): `DocumentConverter`, call options, and results.
+- [Document JSON API](/docs/conversion/reference/document-json): the versioned JSON format and its parser.
+
+## Read layout and evidence
+
+- [Semantic layout API](/docs/conversion/reference/layout): element and page types.
+- [Element identity and evidence API](/docs/conversion/reference/evidence): element IDs, line IDs, and native evidence.
+- [Running header and footer detection](/docs/conversion/reference/furniture): furniture rules and limits.
+- [Table and merged-cell detection](/docs/conversion/reference/tables): table, header, and span rules.
+- [Cross-page continuation detection](/docs/conversion/reference/continuations): when tables and paragraphs join across pages.
+
+## Refine layout and chunk
+
+- [Layout analyzer API](/docs/conversion/reference/analyzers): the custom analyzer contract and validation.
+- [Model layout API](/docs/conversion/reference/model-layout): the model analyzer and its options.
+- [Retrieval chunking API](/docs/conversion/reference/chunk): `chunkDocument`, budgets, and packing rules.
 
 See the [global API index](/docs/api) for all four packages.

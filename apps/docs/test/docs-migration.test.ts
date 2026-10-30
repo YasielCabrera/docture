@@ -10,7 +10,7 @@ describe("legacy documentation links", () => {
     const entry = legacyDocs.get("/docs/guides/document-conversion");
     expect(entry).toBeDefined();
     if (entry === undefined) throw new Error("Missing conversion migration");
-    expect(legacyDestination(entry, "#assets", "?source=bookmark")).toBe("/docs/conversion/assets?source=bookmark#assets");
+    expect(legacyDestination(entry, "#assets", "?source=bookmark")).toBe("/docs/conversion/assets?source=bookmark#choose-an-asset-mode");
   });
 
   it("opens a split API method on its current reference page", () => {
@@ -29,6 +29,18 @@ describe("legacy documentation links", () => {
     const response = await unstable_getResponseFromNextConfig({ url: "https://docture.dev/docs/guides/installation?source=bookmark", nextConfig });
     expect(response.status).toBe(308);
     expect(getRedirectUrl(response)).toBe("https://docture.dev/docs/getting-started/installation?source=bookmark");
+  });
+
+  it("redirects a page merged into its area introduction", async () => {
+    const response = await unstable_getResponseFromNextConfig({ url: "https://docture.dev/docs/getting-started/choose-workflow", nextConfig });
+    expect(response.status).toBe(308);
+    expect(getRedirectUrl(response)).toBe("https://docture.dev/docs/getting-started");
+  });
+
+  it("redirects a page moved to another area", async () => {
+    const response = await unstable_getResponseFromNextConfig({ url: "https://docture.dev/docs/resources/architecture", nextConfig });
+    expect(response.status).toBe(308);
+    expect(getRedirectUrl(response)).toBe("https://docture.dev/docs/getting-started/architecture");
   });
 
   it("keeps a split legacy route available to the fragment-aware bridge", async () => {

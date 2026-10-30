@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { API_INVENTORY } from "../api-reference.js";
 
 const file = resolve(import.meta.dirname, "../content/docs/api.mdx");
-const lines = ["---", "title: API reference", "description: Find public APIs by package and import path.", "---", "", "Each entry below links to its canonical reference pages. Import public entries rather than files under `src` or `dist`. Install the engines required by the [package reference](/docs/getting-started/reference/packages).", ""];
+const lines = ["---", "title: API index", "description: Find public APIs by package and import path.", "type: reference", "---", "", "Each entry below links to its canonical reference pages. Import public entries rather than files under `src` or `dist`. Install the engines required by the [package reference](/docs/getting-started/reference/packages).", ""];
 for (const [name, title] of [["docture", "Core"], ["@docture/cli", "CLI and services"], ["@docture/eval", "Evaluation"], ["@docture/synthetic", "Synthetic data"]]) {
   lines.push(`## ${title}`, "", "| Import | Reference |", "| --- | --- |");
   for (const item of API_INVENTORY.filter((item) => item.packageName === name)) {

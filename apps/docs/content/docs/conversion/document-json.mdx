@@ -1,20 +1,36 @@
 ---
 title: Save and load document JSON
 description: Export versioned elements and validate saved documents before reuse.
+type: how-to
 ---
+
+Save a conversion as versioned JSON when you want to review, chunk, or re-render it later
+without converting the source again.
 
 ## Export structured JSON
 
 `format: "json"` returns a version 2 document with page dimensions, semantic elements,
-provenance, assets, and warnings. The CLI writes it with `docture convert report.pdf
---out converted --to json`. `--format json` separately selects the command envelope.
-See the [JSON format reference](/docs/conversion/reference/document-json#versioned-json) and
-the [generated schema](/schemas/docture-document-v2.schema.json).
+provenance, assets, and warnings:
+
+```ts
+const result = await converter.convert(source, { format: "json", assets: "embedded" });
+await writeFile("converted/report.json", result.content);
+```
+
+The CLI writes the same document with `docture convert report.pdf --out converted --to json`.
+`--format json` separately selects the command envelope. See the
+[JSON format reference](/docs/conversion/reference/document-json#versioned-json) and the
+[generated schema](/schemas/docture-document-v2.schema.json).
+
+Embedded assets keep images inside the file. With referenced assets, save the asset files
+beside the JSON so the references resolve.
+
+## Validate a saved document
 
 Validate a saved file before you use it. `parseDoctureDocument()` accepts version 1 and
 version 2 files and returns version 2:
 
-```ts
+```ts check
 import { readFile } from "node:fs/promises";
 import { parseDoctureDocument } from "docture";
 
@@ -23,6 +39,12 @@ if (!parsed.ok) throw new Error(parsed.issues.map((issue) => issue.path + ": " +
 ```
 
 To see the elements over the pages they came from, run `docture review --conversion
-converted/report.json --source report.pdf`. See [Review](/docs/cli/review#review).
+converted/report.json --source report.pdf`. See
+[the conversion view](/docs/cli/review#conversion-view).
 
-A parsed document can feed `chunkDocument()` with the same chunk IDs as its original conversion, when the content and options match. Save assets and source identity with the document when downstream code needs them. See [document JSON API](/docs/conversion/reference/document-json) for versions, validation failures, and evidence parsing.
+## Chunk a saved document
+
+Pass `parsed.document` to [`chunkDocument()`](/docs/conversion/retrieval-chunks). It gives
+the same chunk IDs as the original conversion result when the content and options match.
+See the [document JSON API](/docs/conversion/reference/document-json) for versions and
+validation failures.

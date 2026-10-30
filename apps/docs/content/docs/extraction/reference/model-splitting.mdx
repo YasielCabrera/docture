@@ -1,52 +1,95 @@
 ---
 title: Model splitting API
 description: Text and image splitter options, eager requests, and lazy page pairs.
+type: reference
 ---
 
-Import these APIs from `docture/llm` or the narrow entries listed below. Install AI SDK 7 and Zod (3.25.76 or later 3.x, or 4.1.8 or later) in the application.
-For model components:
+Model splitters ask a language model where one document ends and the next begins inside a multi-document source. Import them from `docture/llm/split` or `docture/llm`. [Split document bundles](/docs/extraction/splitting) shows them in use.
+
+Install AI SDK 7, Zod 3.25.76 or later 3.x or Zod 4.1.8 or later, and the provider you construct, such as `@ai-sdk/openai`:
 
 ```sh
 npm install docture ai zod
 ```
 
-Also install the provider you construct, such as `@ai-sdk/openai`. The
-[complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model)
-includes the document engine and schema library.
-
-All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
-gateway model string.
+The [complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model) includes the document engine and schema library.
 
 ## LLM splitters
 
-Import from `docture/llm/split`.
+### `textSplitter`
+
+Creates a splitter that reads an excerpt of each page's text.
 
 ```ts
-new TextSplitter(options: SplitterOptions)
-new ImageSplitter(options: SplitterOptions)
-textSplitter(options: SplitterOptions): TextSplitter
-imageSplitter(options: SplitterOptions): ImageSplitter
+function textSplitter(options: SplitterOptions): TextSplitter
 ```
 
-`TextSplitter` requires `TEXT_LAYER`. `ImageSplitter` requires `RENDERABLE_PAGES`.
-The default splitter name is `"TextSplitter"` or `"ImageSplitter"`. It stays the same
-in a minified bundle and in a subclass, so telemetry reads `docture.split.TextSplitter`
-unless you pass `name`.
+### `TextSplitter`
 
-`SplitterOptions` contains required `model`, plus:
+The class that `textSplitter()` returns. It requires `TEXT_LAYER`.
 
+```ts
+class TextSplitter implements Splitter {
+  readonly requires: readonly ["TEXT_LAYER"];
+  constructor(options: SplitterOptions);
+}
+```
+
+### `imageSplitter`
+
+Creates a splitter that sends rendered page images.
+
+```ts
+function imageSplitter(options: SplitterOptions): ImageSplitter
+```
+
+### `ImageSplitter`
+
+The class that `imageSplitter()` returns. It requires `RENDERABLE_PAGES`.
+
+```ts
+class ImageSplitter implements Splitter {
+  readonly requires: readonly ["RENDERABLE_PAGES"];
+  constructor(options: SplitterOptions);
+}
+```
+
+The default splitter name is `"TextSplitter"` or `"ImageSplitter"`. It stays the same in a minified bundle and in a subclass, so telemetry reads `docture.split.TextSplitter` unless you pass `name`.
+
+### `SplitterOptions`
+
+{/* options: SplitterOptions */}
 | Option | Default | Meaning |
 | --- | --- | --- |
+| `model` | required | AI SDK `LanguageModel`: a provider instance or a gateway model string. |
 | `name` | `"TextSplitter"` or `"ImageSplitter"` | Splitter name. |
-| `excerptChars` | `1200` | Text from the start of each page. |
-| `instructions` | none | Additional split guidance. |
-| `cache`, `pricing` | none | Shared cache and cost configuration. |
-| `temperature` | `0` | AI SDK temperature. |
-| `maxRetries` | `2` | AI SDK retry count. |
-| `dpi` | `120` | Image splitter render resolution. |
-| `maxEdge` | none | Image edge limit. |
+| `excerptChars` | `1200` | Characters from the start of each page. |
+| `instructions` | none | Text appended to the system prompt. |
+| `cache` | none | `LlmCache` for responses. |
+| `pricing` | none | `PricingTable` used to report `costUsd`. |
+| `temperature` | `0` | Sampling temperature. |
+| `maxRetries` | `2` | Transport retries for a failed request. |
+| `dpi` | `120` | Render resolution for `ImageSplitter`. |
+| `maxEdge` | none | Image edge limit in pixels. |
 | `format` | `png` | Image format. |
-| `maxEagerPages` | `40` | Pages sent by an eager split request. |
+| `maxEagerPages` | `40` | Pages sent by one eager split request. |
+| `telemetry` | none | AI SDK telemetry. See [model telemetry API](/docs/extraction/reference/telemetry). |
+
+### `Splitter`
+
+The core interface both classes implement, exported from `docture`. See [splitter contract](/docs/extraction/reference/splitting#splitter-contract).
+
+```ts
+interface Splitter {
+  readonly name: string;
+  readonly requires?: readonly DocumentFact[];
+  belongsToSameDocument(first: LoadedPage, second: LoadedPage, ctx: SplitContext): Promise<SplitVerdict>;
+  splitEager?(pages: readonly LoadedPage[], ctx: SplitContext): Promise<DocGroups>;
+  dispose?(scope?: DisposalScope): Promise<void>;
+}
+```
+
+### Eager windows and failures
 
 Unknown model names are reconciled to `UNKNOWN`. Splitter calls reject on model,
 rendering, or abort failures. Eager splitting sends every page in windows of at most

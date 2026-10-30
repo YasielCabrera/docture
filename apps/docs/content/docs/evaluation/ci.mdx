@@ -1,9 +1,104 @@
 ---
 title: Gate evaluation regressions in CI
-description: Fail on required quality thresholds errors or unacceptable baseline drops.
+description: Fail CI on missed quality thresholds, processor errors, or regressions against a baseline.
+type: how-to
 ---
 
-Add explicit thresholds to a completed result:
+Fail a CI job when extraction quality drops below a threshold or below the last run on your main branch. This setup assumes a `docture.eval.ts` config; the [evaluation quick start](/docs/evaluation/quick-start) and [Evaluate from the CLI](/docs/cli/evaluation) show how to write one.
+
+## Configure the gate
+
+Add `gate`, `baseline`, and `fallbackBranch` to the config:
+
+```ts
+import { defineEval, exact } from "@docture/eval";
+import { defineEvalConfig } from "@docture/eval/config";
+import { fromDocture } from "@docture/eval/docture";
+import { folderDataset } from "@docture/eval/node";
+import { extractor } from "./extractor";
+import { Invoice } from "./invoice";
+
+export default defineEvalConfig({
+	dataset: folderDataset("dataset", { documents: "doc.pdf", expected: "expected.json" }),
+	spec: defineEval(Invoice, { strings: exact() }),
+	experiments: { llm: fromDocture(extractor, Invoice) },
+	gate: {
+		thresholds: [{ metric: "f1", min: 0.95 }],
+		maxErrorRate: 0,
+		regressions: { maxDrop: { f1: 0.01 } },
+	},
+	baseline: "auto",
+	fallbackBranch: "main",
+});
+```
+
+`baseline: "auto"` compares each run with the latest complete run of the same dataset on the current Git branch. A pull request checkout in GitHub Actions is a detached commit with no branch runs, so `fallbackBranch: "main"` makes the lookup use the latest run from `main`. When no baseline exists, as on the first run or after the dataset changes, the gate skips the regression budgets and still checks the thresholds.
+
+## Run the gate in CI
+
+The workflow runs the CLI from your project's dependencies, so install it first:
+
+```sh
+npm install --save-dev @docture/cli @docture/eval
+```
+
+`docture eval run` exits with code `0` when the gate passes, `1` when a gate check fails or the run fails, and `2` on a usage error. Runs are stored in `.docture/eval` beside the config. This GitHub Actions workflow keeps that directory between jobs with the cache, so each pull request compares against the latest `main` run. Save it as `.github/workflows/eval.yml`:
+
+```yaml
+name: Evaluation
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Restore evaluation runs
+        uses: actions/cache/restore@v4
+        with:
+          path: .docture/eval
+          key: docture-eval-${{ github.sha }}
+          restore-keys: docture-eval-
+      - name: Run the evaluation
+        run: npx docture eval run --reporter junit,html --out eval-report
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      - name: Save evaluation runs
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: .docture/eval
+          key: docture-eval-${{ github.sha }}
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: eval-report
+```
+
+Node.js 22.18 or later loads `docture.eval.ts` without a build step. If the config is not at the repository root, change both cache `path` values to the `.docture/eval` directory beside it. Replace `OPENAI_API_KEY` with the credential your processors read, or remove `env` for processors that call no model.
+
+Only `main` saves the store, and only after the gate passes. A pull request run never becomes a baseline, and a failing `main` run does not replace the last good one. On failure, the log names each failed check:
+
+```text
+✗ Gate failed: 1 of 3 checks.
+  f1 for experiment llm dropped by 0.25, over the budget 0.01
+```
+
+The `eval-report` artifact holds `junit.xml` and `report.html`. Test report actions read `junit.xml`; each case is a test case, and each gate check is a test case in a `gate` suite. To apply the gate to a stored run again, run `docture eval gate latest --baseline auto`.
+
+## Gate a result
+
+Call `gate` from code when your CI step runs `runEval` itself:
 
 ```ts
 import { gate } from "@docture/eval";
@@ -17,14 +112,15 @@ const verdict = gate(result, {
 	regressions: { maxDrop: { f1: 0.01 } },
 });
 console.log(verdict.pass, verdict.checks);
+process.exitCode = verdict.pass ? 0 : 1;
 ```
 
-This assumes `result` includes the desired case slices and a [baseline comparison](/docs/evaluation/comparisons). Regression budgets need comparison data. Set `requireSignificance` when only statistically established regressions should fail.
+`result` is the value [`runEval`](/docs/evaluation/experiments) returns, or a saved result read with `readEvalResult` from `@docture/eval/node`. The slice threshold needs a `rendition` slice in the run's `slices`. Regression budgets need a [baseline comparison](/docs/evaluation/comparisons) in the result: pass `store` and `baseline` to `runEval`. Set `requireSignificance` when only statistically established regressions should fail. Passing `gate` to `runEval` stores the verdict in the result instead.
+
+## Scope thresholds
 
 Thresholds apply to every experiment unless `experiment` selects one. A threshold may target a segment, one slice value, or a path pattern. Equality passes. A run that is not complete fails. Missing required metrics fail by default; `onNull: "pass"` changes that policy explicitly.
 
 Precision, recall, and F1 default to run scope, which includes errored cases as omissions. Use another scope only when it matches the quality contract you intend to enforce. Include an error-rate threshold so processor failures remain visible.
 
-For the CLI, put `gate` in `docture.eval.ts` and run `docture eval run`. A failed gate returns exit code `1`. Persist a JSON or JUnit report as a CI artifact so reviewers can inspect failing fields.
-
-See [gate API](/docs/evaluation/reference/gates) and [reports](/docs/evaluation/reports).
+See the [gate API](/docs/evaluation/reference/gates) and [reports](/docs/evaluation/reports).

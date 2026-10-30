@@ -1,36 +1,62 @@
 ---
 title: Evaluation API reference
 description: Lookup for all @docture/eval entries, result formats, and reporter APIs.
+type: reference
 ---
 
-Install `@docture/eval` beside its required `docture` peer. The root is portable and engine-free. Node file access lives in `@docture/eval/node`. Only the judge needs the optional `ai` peer.
+These pages list every public `@docture/eval` symbol with its signature, options, defaults, and errors. Install `@docture/eval` beside its required `docture` peer. The root entry is portable and engine-free, Node file access lives in `@docture/eval/node`, and only the judge needs the optional `ai` peer. The [evaluation quick start](/docs/evaluation/quick-start) shows the complete pipeline.
 
-See the [evaluation quick start](/docs/evaluation/quick-start) for the complete pipeline. Specs expose `validate`, `score`, `scoreAsync` and `explain`. Metrics use null for empty denominators. Saved results use format `docture-eval-result`, version 1, described by `@docture/eval/result-v1.schema.json`.
+Each function page documents the options and input types the function takes. Result rows, summaries, shared value types, and errors are on the [core types](/docs/evaluation/reference/types) page.
 
-- [Evaluation array alignment API](/docs/evaluation/reference/arrays)
-- [Evaluation calibration API](/docs/evaluation/reference/calibration)
-- [Evaluation comparators API](/docs/evaluation/reference/comparators)
-- [Evaluation run comparison API](/docs/evaluation/reference/comparison)
-- [Evaluation configuration API](/docs/evaluation/reference/config)
-- [Conversion checks API](/docs/evaluation/reference/conversion)
-- [Evaluation datasets and reporter contracts API](/docs/evaluation/reference/core)
-- [Evaluation dataset management API](/docs/evaluation/reference/datasets)
-- [Evaluation framework adapters API](/docs/evaluation/reference/frameworks)
-- [Evaluation gates and baselines API](/docs/evaluation/reference/gates)
-- [Evaluation grounding API](/docs/evaluation/reference/grounding)
-- [Evaluation model judge API](/docs/evaluation/reference/judges)
-- [Evaluation metrics and assertions API](/docs/evaluation/reference/metrics)
-- [Docture evaluation adapter API](/docs/evaluation/reference/processors)
-- [Evaluation csv reporter API](/docs/evaluation/reference/reporters-csv)
-- [Evaluation html reporter API](/docs/evaluation/reference/reporters-html)
-- [Evaluation json reporter API](/docs/evaluation/reference/reporters-json)
-- [Evaluation junit reporter API](/docs/evaluation/reference/reporters-junit)
-- [Evaluation markdown reporter API](/docs/evaluation/reference/reporters-markdown)
-- [Evaluation template reporter API](/docs/evaluation/reference/reporters-template)
-- [Evaluation terminal reporter API](/docs/evaluation/reference/reporters-terminal)
-- [Evaluation results API](/docs/evaluation/reference/results)
-- [Evaluation runner API](/docs/evaluation/reference/runner)
-- [Evaluation specs API](/docs/evaluation/reference/specs)
-- [Evaluation files and storage API](/docs/evaluation/reference/storage)
-- [Evaluation core types](/docs/evaluation/reference/types)
-- [Evaluation utilities API](/docs/evaluation/reference/utilities)
+## Define scoring
+
+- [Specs API](/docs/evaluation/reference/specs): `defineEval`, `looseEval`, and the `EvalRules` that configure them.
+- [Comparators API](/docs/evaluation/reference/comparators): built-in comparators, their options, and the `Comparator` contract.
+- [Array alignment API](/docs/evaluation/reference/arrays): `byIndex`, `ordered`, `hungarian`, and `ArrayRule`.
+- [Metrics and assertions API](/docs/evaluation/reference/metrics): precision, recall, F1, custom metrics, assertions, and grounding rules.
+- [Model judge API](/docs/evaluation/reference/judges): `judge`, a cached semantic comparator.
+
+## Prepare datasets and processors
+
+- [Datasets and reporter contracts API](/docs/evaluation/reference/core): `Dataset`, `EvalCase`, `Reporter`, and in-memory datasets.
+- [Dataset management API](/docs/evaluation/reference/datasets): fingerprints, sampling, drafted ground truth, and migrations.
+- [Files and storage API](/docs/evaluation/reference/storage): folder and JSONL datasets, file run stores, and result files.
+- [Docture adapter API](/docs/evaluation/reference/processors): `fromDocture`, which wraps a Docture extractor as a processor.
+
+## Run experiments
+
+- [Runner API](/docs/evaluation/reference/runner): `runEval`, `rescore`, and the `EvalExtractor` processor contract.
+- [Configuration API](/docs/evaluation/reference/config): `defineEvalConfig` and the `docture.eval.ts` file.
+- [Framework adapters API](/docs/evaluation/reference/frameworks): Vitest, Evalite, promptfoo, and autoevals.
+
+## Read, compare, and gate results
+
+- [Results API](/docs/evaluation/reference/results): `buildResult` and parsers for the versioned result format.
+- [Core types](/docs/evaluation/reference/types): result rows, summaries, comparison sections, and errors.
+- [Run comparison API](/docs/evaluation/reference/comparison): `compareRuns` and its paired statistical tests.
+- [Gates and baselines API](/docs/evaluation/reference/gates): `gate`, `resolveBaseline`, and their options.
+
+## Analyze confidence and grounding
+
+- [Calibration API](/docs/evaluation/reference/calibration): confidence reliability and auto-accept thresholds.
+- [Grounding API](/docs/evaluation/reference/grounding): expected pages and boxes against processor evidence.
+
+## Check conversions
+
+- [Conversion checks API](/docs/evaluation/reference/conversion): presence, absence, order, and table checks on converted pages.
+
+## Report results
+
+- [Terminal reporter API](/docs/evaluation/reference/reporters-terminal): a scoreboard and live progress, plus the shared `Column` type.
+- [JSON reporter API](/docs/evaluation/reference/reporters-json): one JSON file, or the split `result.json` and `cases.jsonl` layout.
+- [Markdown reporter API](/docs/evaluation/reference/reporters-markdown): Markdown built from sections and columns.
+- [CSV reporter API](/docs/evaluation/reference/reporters-csv): one row per case or per scored field.
+- [JUnit reporter API](/docs/evaluation/reference/reporters-junit): JUnit XML for CI test views.
+- [HTML reporter API](/docs/evaluation/reference/reporters-html): one offline HTML report.
+- [Template reporter API](/docs/evaluation/reference/reporters-template): any text format through a render function.
+
+## Helpers
+
+- [Utilities API](/docs/evaluation/reference/utilities): canonical JSON, fingerprints, paths, and slices.
+
+See the [global API index](/docs/api) for all four packages.

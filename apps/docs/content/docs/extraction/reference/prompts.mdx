@@ -1,10 +1,10 @@
 ---
 title: Prompt helpers API
 description: Prompt construction, field guidance, and schema instructions.
+type: reference
 ---
 
-Import these APIs from the narrow entries listed below, which need no model runtime.
-They are also available from `docture/llm`, whose model exports require `ai@^7` and a supported Zod release.
+Prompt helpers build the system and user prompts that the model strategies send, and wrap untrusted text in delimiters. Import them from `docture/llm/prompt`, which needs no model runtime. They are also exported from `docture/llm`, whose model exports require `ai@^7` and a supported Zod release. [Configure prompts, caching, and pricing](/docs/extraction/model-settings) covers the options that feed them.
 
 ```sh
 npm install docture
@@ -12,24 +12,54 @@ npm install docture
 
 ## Prompt construction
 
-Import from `docture/llm/prompt`.
+### `buildPrompt`
 
-`DEFAULT_SYSTEM_PROMPT` is the default extraction instruction string.
+Builds the system prompt and the user prompt for a document's text.
 
 ```ts
-buildPrompt(text: string, options?: BuildPromptOptions): PromptParts
-wrapUntrusted(
+function buildPrompt(text: string, options?: BuildPromptOptions): PromptParts
+```
+
+The system prompt is `system`, or `DEFAULT_SYSTEM_PROMPT`, followed by `instructions`, `hints`, and `examples` when present. Each example is rendered as `<example>` holding `<input>` and `<output>`. The user prompt names the classification when it is known and not `UNKNOWN`, then wraps the document text in `<document>` delimiters with `wrapUntrusted()`.
+
+### `BuildPromptOptions`
+
+{/* options: BuildPromptOptions */}
+| Option | Meaning |
+| --- | --- |
+| `system` | Replaces `DEFAULT_SYSTEM_PROMPT`. |
+| `instructions` | Appended to the system prompt under "Additional instructions". |
+| `classification` | A `ClassificationResult` named in the user prompt. |
+| `hints` | Appended to the system prompt as notes on the document type. |
+| `examples` | Worked examples, each `{ text, output }` with `output` as JSON text. |
+
+### `PromptParts`
+
+```ts check
+interface PromptParts {
+  readonly system: string;
+  readonly prompt: string;
+}
+```
+
+### `DEFAULT_SYSTEM_PROMPT`
+
+The default extraction instructions.
+
+```ts
+const DEFAULT_SYSTEM_PROMPT: string
+```
+
+### `wrapUntrusted`
+
+Wraps `text` between `<tag>` lines so the model can tell content from instructions.
+
+```ts
+function wrapUntrusted(
   tag: "document" | "excerpt" | "example" | "input" | "output",
   text: string,
   escape?: readonly ("document" | "excerpt" | "example" | "input" | "output")[],
 ): string
 ```
 
-`BuildPromptOptions` has `system`, `instructions`, optional `classification`, `hints`, and
-`examples`. `system` replaces the default; instructions, hints and examples are appended.
-Each example, `{ text, output }` with `output` as JSON text, is rendered as `<example>`
-holding `<input>` and `<output>`. `PromptParts` contains
-the final `system` and user `prompt`. The document text is wrapped in document delimiters.
-`wrapUntrusted()` neutralizes matching open and close tag forms inside the text, and those
-of every tag in `escape`, ignoring case and surrounding whitespace, then wraps it in one
-tag pair. Other text is unchanged.
+An opening or closing form of `tag`, or of any tag in `escape`, inside `text` is broken with a backslash, ignoring case and surrounding whitespace, so it cannot end the block early. Other text is unchanged.

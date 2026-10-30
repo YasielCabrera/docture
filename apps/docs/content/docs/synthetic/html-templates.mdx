@@ -1,6 +1,7 @@
 ---
 title: Create synthetic HTML templates
 description: Print labeled HTML pages with a separately installed Chromium build.
+type: how-to
 ---
 
 Use `@docture/synthetic/html` for HTML and CSS layouts. Install its engine and Chromium separately:
@@ -12,13 +13,13 @@ npx playwright-core install chromium
 
 ## Mark fields
 
-Reuse the model and `Bill` type from the [quick start](/docs/synthetic/quick-start):
+This example imports `model` and `Bill` from `bill.mts`, which the [quick start](/docs/synthetic/quick-start#define-the-model-and-template) defines.
 
 ```ts
 import { locales } from "@docture/synthetic";
 import { defineHtmlTemplate, escapeHtml, renderHtmlPdf } from "@docture/synthetic/html";
 import { assertVerified } from "@docture/synthetic/verify";
-import { model, type Bill } from "./synth.mjs";
+import { model, type Bill } from "./bill.mjs";
 
 const html = defineHtmlTemplate<Bill>()({
 	key: "html-bill",

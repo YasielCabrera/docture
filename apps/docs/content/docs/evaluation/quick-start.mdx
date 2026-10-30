@@ -1,6 +1,7 @@
 ---
 title: Run your first evaluation
 description: Score a small deterministic experiment without credentials or document engines.
+type: tutorial
 ---
 
 This program runs one processor against one expected answer and checks its F1. No model or document engine is required.
@@ -8,15 +9,15 @@ This program runs one processor against one expected answer and checks its F1. N
 ## Install
 
 ```sh
-pnpm add @docture/eval docture zod
-pnpm add -D tsx
+npm install @docture/eval docture zod
+npm install --save-dev tsx
 ```
 
 ## Run a case
 
 Save as `evaluate.mts`:
 
-```ts
+```ts check
 import { defineEval, exact, gate, inMemoryDataset } from "@docture/eval";
 import { runEval } from "@docture/eval/runner";
 import { renderScoreboard } from "@docture/eval/reporters/terminal";
@@ -46,17 +47,14 @@ console.log(gate(result, { thresholds: [{ metric: "f1", min: 1 }] }).pass);
 ```
 
 ```sh
-pnpm exec tsx evaluate.mts
+npx tsx evaluate.mts
 ```
 
 The scoreboard reports F1 `1`, and the last line is `true`. Change `count` in the processor answer to `11` to produce a mismatch and fail the threshold.
 
-## Use real documents
+## Next steps
 
-[Prepare a dataset](/docs/evaluation/datasets), then [adapt your extractor](/docs/evaluation/processors). Example 23 at `apps/examples/23-evaluate-a-schema/index.ts` runs a complete lab-report evaluation with deterministic parsers and a mocked model.
-
-For direct scoring of a Docture result, use the runnable recipe:
-
-<SourceExample file="measure-accuracy.ts" title="Score an extraction result" />
-
-See [scoring rules](/docs/evaluation/scoring-rules) before choosing a production gate.
+- [Define scoring rules](/docs/evaluation/scoring-rules) before you choose a production gate.
+- [Prepare a dataset](/docs/evaluation/datasets) of your own documents and approved answers.
+- [Connect your extractor](/docs/evaluation/processors) as an evaluation processor.
+- Run the [evaluate-a-schema example](/docs/resources/examples), a complete lab-report evaluation with deterministic parsers and a mocked model.

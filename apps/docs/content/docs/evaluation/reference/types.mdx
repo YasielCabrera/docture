@@ -1,130 +1,1247 @@
 ---
 title: Evaluation core types
-description: Public types, constants, and errors exported by @docture/eval.
+description: Result rows, run summaries, comparison sections, shared value types, and errors exported by @docture/eval.
+type: reference
 ---
 
-Import these names from `@docture/eval`. Their behavior is described by the focused [API pages](/docs/evaluation/reference).
+Import these names from `@docture/eval`. This page lists the result rows, summaries, shared value types and errors that several entries accept or return. Options and input types sit next to the function that takes them, such as [`EvalRules`](/docs/evaluation/reference/specs#evalrules) on the specs page and [`GateOptions`](/docs/evaluation/reference/gates#gateoptions) on the gates page.
 
-- `AlignmentAlgorithm`
-- `AlignmentReport`
-- `ArrayRule`
-- `Assertion`
-- `AssertionOutcome`
-- `AssertionResult`
-- `BaselineQuery`
-- `Box`
-- `BuildResultInput`
-- `CalibrationBin`
-- `CalibrationReport`
-- `CalibrationStats`
-- `CalibrationSummary`
-- `CaseDelta`
-- `CaseDocument`
-- `CaseResult`
-- `CaseScore`
-- `Comparator`
-- `CompareContext`
-- `Comparison`
-- `ConfidenceCount`
-- `CoveragePoint`
-- `DEFAULT_MAX_CELLS`
-- `Dataset`
-- `DatasetError`
-- `DateGranularity`
-- `DateOptions`
-- `DeltaVerdict`
-- `EpochSummary`
-- `ErroredCase`
-- `EvalCase`
-- `EvalExtractor`
-- `EvalResult`
-- `EvalRules`
-- `EvalSpec`
-- `EvalSpecError`
-- `EvidenceRef`
-- `ExactNormalization`
-- `ExpectedLocation`
-- `ExperimentComparison`
-- `ExtractContext`
-- `ExtractOutput`
-- `FieldEvidence`
-- `FieldGroupSummary`
-- `FieldResult`
-- `FieldRule`
-- `FieldRuleOptions`
-- `FieldSource`
-- `FieldStatus`
-- `FieldType`
-- `GateCheck`
-- `GateOptions`
-- `GateResult`
-- `GateThreshold`
-- `GroundTruthError`
-- `GroundTruthIssue`
-- `GroundTruthIssueCode`
-- `GroundingCounts`
-- `GroundingReport`
-- `GroundingRule`
-- `GroundingScore`
-- `GroundingSummary`
-- `IncomparableRunsError`
-- `InvalidCaseTruth`
-- `JsonObject`
-- `JsonSchemaObject`
-- `JsonValue`
-- `LooseEvalOptions`
-- `MetricContext`
-- `MetricDefinition`
-- `MetricDelta`
-- `MetricFormat`
-- `MetricInfo`
-- `MetricValues`
-- `MigrationGuardError`
-- `NullHandling`
-- `NumberOptions`
-- `OmittedCount`
-- `OmittedLeaves`
-- `OutOfScopeError`
-- `OutcomeChange`
-- `PathDelta`
-- `PathSegment`
-- `PreflightError`
-- `Prf`
-- `PrfScope`
-- `Progress`
-- `RESULT_FORMAT`
-- `RESULT_VERSION`
-- `RawKey`
-- `RepairHint`
-- `Reporter`
-- `ResolvedArray`
-- `ResolvedField`
-- `ResolvedFieldInfo`
-- `ResolvedGroundingRule`
-- `RunComparison`
-- `RunIndexEntry`
-- `RunInfo`
-- `RunStore`
-- `RunStoreError`
-- `RunStoreFailure`
-- `SchemaInput`
-- `ScoreExtras`
-- `ScoredCase`
-- `SegmentScore`
-- `SkippedCase`
-- `SliceFilter`
-- `SliceMap`
-- `SliceSpec`
-- `SliceValue`
-- `SpecInfo`
-- `SpecProblem`
-- `SpecProblemCode`
-- `StatusCounts`
-- `StoredRaw`
-- `StoredRun`
-- `Summary`
-- `TagValue`
-- `TextOptions`
-- `UsageInfo`
-- `ValidationResult`
-- `WritableDataset`
+## Cases and processors
+
+Used in [Connect an evaluation processor](/docs/evaluation/processors) and [Prepare evaluation datasets](/docs/evaluation/datasets).
+
+### `Box`
+
+A rectangle on a page in PDF points with a top-left origin, Docture's layout convention.
+
+```ts check
+interface Box {
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+}
+```
+
+### `ExpectedLocation`
+
+Where a ground-truth value appears in the document, for grounding.
+
+```ts
+interface ExpectedLocation {
+	/** Physical page number, starting at 1. */
+	readonly pageNumber: number;
+	readonly box?: Box;
+}
+```
+
+### `FieldEvidence`
+
+Where a processor found a value. Neutral, so a non-Docture processor can supply it.
+
+```ts
+interface FieldEvidence {
+	/** Concrete path in the processor's output, such as `lineItems[0].amount`. */
+	readonly path: string;
+	readonly pageNumber: number;
+	readonly box?: Box;
+	/** Processor-specific evidence status, such as Docture's `verified` or `cited-unverified`. */
+	readonly status?: string;
+	readonly confidence?: number;
+}
+```
+
+### `TagValue`
+
+A value used to slice results: a tag, a group or a derived bucket.
+
+```ts check
+type TagValue = string | number | boolean;
+```
+
+### `UsageInfo`
+
+Usage a processor reports for one case. Every field is optional because processors measure different things.
+
+```ts check
+interface UsageInfo {
+	readonly inputTokens?: number;
+	readonly outputTokens?: number;
+	readonly calls?: number;
+	readonly pages?: number;
+	/** Absent when no price was known. */
+	readonly costUsd?: number;
+	readonly wallMs?: number;
+}
+```
+
+## Specs and comparators
+
+Used in [Define evaluation scoring rules](/docs/evaluation/scoring-rules) and [Match evaluation array items](/docs/evaluation/array-matching).
+
+### `AlignmentAlgorithm`
+
+The algorithm that produced an alignment. `greedy` and `ordered-greedy` mean the cost matrix exceeded its budget: `greedy` replaces `hungarian` and `exact-key`, and `ordered-greedy` replaces `ordered` without crossing pairs.
+
+```ts check
+type AlignmentAlgorithm = "index" | "ordered" | "exact-key" | "hungarian" | "greedy" | "ordered-greedy";
+```
+
+### `AlignmentReport`
+
+How the rows of one array were paired, and what went unpaired.
+
+```ts
+interface AlignmentReport {
+	/** Concrete path of the array, such as `lineItems` or `invoices[0].lineItems`. */
+	readonly path: string;
+	readonly pattern: string;
+	readonly algorithm: AlignmentAlgorithm;
+	readonly expected: number;
+	readonly actual: number;
+	readonly matched: number;
+	/** Expected rows with no partner. A truncated list shows up here. */
+	readonly missing: number;
+	/** Actual rows with no partner. */
+	readonly extra: number;
+	/** Matched rows that would have to move to restore the expected order. */
+	readonly outOfOrder: number;
+	/** Experimental: an expected row that reads as several adjacent unpaired actual rows. */
+	readonly splits: readonly { readonly expected: number; readonly actual: readonly number[] }[];
+	/** Experimental: several adjacent unpaired expected rows that read as one actual row. */
+	readonly merges: readonly { readonly expected: readonly number[]; readonly actual: number }[];
+}
+```
+
+### `EvalSpec`
+
+How to compare values of type `T`. A plain object with methods, so the CLI can call a spec built by another installed copy.
+
+```ts
+interface EvalSpec<T = unknown> {
+	/** Hash of everything that changes validation or scoring: types, enum values, nullability, comparators, alignment, segments, weights, null handling and assertion options. Property order does not count. */
+	readonly fingerprint: string;
+	readonly fields: readonly ResolvedField[];
+	readonly arrays: readonly ResolvedArray[];
+	readonly info: SpecInfo;
+	/** Strict check of ground truth: unknown keys, wrong leaf types, rows with every field absent, invalid values and failed assertions. */
+	validate(expected: unknown): ValidationResult<T>;
+	/** Score one output. Throws when the spec holds an async comparator. */
+	score(expected: T, actual: unknown, extras?: ScoreExtras): CaseScore;
+	scoreAsync(expected: T, actual: unknown, extras?: ScoreExtras): Promise<CaseScore>;
+	/** Why a path is scored the way it is, such as `lineItems[].amount: number(abs 0.01) from rule 'totals.*'`. */
+	explain(path: string): string;
+}
+```
+
+### `FieldSource`
+
+Where a resolved field got its comparator.
+
+```ts check
+type FieldSource =
+	| { readonly kind: "rule"; readonly rule: string }
+	| { readonly kind: "annotation" }
+	| { readonly kind: "type-default" }
+	| { readonly kind: "strings" }
+	| { readonly kind: "loose" };
+```
+
+### `FieldType`
+
+The schema type of a leaf. `object` and `array` are containers a rule compares as a whole.
+
+```ts check
+type FieldType = "string" | "number" | "integer" | "boolean" | "enum" | "date" | "date-time" | "object" | "array" | "unknown";
+```
+
+### `JsonObject`
+
+A JSON object with `JsonValue` members.
+
+```ts
+type JsonObject = { readonly [key: string]: JsonValue };
+```
+
+### `JsonValue`
+
+Any value JSON can represent. Results, options and extensions use it so every artifact survives `JSON.stringify`.
+
+```ts check
+type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
+```
+
+### `RepairHint`
+
+A likely cause of a mismatch, so a reader can tell a format slip from a wrong value.
+
+```ts check
+interface RepairHint {
+	readonly kind:
+		| "date-format"
+		| "minor-unit"
+		| "digit-transposition"
+		| "truncation"
+		| "case-or-spacing"
+		| "sign"
+		| "scale"
+		| "row-split"
+		| "row-merge"
+		| "out-of-order"
+		| (string & {});
+	readonly detail?: string;
+}
+```
+
+### `ResolvedArray`
+
+One array of the spec and its alignment rule.
+
+```ts
+interface ResolvedArray {
+	readonly pattern: string;
+	readonly rule: ArrayRule;
+	readonly source: FieldSource;
+}
+```
+
+### `ResolvedField`
+
+One leaf of the spec with everything that decides how it is scored.
+
+```ts
+interface ResolvedField {
+	readonly pattern: string;
+	readonly type: FieldType;
+	readonly comparator: Comparator;
+	readonly segment: string;
+	readonly weight: number;
+	readonly critical: boolean;
+	readonly source: FieldSource;
+}
+```
+
+### `ResolvedFieldInfo`
+
+A resolved field in serializable form, stored in every result.
+
+```ts
+interface ResolvedFieldInfo {
+	readonly pattern: string;
+	readonly type: FieldType;
+	/** Comparator with options, such as `number(abs 0.01)`. */
+	readonly comparator: string;
+	readonly comparatorId: string;
+	readonly options?: JsonValue;
+	readonly segment: string;
+	readonly weight: number;
+	readonly critical: boolean;
+	/** Such as `rule 'totals.*'`, `annotation` or `type default`. */
+	readonly source: string;
+}
+```
+
+### `ScoreExtras`
+
+Optional signals scored alongside a case's output.
+
+```ts
+interface ScoreExtras {
+	/** Confidence in 0 to 1 keyed by concrete actual path. */
+	readonly confidence?: Readonly<Record<string, number>>;
+	readonly evidence?: readonly FieldEvidence[];
+	readonly locations?: EvalCase["locations"];
+}
+```
+
+### `SpecInfo`
+
+A spec in serializable form.
+
+```ts
+interface SpecInfo {
+	readonly fingerprint: string;
+	readonly fields: readonly ResolvedFieldInfo[];
+	readonly arrays: readonly { readonly pattern: string; readonly rule: string; readonly source: string }[];
+}
+```
+
+### `ValidationResult`
+
+The outcome of strict ground-truth validation.
+
+```ts
+type ValidationResult<T> =
+	| { readonly ok: true; readonly value: T }
+	| { readonly ok: false; readonly issues: readonly GroundTruthIssue[] };
+```
+
+## Scores and metrics
+
+Used in [Define evaluation scoring rules](/docs/evaluation/scoring-rules) and [Run evaluation experiments](/docs/evaluation/experiments).
+
+### `AssertionResult`
+
+An assertion's [`AssertionOutcome`](/docs/evaluation/reference/metrics#assertionoutcome) on one case's output, with the assertion's `id`.
+
+```ts
+type AssertionResult = { readonly id: string } & AssertionOutcome;
+```
+
+### `CaseScore`
+
+Everything `spec.score` knows about one case. Precision, recall and F1 use weighted counts.
+
+```ts
+interface CaseScore {
+	readonly fields: readonly FieldResult[];
+	readonly arrays: readonly AlignmentReport[];
+	readonly assertions: readonly AssertionResult[];
+	readonly counts: StatusCounts;
+	readonly weighted: StatusCounts;
+	readonly metrics: Prf & {
+		/** No mismatch, omission or hallucination. */
+		readonly exact: boolean;
+		/** Mean ANLS over expected leaves, or `null` when nothing was expected. */
+		readonly anls: number | null;
+		/** Every critical field matched. True when there are none. */
+		readonly critical: boolean;
+	};
+	readonly segments: Readonly<Record<string, SegmentScore>>;
+}
+```
+
+### `EvidenceRef`
+
+Where the processor said it found a value.
+
+```ts
+interface EvidenceRef {
+	readonly pageNumber: number;
+	readonly box?: Box;
+	readonly status?: string;
+}
+```
+
+### `FieldResult`
+
+The comparison of one leaf.
+
+```ts
+interface FieldResult {
+	/** Concrete path on the expected side. Unpaired actual rows continue the expected numbering. */
+	readonly path: string;
+	/** Concrete path on the actual side, present only when it differs from `path`. */
+	readonly actualPath?: string;
+	readonly pattern: string;
+	readonly segment: string;
+	readonly status: FieldStatus;
+	readonly expected: JsonValue;
+	readonly actual: JsonValue;
+	/** Comparator id. */
+	readonly comparator: string;
+	readonly similarity: number;
+	readonly weight: number;
+	/** Present and true only for critical fields. */
+	readonly critical?: true;
+	readonly hint?: RepairHint;
+	readonly note?: string;
+	readonly confidence?: number;
+	readonly evidence?: readonly EvidenceRef[];
+	readonly locations?: readonly ExpectedLocation[];
+	/**
+	 * {@link isGrounded} under the default rule: correct and supported by evidence at an expected location.
+	 * `null` when the field has no expected location. Absent when the case supplied neither locations nor evidence.
+	 */
+	readonly grounded?: boolean | null;
+}
+```
+
+### `FieldStatus`
+
+How one leaf fared. Omission: expected but absent. Hallucination: present but not expected.
+
+```ts check
+type FieldStatus = "match" | "mismatch" | "omission" | "hallucination";
+```
+
+### `MetricFormat`
+
+How a metric value is displayed.
+
+```ts check
+type MetricFormat = "ratio" | "usd" | "ms" | "count" | "number";
+```
+
+### `MetricInfo`
+
+The serializable description of a metric, stored in every result.
+
+```ts
+interface MetricInfo {
+	readonly id: string;
+	readonly label: string;
+	readonly direction: "higher" | "lower";
+	readonly format: MetricFormat;
+}
+```
+
+### `Prf`
+
+Precision, recall and F1. `null` means there was nothing to grade, never a perfect score.
+
+```ts check
+interface Prf {
+	readonly precision: number | null;
+	readonly recall: number | null;
+	readonly f1: number | null;
+}
+```
+
+### `PrfScope`
+
+How errored cases count. `micro` pools scored cases; `macro` averages them; `run` also counts an errored case's expected leaves as omissions.
+
+```ts check
+type PrfScope = "micro" | "macro" | "run";
+```
+
+### `SegmentScore`
+
+Precision, recall, and F1 of one schema segment, with its status counts.
+
+```ts
+interface SegmentScore extends Prf {
+	readonly counts: StatusCounts;
+	readonly weighted: StatusCounts;
+}
+```
+
+### `StatusCounts`
+
+Weighted counts of field outcomes.
+
+```ts check
+interface StatusCounts {
+	readonly match: number;
+	readonly mismatch: number;
+	readonly omission: number;
+	readonly hallucination: number;
+}
+```
+
+## Results
+
+Used in [Run evaluation experiments](/docs/evaluation/experiments) and [Generate and customize evaluation reports](/docs/evaluation/reports).
+
+### `CaseResult`
+
+One case × experiment × epoch.
+
+```ts
+type CaseResult = ScoredCase | ErroredCase | SkippedCase;
+```
+
+### Shared case row fields
+
+`ScoredCase`, `ErroredCase` and `SkippedCase` all extend `CaseBase`, which `@docture/eval` does not export. Every row carries these fields; the `outcome` field tells the variants apart.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `caseId` | `string` | Required. The dataset case ID. |
+| `caseFingerprint` | `string` | Content hash of the case's documents, expected values, tags and params, so resume can tell an edited case from the one that ran. |
+| `experiment` | `string` | Required. The experiment ID. |
+| `configHash` | `string` | The experiment's `configHash` when the row ran, so resume and comparison can tell rows from an edited experiment apart. |
+| `epoch` | `number` | Required. The epoch this row belongs to. |
+| `tags` | `Readonly<Record<string, TagValue>>` | Required. The case's tags. |
+| `group` | `string` | The case's cluster for comparison statistics. |
+| `locations` | `EvalCase["locations"]` | The case's expected locations, kept so a labelled case counts as labelled even when it produced no fields. |
+| `values` | `MetricValues` | Per-case values of every metric with `perCase`, keyed by metric ID, so run comparison can pair cases without the metric's code. |
+| `slices` | `Readonly<Record<string, TagValue>>` | Slice values recorded when the case ran, keyed by slice name. |
+| `usage` | `UsageInfo` | Usage the processor reported. |
+| `method` | `string` | The `method` from the processor's `ExtractOutput`. |
+| `fallback` | `boolean` | The `fallback` flag from the processor's `ExtractOutput`. |
+| `diagnostics` | `JsonValue` | The `diagnostics` from the processor's `ExtractOutput`. |
+| `startedAt` | `string` | Required. ISO 8601 time the processor call started. |
+| `ms` | `number` | Required. Milliseconds the processor call took. |
+
+```ts
+interface CaseBase {
+	readonly caseId: string;
+	readonly caseFingerprint?: string;
+	readonly experiment: string;
+	readonly configHash?: string;
+	readonly epoch: number;
+	readonly tags: Readonly<Record<string, TagValue>>;
+	readonly group?: string;
+	readonly locations?: EvalCase["locations"];
+	readonly values?: MetricValues;
+	readonly slices?: Readonly<Record<string, TagValue>>;
+	readonly usage?: UsageInfo;
+	readonly method?: string;
+	readonly fallback?: boolean;
+	readonly diagnostics?: JsonValue;
+	readonly startedAt: string;
+	readonly ms: number;
+}
+```
+
+### `EpochSummary`
+
+Metric spread across epochs.
+
+```ts check
+interface EpochSummary {
+	readonly epochs: number;
+	readonly metrics: Readonly<Record<string, { readonly values: readonly (number | null)[]; readonly mean: number | null; readonly stdev: number | null }>>;
+}
+```
+
+### `ErroredCase`
+
+A case whose processor failed. It also carries the [shared case row fields](#shared-case-row-fields).
+
+```ts
+interface ErroredCase extends CaseBase {
+	readonly outcome: "errored";
+	readonly expected: JsonValue;
+	readonly error: { readonly name: string; readonly code?: string; readonly message: string };
+	readonly omitted: OmittedLeaves;
+}
+```
+
+### `EvalResult`
+
+The common, versioned output of an evaluation. Every reporter, the gate and run comparison read only this.
+
+```ts
+interface EvalResult {
+	readonly format: typeof RESULT_FORMAT;
+	readonly version: typeof RESULT_VERSION;
+	readonly run: RunInfo;
+	readonly metrics: readonly MetricInfo[];
+	/** Keyed by experiment id. */
+	readonly summary: Readonly<Record<string, Summary>>;
+	readonly cases: readonly CaseResult[];
+	readonly calibration?: CalibrationReport;
+	readonly grounding?: GroundingReport;
+	readonly comparison?: RunComparison;
+	readonly gate?: GateResult;
+	readonly warnings: readonly string[];
+	readonly extensions: Readonly<Record<string, JsonValue>>;
+}
+```
+
+### `FieldGroupSummary`
+
+Scores of all fields sharing a path pattern or field type at run scope: pooled over scored cases, with an errored case's expected leaves as omissions.
+
+```ts
+interface FieldGroupSummary extends Prf {
+	readonly counts: StatusCounts;
+	readonly meanSimilarity: number | null;
+}
+```
+
+### `MetricValues`
+
+Metric values keyed by metric id. `null` means there was nothing to measure.
+
+```ts check
+type MetricValues = Readonly<Record<string, number | null>>;
+```
+
+### `OmittedCount`
+
+A number of omitted expected leaves and their summed weight.
+
+```ts check
+interface OmittedCount {
+	readonly fields: number;
+	readonly weight: number;
+}
+```
+
+### `OmittedLeaves`
+
+How an errored case's expected leaves count as omissions at run scope. Compute it with `omittedOf(spec.score(expected, undefined))`.
+
+```ts
+interface OmittedLeaves extends OmittedCount {
+	/** Keyed by segment. */
+	readonly segments: Readonly<Record<string, OmittedCount>>;
+	/** Keyed by path pattern, such as `lineItems[].amount`. */
+	readonly paths: Readonly<Record<string, OmittedCount>>;
+}
+```
+
+### `RESULT_FORMAT`
+
+The `format` member of every eval result.
+
+```ts check
+const RESULT_FORMAT = "docture-eval-result";
+```
+
+### `RESULT_VERSION`
+
+The result format version this package reads and writes.
+
+```ts check
+const RESULT_VERSION = 1;
+```
+
+### `RunInfo`
+
+Metadata of one run: its ID, dataset, experiments, status, timing, and optional Git provenance.
+
+```ts
+interface RunInfo {
+	readonly id: string;
+	readonly status: "in-progress" | "complete" | "aborted";
+	readonly startedAt: string;
+	readonly finishedAt?: string;
+	readonly git?: { readonly branch: string; readonly sha: string; readonly dirty: boolean };
+	readonly dataset: { readonly id: string; readonly size: number; readonly fingerprint: string; readonly selection?: JsonValue };
+	readonly spec: SpecInfo;
+	readonly experiments: readonly { readonly id: string; readonly configHash: string; readonly config?: JsonValue }[];
+	readonly epochs: number;
+	/** The run this one was re-scored from by `rescore`, which never changes the source run. */
+	readonly rescoredFrom?: string;
+}
+```
+
+### `ScoredCase`
+
+A case the processor answered and the spec scored. It also carries the [shared case row fields](#shared-case-row-fields).
+
+```ts
+interface ScoredCase extends CaseBase {
+	readonly outcome: "scored";
+	readonly expected: JsonValue;
+	readonly actual: JsonValue;
+	readonly score: CaseScore;
+}
+```
+
+### `SkippedCase`
+
+A case the processor declared out of scope. It also carries the [shared case row fields](#shared-case-row-fields).
+
+```ts
+interface SkippedCase extends CaseBase {
+	readonly outcome: "skipped";
+	readonly reason: string;
+}
+```
+
+### `Summary`
+
+Everything summarized for one experiment.
+
+```ts
+interface Summary {
+	readonly cases: { readonly total: number; readonly scored: number; readonly errored: number; readonly skipped: number };
+	readonly overall: MetricValues;
+	/** Counts include an errored case's expected leaves as omissions. Metrics carry every precision, recall and F1 scope. */
+	readonly segments: Readonly<Record<string, { readonly counts: StatusCounts; readonly weighted: StatusCounts; readonly metrics: MetricValues }>>;
+	/** Keyed by slice name, then slice value. */
+	readonly slices: Readonly<Record<string, Readonly<Record<string, { readonly cases: number; readonly metrics: MetricValues }>>>>;
+	readonly paths: Readonly<Record<string, FieldGroupSummary>>;
+	readonly fieldTypes: Readonly<Record<string, FieldGroupSummary>>;
+	readonly epochs?: EpochSummary;
+}
+```
+
+## Comparison, calibration, and grounding sections
+
+Used in [Compare evaluation runs and select baselines](/docs/evaluation/comparisons), [Calibrate evaluation field confidence](/docs/evaluation/calibration), and [Score evaluation source grounding](/docs/evaluation/grounding).
+
+### `CalibrationBin`
+
+One confidence bin. Every member is a sum, so bins from separate runs merge by addition and the result does not depend on case order.
+
+```ts check
+interface CalibrationBin {
+	/** Inclusive lower bound of the bin's confidence range. */
+	readonly lower: number;
+	/** Exclusive upper bound, inclusive for the last bin. */
+	readonly upper: number;
+	readonly count: number;
+	/** Fields in the bin whose status is `match`. */
+	readonly correct: number;
+	readonly confidenceSum: number;
+	readonly confidenceSquaredSum: number;
+	/** Sum of confidence over correct fields, for the Brier score. */
+	readonly correctConfidenceSum: number;
+}
+```
+
+### `CalibrationReport`
+
+Confidence calibration of a run, per experiment. Filled by `@docture/eval/calibration`.
+
+```ts
+interface CalibrationReport {
+	readonly bins: number;
+	/** How groups are keyed. `path` groups leave errored cases out of `groundTruth`, because an errored case records no concrete paths. */
+	readonly by: "path" | "pattern" | "fieldType" | "segment";
+	readonly targetPrecision: number;
+	readonly minSupport: number;
+	readonly experiments: Readonly<Record<string, CalibrationSummary>>;
+}
+```
+
+### `CalibrationStats`
+
+Calibration of one group of fields. Everything except `scores` and `groundTruth` is derived from them, so groups from separate runs merge exactly.
+
+```ts
+interface CalibrationStats {
+	/** Graded fields that carried a confidence. */
+	readonly support: number;
+	/**
+	 * Expected fields in the group whether predicted or not: match, mismatch and omission.
+	 * The denominator of confidence-ranked average precision, as in DocILE.
+	 */
+	readonly groundTruth: number;
+	/** One entry per distinct confidence, highest first. */
+	readonly scores: readonly ConfidenceCount[];
+	readonly bins: readonly CalibrationBin[];
+	/** Expected calibration error. */
+	readonly ece: number | null;
+	/** Maximum calibration error. */
+	readonly mce: number | null;
+	readonly brier: number | null;
+	readonly auroc: number | null;
+	/** Confidence-ranked average precision over `groundTruth`. */
+	readonly averagePrecision: number | null;
+	readonly riskCoverage: readonly CoveragePoint[];
+	/** Accuracy of the most confident fields that reach each target coverage, keyed by the target: `"0.5"`, `"0.8"`, `"0.9"`, `"0.95"`, `"0.99"` and `"1"`. */
+	readonly accuracyAtCoverage: Readonly<Record<string, number | null>>;
+	/** Largest coverage whose accepted fields reach each target accuracy with at least `minSupport` fields, keyed by the same targets. */
+	readonly coverageAtAccuracy: Readonly<Record<string, number | null>>;
+	/** Share of fields auto-accepted at the report's target precision. */
+	readonly coverageAtPrecision: number | null;
+	/** Lowest confidence threshold whose accepted fields reach the target precision with at least `minSupport` fields. */
+	readonly threshold: number | null;
+}
+```
+
+### `CalibrationSummary`
+
+Calibration for one experiment. Coverage of the confidence signal itself is `overall.support / graded`.
+
+```ts
+interface CalibrationSummary {
+	/** Fields the processor produced (match, mismatch and hallucination), with or without a confidence. */
+	readonly graded: number;
+	/** Expected fields the processor did not produce, errored cases included. */
+	readonly omissions: number;
+	readonly overall: CalibrationStats;
+	/** Keyed by the report's `by` dimension. */
+	readonly groups: Readonly<Record<string, CalibrationStats>>;
+}
+```
+
+### `CaseDelta`
+
+One case and epoch whose per-case metric value changed.
+
+```ts check
+interface CaseDelta {
+	readonly caseId: string;
+	readonly epoch: number;
+	readonly metric: string;
+	readonly baseline: number;
+	readonly candidate: number;
+}
+```
+
+### `ConfidenceCount`
+
+How many fields carried one exact confidence value, and how many of them were correct.
+
+```ts check
+interface ConfidenceCount {
+	readonly confidence: number;
+	readonly count: number;
+	readonly correct: number;
+}
+```
+
+### `CoveragePoint`
+
+A point on the risk-coverage curve: accepting fields at or above `threshold`. Risk is `1 - accuracy`.
+
+```ts check
+interface CoveragePoint {
+	readonly threshold: number;
+	readonly coverage: number;
+	readonly accuracy: number | null;
+}
+```
+
+### `DeltaVerdict`
+
+What run comparison concluded about one metric.
+
+- `improved`, `regressed`: the test is significant and its interval excludes 0 on the metric's good or bad side.
+- `unchanged`: every paired value is identical.
+- `inconclusive`: tested and not significant.
+- `insufficient`: too few paired cases or clusters to test.
+- `not-tested`: the metric has no per-case values to pair.
+- `incomparable`: the metric has no value in one run.
+
+```ts check
+type DeltaVerdict = "improved" | "regressed" | "unchanged" | "inconclusive" | "insufficient" | "not-tested" | "incomparable";
+```
+
+### `ExperimentComparison`
+
+One baseline experiment against one candidate experiment.
+
+```ts
+interface ExperimentComparison {
+	/** Experiment id in the baseline run. */
+	readonly baseline: string;
+	/** Experiment id in the candidate run. */
+	readonly candidate: string;
+	/** Case and epoch rows present in both experiments, and in only one. */
+	readonly pairs: { readonly paired: number; readonly baselineOnly: number; readonly candidateOnly: number };
+	readonly metrics: readonly MetricDelta[];
+	/** Keyed by segment. */
+	readonly segments: Readonly<Record<string, readonly MetricDelta[]>>;
+	/** Keyed by slice name, then slice value. */
+	readonly slices: Readonly<Record<string, Readonly<Record<string, readonly MetricDelta[]>>>>;
+	readonly paths: readonly PathDelta[];
+	readonly cases: {
+		readonly regressed: readonly CaseDelta[];
+		readonly improved: readonly CaseDelta[];
+		/** Scored or skipped in the baseline, errored in the candidate. */
+		readonly newlyErrored: readonly OutcomeChange[];
+		/** Errored in the baseline, scored in the candidate. */
+		readonly fixed: readonly OutcomeChange[];
+	};
+}
+```
+
+### `GroundingCounts`
+
+Grounding counts for a group of fields. Grounded means correct and supported by evidence at the expected location.
+
+```ts check
+interface GroundingCounts {
+	/** Fields the processor produced: match, mismatch and hallucination. */
+	readonly predicted: number;
+	/** Fields with an expected location. */
+	readonly labelled: number;
+	readonly correct: number;
+	readonly supported: number;
+	readonly grounded: number;
+	readonly withEvidence: number;
+	/** Actual values with evidence but no expected value. */
+	readonly hallucinated: number;
+}
+```
+
+### `GroundingReport`
+
+Grounding of a run, per experiment. Filled by `@docture/eval/grounding`.
+
+```ts
+interface GroundingReport {
+	readonly iou: number;
+	readonly level: "box" | "page";
+	readonly experiments: Readonly<Record<string, GroundingSummary>>;
+}
+```
+
+### `GroundingScore`
+
+Grounding counts with grounded precision (over `predicted`), recall (over `labelled`) and F1.
+
+```ts
+interface GroundingScore extends GroundingCounts {
+	readonly groundedPrecision: number | null;
+	readonly groundedRecall: number | null;
+	readonly groundedF1: number | null;
+}
+```
+
+### `GroundingSummary`
+
+Grounding for one experiment.
+
+```ts
+interface GroundingSummary {
+	readonly cases: { readonly labelled: number; readonly unlabelled: number };
+	readonly overall: GroundingScore;
+	/** Keyed by path pattern. */
+	readonly patterns: Readonly<Record<string, GroundingScore>>;
+	/** Keyed by segment. */
+	readonly segments: Readonly<Record<string, GroundingScore>>;
+}
+```
+
+### `MetricDelta`
+
+The change in one metric between two experiments.
+
+```ts
+interface MetricDelta {
+	readonly metric: string;
+	/** The metric's summary value in each run. */
+	readonly baseline: number | null;
+	readonly candidate: number | null;
+	/** Candidate summary minus baseline summary. What a dashboard shows; not what the test measured. */
+	readonly summaryDelta: number | null;
+	/** Mean of candidate minus baseline over paired cases: the quantity `ci`, `p` and `verdict` describe. */
+	readonly pairedDelta: number | null;
+	/** Confidence interval of `pairedDelta` at `1 - alpha`. */
+	readonly ci: readonly [number, number] | null;
+	readonly p: number | null;
+	readonly test: "bootstrap" | "mcnemar" | "none";
+	readonly verdict: DeltaVerdict;
+	/** Paired cases behind `pairedDelta`. */
+	readonly n: number;
+}
+```
+
+### `OutcomeChange`
+
+One case and epoch whose outcome changed between the runs.
+
+```ts check
+interface OutcomeChange {
+	readonly caseId: string;
+	readonly epoch: number;
+	readonly baseline: "scored" | "errored" | "skipped";
+	readonly candidate: "scored" | "errored" | "skipped";
+}
+```
+
+### `PathDelta`
+
+The change in one path pattern's scores, with its paired F1 test.
+
+```ts
+interface PathDelta {
+	readonly pattern: string;
+	/** Status counts pooled over each run's scored cases. */
+	readonly counts: { readonly baseline: StatusCounts; readonly candidate: StatusCounts };
+	readonly f1: MetricDelta;
+}
+```
+
+### `RunComparison`
+
+A baseline run against a candidate run, every compared experiment included. Filled by `@docture/eval/compare`.
+
+```ts
+interface RunComparison {
+	readonly baselineRunId: string;
+	readonly candidateRunId: string;
+	readonly settings: {
+		readonly test: "bootstrap" | "mcnemar" | "auto";
+		readonly resamples: number;
+		readonly seed: string;
+		readonly alpha: number;
+		readonly cluster: "group" | "case";
+	};
+	readonly compatible: { readonly dataset: boolean; readonly spec: boolean; readonly warnings: readonly string[] };
+	/** Keyed by candidate experiment id. */
+	readonly experiments: Readonly<Record<string, ExperimentComparison>>;
+}
+```
+
+## Gates
+
+Used in [Gate evaluation regressions in CI](/docs/evaluation/ci).
+
+### `GateCheck`
+
+One evaluated gate rule. A `run` check fails a run that is not `complete`; it is absent for a complete run.
+
+```ts check
+interface GateCheck {
+	readonly kind: "run" | "threshold" | "regression";
+	readonly experiment: string;
+	readonly metric: string;
+	/** What was measured, such as `f1`, `f1 in segment totals` or `f1 for rendition=scan-lq`. */
+	readonly target: string;
+	readonly value: number | null;
+	readonly min?: number;
+	readonly max?: number;
+	/** `skipped` means there was nothing to check and `onNull` is `pass`, or no comparison exists. */
+	readonly status: "pass" | "fail" | "skipped";
+	readonly message: string;
+}
+```
+
+### `GateResult`
+
+The gate's verdict. It passes when no check failed.
+
+```ts
+interface GateResult {
+	readonly pass: boolean;
+	readonly checks: readonly GateCheck[];
+}
+```
+
+## Run stores
+
+Used in [Save, resume, and re-score evaluation runs](/docs/evaluation/run-history). [`memoryRunStore`](/docs/evaluation/reference/runner#memoryrunstore) and [`fileRunStore`](/docs/evaluation/reference/storage#filerunstore) implement `RunStore`.
+
+### `RawKey`
+
+Addresses one raw processor output.
+
+```ts check
+interface RawKey {
+	readonly experiment: string;
+	readonly caseId: string;
+	readonly epoch: number;
+}
+```
+
+### `RunIndexEntry`
+
+One line of a store's run index, enough to list runs and pick a baseline without reading results.
+
+```ts
+interface RunIndexEntry {
+	readonly id: string;
+	readonly status: RunInfo["status"];
+	readonly startedAt: string;
+	readonly finishedAt?: string;
+	readonly git?: RunInfo["git"];
+	readonly dataset: { readonly id: string; readonly size: number; readonly fingerprint: string };
+	readonly spec: { readonly fingerprint: string };
+	readonly experiments: readonly { readonly id: string; readonly configHash: string }[];
+	readonly rescoredFrom?: string;
+	/** Overall metrics per experiment, present once the run is finalized. */
+	readonly summary?: Readonly<Record<string, MetricValues>>;
+}
+```
+
+### `RunStore`
+
+Where runs live. A file store and an in-memory store both implement it; the runner, resume, `rescore`, baseline resolution and the CLI only call these methods.
+
+```ts
+interface RunStore {
+	/** Register a run with status `in-progress`. Throws `RunStoreError` (`conflict`) for an existing id. */
+	createRun(run: RunInfo): Promise<void>;
+	/** Append one finished row. Rows survive a crash, so an aborted run can resume. */
+	appendCase(runId: string, row: CaseResult): Promise<void>;
+	/** Keep the processor's raw output and scoring signals for re-scoring, replacing an earlier one for the same key. */
+	writeRaw(runId: string, key: RawKey, value: StoredRaw): Promise<void>;
+	/** The stored raw output, or `undefined` when none was kept. Throws `RunStoreError` (`format`) for a damaged one. */
+	readRaw(runId: string, key: RawKey): Promise<StoredRaw | undefined>;
+	/** Run metadata and appended rows, for resume. Throws `RunStoreError` (`not-found`). */
+	openRun(runId: string): Promise<StoredRun>;
+	/** Store the final result and update the index entry's status and summary. */
+	finalize(result: EvalResult): Promise<void>;
+	/** Index entries, oldest first. */
+	listRuns(): Promise<readonly RunIndexEntry[]>;
+	/** The finalized result with its cases. Throws `RunStoreError` (`not-found`) when the run was never finalized. */
+	readResult(runId: string): Promise<EvalResult>;
+}
+```
+
+### `StoredRaw`
+
+A processor's raw output with the scoring signals `rescore` and resume need, kept per job. Not part of the result contract.
+
+```ts
+interface StoredRaw {
+	readonly raw: unknown;
+	readonly confidence?: Readonly<Record<string, number>>;
+	readonly evidence?: readonly FieldEvidence[];
+	/** The experiment config hash of the job that wrote it. Resume reuses the output only when it matches. */
+	readonly configHash?: string;
+	/** The content hash of the case that produced it. Resume reuses the output only when it matches. */
+	readonly caseFingerprint?: string;
+}
+```
+
+### `StoredRun`
+
+A run as stored so far: its metadata and the rows appended before it stopped.
+
+```ts
+interface StoredRun {
+	readonly run: RunInfo;
+	readonly cases: readonly CaseResult[];
+}
+```
+
+## Errors
+
+Used in [Connect an evaluation processor](/docs/evaluation/processors), [Define evaluation scoring rules](/docs/evaluation/scoring-rules), and [Compare evaluation runs and select baselines](/docs/evaluation/comparisons).
+
+### `DatasetError`
+
+A dataset that cannot produce its cases: a missing document, a missing or draft expected file, or an unknown case id.
+
+```ts
+class DatasetError extends DoctureError {
+	readonly code = "EVAL_DATASET_INVALID" as const;
+	constructor(message: string, readonly caseId?: string, options?: { readonly cause?: unknown });
+}
+```
+
+### `EvalSpecError`
+
+A spec, metric set or rule set that cannot be resolved. Carries every problem found, not just the first.
+
+```ts
+class EvalSpecError extends DoctureError {
+	readonly code = "EVAL_SPEC_INVALID" as const;
+	constructor(readonly problems: readonly SpecProblem[]);
+}
+```
+
+### `GroundTruthError`
+
+Ground truth that does not satisfy its spec. Names every failing case with its own issues.
+
+```ts
+class GroundTruthError extends DoctureError {
+	readonly code = "GROUND_TRUTH_INVALID" as const;
+	readonly caseIds: readonly string[];
+	constructor(readonly cases: readonly InvalidCaseTruth[]);
+}
+```
+
+### `GroundTruthIssue`
+
+One reason ground truth failed strict validation.
+
+```ts
+interface GroundTruthIssue {
+	readonly code: GroundTruthIssueCode;
+	/** Concrete path, such as `lineItems[2].amount`. The root is `""`. */
+	readonly path: string;
+	readonly message: string;
+}
+```
+
+### `GroundTruthIssueCode`
+
+Why a ground-truth value was rejected by `spec.validate`.
+
+```ts check
+type GroundTruthIssueCode = "unknown-key" | "wrong-type" | "invalid-value" | "empty-row" | "assertion";
+```
+
+### `IncomparableRunsError`
+
+Two eval results that cannot be paired for comparison: no shared or an unknown experiment, or a case and epoch recorded twice. Carries every problem found.
+
+```ts
+class IncomparableRunsError extends DoctureError {
+	readonly code = "EVAL_RUNS_INCOMPARABLE" as const;
+	constructor(readonly problems: readonly string[]);
+}
+```
+
+### `InvalidCaseTruth`
+
+The issues of one case whose ground truth failed validation.
+
+```ts
+interface InvalidCaseTruth {
+	readonly caseId: string;
+	readonly issues: readonly GroundTruthIssue[];
+}
+```
+
+### `MigrationGuardError`
+
+A ground-truth migration with invalid targets, or one that changed a path outside its targets or is not idempotent.
+
+```ts
+class MigrationGuardError extends DoctureError {
+	readonly code = "MIGRATION_GUARD_FAILED" as const;
+	readonly caseId?: string;
+	constructor(readonly migration: string, readonly paths: readonly string[], message: string, options: { readonly caseId?: string } = {});
+}
+```
+
+### `OutOfScopeError`
+
+Thrown by a processor for a case it does not handle. The runner records a skip, not a failure.
+
+```ts
+class OutOfScopeError extends DoctureError {
+	readonly code = "OUT_OF_SCOPE" as const;
+	constructor(readonly reason: string, options?: { readonly cause?: unknown });
+}
+```
+
+### `PreflightError`
+
+An experiment's `preflight` check failed, so no case ran. The original failure is the `cause`.
+
+```ts
+class PreflightError extends DoctureError {
+	readonly code = "EVAL_PREFLIGHT_FAILED" as const;
+	constructor(readonly experiment: string, cause: unknown);
+}
+```
+
+### `RunStoreError`
+
+A stored run or result that cannot be read or written, including a result in an unknown format or version.
+
+```ts
+class RunStoreError extends DoctureError {
+	readonly code = "EVAL_RUN_STORE_FAILED" as const;
+	constructor(message: string, readonly reason: RunStoreFailure, options?: { readonly cause?: unknown });
+}
+```
+
+### `RunStoreFailure`
+
+Why a run store operation failed.
+
+```ts check
+type RunStoreFailure = "not-found" | "format" | "version" | "conflict" | "io";
+```
+
+### `SpecProblem`
+
+One reason a spec failed to resolve.
+
+```ts
+interface SpecProblem {
+	readonly code: SpecProblemCode;
+	/** Schema pattern or rule key, such as `lineItems[].amount` or `totals.*`. */
+	readonly path: string;
+	readonly message: string;
+}
+```
+
+### `SpecProblemCode`
+
+Why a spec could not be resolved. Every problem names the schema path or rule it concerns.
+
+```ts check
+type SpecProblemCode =
+	| "unresolved-field"
+	| "unresolved-array"
+	| "unalignable-array"
+	| "open-object"
+	| "unmatched-rule"
+	| "ambiguous-rule"
+	| "invalid-rule"
+	| "invalid-annotation"
+	| "unsegmented-field"
+	| "overlapping-segments"
+	| "unknown-path"
+	| "unsupported-schema"
+	| "duplicate-metric";
+```

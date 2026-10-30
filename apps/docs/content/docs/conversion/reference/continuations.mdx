@@ -1,13 +1,17 @@
 ---
 title: Cross-page continuation detection
 description: Detection examples, output behavior, and limits for cross-page continuation detection.
+type: reference
 ---
+
+Conversion joins a table that runs over a page break, or a paragraph cut mid-sentence,
+into one element. This page lists when elements join, how each format renders them, and
+how to read their per-page provenance with `provenanceSegments()` from `docture`.
 
 ## Tables and paragraphs across pages
 
-A table that runs over a page break becomes one table, and so does a paragraph cut
-mid-sentence. The joined element lives on the page where it starts. Its provenance keeps
-one segment per page, and a table keeps one `rowProvenance` entry per row:
+The joined element lives on the page where it starts. Its provenance keeps one segment per
+page, and a table keeps one `rowProvenance` entry per row:
 
 ```ts
 import { provenanceSegments } from "docture";
@@ -21,47 +25,98 @@ if (table?.kind === "table") {
 ```
 
 Each `ConvertedPage` holds the elements that start on it, so page 1's content includes the
-rows from page 2, and page 2 omits them. Every format renders a joined element once, on its
-starting page. The next page's `<!-- page: N -->` marker, HTML `section`, or TXT form feed
-follows the whole element. TXT stays in page order but is no longer exact per physical
-page. A footer line of page 1 that is not detected as furniture prints after the joined
-text.
+rows from page 2, and page 2 omits them. Every format renders a joined element once, on
+its starting page. The next page's `<!-- page: N -->` marker, HTML `section`, or TXT form
+feed follows the whole element. TXT stays in page order but is no longer exact per
+physical page. A footer line of page 1 that is not detected as furniture prints after the
+joined text.
 
-Joining is a heuristic, and it keeps elements apart when the evidence is weak. A table or
-paragraph joins only when it ends in the bottom quarter of its page and the next page's
-first element starts in that page's top quarter. A table continues with rows that have the
-table's cell count, the same font size and weight, cells of at most 40 characters, and cells
-inside the table's columns. In a column whose body cells on the earlier page are all
-numbers without letters, a continued row must have no letters there. An unrelated table, a
-key-value block, or two-column prose in the table's columns therefore starts a new element
-when the table has such a column. A table without such a column holds only text, and matching
-columns are no evidence that the next page continues it. Its rows join only after a copy of
-its header row, or under a line such as `Table 4 (continued)` when `Table 4: Staff`, or
-another `Table 4` caption, sits right above the table. Such a line counts even when it
-repeats at the top of every page, and it is never a running header. A line for another
-table, such as `Table 5 (continued)`, keeps the rows apart. Otherwise the rows stay on their page
-with a `LAYOUT_DEGRADED` warning. A bold or heading-size line set apart at the top of the next
-page starts a new section, unless it is a copy of the header row, so a header copy below a
-section title starts a new table. After a continued row, a totals row with fewer cells
-joins when its cells fall in the table's columns. A later row with the full cell count
-meets every check above, so a bold header further down starts a new table. Every row after the first must start
-within three times the table's row spacing of the row above, so a footer or signature line
-lower on the page stays out. A copy of the header row at the top of the next page is
-dropped from `rows` and kept in `sourceText`. A row in a different font weight, or rows in
-other columns, start a new element. A paragraph continues when it does not end with `.`,
-`!`, `?`, `:`, or `;`, and the next page's first element starts with a lowercase letter.
-Text in scripts without letter case therefore never joins. A contents or index entry on
-either side of the break never joins. Such an entry ends in an Arabic or Roman page number
-after a dot leader, such as `Contents .......... 7`, or after a gap of at least two line
-heights. A final number after an ordinary word space is body text. Page furniture, and a top or
-bottom line that blank space sets apart from the body, are skipped. A line that repeats at the
-same place on another page but is not furniture is not skipped: the table and the next page's
-rows stay apart, and the result carries a `LAYOUT_DEGRADED` warning that names both lines.
-Text-only pages never join.
+### `provenanceSegments`
 
-Some layouts still join wrongly:
+Return every page's share of an element's source.
 
-- A line at the bottom of a page that ends without punctuation, such as a list entry, joins
-  a paragraph that starts with a lowercase letter at the top of the next page. A layout analyzer can reorder a joined element's page, but the
-element stays last in its page's text, and annotations that would retype or group it are
-ignored.
+```ts
+provenanceSegments(provenance: ElementProvenance): readonly ProvenanceSegment[]
+```
+
+Returns the starting page's segment followed by `provenance.continuations`, in page order.
+A page-local element returns one segment. It does not throw. See
+[`ElementProvenance`](/docs/conversion/reference/layout#elementprovenance) for the fields.
+
+## Continuation rules
+
+Joining is a heuristic, and it keeps elements apart when the evidence is weak.
+
+These rules apply to tables and paragraphs:
+
+- An element joins only when it ends in the bottom quarter of its page and the next page's
+  first element starts in that page's top quarter.
+- Page furniture, and top or bottom band lines that blank space sets apart from the body,
+  are skipped.
+- Text-only pages and pages without dimensions never join.
+
+A table continues with rows that meet all of these checks:
+
+- The page widths differ by no more than 2% of the wider page.
+
+- The row has the table's cell count, each cell overlaps its column, and no cell is longer
+  than 40 characters.
+- The font size is within 10% of the table body, and the font weight matches the body. A
+  row in a different font weight, or rows in other columns, start a new element.
+- In a column whose body cells on the earlier page are all numbers without letters, the
+  row has no letters. An unrelated table, a key-value block, or two-column prose in the
+  table's columns therefore starts a new element when the table has such a column.
+- Each row after the first starts within three times the table's row spacing on the
+  earlier page, measured from the row above. A footer or signature line lower on the page
+  stays out.
+- A row more than 1.5 times that spacing below the row above starts a new section when it
+  has fewer cells than the table or a different font weight from the row above. A row
+  whose last-column value holds a digit and no letters still joins when the table's last
+  column holds numbers without letters.
+
+Header copies and continuation captions decide the rest:
+
+- A copy of the header rows at the top of the next page is dropped from `rows` and kept in
+  `sourceText`.
+- A table without a number-only column holds only text, and matching columns are no
+  evidence that the next page continues it. It joins only after a copy of its header rows,
+  or under a line that names the table's caption with `continued`, `cont.`, or `cont'd`.
+  An example is `Table 4 (continued)` below a table captioned `Table 4: Staff`. That line
+  is consumed and kept in `sourceText`. It counts even when it repeats at the top of every
+  page, and it is never a running header. Otherwise the rows stay on their page with a
+  `LAYOUT_DEGRADED` warning.
+- A line that names another table's caption with `continued`, such as
+  `Table 5 (continued)`, ends the table without a warning.
+- A bold or heading-size top band line set apart from the body ends the table, unless it
+  is a continuation line or a copy of the header rows. A header copy below a section title
+  therefore starts a new table.
+- After a continued row, a row with fewer cells, such as a totals row, joins when the band
+  rule places it. A later row with the full cell count meets every check above, so a bold
+  header further down starts a new table.
+- A band line whose text repeats within 2% of the page height on another page, without
+  qualifying as furniture, is suspected furniture. A table never continues across or
+  through it. The rows stay on their page, and a `LAYOUT_DEGRADED` warning names the
+  table's last line, the first row, and the suspected line.
+
+A paragraph continues when both of these hold:
+
+- It does not end with `.`, `!`, `?`, `:`, or `;`, with closing quotes and brackets
+  included.
+- The next page's first element is a paragraph that starts with a lowercase letter. Text
+  in scripts without letter case therefore never joins.
+
+A contents or index entry on either side of the break never joins. Such an entry ends in
+an Arabic or Roman page number after a dot leader of three or more dots, spaced dots, or
+an ellipsis, as in `Contents .......... 7`, or after a gap of at least two line heights. A
+final number after an ordinary word space is body text.
+
+`parseDoctureDocument()` rejects continuations on other element kinds, continuations that
+do not name the following pages in order, and `rowProvenance` whose length differs from
+`rows` or whose pages go back or fall outside the table's pages.
+
+## Limits
+
+- A line at the bottom of a page that ends without punctuation, such as a list entry,
+  joins a paragraph that starts with a lowercase letter at the top of the next page.
+- A layout analyzer can reorder a joined element's page, but the element stays last in its
+  page's text, and annotations that would retype or group it are ignored.

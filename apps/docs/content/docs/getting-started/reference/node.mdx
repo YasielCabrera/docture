@@ -1,11 +1,27 @@
 ---
 title: Node file sources
-description: Explicit local filesystem access with the same shared core modules.
+description: Read local paths and file URLs with resolveNodeSource and the Node defaults of the extractor, converter, and Process constructors.
+type: reference
 ---
 
-`docture/node` exports the core API with Node source defaults for `Extractor`, `DocumentConverter`, `Process`, `createExtractor`, `createCheckedExtractor` and `createDocumentConverter`. `resolveSource` is an alias of `resolveNodeSource`. All errors and components use the same relative core modules as the portable entry.
+`docture/node` adds local file access to core. It exports the core API with Node source defaults for `Extractor`, `DocumentConverter`, `Process`, `createExtractor`, `createCheckedExtractor` and `createDocumentConverter`, so those accept file paths and `file:` URLs. [Select a runtime entry](/docs/getting-started/sources#select-a-runtime-entry) explains when to use this entry, and [Document sources](/docs/getting-started/sources) shows every source form in use.
+
+## Read local files
+
+### `resolveNodeSource`
+
+Resolves any `DocumentSource` to bytes, including local paths and `file:` URLs.
 
 ```ts
+const resolveNodeSource: SourceResolver
+// (source: DocumentSource, signal?: AbortSignal) => Promise<RawDocument>
+```
+
+Returns a `RawDocument`. For a local file, `bytes` holds the file contents and `fileName` its base name; the media type comes from the byte signature, then the extension. Other sources resolve as with the portable [`resolveSource`](/docs/getting-started/reference/documents#resolvesource). `resolveSource` from `docture/node` is an alias of `resolveNodeSource`.
+
+Throws `UnsupportedSourceError` when a file cannot be read, with the file-system error as `cause` and a fix for missing files, directories, and denied permissions. It also throws `UnsupportedSourceError` for empty input, unsupported protocols, failed HTTP requests, and a `LoadedSource`. An aborted `signal` rejects with its reason.
+
+```ts check
 import { resolveNodeSource, DocumentConverter } from "docture/node";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 
@@ -19,8 +35,8 @@ async function convertLocalFile(path: string) {
 }
 ```
 
-The entry is available only under Node's export condition. The portable root and `docture/chunk` bundle for browsers and workers without Node globals. They accept bytes, ArrayBuffer, RawDocument, LoadedSource and HTTP URLs. Local paths and file URLs through the portable root raise `UnsupportedSourceError`.
+## Runtime boundaries
 
-Node paths resolve from the process working directory. File URLs retain platform URL decoding. File read failures retain their filesystem cause and recovery advice. Importing the Node entry registers no global resolver. A caller can instead pass `sourceResolver: resolveNodeSource` to a core or LLM factory. Existing code that passes paths to the root must change its import or configure that resolver.
+The entry is available only under Node's export condition. Through the portable root, local paths and file URLs raise `UnsupportedSourceError`.
 
-Browser TypeScript consumers currently need `skipLibCheck: true` when using the schema helpers. Their upstream declarations reference the Node `Buffer` global in unrelated helper types. Core browser runtime checks run without `Buffer` or `process`; this declaration limitation does not add a runtime Node dependency.
+Node paths resolve from the process working directory. File URLs retain platform URL decoding. Importing `docture/node` registers no global resolver. To read local files through a constructor imported from the root, pass `sourceResolver: resolveNodeSource` to it.

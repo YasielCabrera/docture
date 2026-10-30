@@ -1,13 +1,14 @@
 ---
 title: Evaluation run comparison API
 description: Paired experiments, clustered statistical tests, and comparison defaults.
+type: reference
 ---
+
+Import paired run comparison from `@docture/eval/compare`. [Compare evaluation runs](/docs/evaluation/comparisons) explains how to read the verdicts.
 
 ## `@docture/eval/compare`
 
-Defaults: test `auto`, 10,000 resamples, seed `docture-eval`, alpha 0.05 and clustering by `group`. Each common experiment is compared separately unless `experiment` selects an id or pair. Unsupported comparisons fail closed.
-
-- `CompareOptions`
+Defaults: test `auto`, 10,000 resamples, seed `docture-eval`, alpha 0.05 and clustering by `group`. Each common experiment is compared separately unless `experiment` selects an id or pair. Pairing problems throw `IncomparableRunsError`. Different dataset or spec fingerprints return `compatible` flags set to `false` with warnings; check them before you use the result.
 
 ### `compareRuns`
 
@@ -15,4 +16,22 @@ Defaults: test `auto`, 10,000 resamples, seed `docture-eval`, alpha 0.05 and clu
 compareRuns(baseline: EvalResult, candidate: EvalResult, options?: CompareOptions): RunComparison
 ```
 
-Compare every experiment both runs have, or the selected pair, over paired case and epoch rows with exact McNemar or a seeded, group-clustered bootstrap (FNV-1a/Mulberry32). Small samples (at most 20 clusters) use exact sign-flip p-values; subgroup families use Holm correction. Throws `IncomparableRunsError` listing every reason the runs cannot be paired.
+Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`CompareOptions`](/docs/evaluation/reference/comparison#compareoptions). Returns [`RunComparison`](/docs/evaluation/reference/types#runcomparison).
+
+Compare every experiment both runs have, or the selected pair, over paired case and epoch rows with exact McNemar or a seeded, group-clustered bootstrap. Small samples (at most 20 clusters) use exact sign-flip p-values; subgroup families use Holm correction. Throws `IncomparableRunsError` listing every reason the runs cannot be paired.
+
+## Types
+
+### `CompareOptions`
+
+Options for paired, reproducible run comparisons.
+
+{/* options: CompareOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `experiment` | `string \| readonly [string, string]` | One experiment id in both runs, or a baseline and candidate pair. Default: every experiment both runs have. |
+| `test` | `"bootstrap" \| "mcnemar" \| "auto"` | `auto` uses exact McNemar for binary outcomes of independent cases and the bootstrap otherwise. `bootstrap` always uses the bootstrap. Default `auto`. |
+| `resamples` | `number` | Bootstrap resamples. Default `10000`. |
+| `seed` | `string` | Seed for the bootstrap. Default `docture-eval`. |
+| `alpha` | `number` | Significance level. Default `0.05`. |
+| `cluster` | `"group" \| "case"` | `group` resamples cases that share a dataset `group` together; `case` treats every case as independent. Default `group`. |

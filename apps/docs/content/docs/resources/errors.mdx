@@ -1,10 +1,12 @@
 ---
 title: Errors
 description: Error codes, fields, recovery behavior, and helpers.
+type: reference
 ---
 
 Pipeline failures extend `DoctureError` and carry a literal `code`. Ordinary component
-errors may also appear inside attempts.
+errors may also appear inside attempts. [How Docture works](/docs/getting-started/how-it-works)
+describes the stages that raise them.
 
 `DoctureErrorCode` is the union of every code in the table below.
 
@@ -40,7 +42,7 @@ try {
 | `SPLIT_FAILED` | `SplitFailedError` | `reason`, `gaps` | Splitting was not configured or the splitter requirements were not met. |
 | `UNCLASSIFIED_GROUP` | `UnclassifiedGroupError` | `pages`, `classification`, `candidates` | A split group did not match the allowed kinds. Add the kind or handle it explicitly. |
 | `MISSING_COMPONENT` | `MissingComponentError` | `message` | Required wiring or call state is missing. Configure the named component or call loadFile first. |
-| `MISSING_ENGINE` | `MissingEngineError` | `engine`, `range`, `entry`, `cause` | An integration's optional peer is not installed, so no file was read. Install `engine` at a version in `range` beside `docture`. |
+| `MISSING_ENGINE` | `MissingEngineError` | `engine`, `range`, `entry`, `cause` | The selected integration could not initialize its engine because the optional peer is not installed. Install `engine` at a version in `range` beside `docture`. |
 | `EVAL_SPEC_INVALID` | `EvalSpecError` from `@docture/eval` | `problems` | An eval spec, rule set or metric set cannot be resolved. Each problem names a schema path or rule. Add the missing rule, segment or alignment, or remove the rule that matches nothing. |
 | `GROUND_TRUTH_INVALID` | `GroundTruthError` from `@docture/eval` | `caseIds`, `cases` (each with `caseId` and `issues`) | Expected values do not satisfy the eval spec. The error names every failing case. Correct the listed paths in the expected values, or change the spec. |
 | `EVAL_DATASET_INVALID` | `DatasetError` from `@docture/eval` | `caseId` when known, `cause` when supplied | A dataset cannot produce its cases: a document or expected file is missing, a draft is not signed off, or a selected case id is unknown. |
@@ -68,7 +70,7 @@ new ModelOutputError(message: string, options?: {
   finishReason?: string; issues?: readonly ValidationIssue[];
 })
 new ContractViolationError(strategy: string, issues: readonly ValidationIssue[], options?: {
-  attempts?: readonly Attempt[]; usage?: Usage;
+  failedCheck?: "schema" | "rule"; attempts?: readonly Attempt[]; usage?: Usage;
 })
 new UnsupportedSourceError(message: string, options?: { cause?: unknown })
 new TimeoutError(stage: string, ms: number)

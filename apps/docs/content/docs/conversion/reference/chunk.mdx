@@ -1,63 +1,147 @@
 ---
 title: Retrieval chunking API
-description: Retrieval chunk budgets, packing, identifiers, and source locations.
+description: Signatures, budget limits, packing order, chunk IDs, and source locations for chunkDocument.
+type: reference
 ---
 
-Import from `docture/chunk`. The entry needs no engine or model runtime.
-
-## Chunk a converted document
+`docture/chunk` splits a converted document into retrieval chunks that cite their pages
+and boxes. The entry needs no engine or model runtime. For worked examples and option
+choices, see [Chunk documents for retrieval](/docs/conversion/retrieval-chunks).
 
 ```sh
 npm install docture
 ```
 
+## Chunk a converted document
+
+### `chunkDocument`
+
+Split a converted or saved document into chunks of whole elements.
+
 ```ts
+import { chunkDocument } from "docture/chunk";
+
 chunkDocument(document: ChunkableDocument, options: ChunkOptions): readonly DocumentChunk[]
+```
+
+Returns the chunks in document order. The [budget rules](#budget-rules) and
+[packing rules](#packing-rules) define how elements are grouped.
+
+Throws `RangeError` when `budget.unit` is not `characters` or `estimatedTokens`, when
+`budget.max` is not a positive finite number, or when `overlapElements` is not a
+non-negative integer.
+
+### `estimateTokens`
+
+Return the size that the `estimatedTokens` budget unit counts for a text.
+
+```ts
+import { estimateTokens } from "docture/chunk";
+
 estimateTokens(text: string): number
 ```
 
-`ChunkableDocument` is any value with `pages[].elements`, such as a `ConversionResult` or
-the document that `parseDoctureDocument()` returns for saved JSON. Both give the same
-chunks.
+Returns `Math.ceil(text.length / 4)`. It is an estimate, not a tokenizer's count.
 
-`ChunkOptions` contains:
+### `ChunkOptions`
 
-| Field | Meaning |
-| --- | --- |
-| `budget` | A `ChunkBudget` with `unit` `characters` or `estimatedTokens` and a positive `max`. |
-| `overlapElements` | Whole elements, or table pieces, repeated from the end of the previous chunk when they fit the budget with the chunk's first new unit. Default `0`. |
-| `headingPath` | Start each chunk with the Markdown headings it sits under, one per level, outermost first. Default `false`. |
+The options for `chunkDocument()`.
 
-`estimatedTokens` counts `estimateTokens(text)`, which is `ceil(characters / 4)`. It is an
-estimate, not a tokenizer's count. A chunk closes before the unit that would take it over
-`max`. The budget is soft in one case only: a chunk exceeds `max` when it holds a single
-unit larger than `max`, either one element or one table row group with its header rows,
-plus the heading path when `headingPath` is set. `chunkDocument()` throws `RangeError` when `max` is not a positive finite number,
-`unit` is unknown, or `overlapElements` is not a non-negative integer.
+{/* options: ChunkOptions */}
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `budget` | `ChunkBudget` | Required | The size limit for each chunk. |
+| `overlapElements` | `number` | `0` | Whole elements, or table pieces, repeated from the end of the previous chunk when they fit the budget with the chunk's first new unit. |
+| `headingPath` | `boolean` | `false` | Start each chunk with the Markdown headings it sits under, one per level, outermost first. |
 
-Each `DocumentChunk` contains:
+### `ChunkBudget`
 
-| Field | Meaning |
-| --- | --- |
-| `id` | `chunk-` and 16 hex characters, hashed from the element IDs, table row ranges, and options. The same document and options give the same IDs. |
-| `text` | Markdown of the chunk's elements, separated by blank lines. |
-| `elementIds` | IDs of the elements the text comes from, in document order. Element IDs derive from content and position; see [Element IDs](/docs/conversion/reference/evidence#element-ids). |
-| `provenance` | `ProvenanceSegment` values for the chunk's elements, in order. |
+The size limit for each chunk.
 
+{/* options: ChunkBudget */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `unit` | `"characters" \| "estimatedTokens"` | What `max` counts. `estimatedTokens` counts `estimateTokens(text)`. |
+| `max` | `number` | A positive limit. It is soft in one case, described in the [budget rules](#budget-rules). |
+
+### `ChunkableDocument`
+
+The input `chunkDocument()` accepts. Any value with `pages[].elements` works, such as a
+`ConversionResult` or the document that `parseDoctureDocument()` returns for saved JSON.
+Both give the same chunks.
+
+```ts
+interface ChunkableDocument {
+  readonly pages: readonly {
+    readonly elements: readonly DocumentElement[];
+    readonly evidence?: readonly SourceEvidence[];
+  }[];
+}
+```
+
+## Chunk results
+
+### `DocumentChunk`
+
+One retrieval chunk.
+
+{/* options: DocumentChunk */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `id` | `string` | `chunk-` and 16 hex characters of a SHA-256 digest over the member element IDs, their table row ranges, the budget, `overlapElements`, and `headingPath`. The same document and options give the same IDs. |
+| `text` | `string` | Markdown of the heading path, when set, and the chunk's elements, separated by blank lines. |
+| `elementIds` | `readonly string[]` | IDs of the elements the text comes from, in document order, each listed once. Element IDs derive from content and position. See [Element IDs](/docs/conversion/reference/evidence#element-ids). |
+| `provenance` | `readonly ProvenanceSegment[]` | Where the text comes from, unit by unit, in order, including overlap repeats. Heading paths and repeated header rows add none. |
+| `evidence` | `readonly SourceEvidence[]` | Present when the document's pages carry native evidence. Holds the records of the chunk's elements. For a table piece, table-cell records are limited to the header rows and the piece's rows. |
+
+### `ProvenanceSegment`
+
+One page's share of an element's source. Also exported from `docture`.
+
+{/* options: ProvenanceSegment */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `pageNumber` | `number` | One-based page number. |
+| `box` | `LayoutBox` | The region on that page, in PDF points with a top-left origin. |
+| `sourceIds` | `readonly string[]` | Stable IDs of the loader blocks or lines the element came from. |
+| `lineIds` | `readonly LineSourceId[]` | Canonical IDs of the positioned lines, in source order. Absent when the page has no positioned lines. |
+
+## Budget rules
+
+- `characters` counts the length of the chunk's text. `estimatedTokens` counts
+  `estimateTokens()` of that text.
+- The counted text includes the heading path when `headingPath` is set, and the repeated
+  header rows of a table piece.
+- A chunk closes before the unit that would take it over `max`.
+- The budget is soft in one case only. A chunk exceeds `max` when it holds a single unit
+  larger than `max`: one element, or one table row group with its header rows, plus the
+  heading path when `headingPath` is set. Elements are never cut.
 
 ## Packing rules
 
-- Chunks hold whole elements in document order. A heading starts a new chunk. Consecutive
-  headings share a chunk with the element after them when all fit the budget; otherwise
-  the headings form a chunk of their own.
-- Figures, page breaks, and running headers and footers add no text and no provenance.
-- A table larger than the budget splits between rows. Rows that a row span joins stay
-  together, and every piece repeats the table's header rows. Pieces are sized with the
-  heading path in front when `headingPath` is set. A piece's provenance has one
-  segment per page for its rows from `rowProvenance`. The first piece also covers the
-  header rows. A table without `rowProvenance` uses its element provenance in every piece.
-- A table or paragraph that continues across pages keeps all its segments, so a chunk can
-  cite two pages.
+- Chunks hold whole elements in document order. Elements that render no Markdown, such as
+  figures, page breaks, and running headers and footers, add no text and no provenance.
+- A heading starts a new chunk when the current chunk already holds a non-heading element.
+  Consecutive headings share a chunk with the element after them when all fit the budget.
+  Otherwise the headings form a chunk of their own.
+- A table that fits the budget is one unit. A larger table splits between rows, never
+  inside a row or between rows that a row span joins. Each piece takes as many row groups
+  as fit and repeats the table's header rows. Pieces are sized with the heading path in
+  front when `headingPath` is set.
+- A table piece's provenance has one segment per page for its rows, merged from
+  `rowProvenance`. The first piece also covers the header rows. A table without
+  `rowProvenance`, such as one in a saved version 1 document, cites every segment of the
+  table in each piece.
+- A table or paragraph that [continues across pages](/docs/conversion/reference/continuations#tables-and-paragraphs-across-pages)
+  keeps all its segments, so a chunk can cite two pages.
+- The heading path lists the headings the chunk's first new unit sits under, one per level,
+  outermost first. A heading replaces every heading at its level or deeper, so an earlier
+  sibling section never appears in the path. A heading already in the chunk is not
+  repeated in the path.
+- With `overlapElements: n`, the next chunk starts with the last `n` units of the previous
+  chunk. When they do not fit the budget with the first new unit, the oldest repeats are
+  dropped until they fit, down to none. A repeated unit keeps its element ID, provenance,
+  and evidence in the new chunk.
 - Body text appears in one chunk only, unless `overlapElements` asks for repeats. Repeated
   table header rows and heading paths are the only other repeated text. They are context
-  and add no provenance.
+  and add no element ID or provenance.

@@ -1,9 +1,12 @@
 ---
 title: Element identity and evidence API
 description: Source lines, native evidence, identifiers, and provenance segments.
+type: reference
 ---
 
-Import from `docture`.
+These APIs name the source behind converted content: element IDs, positioned line IDs,
+and native evidence records. Import them from `docture`. For a task-based introduction,
+see [Trace content to source evidence](/docs/conversion/evidence).
 
 ## Element IDs
 
@@ -46,30 +49,133 @@ An ID is an anchor, not a checksum. The guarantee has these limits:
 IDs such as `p1-text-4`, which are not mapped to the new scheme. Convert the source again
 to get the new IDs.
 
-
 ## Source lines
+
+A line ID names one positioned loader line. The same loader with the same options yields
+the same IDs during extraction and conversion. A line split into two columns contributes
+its ID to both halves, so an ID resolves to the whole physical line.
+
+### `sourceLines`
+
+List a loaded page's positioned lines with their IDs.
 
 ```ts
 sourceLines(page: Pick<LoadedPage, "pageNumber" | "lines">): readonly SourceLine[]
+```
+
+Returns one `SourceLine` per entry in `page.lines`, in order. Pages without positioned
+lines, such as text-only inputs, return none.
+
+### `isLineSourceId`
+
+Check whether a string is a canonical line ID.
+
+```ts
 isLineSourceId(id: string): id is LineSourceId
 ```
 
-A `LineSourceId` names one positioned loader line as `p<page>-line-<I>`, where `I` is the
-1-based index into `page.lines`. `sourceLines()` returns each line's `SourceLine` with ID,
-page number, box, and verbatim text. Pages without positioned lines return none.
-`isLineSourceId()` accepts only the canonical form, without leading zeros.
+Accepts only the canonical form, with page and line numbers from 1 and no leading zeros:
+`isLineSourceId("p3-line-12")` is `true`, and `isLineSourceId("p3-text-12")` is `false`.
 
-The same loader with the same options yields the same IDs during extraction and
-conversion. A line split into two columns contributes its ID to both halves, so an ID
-resolves to the whole physical line.
+### `LineSourceId`
 
-`ConversionAsset` extends the loader's `LoadedAsset` with its stable relative `reference`.
+```ts check
+type LineSourceId = `p${number}-line-${number}`;
+```
 
+`p<page>-line-<I>`, where `I` is the 1-based index into `page.lines`.
+
+### `SourceLine`
+
+One positioned line.
+
+{/* options: SourceLine */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `id` | `LineSourceId` | The line's canonical ID. |
+| `pageNumber` | `number` | One-based page number. |
+| `box` | `LayoutBox` | Union of the line's spans. A line without spans has `{ x: 0, y, width: 0, height }`. |
+| `text` | `string` | The loader's line text, verbatim. |
 
 ## Native element evidence
 
-`EvidenceSourceId` includes real line IDs plus neutral `ElementSourceId` and `CellSourceId` values. `isEvidenceSourceId` checks that syntax. `SourceEvidence` retains actual element or table-cell granularity and text without inventing `TextLine` records.
+Native evidence records cite whole elements or table cells when the input has no
+positioned lines, as in an [imported Docling document](/docs/integrations/docling-import).
+They keep their actual granularity and text and never invent `TextLine` records.
 
-`EvidenceLocation` distinguishes bound physical page boxes, logical pages and unlocated multi-page evidence. A physical location requires its source digest. Logical or ambiguous evidence has no physical box. `parseSourceEvidence` returns `SourceEvidenceParse` with validated evidence or diagnostics for untrusted saved input. Imported JSON and chunks preserve evidence IDs, granularity and location. Field results keep line-only citationSources and native evidenceSources separately.
+`ConvertedPage.evidence` keeps native element and table-cell records in every output
+format. Passing a conversion result directly to `chunkDocument()` keeps the same evidence
+as chunking its saved JSON. Mixed native and OCR pages keep each untouched native page's
+layout and source identity. Layout grouping keeps source IDs and updates their parent
+element references. Field results keep line-only `citationSources` and native
+`evidenceSources` separately.
 
-`ConvertedPage.evidence` retains native element and table-cell records in every output format. Passing a conversion result directly to `chunkDocument()` preserves the same evidence as chunking its saved JSON. Mixed native and OCR pages retain each untouched native page's authoritative layout and source identity. Layout grouping preserves source IDs while updating their normalized parent references.
+### `SourceEvidence`
+
+One native evidence record: an element record or a table-cell record.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `granularity` | `"element" \| "table-cell"` | What the record cites. |
+| `id` | `ElementSourceId \| CellSourceId` | The record's ID. |
+| `pageNumber` | `number` | The display page. Physical placement is described only by `location`. |
+| `elementId` | `string` | The element the record belongs to. |
+| `text` | `string` | The cited text. |
+| `order` | `number` | Stable source reading order, from `0`. |
+| `location` | `EvidenceLocation` | Where the record sits. |
+| `row`, `column` | `number` | Table-cell records only. Zero-based cell position. |
+| `rowSpan`, `colSpan` | `number` | Table-cell records only. Cells covered, at least `1`. |
+
+### `EvidenceSourceId`
+
+```ts
+type ElementSourceId = `p${number}-element-${string}`;
+type CellSourceId = `p${number}-cell-${string}`;
+type EvidenceSourceId = LineSourceId | ElementSourceId | CellSourceId;
+```
+
+Element and cell IDs end in 12 lowercase hex characters, such as `p2-cell-0a1b2c3d4e5f`.
+
+### `isEvidenceSourceId`
+
+Check whether a string is a canonical line, element, or cell ID.
+
+```ts
+isEvidenceSourceId(id: string): id is EvidenceSourceId
+```
+
+### `EvidenceLocation`
+
+Where an evidence record sits.
+
+```ts
+type EvidenceLocation =
+  | { readonly kind: "physical"; readonly pageNumber: number; readonly box: LayoutBox; readonly sourceDigest: string }
+  | { readonly kind: "logical"; readonly pageNumber: number }
+  | { readonly kind: "unlocated"; readonly pageNumbers: readonly number[] };
+```
+
+A `physical` location is a box on a page of a specific file, and its `sourceDigest` is
+`sha256:` and 64 hex characters. A `logical` location names a page without a box. An
+`unlocated` record lists the distinct pages it may span.
+
+### `parseSourceEvidence`
+
+Validate one untrusted evidence record, such as a saved extraction source.
+
+```ts
+parseSourceEvidence(value: unknown): SourceEvidenceParse
+```
+
+Returns a `SourceEvidenceParse`:
+
+```ts
+type SourceEvidenceParse =
+  | { readonly ok: true; readonly source: SourceEvidence }
+  | { readonly ok: false; readonly issues: readonly ValidationIssue[] };
+```
+
+Besides the schema, it requires an ID whose page matches `pageNumber`, a `location` page
+equal to `pageNumber`, distinct positive pages for an unlocated record, a bound SHA-256
+digest and a finite non-negative box for a physical record, and integer cell coordinates.
+It does not throw for invalid input.

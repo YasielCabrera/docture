@@ -1,34 +1,51 @@
 ---
 title: Configure the CLI
 description: Load typed configuration and choose document engines.
+type: how-to
 ---
 
-## Configuration file
+A `docture.config.ts` file sets the loaders, strategies, schema, and other defaults that every `docture` command in the project uses. Command flags override configuration defaults.
 
-Declare the dependencies imported by this config directly:
+## Create a configuration file
+
+Install the packages the config imports as direct dependencies:
 
 ```sh
 npm install --save-dev @docture/cli docture pdfjs-dist ai @ai-sdk/openai zod
 ```
 
-<SourceExample file="docture.config.ts" title="docture.config.ts" />
+This config uses the default-exported `invoice.ts` schema from the [CLI first-commands tutorial](/docs/cli/quick-start#dry-run-an-extraction):
 
-The CLI finds the nearest `docture.config.ts`, `.mts`, `.js`, or `.mjs` while walking up
-from the working directory. Command flags override configuration defaults.
+```ts title="docture.config.ts"
+import { openai } from "@ai-sdk/openai";
+import { defineConfig } from "@docture/cli/config";
+import { llm } from "docture/llm/text";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import schema from "./invoice.ts";
 
-If a configured integration's engine is not installed, the command reports
-`MISSING_ENGINE` with the package and range to install rather than a damaged file.
-Errors raised by the configuration's copy of `docture` keep their codes, hints, and
-usage even when the package manager installed a separate copy for the CLI. A typed
-config's `extractor` and `converter` also type-check against either copy, because the CLI
-types them by the methods it calls.
+export default defineConfig({
+  loaders: [new DocumentLoaderPdfJs()],
+  strategies: [llm({ model: openai("gpt-5") })],
+  schema,
+  cacheDir: ".docture-cache",
+  concurrency: 4,
+});
+```
 
-With pnpm, an application whose `pdfjs-dist` differs from the CLI's `6.2.108` gets its own
-copy of `docture`. Combining `--vision` with a PDF.js loader built in the config then loads
-both PDF.js versions into one process, and PDF.js rejects the second with
-`The API version ... does not match the Worker version ...`. Omit `loaders` to use the
-CLI's PDF.js loader, or install `pdfjs-dist@6.2.108` in the application.
+The CLI finds the nearest `docture.config.ts`, `.mts`, `.js`, or `.mjs` while walking up from the working directory. `--config <path>` selects a file, and `--no-config` ignores any file found. The [`DoctureConfig` reference](/docs/cli/reference/cli#configuration) lists every field.
 
-Node 22.18 or newer can import erasable TypeScript config and schema modules directly.
-Earlier Node 22 releases need `--experimental-strip-types`, or compiled `.js` or `.mjs`
-files. JSON Schema files do not require TypeScript support.
+## Fix a missing engine
+
+If a configured integration's engine is not installed, the command reports `MISSING_ENGINE` with the package and range to install, and writes no output file.
+
+## Use a config built against another `docture` copy
+
+Errors raised by the configuration's copy of `docture` keep their codes, hints, and usage even when the package manager installed a separate copy for the CLI. A typed config's `extractor` and `converter` also type-check against either copy, because the CLI types them by the methods it calls.
+
+## Keep one PDF.js version with pnpm
+
+With pnpm, an application whose `pdfjs-dist` differs from the CLI's `6.2.108` gets its own copy of `docture`. Combining `--vision` with a PDF.js loader built in the config then loads both PDF.js versions into one process, and PDF.js rejects the second with `The API version ... does not match the Worker version ...`. Omit `loaders` to use the CLI's PDF.js loader, or install the CLI's `pdfjs-dist` version, `6.2.108`, in the application.
+
+## Load TypeScript modules
+
+Node 22.18 or newer can import erasable TypeScript config and schema modules directly. Earlier Node 22 releases need `--experimental-strip-types`, or compiled `.js` or `.mjs` files. JSON Schema files do not require TypeScript support.

@@ -1190,56 +1190,51 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       "content/docs/evaluation/reference/types.mdx": [
         "AlignmentAlgorithm",
         "AlignmentReport",
-        "Assertion",
-        "AssertionOutcome",
         "AssertionResult",
         "Box",
         "CalibrationBin",
+        "CalibrationReport",
         "CalibrationStats",
         "CalibrationSummary",
         "CaseDelta",
-        "CaseDocument",
-        "CompareContext",
-        "Comparison",
+        "CaseResult",
+        "CaseScore",
         "ConfidenceCount",
         "CoveragePoint",
-        "DEFAULT_MAX_CELLS",
         "DatasetError",
-        "DateGranularity",
-        "DateOptions",
         "DeltaVerdict",
         "EpochSummary",
         "ErroredCase",
+        "EvalResult",
+        "EvalSpec",
+        "EvalSpecError",
         "EvidenceRef",
-        "ExactNormalization",
         "ExpectedLocation",
         "ExperimentComparison",
         "FieldEvidence",
         "FieldGroupSummary",
         "FieldResult",
-        "FieldRule",
-        "FieldRuleOptions",
         "FieldSource",
         "FieldStatus",
         "FieldType",
         "GateCheck",
-        "GateThreshold",
+        "GateResult",
         "GroundTruthError",
         "GroundTruthIssue",
         "GroundTruthIssueCode",
         "GroundingCounts",
-        "GroundingRule",
+        "GroundingReport",
         "GroundingScore",
         "GroundingSummary",
+        "IncomparableRunsError",
         "InvalidCaseTruth",
         "JsonObject",
-        "MetricContext",
-        "MetricDefinition",
+        "JsonValue",
         "MetricDelta",
+        "MetricFormat",
+        "MetricInfo",
         "MetricValues",
         "MigrationGuardError",
-        "NullHandling",
-        "NumberOptions",
         "OmittedCount",
         "OmittedLeaves",
         "OutOfScopeError",
@@ -1248,7 +1243,6 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "PreflightError",
         "Prf",
         "PrfScope",
-        "Progress",
         "RESULT_FORMAT",
         "RESULT_VERSION",
         "RawKey",
@@ -1256,17 +1250,16 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "ResolvedArray",
         "ResolvedField",
         "ResolvedFieldInfo",
-        "ResolvedGroundingRule",
+        "RunComparison",
         "RunIndexEntry",
+        "RunInfo",
+        "RunStore",
+        "RunStoreError",
         "RunStoreFailure",
-        "SchemaInput",
         "ScoreExtras",
         "ScoredCase",
         "SegmentScore",
         "SkippedCase",
-        "SliceFilter",
-        "SliceMap",
-        "SliceValue",
         "SpecInfo",
         "SpecProblem",
         "SpecProblemCode",
@@ -1274,83 +1267,65 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "StoredRaw",
         "StoredRun",
         "Summary",
-        "TextOptions",
+        "TagValue",
         "UsageInfo",
         "ValidationResult"
       ],
       "content/docs/evaluation/reference/arrays.mdx": [
         "ArrayRule",
+        "DEFAULT_MAX_CELLS",
         "byIndex",
         "hungarian",
-        "number",
         "ordered"
       ],
       "content/docs/evaluation/reference/gates.mdx": [
         "BaselineQuery",
-        "EvalSpecError",
         "GateOptions",
-        "GateResult",
+        "GateThreshold",
+        "SliceFilter",
         "gate",
         "resolveBaseline"
       ],
       "content/docs/evaluation/reference/results.mdx": [
         "BuildResultInput",
-        "CaseResult",
-        "RunInfo",
-        "RunStoreError",
         "buildResult",
         "parseCaseResult",
         "parseEvalResult",
         "parseRunInfo"
       ],
-      "content/docs/evaluation/reference/calibration.mdx": [
-        "CalibrationReport"
-      ],
       "content/docs/evaluation/reference/specs.mdx": [
-        "CaseScore",
         "EvalRules",
+        "FieldRule",
+        "FieldRuleOptions",
         "JsonSchemaObject",
         "LooseEvalOptions",
-        "date",
+        "NullHandling",
+        "SchemaInput",
         "defineEval",
-        "identifier",
         "looseEval"
       ],
-      "content/docs/evaluation/reference/judges.mdx": [
-        "Comparator"
-      ],
       "content/docs/evaluation/reference/core.mdx": [
+        "CaseDocument",
         "Dataset",
         "EvalCase",
+        "Progress",
         "Reporter",
         "defineReporter",
         "inMemoryDataset"
       ],
-      "content/docs/evaluation/reference/processors.mdx": [
-        "EvalExtractor"
-      ],
-      "content/docs/evaluation/reference/grounding.mdx": [
-        "EvalResult",
-        "GroundingReport"
-      ],
       "content/docs/evaluation/reference/datasets.mdx": [
-        "EvalSpec",
         "WritableDataset"
       ],
       "content/docs/evaluation/reference/runner.mdx": [
+        "EvalExtractor",
         "ExtractContext",
         "ExtractOutput"
       ],
-      "content/docs/evaluation/reference/comparison.mdx": [
-        "IncomparableRunsError",
-        "RunComparison",
-        "exact"
-      ],
       "content/docs/evaluation/reference/utilities.mdx": [
-        "JsonValue",
         "PathSegment",
+        "SliceMap",
         "SliceSpec",
-        "TagValue",
+        "SliceValue",
         "canonicalJson",
         "compareCodeUnits",
         "fingerprintOf",
@@ -1359,22 +1334,34 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "sliceValues",
         "toJsonValue"
       ],
-      "content/docs/evaluation/reference/reporters-template.mdx": [
-        "MetricFormat",
-        "MetricInfo"
-      ],
-      "content/docs/evaluation/reference/config.mdx": [
-        "RunStore"
-      ],
       "content/docs/evaluation/reference/comparators.mdx": [
+        "Comparator",
+        "CompareContext",
+        "Comparison",
+        "DateGranularity",
+        "DateOptions",
+        "ExactNormalization",
+        "NumberOptions",
+        "TextOptions",
         "boxIoU",
+        "date",
         "defineComparator",
         "describeComparator",
+        "exact",
+        "identifier",
         "intersectionOverUnion",
+        "number",
         "oneOf",
-        "setOf"
+        "setOf",
+        "text"
       ],
       "content/docs/evaluation/reference/metrics.mdx": [
+        "Assertion",
+        "AssertionOutcome",
+        "GroundingRule",
+        "MetricContext",
+        "MetricDefinition",
+        "ResolvedGroundingRule",
         "builtinMetrics",
         "defineAssertion",
         "defineMetric",
@@ -1388,9 +1375,6 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "runScopeOmissions",
         "sumOf",
         "supportsLocation"
-      ],
-      "content/docs/evaluation/reference/conversion.mdx": [
-        "text"
       ]
     }
   },
@@ -1418,13 +1402,11 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "PendingCase",
         "SampleOptions",
         "caseFingerprint",
+        "datasetFingerprint",
         "defineMigration",
         "draftExpected",
         "runMigration",
         "sample"
-      ],
-      "content/docs/evaluation/reference/gates.mdx": [
-        "datasetFingerprint"
       ]
     }
   },
@@ -1433,10 +1415,8 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     "importPath": "@docture/eval/runner",
     "entrypoint": "../../packages/eval/src/runner/index.ts",
     "pages": {
-      "content/docs/evaluation/reference/processors.mdx": [
-        "EvalExtractor"
-      ],
       "content/docs/evaluation/reference/runner.mdx": [
+        "EvalExtractor",
         "ExtractContext",
         "ExtractOutput",
         "RescoreOptions",

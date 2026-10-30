@@ -1,6 +1,7 @@
 ---
 title: Simulate scans, photos, and fax
 description: Degrade digital pages while transforming their label boxes with the image.
+type: how-to
 ---
 
 Install the engines for rasterization and image processing:
@@ -11,11 +12,13 @@ npm install --save-dev @docture/synthetic docture sharp pdfjs-dist @napi-rs/canv
 
 ## Degrade a verified PDF
 
+This example imports `model` and `template` from `bill.mts`, which the [quick start](/docs/synthetic/quick-start#define-the-model-and-template) defines.
+
 ```ts
 import { degrade } from "@docture/synthetic/degrade";
 import { renderPdf } from "@docture/synthetic/pdfkit";
 import { assertVerified } from "@docture/synthetic/verify";
-import { model, template } from "./synth.mjs";
+import { model, template } from "./bill.mjs";
 
 const digital = await renderPdf(template, await model.sample({ seed: 7 }));
 await assertVerified(digital);
@@ -23,9 +26,13 @@ const scan = await degrade(digital, { profile: "scan", severity: 0.4, dpi: 150 }
 console.log(scan.labels.length);
 ```
 
+## Choose a profile and severity
+
 Profiles are `scan`, `scan-lq`, `photo`, and `fax`. Severity runs from 0 to 1 and interpolates paper, geometry, capture, and encoding effects. Each page uses one homography; labels pass through the same transform and become axis-aligned bounds of their warped boxes. Applied settings appear in `provenance`.
 
 DPI defaults to 200. Output defaults to PDF; `png` and `jpeg` require one-page input. PDF output needs PDFKit. `salt` varies random draws without changing the profile. Pass a custom `Profile` for different effects.
+
+## Read image outputs with OCR
 
 Image outputs record their DPI in image metadata, while label boxes remain in PDF points. Read them at that DPI, for example with Tesseract's `dpi` option, so OCR and label coordinates agree.
 

@@ -1,73 +1,240 @@
 ---
 title: Document converter API
 description: Converter construction, options, methods, results, and failures.
+type: reference
 ---
 
-Import from `docture`.
+`DocumentConverter` turns a loaded document into text, Markdown, HTML, or versioned JSON.
+Import it from `docture` to pass bytes or URLs, or from `docture/node` to also pass local
+file paths. For a first run, see [Convert your first PDF](/docs/conversion/quick-start).
 
-## DocumentConverter
+## Create a converter
+
+### `DocumentConverter`
+
+Create a converter and register its components.
 
 ```ts
+import { DocumentConverter } from "docture/node";
+
 new DocumentConverter(options?: DocumentConverterOptions)
+```
+
+A converter may start empty and receive loaders through `loadDocumentLoader()`. The
+`docture/node` class reads local paths and file URLs. The `docture` class rejects them
+unless you pass a `sourceResolver`.
+
+| Method | Effect |
+| --- | --- |
+| `loadDocumentLoader(...loaders)` | Adds loaders in first-success order. Returns the converter. |
+| `loadLayoutAnalyzer(analyzer)` | Sets the optional layout analyzer. Returns the converter. |
+| `loadLlm(backend)` | Sets the backend's model layout analyzer. Throws `MissingComponentError` when the backend has no layout analyzer. |
+| `loadLogger(logger)` | Replaces the logger. Returns the converter. |
+| `components` | The registered loaders and the optional layout analyzer. |
+| `dispose()` | Releases every disposable loader and analyzer once. Repeat calls return the same promise. Any teardown failure rejects with an `AggregateError` that lists every failure. The converter also implements `Symbol.asyncDispose`. |
+
+A loader name already registered, or a second layout analyzer, throws
+`DuplicateComponentError`.
+
+### `createDocumentConverter`
+
+Create a converter from options.
+
+```ts
 createDocumentConverter(options: DocumentConverterOptions): DocumentConverter
 ```
 
-`DocumentConverterOptions` accepts loaders in first-success order, one optional
-`layoutAnalyzer`, a logger, and a per-stage timeout. The factory requires at least one
-loader. A fluent converter may be created empty before `loadDocumentLoader()` is called.
+The `docture` export throws `MissingComponentError` when `options.loaders` is empty. The
+`docture/node` export makes `options` optional and does not require a loader.
 
-The wiring methods are `loadDocumentLoader()`, `loadLayoutAnalyzer()`, `loadLlm()`, and
-`loadLogger()`. `components` returns the registered loaders and optional analyzer.
-Duplicate loader names or a second analyzer throw `DuplicateComponentError`.
+### `DocumentConverterOptions`
 
+Construction options. Asset handling and output format are per-call options.
+
+{/* options: DocumentConverterOptions */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `loaders` | `readonly DocumentLoader[]` | Loaders tried in order. The first eligible loader that succeeds wins. |
+| `layoutAnalyzer` | `LayoutAnalyzer` | Optional refinement applied after deterministic layout analysis. |
+| `logger` | `Logger` | Default logger for every call. |
+| `stageTimeoutMs` | `number` | Default per-stage deadline in milliseconds. Omit for none. |
+| `sourceResolver` | `SourceResolver` | How sources are read. The `docture` default rejects local paths and file URLs. `docture/node` supplies file access. |
 
 ## Conversion calls
 
+### `convert`
+
+Convert one source.
+
 ```ts
 convert(source: DocumentSource, options?: ConvertOptions): Promise<ConversionResult>
+```
+
+The converter copies `pages` when the call starts and sends it to the loader as
+`LoadRequest.pages`, with the `layout` and `assets` hints. It then keeps only those pages,
+also for preloaded sources and loaders that ignore the hint, and computes features,
+layout, and assets from them. Results keep the original page numbers, and a table or
+paragraph joins only across consecutive original pages.
+
+Throws:
+
+- `PageSelectionError` with code `PAGE_OUT_OF_RANGE` for an empty page list, or a page
+  that is not an integer or not in the document.
+- `NoConvertibleContentError` with code `NO_CONVERTIBLE_CONTENT` when the loaded document
+  has no text, as for a scan without OCR.
+- `MissingComponentError` with code `MISSING_COMPONENT` when no loader is registered and
+  the source is not an already loaded document.
+- Loader errors with their own typed codes.
+
+A layout analyzer failure does not throw. It adds a `LAYOUT_ANALYZER_FAILED` or
+`INVALID_LAYOUT_ANALYSIS` warning and keeps the deterministic layout.
+
+### `safeConvert`
+
+Convert one source without throwing.
+
+```ts
 safeConvert(source: DocumentSource, options?: ConvertOptions): Promise<SafeConversion>
+```
+
+Returns a `SafeConversion`:
+
+```ts
+type SafeConversion =
+  | { readonly ok: true; readonly result: ConversionResult }
+  | { readonly ok: false; readonly error: Error };
+```
+
+### `convertBatch`
+
+Convert many sources with bounded concurrency.
+
+```ts
 convertBatch(
   sources: readonly DocumentSource[],
   options?: ConversionBatchOptions,
 ): AsyncGenerator<ConversionBatchItem>
 ```
 
-`ConvertOptions` has `format`, `pages`, `assets`, `signal`, `logger`, and `stageTimeoutMs`.
-`pages` lists original one-based page numbers to convert. The converter copies the list
-when the call starts and sends it to the loader as `LoadRequest.pages`, with the `layout`
-and `assets` hints. It then keeps only those pages, also for preloaded sources and loaders
-that ignore the hint, and computes features, layout, and assets from them. Results keep the
-original page numbers, and a table or paragraph joins only across consecutive original
-pages. An empty list, or a page that is not an integer or not in the document, throws
-`PageSelectionError` with code `PAGE_OUT_OF_RANGE`, as extraction does.
-`ConversionFormat` is `"text" | "markdown" | "html" | "json"`; Markdown is the default.
-`ConversionAssetMode` is `"referenced" | "embedded" | "omit"`; referenced is the
-default.
-
-`SafeConversion` is `{ ok: true, result } | { ok: false, error }`.
-`ConversionBatchOptions` adds `concurrency`, default `4`. A `ConversionBatchItem` contains
-the original source, input index, and safe outcome. Items are yielded as they finish.
+Yields a `ConversionBatchItem` for each source as it finishes, not in input order.
 Leaving the generator early aborts in-flight jobs and waits for them to settle.
 
-`dispose()` settles every disposable loader and analyzer once. Multiple teardown failures
-reject with `AggregateError`.
+### `ConvertOptions`
 
+Per-call options.
+
+{/* options: ConvertOptions */}
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `format` | `ConversionFormat` | `"markdown"` | Output format. |
+| `pages` | `readonly number[]` | Every page | Original one-based page numbers to convert. |
+| `assets` | `ConversionAssetMode` | `"referenced"` | How the output refers to images. |
+| `signal` | `AbortSignal` | None | Cancels the call. |
+| `logger` | `Logger` | Converter logger | Logger for this call. |
+| `stageTimeoutMs` | `number` | Converter value | Per-stage deadline in milliseconds. |
+
+### `ConversionFormat`
+
+```ts check
+type ConversionFormat = "text" | "markdown" | "html" | "json";
+```
+
+See [Choose an output format](/docs/conversion/formats).
+
+### `ConversionAssetMode`
+
+```ts check
+type ConversionAssetMode = "referenced" | "embedded" | "omit";
+```
+
+See [Export images and assets](/docs/conversion/assets).
+
+### `ConversionBatchOptions`
+
+`ConvertOptions` plus batch concurrency.
+
+{/* options: ConversionBatchOptions */}
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `concurrency` | `number` | `4` | Documents converted at once. |
+| `format` | `ConversionFormat` | `"markdown"` | Output format. |
+| `pages` | `readonly number[]` | Every page | Original one-based page numbers to convert in each document. |
+| `assets` | `ConversionAssetMode` | `"referenced"` | How the output refers to images. |
+| `signal` | `AbortSignal` | None | Cancels the batch. |
+| `logger` | `Logger` | Converter logger | Logger for each call. |
+| `stageTimeoutMs` | `number` | Converter value | Per-stage deadline in milliseconds. |
+
+### `ConversionBatchItem`
+
+One finished batch job.
+
+{/* options: ConversionBatchItem */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `source` | `DocumentSource` | The source as passed in. |
+| `index` | `number` | The source's position in the input array. |
+| `outcome` | `SafeConversion` | The result or the error. |
 
 ## Result
 
-`ConversionResult` contains:
+### `ConversionResult`
 
-| Field | Meaning |
+What `convert()` returns.
+
+{/* options: ConversionResult */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `content` | `string` | Whole-document output. |
+| `format` | `ConversionFormat` | The selected format. |
+| `mimeType` | `string` | `text/plain`, `text/markdown`, `text/html`, or `application/json`. |
+| `pages` | `readonly ConvertedPage[]` | Per-page fragments and semantic elements. |
+| `assets` | `readonly ConversionAsset[]` | In-memory image assets. Empty in omit mode. |
+| `loader` | `string` | Name of the loader that succeeded. |
+| `method` | `string` | `deterministic`, or `deterministic+<analyzer name>` when a layout analyzer's annotations were applied. |
+| `attempts` | `readonly Attempt[]` | Loader and layout analyzer history. |
+| `warnings` | `readonly ConversionWarning[]` | Degraded layout, asset, link, and analyzer warnings. |
+| `features` | `DocumentFeatures` | Runtime facts about the loaded document. |
+| `usage` | `Usage` | Model tokens, optional cost, and the call's whole wall time. |
+
+### `ConvertedPage`
+
+One page of a conversion result.
+
+{/* options: ConvertedPage */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `pageNumber` | `number` | One-based page number in the original document. |
+| `width` | `number` | Page width in PDF points. |
+| `height` | `number` | Page height in PDF points. |
+| `content` | `string` | A format-specific fragment without the whole-document wrapper. It holds every element that starts on the page, including the rest of an element that continues onto later pages. |
+| `elements` | `readonly DocumentElement[]` | The page's [semantic elements](/docs/conversion/reference/layout#semantic-layout). |
+| `evidence` | `readonly SourceEvidence[]` | Native element and table-cell evidence, in every output format, when the input provides it. |
+
+### `ConversionAsset`
+
+An image returned with the result. It extends the loader's `LoadedAsset` with a stable
+relative `reference`, such as `report.assets/page-1-image-1.png`, that referenced Markdown
+and HTML link to. It also carries `id`, `pageNumber`, `name`, `mimeType`, `bytes`, the
+`x`, `y`, `width`, and `height` of its box, and optional `widthPx`, `heightPx`, and `alt`.
+
+### `ConversionWarning`
+
+A non-fatal problem.
+
+{/* options: ConversionWarning */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `code` | `ConversionWarningCode` | What went wrong. |
+| `message` | `string` | A readable description. |
+| `pageNumber` | `number` | The affected page, when one applies. |
+
+### `ConversionWarningCode`
+
+| Code | Meaning |
 | --- | --- |
-| `content` | Whole-document output. |
-| `format`, `mimeType` | Selected format and output media type. |
-| `pages` | `ConvertedPage` fragments and semantic elements. |
-| `assets` | In-memory `ConversionAsset` values. Empty in omit mode. |
-| `loader`, `method` | Selected loader and deterministic or assisted method. |
-| `attempts`, `warnings` | Loader and analyzer history plus degraded-layout warnings. |
-| `features` | Runtime document facts. |
-| `usage` | Model tokens, optional cost, and complete wall time. |
-
-`ConversionWarning` has a `ConversionWarningCode`, message, and optional page number.
-Codes cover degraded or ambiguous layout, unsupported assets, unsafe links, analyzer
-failure, and invalid analyzer output.
+| `LAYOUT_DEGRADED` | Layout detection kept content apart or outside a table because the evidence was weak. |
+| `AMBIGUOUS_READING_ORDER` | A page has overlapping text blocks with no unambiguous order. |
+| `UNSUPPORTED_ASSET` | An asset has a duplicate ID or an unsupported media type, or a figure references a missing asset. |
+| `UNSAFE_LINK` | A link target is unsafe. The output keeps the link text without the link. |
+| `LAYOUT_ANALYZER_FAILED` | The layout analyzer threw or timed out. The deterministic layout was kept. |
+| `INVALID_LAYOUT_ANALYSIS` | The layout analyzer returned invalid annotations. The deterministic layout was kept. |

@@ -1,11 +1,10 @@
 ---
 title: Testing APIs
 description: Test doubles, generated PDF fixtures, and conformance suites.
+type: reference
 ---
 
-Testing uses three public entries. `docture/testing/doubles` needs no peer.
-`docture/testing/fixtures` needs PDFKit. `docture/testing/conformance` needs PDFKit and
-Vitest 3 or newer because it generates PDFs and registers tests.
+These APIs build test documents and check custom components. They come from three entries: `docture/testing/doubles` needs no peer, `docture/testing/fixtures` needs PDFKit, and `docture/testing/conformance` needs PDFKit and Vitest 3 or newer because it generates PDFs and registers tests. [Test extraction code](/docs/resources/testing) shows them in use.
 
 ## Generated invoices
 
@@ -15,49 +14,152 @@ Import from `docture/testing/fixtures`.
 npm install --save-dev docture pdfkit
 ```
 
+### `buildInvoiceData`
+
+Builds seeded invoice values without rendering a PDF.
+
 ```ts
 buildInvoiceData(options?: InvoiceOptions): SyntheticInvoice
+```
+
+Synchronous. The same seed returns the same values.
+
+### `makeInvoicePdf`
+
+Renders a seeded invoice PDF and returns it with its expected values.
+
+```ts
 makeInvoicePdf(options?: InvoiceOptions): Promise<SyntheticDocument<SyntheticInvoice>>
+```
+
+Rejects if PDF generation fails. Enough line items spill onto a second page.
+
+### `InvoiceOptions`
+
+{/* options: InvoiceOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `seed` | `1` | Seed for every generated value. The same seed gives byte-comparable documents and identical expected values. |
+| `lineItemCount` | `5` | Number of line items. |
+| `textless` | `false` | Emit no text, to stand in for a scanned document. |
+
+### `SyntheticDocument`
+
+A generated PDF and the values it was built from.
+
+{/* options: SyntheticDocument */}
+| Field | Meaning |
+| --- | --- |
+| `bytes` | PDF bytes. |
+| `expected` | The values written into the PDF. |
+| `pageCount` | Number of pages the PDF has. |
+
+### `SyntheticInvoice`
+
+{/* options: SyntheticInvoice */}
+| Field | Meaning |
+| --- | --- |
+| `invoiceNumber` | `INV-2026-` followed by four digits. |
+| `issuedAt` | Issue date, `YYYY-MM-DD`. |
+| `dueAt` | Due date, `YYYY-MM-DD`. |
+| `currency` | `EUR`. |
+| `sellerName` | Seller name. |
+| `buyerName` | Buyer name. |
+| `lineItems` | `SyntheticLineItem` values. |
+| `subtotal` | Sum of the line amounts. |
+| `taxRate` | `0.19`. |
+| `tax` | Subtotal times the tax rate. |
+| `total` | Subtotal plus tax. |
+
+### `SyntheticLineItem`
+
+{/* options: SyntheticLineItem */}
+| Field | Meaning |
+| --- | --- |
+| `description` | Product description. |
+| `quantity` | Quantity. |
+| `unitPrice` | Unit price. |
+| `amount` | Quantity times unit price. |
+
+### `formatMoney`
+
+Formats an amount the way the invoice PDF prints it.
+
+```ts
 formatMoney(value: number): string
+```
+
+Returns a two-decimal US-formatted string, for example `1,234.56`.
+
+### `makeRichDocumentPdf`
+
+Renders a deterministic two-page layout fixture.
+
+```ts
 makeRichDocumentPdf(): Promise<SyntheticDocument<RichDocumentExpected>>
+```
+
+The PDF has multiple columns, typography, a list, a table, a link, a code block, and an embedded raster image. Rejects if PDF generation fails.
+
+### `richDocumentExpected`
+
+Returns the strings and structure written into the rich document, without rendering it.
+
+```ts
 richDocumentExpected(): RichDocumentExpected
 ```
 
-`InvoiceOptions` has `seed`, `lineItemCount`, and `textless`. Defaults are seed `1`, five
-line items, and a normal text-layer PDF. A seed reproduces the same values. `textless`
-creates a PDF without text for scan behavior tests.
+### `RichDocumentExpected`
 
-`SyntheticDocument<T>` contains PDF `bytes`, `expected` data, and actual `pageCount`.
-`SyntheticInvoice` contains invoice number, dates, currency, seller, buyer, line items,
-subtotal, tax rate, tax, and total. `SyntheticLineItem` contains description, quantity,
-unit price, and amount.
-
-`formatMoney()` returns a two-decimal, US-formatted string. `buildInvoiceData()` and
-`formatMoney()` are synchronous. `makeInvoicePdf()` is asynchronous and rejects if PDF
-generation fails.
-
-`makeRichDocumentPdf()` produces a deterministic two-page fixture with multiple columns,
-typography, a list, table, link, code block, and embedded raster image.
-`RichDocumentExpected` contains each source string and structural expectation.
+{/* options: RichDocumentExpected */}
+| Field | Meaning |
+| --- | --- |
+| `title` | Document title. |
+| `intro` | Introduction paragraph. |
+| `linkText` | Link text. |
+| `linkHref` | Link target. |
+| `leftColumn` | Left column paragraphs. |
+| `rightColumn` | Right column paragraphs. |
+| `listItems` | List items. |
+| `table` | Table rows of cell strings. |
+| `code` | Code block text. |
+| `secondPage` | Second page text. |
+| `sourceText` | Every substantive string written into the PDF. |
 
 ## Conversion corpus
 
 Import from `docture/testing/fixtures`.
 
+### `conversionCorpus`
+
+Loaded documents that reproduce known layout cases.
+
 ```ts
-conversionCorpus: readonly ConversionCase[]
+const conversionCorpus: readonly ConversionCase[]
 ```
 
-`conversionCorpus` holds loaded documents that reproduce known layout cases: page numbers
-outside the margin band, a form section under a table, a centred group header, a two-page
-running header, unrelated text-only tables across a page break, and a contents entry at a
-page break. Each `ConversionCase` has an `id`, a `description` of the layout and the
-expected behaviour, a `loaded` document, and the `checks` its conversion should pass.
-Check ids start with the case id.
+The cases cover page numbers outside the margin band, a form section under a table, a centred group header, a two-page running header, unrelated text-only tables across a page break, and a contents entry at a page break. Convert `loaded` with `DocumentConverter` and grade the result with `checkConversion` from `@docture/eval/conversion`. The cases are already loaded, so converting them needs no PDF loader. Some cases describe behaviour that the converter does not implement yet, and their checks fail until it does.
 
-Convert `loaded` with `DocumentConverter` and grade the result with `checkConversion` from
-`@docture/eval/conversion`. The cases are already loaded, so converting them needs no PDF loader. Some cases describe
-behaviour that the converter does not implement yet, and their checks fail until it does.
+### `ConversionCase`
+
+{/* options: ConversionCase */}
+| Field | Meaning |
+| --- | --- |
+| `id` | Case id. |
+| `description` | The layout the case reproduces and the behaviour its checks expect. |
+| `loaded` | The `LoadedDocument` to convert. |
+| `checks` | `ConversionCaseCheck` values its conversion should pass. Check ids are `<case id>/<name>`. |
+
+### `ConversionCaseCheck`
+
+A structural conversion check that `checkConversion` from `@docture/eval/conversion` accepts unchanged. Each check has an `id` and a `kind`:
+
+| Kind | Fields |
+| --- | --- |
+| `present` | `text`, optional `ignoreCase`, `count`, `page`, `sourcePages`, and `element` kind |
+| `absent` | `text`, optional `ignoreCase`, `page`, and `element` kind |
+| `order` | `before`, `after`, optional `ignoreCase` |
+| `table` | `cell`, optional `ignoreCase`, `header`, `left`, `right`, `up`, `down`, `colSpan`, `rowSpan`, `page`, and `sourcePage` |
 
 ## Test doubles
 
@@ -67,21 +169,48 @@ Import from `docture/testing/doubles`.
 npm install --save-dev docture
 ```
 
+### `loadedDocument`
+
+Builds a `LoadedDocument` from page texts.
+
 ```ts
 loadedDocument(
   pageTexts: readonly string[],
   options?: { loader?: string; geometry?: boolean },
 ): LoadedDocument
-
-inMemoryLoader(document: LoadedDocument): DocumentLoader
-fixedStrategy(name: string, data: unknown): ExtractionStrategy
-failingStrategy(name: string, message = "strategy failed"): ExtractionStrategy
 ```
 
-`loadedDocument()` creates A4-sized pages and geometry by default. The default loader name
-is `in-memory`. `inMemoryLoader()` accepts every media type and returns the supplied
-document. `fixedStrategy()` returns fixed data after checking the abort signal.
-`failingStrategy()` always throws the configured message.
+Pages are A4-sized (595 by 842 points). Each text line becomes a positioned `TextLine` unless `geometry` is `false`. Pages are joined with a form feed, `form` comes from `inferForm()`, and the loader name defaults to `in-memory`.
+
+### `inMemoryLoader`
+
+A loader that returns a fixed document.
+
+```ts
+inMemoryLoader(document: LoadedDocument): DocumentLoader
+```
+
+The loader takes its name from `document.loader`, accepts every media type, reports geometry when any page has lines, and checks the abort signal before returning the document.
+
+### `fixedStrategy`
+
+A strategy that returns fixed data.
+
+```ts
+fixedStrategy(name: string, data: unknown): ExtractionStrategy
+```
+
+Checks the abort signal, then returns `{ data }`. The pipeline still validates `data` against the schema.
+
+### `failingStrategy`
+
+A strategy that always throws.
+
+```ts
+failingStrategy(name: string, message?: string): ExtractionStrategy
+```
+
+Throws an `Error` with `message`, which defaults to `strategy failed`.
 
 ## Conformance suites
 
@@ -91,28 +220,51 @@ Import from `docture/testing/conformance`. Add the peer for the adapter under te
 npm install --save-dev docture pdfkit vitest
 ```
 
+The suite functions register Vitest suites and return `void`. Vitest reports the failures.
+
+### `describeLoaderConformance`
+
+Registers checks that a loader honors the loader contract.
+
 ```ts
 describeLoaderConformance(options: LoaderConformanceOptions): void
+```
+
+Abort, instance reuse, and disposal checks run for every profile. A check is reported as skipped when the profile has no document for it or the loader's capabilities rule it out. A loader without text must return different first-page images for different documents.
+
+### `LoaderConformanceOptions`
+
+{/* options: LoaderConformanceOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `name` | Required | Suite display name. Use the class name. |
+| `create` | Required | Returns a fresh loader, or a promise of one, for each test. |
+| `fixtures` | `pdfFixtures` | The `ConformanceFixtures` profile to load. |
+| `skip` | From `capabilities` | `{ geometry?, images?, multiPage?, scanned? }` flags that skip checks the loader cannot satisfy. |
+
+### `describeRasterizerConformance`
+
+Registers checks that a rasterizer honors the rasterizer contract.
+
+```ts
 describeRasterizerConformance(options: RasterizerConformanceOptions): void
 ```
 
-`LoaderConformanceOptions` requires a suite `name` and a fresh loader `create` function.
-Its optional `fixtures` selects the documents the suite loads, and defaults to
-`pdfFixtures`. Its optional `skip` object can skip geometry, images, multi-page, or scanned
-checks when a loader does not claim that behavior.
+Checks that rendered bytes carry the signature of the selected format. Page-count checks skip when the profile has no `multiPage` document.
 
-`RasterizerConformanceOptions` requires a suite `name` and fresh rasterizer `create`
-function. Its optional `fixtures` defaults to `pdfFixtures`, and its optional `format`
-selects an advertised output format to check, `"png"` by default. The suite checks that
-the rendered bytes carry that format's signature.
+### `RasterizerConformanceOptions`
 
-### Fixture profiles
+{/* options: RasterizerConformanceOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `name` | Required | Suite display name. |
+| `create` | Required | Returns a fresh rasterizer, or a promise of one, for each test. |
+| `fixtures` | `pdfFixtures` | The `ConformanceFixtures` profile to render. |
+| `format` | `"png"` | An advertised output format to check. |
 
-A `ConformanceFixtures` profile names a media type and supplies seeded documents. Each
-`ConformanceDocument` has `bytes`, `mimeType`, the `expectedText` a text-reading loader
-must find, and optionally its `pageCount` and expected `form`. When a document has no
-`expectedText`, as with `pngFixtures`, the content and geometry checks skip, and the reuse
-checks compare rendered page images instead of text.
+## Fixture profiles
+
+A profile names a media type and supplies seeded documents for both suites. Use a built-in profile or write one for your media type.
 
 | Profile | Media type | Real page size | Multi-page | Scanned | Invalid input |
 |---|---|---|---|---|---|
@@ -120,7 +272,7 @@ checks compare rendered page images instead of text.
 | `textFixtures` | `text/plain` | no | yes, form-feed pages | no | no |
 | `pngFixtures` | `image/png` | yes | no | blank page | yes |
 
-```ts
+```ts check
 import { DocumentLoaderData } from "docture";
 import { describeLoaderConformance, textFixtures } from "docture/testing/conformance";
 
@@ -131,13 +283,37 @@ describeLoaderConformance({
 });
 ```
 
-The suites report a check as skipped when the profile has no document for it or the
-loader's capabilities rule it out. Positive page dimensions are required only from a
-profile with a real page size, and a text profile never treats text as invalid input.
-Abort, instance reuse, and disposal checks run for every profile. A loader without text
-must return different first-page images for different documents.
+### `pdfFixtures`
 
-The functions register Vitest suites and return `void`. Test failures are reported by
-Vitest. Create functions may return a component or a promise.
+Generated invoice PDFs with a text layer. The default profile for both suites.
 
-`ConversionCaseCheck` is the structural check shape on a fixture case. Pass fixture checks to `checkConversion` from `@docture/eval/conversion`.
+### `textFixtures`
+
+Plain text documents, with form feeds separating pages. A text profile never treats text as invalid input.
+
+### `pngFixtures`
+
+Generated PNG images with an empty `expectedText`, so content and geometry checks skip and reuse checks compare rendered page images instead of text.
+
+### `ConformanceFixtures`
+
+{/* options: ConformanceFixtures */}
+| Field | Meaning |
+| --- | --- |
+| `mimeType` | Media type of every document in the profile. |
+| `dimensions` | Whether loaded pages have a real size. `false` skips the positive page-size check. |
+| `document` | `(seed) => Promise<ConformanceDocument>`. Distinct seeds give distinct content. |
+| `multiPage` | Optional. Returns a document of several pages with its `pageCount`. Absent: multi-page checks skip. |
+| `scanned` | Optional. Returns a document with no text to find. Absent: the scanned-page check skips. |
+| `invalid` | Optional. Returns bytes labelled with `mimeType` that are not a document of that kind. Absent: skipped. |
+
+### `ConformanceDocument`
+
+{/* options: ConformanceDocument */}
+| Field | Meaning |
+| --- | --- |
+| `bytes` | Document bytes. |
+| `mimeType` | Media type. |
+| `expectedText` | Strings a text-reading loader must find. Empty skips content and geometry checks. |
+| `pageCount` | Page count, when the fixture knows it. |
+| `form` | The `DocumentForm` a text-reading loader must report, when the fixture knows it. |

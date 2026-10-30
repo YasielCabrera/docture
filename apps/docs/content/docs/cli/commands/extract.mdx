@@ -1,6 +1,7 @@
 ---
 title: "docture extract"
 description: "Extract structured data from one or many documents"
+type: reference
 ---
 
 Runs the pipeline over every input and writes a JSON envelope to stdout.
@@ -17,24 +18,24 @@ Diagnostics go to stderr, so the output stays pipeable.
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--schema <path>`, `-s` | Not set | Module exporting a Zod/Valibot/ArkType schema, or a .json JSON Schema |
-| `--out <path>`, `-o` | Not set | Write to a file , or, with several inputs, to a directory |
-| `--format <fmt>` | json | JSON is a versioned envelope; NDJSON streams result items Choices: `json`, `ndjson`, `text`. |
+| `--out <path>`, `-o` | Not set | Write to a file, or to a directory with several inputs |
+| `--format <fmt>` | json | JSON is a versioned envelope; NDJSON streams result items. Choices: `json`, `ndjson`, `text`. |
 | `--full` | Not set | Add method, loader, attempts, usage, features, classification, validation, conflicts, and, with --citations, citations and citationSources to result items |
 | `--citations` | Not set | Ask the model which document lines show each value, and check them. Needs --full |
 | `--model <provider/id>`, `-m` | Not set | The AI SDK model, e.g. openai/gpt-5 or anthropic/claude-opus-5 |
 | `--gateway` | Not set | Route through the Vercel AI Gateway even if the provider package is installed |
 | `--pricing <path>` | Not set | JSON prices by model id with inputPerMillion and outputPerMillion; optional cacheReadPerMillion and cacheWritePerMillion default to inputPerMillion |
-| `--cache <dir>` | Not set | Cache model responses on disk, so a re-run is free |
+| `--cache <dir>` | Not set | Cache model responses on disk and reuse them on a rerun |
 | `--instructions <text>` | Not set | Domain guidance appended to the system prompt |
 | `--temperature <n>` | 0 | Sampling temperature |
-| `--vision` | Not set | Render pages and add a vision strategy , this is what reads a scan |
+| `--vision` | Not set | Render pages and add a vision strategy, which reads scans |
 | `--dpi <n>` | 200 | Render resolution for --vision |
 | `--max-pages <n>` | Not set | Send at most this many page images to the model, under --vision |
-| `--completion <mode>` | forbidden | How a document too big for one request is split Choices: `forbidden`, `paginate`, `concatenate`. |
+| `--completion <mode>` | forbidden | How a document too big for one request is split. Choices: `forbidden`, `paginate`, `concatenate`. |
 | `--max-chars <n>` | 24000 | Character budget per request under --completion concatenate |
 | `--timeout <ms>` | Not set | Per-stage deadline. Omit for none |
 | `--concurrency <n>` | 4 | Overlaps model calls and I/O; local PDF work uses one thread |
-| `--only <strategy>` | Not set | Restrict to these strategies, in this order. Repeatable Repeatable. |
+| `--only <strategy>` | Not set | Restrict to these strategies, in this order. Repeatable |
 | `--classify` | Not set | Classify with the model first, and prompt with what it decided |
 | `--classifications <path>` | Not set | Module exporting the candidate document kinds |
 | `--dry-run` | Not set | Validate the invocation and print the plan as JSON. Reads no document and writes no file |

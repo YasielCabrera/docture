@@ -1,45 +1,48 @@
 ---
 title: Model classification API
 description: Model classifier options, excerpts, failures, and abstention behavior.
+type: reference
 ---
 
-Import these APIs from `docture/llm` or the narrow entries listed below. Install AI SDK 7 and Zod (3.25.76 or later 3.x, or 4.1.8 or later) in the application.
-For model components:
+A model classifier asks a language model which candidate kind a document is. Import it from `docture/llm/classifier` or `docture/llm`. [Classify documents](/docs/extraction/classification) shows it in use.
+
+Install AI SDK 7, Zod 3.25.76 or later 3.x or Zod 4.1.8 or later, and the provider you construct, such as `@ai-sdk/openai`:
 
 ```sh
 npm install docture ai zod
 ```
 
-Also install the provider you construct, such as `@ai-sdk/openai`. The
-[complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model)
-includes the document engine and schema library.
-
-All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
-gateway model string.
+The [complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model) includes the document engine and schema library.
 
 ## LLM classifier
 
-Import from `docture/llm/classifier`.
+### `llmClassifier`
+
+Creates a model classifier.
 
 ```ts
-new LlmClassifier(options: LlmClassifierOptions)
-llmClassifier(options: LlmClassifierOptions): Classifier
+function llmClassifier(options: LlmClassifierOptions): Classifier
 ```
 
-`LlmClassifier` requires `TEXT_LAYER` and is named `llm-classifier` by default.
-`LlmClassifierOptions` contains required `model`, plus `name`, `excerptChars`, `cache`,
-`pricing`, `instructions`, `temperature`, and `maxRetries`. Instructions append to the
-classifier system prompt. Defaults are 4,000 characters, temperature `0`, and two
-retries.
+The classifier requires `TEXT_LAYER` and is named `llm-classifier` by default. `new LlmClassifier(options)` builds the same classifier; see [model backend and factory API](/docs/extraction/reference/models).
 
-No candidates or empty text returns `null`. An `UNKNOWN` answer, an invented candidate
-name, or a model error returns a signal whose name is `null`. The classifier does not
-reject for model failures.
+It sends the first `excerptChars` characters of the document text and the candidate names and descriptions. No candidates or empty text returns `null`. An `UNKNOWN` answer, an invented candidate name, or a model error returns a signal whose name is `null`. The classifier does not reject for model failures.
 
-Signals include usage for paid calls, including abstentions. Cache hits retain token
-counts and omit cost because no new call ran.
+Signals include usage for paid calls, including abstentions. Cache hits keep token counts and omit cost because no new call ran.
 
-`createLlmExtractor` shares `llm.cache`, `pricing`, `temperature`, `maxRetries`, and
-`instructions` with vision and model classification. Explicit vision options override
-shared values. Text-only `name`, `system`, `hints`, and `maxCharsPerRequest` stay with
-the text strategy.
+### `LlmClassifierOptions`
+
+{/* options: LlmClassifierOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `model` | required | AI SDK `LanguageModel`: a provider instance or a gateway model string. |
+| `name` | `"llm-classifier"` | Classifier name. |
+| `excerptChars` | `4000` | Characters of document text to send. |
+| `cache` | none | `LlmCache` for responses. |
+| `pricing` | none | `PricingTable` used to report `costUsd`. |
+| `instructions` | none | Text appended to the classifier system prompt. |
+| `temperature` | `0` | Sampling temperature. |
+| `maxRetries` | `2` | Transport retries for a failed request. |
+| `telemetry` | none | AI SDK telemetry. See [model telemetry API](/docs/extraction/reference/telemetry). |
+
+`createLlmExtractor()` shares `llm.cache`, `pricing`, `temperature`, `maxRetries`, and `instructions` with vision and model classification. Explicit vision options override shared values. Text-only `name`, `system`, `hints`, and `maxCharsPerRequest` stay with the text strategy.

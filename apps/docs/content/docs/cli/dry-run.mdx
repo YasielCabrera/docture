@@ -1,11 +1,14 @@
 ---
 title: Preview a CLI invocation
 description: Resolve configuration and wiring without processing documents.
+type: how-to
 ---
 
-## Dry run
+`--dry-run` checks configuration, inputs, and the model route without loading a document or calling a model.
 
-`--dry-run` on `extract`, `convert`, `classify`, `eval`, and `review` checks an invocation without
+## Check an invocation before it runs
+
+`--dry-run` on `extract`, `convert`, `classify`, `review`, and quick-mode `eval` with files checks an invocation without
 running it. It resolves the config, schema, inputs, output targets, truth files, model
 route, credentials, and wiring, then prints one JSON plan envelope and exits with code `0`:
 
@@ -31,11 +34,19 @@ route, credentials, and wiring, then prints one JSON plan envelope and exits wit
 }
 ```
 
+## Read the plan for each command
+
+`convert` plans list the loaders, layout analyzer, format, and output file. `classify` plans
+list the classifiers and classifications. `eval` plans add the truth file. When the config
+supplies an extractor or converter factory, the plan says `"opaque": true` instead of naming
+its parts, and the CLI does not call the factory.
+
+## Know what a dry run skips
+
 A dry run loads no document, reads no stdin, calls no model, and creates no output or
-cache directory. It prints the plan to stdout whatever `--format` and `--out` say. `convert`
-plans list the loaders, layout analyzer, format, and output file. `classify` plans list the
-classifiers and classifications. `eval` plans add the truth file. When the config supplies
-an extractor or converter factory, the plan says `"opaque": true` instead of naming its
-parts, and the factory is not called. A config module still runs its own top-level code
-when it is imported. An invalid invocation still exits with code `2`. A missing `eval` truth
-file exits with code `1`, as it does without `--dry-run`.
+cache directory. It prints the plan to stdout whatever `--format` and `--out` say. A config
+module still runs its own top-level code when the CLI imports it. An invalid invocation
+still exits with code `2`. A missing `eval` truth file exits with code `1`, as it does
+without `--dry-run`.
+
+The [`docture extract` reference](/docs/cli/commands/extract) lists every flag a dry run accepts, and [CLI configuration](/docs/cli/configuration) explains the config file the plan reports.

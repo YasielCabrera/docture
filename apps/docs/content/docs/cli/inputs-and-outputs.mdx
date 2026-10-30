@@ -1,12 +1,15 @@
 ---
 title: Work with inputs and output streams
 description: Read paths or stdin and handle envelopes, batches, output safety, and diagnostics.
+type: how-to
 ---
+
+The document commands read paths, globs, http(s) URLs, or stdin, and report results as one JSON envelope, NDJSON lines, or text.
 
 ## Output streams
 
 `extract`, `convert`, `classify`, `inspect`, and `eval run` accept `--format json|ndjson|text`. `extract` defaults to JSON;
-the others default to text. These commands no longer accept `--json`; only the help route
+the others default to text. These commands do not accept `--json`. Only the help route
 does. `convert --to md|html|txt|json` selects the
 document format, independently of the result format.
 
@@ -61,24 +64,11 @@ numbers and boxes. See [field citations](/docs/extraction/reference/text#field-c
 `--citations` without `--full` exits 2, and a config that supplies its own strategies or a
 built extractor ignores it with a warning.
 
-Before importing config or schema modules or resolving a model, `extract` refuses
-`--out` destinations known to overwrite a local input. This includes file URLs,
-symbolic links, hard links, and missing files whose native parent traversal and
-terminal symlinks resolve to the same destination after planned output folders exist.
-It exits with code `2`. Choose a different `--out` destination, or omit `--out`.
+## Protect inputs from overwrites
 
-Sources and output files remain untouched on refusal. Directory output prepares its
-destination folders before the final alias check, so empty folders may remain after
-a refusal or a later config, schema, or model error. Single-file output does not
-create parent folders. Unsafe output takes precedence over invalid config or schema
-errors.
+`extract` refuses an `--out` path that would overwrite an input, including through a symbolic link, hard link, or `file:` URL. It exits with code `2` before loading config, schema, or model. It also refuses an existing destination when it cannot read an input's file metadata to rule out an alias. Directory output may leave empty folders after a refusal.
 
-If permissions or another unknown filesystem error prevent inspecting a local
-input, `extract` also refuses existing destinations because it cannot rule out an
-alias, even if the destination is unrelated. Choose a new output path, or omit
-`--out`. Uninspectable destinations are also refused. Safe new output paths still record
-per-document errors and let other batch inputs continue. Missing inputs and symlink
-loops retain per-document errors with safe existing destinations.
+## Reduce diagnostics
 
 `--quiet` keeps per-document failures and the first hint per error code on stderr.
 It hides success, progress, warning, and summary diagnostics. Result output still
@@ -107,7 +97,7 @@ A `-` file argument reads the document from stdin:
 curl -s https://example.com/invoice.pdf | docture extract - -s ./invoice.ts -m openai/gpt-5
 ```
 
-Every command except `mcp` accepts it. The result is labelled `stdin`. Directory output
+`extract`, `convert`, `classify`, `inspect`, `review`, and quick-mode `eval` accept it. The result is labelled `stdin`. Directory output
 names it `stdin.json`, or `stdin.md` and the other conversion extensions for `convert`.
 Pass `-` at most once; a second one exits with code `2` before stdin is read.
 

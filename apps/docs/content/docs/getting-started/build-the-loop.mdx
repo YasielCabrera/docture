@@ -1,0 +1,178 @@
+---
+title: Build the extract, generate, and evaluate loop
+description: Reuse one Zod schema to generate a seeded invoice corpus, extract its fields, and fail a local accuracy gate.
+type: tutorial
+---
+
+Build a local loop that generates invoice PDFs, extracts their fields, and checks the answers against generated ground truth. One Zod schema defines the generated values, validates extraction, and configures evaluation. You need Node.js 22 or newer. Every script runs without model credentials or network access after installation.
+
+## Set up the project
+
+Create an empty directory and install the packages:
+
+```sh
+mkdir invoice-loop
+cd invoice-loop
+npm init -y
+npm pkg set type=module
+npm install docture @docture/synthetic @docture/eval zod pdfkit pdfjs-dist @napi-rs/canvas sharp
+npm install --save-dev tsx
+```
+
+PDFKit draws the invoices, and PDF.js reads their text. The canvas engine and Sharp produce the scanned rendition in the final test. Install these optional peers explicitly. See [installation](/docs/getting-started/installation) for other engine combinations.
+
+Keep all the following files in this directory. Imports ending in `.js` resolve to the matching `.ts` files when you run them with `tsx`.
+
+## Define the shared schema
+
+Create `invoice.ts`:
+
+<SourceExample file="loop/invoice.ts" title="invoice.ts" />
+
+Store amounts as integer cents so generation, extraction, and comparison use the same representation.
+
+## Generate the corpus
+
+Create `model.ts` to define the sampled values and their printed layout:
+
+<SourceExample file="loop/model.ts" title="model.ts" />
+
+Create `generate.ts`:
+
+<SourceExample file="loop/generate.ts" title="generate.ts" />
+
+The model samples values from three fixed seeds. The template prints both fields, and `writeCorpus` writes the PDFs and their expected values to `corpus/manifest.jsonl`. It also verifies that the digital PDFs contain the labeled text.
+
+Run it:
+
+```sh
+npx tsx generate.ts
+```
+
+```txt
+3 digital cases ready in corpus/manifest.jsonl
+```
+
+Open the PDFs under `corpus/cases/` to inspect the invoices. Rerunning the script reuses matching cases and prints the same count.
+
+Start with the digital PDFs. You add one scanned rendition per seed after checking the passing result.
+
+## Build the extraction strategy
+
+Create `extractor.ts`:
+
+<SourceExample file="loop/extractor.ts" title="extractor.ts" />
+
+`read-labels` finds each value after its printed label. `requires: ["TEXT_LAYER"]` restricts the strategy to documents with readable text. The extractor validates its answer against the schema you pass to `extract`.
+
+Create `extract.ts` to read each PDF listed in the corpus manifest:
+
+<SourceExample file="loop/extract.ts" title="extract.ts" />
+
+Run it:
+
+```sh
+npx tsx extract.ts
+```
+
+```txt
+INV-102: 2979 cents, 0 model tokens
+INV-102: 3491 cents, 0 model tokens
+INV-101: 9970 cents, 0 model tokens
+```
+
+The repeated invoice number comes from sampling the three allowed numbers for each seed. Each case still has its own ID and PDF.
+
+## Score the extracted fields
+
+Create `evaluate.ts`:
+
+<SourceExample file="loop/evaluate.ts" title="evaluate.ts" />
+
+`jsonlDataset` reads the generated ground truth. `fromDocture` runs the extractor on each document and projects `result.data` for scoring. The same `Invoice` schema configures both the adapter and `defineEval`.
+
+`exact()` compares invoice numbers, and `number()` compares the amounts with its default zero tolerance. The run writes its result to `evaluation/` for the gate to read.
+
+```sh
+npx tsx evaluate.ts
+```
+
+```txt
+3/3 cases scored
+F1: 1
+Error rate: 0
+```
+
+All six expected fields match, giving an F1 of `1`.
+
+## Fail the gate on an inaccurate answer
+
+Create `gate.ts`:
+
+<SourceExample file="loop/gate.ts" title="gate.ts" />
+
+Require an F1 of `1` and an error rate of `0`. The script sets exit code `1` when a check fails, so you can use it in CI.
+
+```sh
+npx tsx gate.ts
+```
+
+```txt
+PASS: f1 for experiment read-labels is 1
+PASS: errorRate for experiment read-labels is 0
+Gate passed
+```
+
+To test the failure, change the `totalCents` expression in `extractor.ts` from `Number(after("Total cents:"))` to `Number(after("Total cents:")) + 1`. Leave the schema and corpus unchanged. The answer still passes schema validation, but every total is one cent wrong.
+
+Run evaluation again, then check the gate:
+
+```sh
+npx tsx evaluate.ts
+npx tsx gate.ts
+```
+
+```txt
+3/3 cases scored
+F1: 0.5
+Error rate: 0
+FAIL: f1 for experiment read-labels is 0.5, below the minimum 1
+PASS: errorRate for experiment read-labels is 0
+Gate failed
+```
+
+The gate exits with code `1`. Extraction succeeds for all three cases, but only the invoice numbers match the ground truth. Remove `+ 1` and rerun both commands to restore the passing result.
+
+## Test the parser on scanned renditions
+
+Create `generate-scans.ts` to add a scan of each generated invoice:
+
+<SourceExample file="loop/generate-scans.ts" title="generate-scans.ts" />
+
+Each scan retains the same ground truth as its digital source. This step uses the installed engines to rasterize and degrade the PDF without downloading an OCR model.
+
+```sh
+npx tsx generate-scans.ts
+npx tsx evaluate.ts
+npx tsx gate.ts
+```
+
+```txt
+6 digital and scan cases ready in corpus/manifest.jsonl
+3/6 cases scored
+F1: 0.6666666666666666
+Error rate: 0.5
+FAIL: f1 for experiment read-labels is 0.6667, below the minimum 1
+FAIL: errorRate for experiment read-labels is 0.5, above the maximum 0
+Gate failed
+```
+
+The gate exits with code `1`. The three digital cases still match, but the scan PDFs have no text layer, so the extractor has no eligible strategy. Evaluation records those failures and counts their expected fields as omissions in the default run F1.
+
+The corpus exposes the parser's limit. To handle scans, add an [OCR or vision strategy](/docs/integrations/scanned-documents). To restore the digital-only manifest, run `npx tsx generate.ts`, then rerun evaluation and the gate.
+
+## Next steps
+
+- [Generate corpora](/docs/synthetic/corpora) to add templates, scenarios, and document renditions.
+- [Extract without a model](/docs/extraction/without-a-model) to parse more known layouts.
+- [Gate evaluation results](/docs/evaluation/ci) to set thresholds and compare runs against a baseline.

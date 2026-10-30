@@ -1,16 +1,32 @@
 ---
 title: Synthetic data overview
 description: Generate labeled documents from schemas and evaluate extraction without manual labeling.
+type: overview
 ---
 
 `@docture/synthetic` samples values, renders documents, and records what each page shows. Each printed field has ground truth, text, a page number, and a box in PDF points. Verification reads the digital PDF back before degradation changes its appearance.
 
-Start with [your first labeled PDF](/docs/synthetic/quick-start). Then choose a task:
+## Find your task
 
-- [Define models and generators](/docs/synthetic/models) and [add scenarios](/docs/synthetic/scenarios).
-- Create [PDF](/docs/synthetic/pdf-templates), [React](/docs/synthetic/react-templates), or [HTML templates](/docs/synthetic/html-templates).
-- Declare [printed fields](/docs/synthetic/printed-fields) and [verify labels](/docs/synthetic/verification).
-- [Simulate scans and photos](/docs/synthetic/degradation), [build a corpus](/docs/synthetic/corpora), and [evaluate it](/docs/synthetic/evaluation).
+### Get started
+
+Start with [your first labeled PDF](/docs/synthetic/quick-start). Read [how synthetic labels stay correct](/docs/synthetic/how-it-works) to understand how sampled values become ground truth.
+
+### Values
+
+[Define value models and generators](/docs/synthetic/models) and [add scenarios](/docs/synthetic/scenarios).
+
+### Templates
+
+Create [PDF](/docs/synthetic/pdf-templates), [React](/docs/synthetic/react-templates), or [HTML templates](/docs/synthetic/html-templates). Declare [printed fields](/docs/synthetic/printed-fields) and [configure fonts and locales](/docs/synthetic/fonts-and-locales).
+
+### Label checks
+
+[Verify labels](/docs/synthetic/verification) and [measure layout drift](/docs/synthetic/layout-measurement).
+
+### Corpora
+
+[Simulate scans and photos](/docs/synthetic/degradation), [build a corpus](/docs/synthetic/corpora), and [evaluate it](/docs/synthetic/evaluation).
 
 ## Choose a template kind
 
@@ -22,6 +38,10 @@ Start with [your first labeled PDF](/docs/synthetic/quick-start). Then choose a 
 
 Choose PDF templates to reproduce measured layouts exactly, React templates for rich layouts built from reusable components, and HTML templates when you already have HTML and CSS. PDF and React templates work in corpora and the CLI.
 
+## Install the engines you use
+
 The [API reference](/docs/synthetic/reference) lists every public entry. The root needs no engine. Renderers and other engine-backed entries load their optional peers when used. Choose [installation recipes](/docs/getting-started/installation#synthetic-documents) for the entries you use.
 
-Synthetic data tests the cases your model and templates describe. Use [real datasets](/docs/evaluation/datasets) to check behavior outside those cases. The [CLI](/docs/cli/commands) runs generation from `docture.synth.ts`.
+## Know what synthetic data covers
+
+Synthetic data tests the cases your value model and templates describe. Use [real datasets](/docs/evaluation/datasets) to check behavior outside those cases. The [`docture synth` commands](/docs/synthetic/corpora#use-the-cli) run generation from `docture.synth.ts`.

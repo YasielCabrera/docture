@@ -1,13 +1,12 @@
 ---
-title: Synthetic html API
-description: Public API for @docture/synthetic/html.
+title: Synthetic HTML API
+description: Define HTML and CSS templates and print them to labeled PDFs with Chromium.
+type: reference
 ---
 
-## `@docture/synthetic/html`
+`@docture/synthetic/html` prints HTML templates with Chromium through `playwright-core` and labels each marked element with its box. Install a Chromium build separately. The [HTML templates guide](/docs/synthetic/html-templates) shows it in use.
 
-- `HtmlTemplate`
-- `HtmlTemplateDefinition`
-- `RenderHtmlPdfOptions`
+## `@docture/synthetic/html`
 
 ### `defineHtmlTemplate`
 
@@ -15,7 +14,9 @@ description: Public API for @docture/synthetic/html.
 defineHtmlTemplate<T>(): (definition: HtmlTemplateDefinition<T>) => HtmlTemplate<T>
 ```
 
-An HTML template. `render(value, format)` returns the body: one `<section class="page">` per page, each fixed to the page size, so pagination is explicit. Every printed field sits in an element with `data-field="<concrete path>"`, or several comma-separated paths. `css` is added after the page rules; embed fonts as data URLs, since nothing is fetched. Ligatures are off unless the template sets them with `!important`, because PDF.js reads a ligature glyph as its own span.
+Defines an HTML template for values of type `T`: `defineHtmlTemplate<Invoice>()({ ... })`. `render(value, format)` returns the body as one `<section class="page">` per page, each fixed to the page size, so pagination is explicit. Every printed field sits in an element with `data-field="<concrete path>"`, or several comma-separated paths.
+
+Returns an `HtmlTemplate<T>` with `aliases` and `tags` defaulted to empty and the page size defaulted to A4.
 
 ### `renderHtmlPdf`
 
@@ -23,7 +24,7 @@ An HTML template. `render(value, format)` returns the body: one `<section class=
 renderHtmlPdf<T>(template: HtmlTemplate<T>, sample: Sample<T>, options?: RenderHtmlPdfOptions): Promise<SyntheticDocument>
 ```
 
-Print the template with Chromium and label each `data-field` element with its box in points. Pass a `browser` to reuse one across renders; otherwise one is launched and closed per call. `executablePath` selects the Chromium to launch. Verify the result with `verifyLabels` like a PDFKit rendering.
+Prints the template with Chromium and labels each `data-field` element with its box in points. Verify the result with `verifyLabels` like a PDFKit rendering. Throws `TemplateError` when a field lies outside its page or the fields and the printed mask disagree. Throws `MissingEngineError` when `playwright-core` is not installed.
 
 ### `escapeHtml`
 
@@ -31,8 +32,51 @@ Print the template with Chromium and label each `data-field` element with its bo
 escapeHtml(text: string): string
 ```
 
-Escape text for HTML content or a quoted attribute.
+Escapes `&`, `<`, `>`, `"`, and `'` so text is safe in HTML content or a quoted attribute.
 
 ### `ENGINE_RANGES`
 
 `{ "playwright-core": "1.64.1" }`. Install a Chromium build separately.
+
+## Types
+
+### `HtmlTemplateDefinition`
+
+{/* options: HtmlTemplateDefinition */}
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `key` | required | Unique template name used by selectors and case ids. |
+| `aliases` | `[]` | Other names that select the template. |
+| `family` | required | Group name for templates of one document kind. |
+| `tags` | `{}` | Values copied into each case's tags. |
+| `page` | `{ size: pageSizes.A4 }` | Page size in points. |
+| `locale` | required | The `Locale` passed to `render` as a formatter. |
+| `printed` | required | The [printed mask](/docs/synthetic/reference/templates#prints) for every schema field. |
+| `css` | none | Stylesheet added after the page rules. Embed fonts as data URLs, because the renderer fetches nothing. |
+| `render` | required | `(value, format) => string`, the HTML body. |
+
+Ligatures are off unless the template sets them with `!important`, because PDF.js reads a ligature glyph as its own span.
+
+### `HtmlTemplate`
+
+{/* options: HtmlTemplate */}
+| Field | Meaning |
+| --- | --- |
+| `key` | The template key. |
+| `aliases` | Alternative names, empty when none were given. |
+| `family` | The template family. |
+| `tags` | Tags, empty when none were given. |
+| `page` | `{ size }` with the resolved page size. |
+| `locale` | The template locale. |
+| `printed` | The printed mask. |
+| `css` | The stylesheet, when one was given. |
+| `render` | The render function. |
+
+### `RenderHtmlPdfOptions`
+
+{/* options: RenderHtmlPdfOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `browser` | none | A Playwright Chromium `Browser` to reuse across renders. Without one, the renderer launches a browser and closes it after the call. |
+| `createdAt` | fixed date | Written as the PDF creation and modification date, so equal inputs give equal bytes. |
+| `executablePath` | Playwright's installed build | The Chromium executable to launch when no `browser` is given. |

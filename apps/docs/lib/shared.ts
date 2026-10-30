@@ -12,5 +12,5 @@ export const repositoryUrl = `https://github.com/${gitConfig.user}/${gitConfig.r
 
 export const primaryNavigation = [
   { label: "Documentation", href: "/docs" },
-  { label: "API reference", href: "/docs/api" },
+  { label: "API index", href: "/docs/api" },
 ];

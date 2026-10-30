@@ -1,6 +1,7 @@
 ---
 title: "docture review"
 description: "Write an offline HTML page that overlays conversion boxes or cited fields on page images"
+type: reference
 ---
 
 Draws what docture found over each rendered page, in one self-contained HTML file
@@ -28,10 +29,10 @@ pages, highlighting the lines each field cites.
 | `--model <provider/id>`, `-m` | Not set | The AI SDK model, e.g. openai/gpt-5 or anthropic/claude-opus-5 |
 | `--gateway` | Not set | Route through the Vercel AI Gateway even if the provider package is installed |
 | `--pricing <path>` | Not set | JSON prices by model id with inputPerMillion and outputPerMillion; optional cacheReadPerMillion and cacheWritePerMillion default to inputPerMillion |
-| `--cache <dir>` | Not set | Cache model responses on disk, so a re-run is free |
+| `--cache <dir>` | Not set | Cache model responses on disk and reuse them on a rerun |
 | `--instructions <text>` | Not set | Domain guidance appended to the system prompt |
 | `--temperature <n>` | 0 | Sampling temperature |
-| `--completion <mode>` | forbidden | How a document too big for one request is split Choices: `forbidden`, `paginate`, `concatenate`. |
+| `--completion <mode>` | forbidden | How a document too big for one request is split. Choices: `forbidden`, `paginate`, `concatenate`. |
 | `--max-chars <n>` | 24000 | Character budget per request under --completion concatenate |
 | `--timeout <ms>` | Not set | Per-stage deadline. Omit for none |
 | `--dry-run` | Not set | Validate the invocation and print the plan as JSON. Reads no document and writes no file |

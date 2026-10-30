@@ -547,6 +547,20 @@ html:has(.mermaid-dialog[open]) {
   font-weight: 500;
 }
 
+/* meta.json separators render as plain paragraphs; set the group labels apart from page links. */
+.docs-layout #nd-sidebar p:not([data-docs-release]) {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-fd-muted-foreground);
+}
+
+/* Fumadocs tints active links with 10% of the brand, which leaves brand text at 4.4:1 in light mode. */
+.docs-layout a[data-active="true"] {
+  background-color: color-mix(in oklab, var(--color-fd-primary) 5%, transparent);
+}
+
 .docs-layout .prose {
   line-height: 1.8;
 }

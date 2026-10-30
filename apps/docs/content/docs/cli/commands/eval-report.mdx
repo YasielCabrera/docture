@@ -1,9 +1,10 @@
 ---
 title: "docture eval report"
 description: "Re-render a stored run in any format, without running anything"
+type: reference
 ---
 
-Re-render a stored run in any format, without running anything
+Re-render a stored run in any format, without running anything.
 
 ## Arguments
 
@@ -16,9 +17,9 @@ Re-render a stored run in any format, without running anything
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--rescore` | Not set | Score the stored raw outputs again with the config's current spec as a new run |
-| `--reporter <names>` | Not set | Comma-separated terminal, html, md, json, csv, junit, or a module path. Replaces the config's reporters. Repeatable Repeatable. |
+| `--reporter <names>` | Not set | Comma-separated terminal, html, md, json, csv, junit, or a module path. Replaces the config's reporters. Repeatable |
 | `--out <dir>` | eval-report | Directory reporters write into |
-| `--format <fmt>` | text | Text for people; JSON prints the eval result or record as is Choices: `text`, `json`. |
+| `--format <fmt>` | text | Text for people; JSON prints the eval result or record as is. Choices: `text`, `json`. |
 | `--store <dir>` | Not set | Run store directory. Default: the config's store, else .docture/eval beside the config |
 | `--config <path>` | Not set | Eval config. Default: the nearest docture.eval.&#123;ts,mts,js,mjs&#125; |
 | `--verbose`, `-v` | Not set | Report the wiring, the routing, and every attempt |
@@ -33,4 +34,4 @@ docture eval report latest --reporter html,md
 docture eval report .docture/eval/runs/<runId> --format json
 ```
 
-See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).
+See [Evaluate from the CLI](/docs/cli/evaluation) and [input and output behavior](/docs/cli/inputs-and-outputs).

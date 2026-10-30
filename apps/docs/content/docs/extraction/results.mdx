@@ -1,9 +1,10 @@
 ---
 title: Inspect results and conflicting values
 description: Read attempt history, usage, validation, source identity, and disagreements.
+type: how-to
 ---
 
-Keep the full result when you need to explain an answer:
+An extraction result carries the typed data plus the record you need to explain it: the winning strategy, the loader, every attempt, validation, and usage.
 
 ```ts
 const result = await extractor.extract(source, Invoice);
@@ -11,11 +12,30 @@ console.log(result.data, result.method, result.loader);
 console.log(result.attempts, result.validation, result.usage);
 ```
 
-`extractData()` returns only the inferred data. `extractResult()` is an alias of `extract()`. `safeExtract()` returns `{ ok: true, result }` or `{ ok: false, error }`.
+## Choose a return form
+
+`extract()` returns the full result and throws when extraction fails. `extractResult()` is an alias of `extract()`. Use `extractData()` when you need only the data:
+
+```ts
+const invoice = await extractor.extractData(source, Invoice);
+invoice.total;
+```
+
+Use `safeExtract()` to receive failures as values instead of exceptions:
+
+```ts
+const outcome = await extractor.safeExtract(source, Invoice);
+
+if (outcome.ok) {
+  console.log(outcome.result.data.total);
+} else {
+  console.error(outcome.error.message);
+}
+```
 
 ## Follow attempts
 
-Failed loader attempts precede extraction attempts. The successful loader appears in `result.loader` and is not duplicated. Attempts identify the stage, component, status, elapsed time, and any reported error, usage, or validation issues. Raw model output is capped at 10,000 JavaScript string characters.
+Failed loader attempts precede extraction attempts. The successful loader appears in `result.loader` and is not duplicated. If every eligible loader fails, `LoadFailedError.attempts` contains their errors and no extraction strategy runs. Attempts identify the stage, component, status, elapsed time, and any reported error, usage, or validation issues. Raw model output is capped at 10,000 JavaScript string characters.
 
 Schema validation accepts the result's shape. Report-mode cross-field rules may still leave `validation.valid` false. Usage includes model tokens, optional priced cost, and elapsed wall time. Missing cost means unknown or unpriced; it does not mean zero.
 

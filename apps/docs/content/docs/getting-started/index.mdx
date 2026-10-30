@@ -1,18 +1,40 @@
 ---
-title: Introduction
-description: Choose a document workflow and install only the components it needs.
+title: Choose a Docture workflow
+description: Match your goal to extraction, conversion, evaluation, or synthetic data, then install and learn the pipeline.
+type: overview
 ---
 
-Docture extracts typed data, converts documents to grounded content, evaluates processors, and generates labeled synthetic documents.
+Docture extracts typed data, converts documents to grounded content, evaluates processors, and generates labeled synthetic documents. Choose the output you need first, then install the packages and engines that workflow uses.
 
-| Goal | Start with |
-| --- | --- |
-| Extract fields into your schema | [Extraction quick start](/docs/extraction/quick-start) |
-| Convert a PDF to text, Markdown, HTML, or JSON | [Conversion quick start](/docs/conversion/quick-start) |
-| Measure accuracy and gate regressions | [Evaluation quick start](/docs/evaluation/quick-start) |
-| Generate documents with known field values and boxes | [Synthetic data quick start](/docs/synthetic/quick-start) |
-| Work from a terminal or agent host | [CLI and services](/docs/cli) |
+## Match your goal to a workflow
 
-The four packages are `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic`. The core root has no PDF, OCR, or model engine. Install the optional peers required by the entries you use.
+| You need | Workflow | Output | Start with |
+| --- | --- | --- | --- |
+| Invoice fields or another typed record | [Extraction](/docs/extraction) | Schema-inferred data, attempts, validation, and usage | [Extraction quick start](/docs/extraction/quick-start) |
+| Readable content or an indexing input | [Conversion and retrieval](/docs/conversion) | Text, Markdown, HTML, document JSON, or grounded chunks | [Conversion quick start](/docs/conversion/quick-start) |
+| Evidence that a processor meets your requirements | [Evaluation](/docs/evaluation) | Field scores, reports, comparisons, and CI gates | [Evaluation quick start](/docs/evaluation/quick-start) |
+| Test inputs before you have labeled documents | [Synthetic data](/docs/synthetic) | Documents, ground truth, and field locations | [Synthetic data quick start](/docs/synthetic/quick-start) |
+| A terminal command, MCP tools, or an HTTP service | [CLI and services](/docs/cli) | The same operations without writing code | [CLI quick start](/docs/cli/quick-start) |
 
-Read [packages and installation](/docs/getting-started/installation), then [how Docture works](/docs/getting-started/how-it-works).
+Within extraction, use [classification](/docs/extraction/classification) to identify document kinds, [bundle splitting](/docs/extraction/splitting) when one source contains several documents, and [long-document extraction](/docs/extraction/long-documents) when one document exceeds a model request budget. For scans, choose [OCR or vision](/docs/integrations/scanned-documents). For existing services and storage, see [integrations](/docs/integrations).
+
+## Combine workflows
+
+The workflows compose. Convert and chunk content for retrieval, or generate a synthetic corpus and evaluate an extraction processor on it. Evaluation also accepts processors outside Docture through its processor contract. [Build the extract, generate, and evaluate loop](/docs/getting-started/build-the-loop) runs all three with one schema.
+
+## Install the packages you use
+
+Docture publishes four packages: `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic`. The `docture` root holds core only, with no PDF, OCR, or model engine. Install the optional peers that the entries you import require. [Install the components you use](/docs/getting-started/installation) gives a complete command for each combination.
+
+## Learn how the pipeline works
+
+- [How it works](/docs/getting-started/how-it-works) follows one extraction from source to validated result.
+- [Docture concepts](/docs/getting-started/concepts) defines the terms used across the documentation, such as loader, engine, adapter, spec, and rendition.
+- [Architecture](/docs/getting-started/architecture) shows the core layers and where custom components plug in.
+- [Document sources](/docs/getting-started/sources) covers paths, URLs, bytes, and loaded documents, and when to import from `docture/node`.
+- [Check runtime compatibility](/docs/getting-started/runtime) lists the Node.js version and the deployment constraints of each component.
+- [Shared API reference](/docs/getting-started/reference) lists packages, entry points, and the source and loader types.
+
+## Work with an AI coding agent
+
+[Use Docture with AI coding agents](/docs/getting-started/ai-agents) shows how to give an agent the documentation as Markdown and the usage guide each package ships.

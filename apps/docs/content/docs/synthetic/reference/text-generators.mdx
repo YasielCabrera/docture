@@ -1,7 +1,10 @@
 ---
 title: Synthetic text-generators API
-description: Public API for @docture/synthetic/faker.
+description: Seeded Faker generators and cached, model-written text pools for realistic synthetic strings.
+type: reference
 ---
+
+Two entries supply realistic strings for models. `@docture/synthetic/faker` wraps Faker in seeded generators, and `@docture/synthetic/llm` asks a model once for a pool of strings to sample from with `gen.pick`. The [models guide](/docs/synthetic/models#generate-realistic-text) shows both in use.
 
 ## `@docture/synthetic/faker`
 
@@ -11,7 +14,9 @@ description: Public API for @docture/synthetic/faker.
 fakerFor(locale: string, options?: { readonly refDate?: string }): Promise<<V>(build: (faker: Faker) => V) => Generator<V>>
 ```
 
-Generators backed by Faker in `locale` (`de`, `de-AT`, `en_US`, and so on), falling back to English. Each generator reseeds Faker from its position's stream before calling `build`, so a value depends only on the seed and its path. Relative dates count back from `refDate`, default `2025-01-01T00:00:00.000Z`, never from the wall clock. An unknown locale throws `RangeError`.
+Returns a factory of generators backed by Faker in `locale` (`de`, `de-AT`, `en_US`, and other Faker locale names), falling back to English for missing data. Each `Generator` reseeds Faker from its position's stream before it calls `build`, so a value depends only on the seed and its path. Relative dates count back from `refDate`, default `2025-01-01T00:00:00.000Z`, never from the wall clock.
+
+Throws `RangeError` for an unknown locale. Throws `MissingEngineError` when `@faker-js/faker` is not installed.
 
 ### `ENGINE_RANGES`
 
@@ -19,16 +24,37 @@ Generators backed by Faker in `locale` (`de`, `de-AT`, `en_US`, and so on), fall
 
 ## `@docture/synthetic/llm`
 
-- `TextPoolCache`
-- `TextPoolOptions`
-
 ### `llmTextPool`
 
 ```ts
 llmTextPool(options: TextPoolOptions): Promise<readonly string[]>
 ```
 
-Ask a model once for `count` distinct realistic strings, such as company names of a trade, and cache them by model, prompt, count and temperature (default 0). Sample from the pool with `gen.pick(pool)`, so ground truth stays the sampled value and labels are still verified. With a persistent `cache`, a corpus rebuilds offline. A model that returns no usable strings throws `SynthesisError`.
+Asks a model once for `count` distinct realistic strings, such as company names of a trade, and caches them by model, prompt, count, and temperature. Sample from the pool with `gen.pick(pool)`, so ground truth stays the sampled value and labels are still verified. With a persistent `cache`, a corpus rebuilds offline.
+
+Throws `RangeError` when `count` is not a positive integer, and `SynthesisError` when the model returns no usable strings. Throws `MissingEngineError` when `ai` is not installed.
+
+### `TextPoolOptions`
+
+{/* options: TextPoolOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `model` | required | An AI SDK `LanguageModel`, as a model object or a model id string. |
+| `prompt` | required | What the strings are, such as `German company names of small trades`. |
+| `count` | required | Positive integer number of strings to request. The pool keeps distinct, non-empty strings, so it can hold fewer. |
+| `cache` | none | A `TextPoolCache` that stores pools by key. |
+| `temperature` | `0` | Sampling temperature passed to the model. |
+
+### `TextPoolCache`
+
+```ts check
+interface TextPoolCache {
+	get(key: string): readonly string[] | undefined | Promise<readonly string[] | undefined>;
+	set(key: string, value: readonly string[]): unknown;
+}
+```
+
+A persistent or in-memory store for generated pools. A `Map<string, readonly string[]>` satisfies it in memory. Back it with a file or database to rebuild a corpus without another model call.
 
 ### `ENGINE_RANGES`
 

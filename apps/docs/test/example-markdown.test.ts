@@ -3,7 +3,7 @@ import { expandSourceExamples, readExampleSource } from "../lib/example-source";
 
 describe("agent-readable examples", () => {
   it("includes schema and extractor source instead of component tags", async () => {
-    const markdown = await expandSourceExamples('<SourceExample file="invoice.ts" title="invoice.ts" />\n<SourceExample file="quick-start.ts" />');
+    const markdown = await expandSourceExamples('<SourceExample file="invoice.ts" title="invoice.ts" />\n<SourceExample file="quick-start/with-a-model.ts" />');
     expect(markdown).toContain("contract(");
     expect(markdown).toContain("new Extractor()");
     expect(markdown).toContain("```ts");

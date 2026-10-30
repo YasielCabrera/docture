@@ -1,43 +1,54 @@
 ---
 title: Text extraction API
 description: Text model options, cited requests, verification rules, and repair.
+type: reference
 ---
 
-Import these APIs from `docture/llm` or the narrow entries listed below. Install AI SDK 7 and Zod (3.25.76 or later 3.x, or 4.1.8 or later) in the application.
-For model components:
+The text strategy sends a document's text and your schema to a language model and returns the parsed answer for validation. Import it from `docture/llm/text` or `docture/llm`. [Extract with a model](/docs/extraction/with-a-model) shows it in use.
+
+Install AI SDK 7, Zod 3.25.76 or later 3.x or Zod 4.1.8 or later, and the provider you construct, such as `@ai-sdk/openai`:
 
 ```sh
 npm install docture ai zod
 ```
 
-Also install the provider you construct, such as `@ai-sdk/openai`. The
-[complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model)
-includes the document engine and schema library.
-
-All `model` fields accept an AI SDK `LanguageModel`, including a provider instance or
-gateway model string.
+The [complete model install](/docs/getting-started/installation#text-extraction-classification-splitting-and-layout-with-a-model) includes the document engine and schema library.
 
 ## Text extraction
 
-Import from `docture/llm/text`.
+### `llm`
+
+Creates a text extraction strategy.
 
 ```ts
-new LlmStrategy(options: LlmStrategyOptions)
-llm(options: LlmStrategyOptions): ExtractionStrategy
-modelIdOf(model: LanguageModel): string
+function llm(options: LlmStrategyOptions): ExtractionStrategy & Pick<LlmStrategy, "requires">
 ```
 
-`LlmStrategy` requires `TEXT_LAYER`, is named `llm` by default, and uses classification as
-a hint by default. `modelIdOf()` returns a gateway string, a provider object's `modelId`,
-or `unknown`.
+The returned strategy keeps the `requires` literal for `createCheckedExtractor()`.
 
-`LlmStrategyOptions` contains:
+### `LlmStrategy`
 
+The class behind `llm()`. It requires `TEXT_LAYER`, is named `llm` by default, and uses classification as a hint by default.
+
+```ts
+class LlmStrategy implements ExtractionStrategy {
+  readonly name: string;
+  readonly requires: readonly ["TEXT_LAYER"];
+  readonly needsClassification: ClassificationNeed;
+  constructor(options: LlmStrategyOptions);
+}
+```
+
+Empty text and provider failures reject the strategy. Multi-request results are merged, then core validates the complete result. See [chunking and merge helpers](/docs/extraction/reference/partials) for how requests split and merge.
+
+### `LlmStrategyOptions`
+
+{/* options: LlmStrategyOptions */}
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `model` | required | AI SDK language model. |
-| `name` | `llm` | Strategy name. |
-| `completion` | `forbidden` | Single request, pagination, or concatenation. |
+| `model` | required | AI SDK language model: a provider instance or a gateway model string. |
+| `name` | `llm` | Strategy name. Change it to register two models at once. |
+| `completion` | `forbidden` | Single request, pagination, or concatenation. See [handle long documents](/docs/extraction/long-documents). |
 | `maxCharsPerRequest` | `24000` | Character budget for concatenation. |
 | `concurrency` | `4` | Maximum chunk requests in flight. Positive integer. |
 | `providerOptions` | none | Provider-specific settings forwarded to the AI SDK and included in cache identity. |
@@ -49,12 +60,10 @@ or `unknown`.
 | `temperature` | `0` | AI SDK temperature. |
 | `maxRetries` | `2` | AI SDK retry count. |
 | `needsClassification` | `hint` | Core classification requirement. |
+| `telemetry` | none | AI SDK telemetry. See [model telemetry API](/docs/extraction/reference/telemetry). |
 | `citations` | `false` | Cite and verify each value. See [field citations](#field-citations). |
 
-Empty text and provider failures reject the strategy. Multi-request results are merged,
-then core validates the complete result.
-
-### Field citations
+## Field citations
 
 `llm({ model, citations: true })` shows the document as numbered lines, such as
 `[p1-line-1] Total due: $1,234.50`, and asks for `{ data, citations }`, where each citation
@@ -64,6 +73,8 @@ then carries `citations`, one [`FieldCitation`](/docs/extraction/reference/citat
 per present leaf of `data`, `citationSources` for real lines, and optional `evidenceSources` for cited native records.
 
 Positioned loader lines and native element or cell evidence can be cited. Native IDs identify blocks or cells, never printed lines. PDF.js, MuPDF, and OCR adapters can provide real lines; Docling provides native evidence. A request without either kind of evidence ID has `uncited` values. `VisionStrategy` sends page images and does not cite; a run that falls back to vision returns no `citations`.
+
+### Value matching
 
 Each cited value is checked against the cited lines with exact normalizers. No match is
 fuzzy, case-insensitive or rounded.
@@ -91,11 +102,15 @@ can report [`minOcrConfidence`](/docs/extraction/reference/citations#field-citat
 the matched words alone: the whole token for a number or date, including its currency
 sign, and each covered word for a string that spans lines.
 
+### Citation cost
+
 Citations cost tokens: the line ids enlarge the prompt, and the `citations` list grows with
 the number of values, so a long table can truncate an answer. Under `concatenate`, the
 character budget counts the line ids. The model writes dotted paths, so it cannot cite
 a key that contains `.`; such a value is `uncited`, and its result `path` is quoted, as
 in `` `a.b` ``.
+
+## Repair
 
 `LlmStrategy` and `VisionStrategy` implement `repair()`. After a single-request answer
 fails, the repair replays that request (the document text, or the page images) followed by

@@ -1,27 +1,44 @@
 ---
 title: Verify synthetic labels
 description: Read digital PDFs back and check that every label matches its page and box.
+type: how-to
 ---
 
-Verify the digital document before deriving scans or photos. Install `pdfjs-dist@6.2.108` alongside `@docture/synthetic` and `docture`.
+Verify each digital rendering before you derive scans or photos from it. Verification reads the PDF text layer back and confirms that every label's text appears inside its box. Install the PDF.js engine alongside the package:
+
+```sh
+npm install --save-dev @docture/synthetic docture pdfjs-dist
+```
 
 ## Check a rendering
+
+This example imports `model` and `template` from `bill.mts`, which the [quick start](/docs/synthetic/quick-start#define-the-model-and-template) defines.
 
 ```ts
 import { assertVerified, verifyLabels } from "@docture/synthetic/verify";
 import { renderPdf } from "@docture/synthetic/pdfkit";
-import { model, template } from "./synth.mjs";
+import { model, template } from "./bill.mjs";
 
 const document = await renderPdf(template, await model.sample({ seed: 7 }));
 const report = await verifyLabels(document, { tolerance: 2 });
-console.log(report);
+console.log(report.ok, report.checked);
 await assertVerified(document);
 ```
 
-`verifyLabels` checks that each box lies on its page and that PDF text spans inside the expanded box show the label's text. Tolerance defaults to 2 points. `assertVerified` throws `LabelVerificationError` with all failed labels.
+`verifyLabels` checks that each box lies on its page and that the PDF text spans inside the box, grown by `tolerance` points on each side, show the label's text. Tolerance defaults to 2 points. It returns a report with `ok`, `checked`, and `failures`. `assertVerified` runs the same check and throws `LabelVerificationError` listing every failed label.
 
-The failure kinds are `missing`, `outside-box`, and `page-overflow`. Verification checks the digital text layer and label placement. It does not measure OCR accuracy or a processor's extraction quality. A degraded rendition has no text layer and raises `RangeError`.
+## Read a failure
 
-`writeCorpus` verifies each digital rendering by default. A failed rendering records failures for its cases while other renderings continue. Do not disable verification when preparing a corpus whose labels you intend to trust.
+Each failure has a `path`, a `pageNumber`, a `message`, and one of three kinds:
 
-See [verification options](/docs/synthetic/reference/verify), [layout measurement](/docs/synthetic/layout-measurement), and [evaluation](/docs/synthetic/evaluation).
+- `page-overflow`: the box extends past the edge of its page.
+- `outside-box`: the page shows the text, but not inside the box.
+- `missing`: the page does not show the text at all.
+
+Verification checks the digital text layer and label placement. It does not measure OCR accuracy or a processor's extraction quality. A degraded rendition has no text layer, so passing one raises `RangeError`.
+
+## Verify a corpus
+
+`writeCorpus` verifies each digital rendering by default. When a rendering fails, its cases are recorded as failures while other renderings continue. Keep verification on for any corpus whose labels you intend to trust.
+
+See [verification options](/docs/synthetic/reference/verify), [layout measurement](/docs/synthetic/layout-measurement), and [synthetic evaluation](/docs/synthetic/evaluation).

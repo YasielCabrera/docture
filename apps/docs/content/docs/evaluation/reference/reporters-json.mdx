@@ -1,21 +1,24 @@
 ---
-title: Evaluation json reporter API
-description: Json reports from saved evaluation results.
+title: Evaluation JSON reporter API
+description: Serialize evaluation results as one JSON file or as the split result.json and cases.jsonl layout.
+type: reference
 ---
+
+Import the JSON reporter from `@docture/eval/reporters/json`. [Generate and customize evaluation reports](/docs/evaluation/reports) shows reporters in use.
 
 ## `@docture/eval/reporters/json`
 
 `renderJson` renders one JSON string. The writing factory defaults to `layout: "single"`; `layout: "split"` writes `result.json` and `cases.jsonl` into `out`.
 
-This entry is Node-only: its writing factory imports `node/artifacts`. Pure rendering implementations have no Node imports. The factory consumes `EvalResult` through `onResult`; writing requires an explicit `out` except for the terminal reporter.
-
-- `JsonReporterOptions`
+This entry imports Node.js file APIs, so it runs only in Node.js. `jsonReporter` writes the finished result to `out`.
 
 ### `renderJson`
 
 ```ts
 renderJson(result: EvalResult): string
 ```
+
+Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult).
 
 The result as one JSON document, indented, ending in a newline.
 
@@ -25,6 +28,8 @@ The result as one JSON document, indented, ending in a newline.
 renderJsonSplit(result: EvalResult): { readonly result: string; readonly cases: string; }
 ```
 
+Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult).
+
 The stored layout: `result.json` holds every member except `cases`; `cases.jsonl` holds one case per line.
 
 ### `jsonReporter`
@@ -33,4 +38,18 @@ The stored layout: `result.json` holds every member except `cases`; `cases.jsonl
 jsonReporter(options: JsonReporterOptions): Reporter
 ```
 
+Takes [`JsonReporterOptions`](/docs/evaluation/reference/reporters-json#jsonreporteroptions). Returns [`Reporter`](/docs/evaluation/reference/core#reporter).
+
 Write the result as JSON.
+
+## Types
+
+### `JsonReporterOptions`
+
+Options for `jsonReporter`.
+
+{/* options: JsonReporterOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `out` | `string` | Required. A file for `single`, a directory for `split`. |
+| `layout` | `"single" \| "split"` | `single` writes the whole result to one file. `split` writes `result.json` and `cases.jsonl`, the layout `readEvalResult` reads. Default `single`. |

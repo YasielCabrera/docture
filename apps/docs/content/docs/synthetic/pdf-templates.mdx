@@ -1,9 +1,16 @@
 ---
 title: Create synthetic PDF templates
 description: Draw fields and paginated tables with PDFKit.
+type: how-to
 ---
 
-Define a template with `defineTemplate<T>()`, then render a sample through `@docture/synthetic/pdfkit`. Install `pdfkit@0.19.1`. The [quick start](/docs/synthetic/quick-start) contains a complete two-field template.
+Define a template with `defineTemplate<T>()`, then render a sample through `@docture/synthetic/pdfkit`. Install the PDFKit engine:
+
+```sh
+npm install --save-dev @docture/synthetic docture pdfkit
+```
+
+The [quick start](/docs/synthetic/quick-start#define-the-model-and-template) contains a complete two-field template.
 
 ## Draw and label
 

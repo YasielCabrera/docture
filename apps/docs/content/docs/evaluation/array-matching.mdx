@@ -1,11 +1,12 @@
 ---
 title: Match evaluation array items
 description: Choose row alignment that reflects whether order and identity matter.
+type: how-to
 ---
 
 Give every row array an alignment rule before scoring. Use `byIndex()` when position is part of the answer, `ordered()` when insertions should preserve order, or `hungarian()` when rows may arrive in any order.
 
-```ts
+```ts check
 import { defineEval, exact, hungarian } from "@docture/eval";
 import { z } from "zod";
 

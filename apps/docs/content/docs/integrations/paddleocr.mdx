@@ -1,66 +1,69 @@
 ---
 title: PaddleOCR
-description: Public API, models, and options for docture/loaders/paddleocr.
+description: Recognize text with PaddleOCR ONNX models, choose a model preset, and read TIFF or PDF input through docture/loaders/paddleocr.
+type: reference
 ---
 
-Import from `docture/loaders/paddleocr`. The adapter uses `onnxruntime-node`, which ships
-prebuilt native dependencies for supported platforms.
+`DocumentLoaderPaddleOcr` reads a document by recognizing its pixels with PaddleOCR ONNX models through `ppu-paddle-ocr`. Import it, its model presets, and its option types from `docture/loaders/paddleocr`.
+
+## Install
 
 ```sh
 npm install docture ppu-paddle-ocr onnxruntime-node
 ```
 
-For TIFF inputs, also install the TIFF decoder:
+`onnxruntime-node` ships prebuilt native binaries for supported platforms. For TIFF inputs, also install the TIFF decoder:
 
 ```sh
 npm install utif2
 ```
 
-For PDF inputs, also install and configure a rasterizer. See the
-[complete OCR install commands](/docs/getting-started/installation).
+To read PDFs, also install and configure a rasterizer. [Installation](/docs/getting-started/installation) lists the complete OCR install commands. Engines load on first use. A missing engine fails the load with `MissingEngineError`.
+
+## Loader
+
+### `DocumentLoaderPaddleOcr`
+
+Creates a loader named `paddleocr` that reports text, geometry, and image capabilities.
 
 ```ts
 new DocumentLoaderPaddleOcr(options?: DocumentLoaderPaddleOcrOptions)
 ```
 
+Without a rasterizer, the loader accepts PNG, JPEG, and TIFF. With one, it also accepts PDF. `dispose()` releases the ONNX sessions. A later load creates fresh sessions.
+
+Model download, file, ONNX initialization, rasterization, recognition, image, and caller abort failures reject the load. A requested accelerator that cannot initialize falls back to CPU. [Extract from scans and images](/docs/integrations/scanned-documents#use-paddleocr) shows the loader in an extractor.
+
 ## Options
 
+### `DocumentLoaderPaddleOcrOptions`
+
+{/* options: DocumentLoaderPaddleOcrOptions */}
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `rasterizer` | none | Required to accept PDFs; direct PNG, JPEG, and TIFF inputs need none. |
-| `model` | `v6Tiny` | Model preset or explicit `PaddleModelFiles`. |
+| `rasterizer` | none | Required to accept PDFs. Direct PNG, JPEG, and TIFF inputs need none. |
+| `model` | `v6Tiny` | A `PaddleModel` preset or explicit `PaddleModelFiles`. |
 | `dpi` | `300` | Render and OCR resolution. |
 | `maxPages` | all | Maximum pages to read. |
 | `minConfidence` | `0.5` | Minimum detected-region confidence. |
-| `strategy` | `perLine` | Recognition batching strategy. |
+| `strategy` | `perLine` | Recognition batching, a `RecognitionStrategy` value. |
 | `maxSideLength` | `auto` | Maximum detector input edge. |
 | `paddingVertical` | `0.4` | Vertical region padding as a height fraction. |
 | `paddingHorizontal` | `0.6` | Horizontal region padding as a height fraction. |
 | `lineTolerance` | derived, about `0.28` | Region-to-line vertical band. |
 | `concurrency` | `auto` | Concurrent pages, selected for CPU or accelerator. |
-| `imageEngine` | `openCv` | `openCv` or `canvas` preprocessing. |
+| `imageEngine` | `openCv` | Preprocessing engine, an `ImageEngine` value. |
 | `executionProviders` | `["cpu"]` | Preferred ONNX execution providers. |
-
-The loader is named `paddleocr` and reports text, geometry, and images. Without a
-rasterizer it accepts PNG, JPEG, and TIFF. With one it also accepts PDF. `dispose()` releases the
-ONNX sessions and allows a later load to create fresh sessions.
-
-A TIFF loads one page per image file directory, in file order. The loader decodes the
-selected pages with the optional `utif2` peer, loaded only for TIFF input, and gives the
-engine PNG. `maxPages` and requested pages apply before decoding. Classic TIFF in either
-byte order is supported with no compression, LZW, Deflate, PackBits, CCITT Group 3, or
-CCITT Group 4, up to 8192 x 8192 pixels per page whose samples decode to at most 256 MiB,
-as in 8-bit RGBA at that size. A 16-bit RGBA page fits at up to 8192 x 4096. The load
-rejects before decoding or recognition when the file is malformed, uses another
-compression, or has a larger page. A Deflate page is inflated once, within the size its
-layout declares, and converted to PNG a band of rows at a time.
-Pages decode one at a time, and an abort stops decoding before the next page. The
-decoder reads only the page chain, never sub-IFD, Exif, or GPS directories. TIFF bytes
-labelled PNG or JPEG are read as TIFF. BigTIFF is not supported. `page.image()` on a TIFF page returns the decoded PNG.
 
 ## Models and related types
 
-`PADDLE_MODELS` is the runtime preset map. `PaddleModel` is its key union:
+### `PADDLE_MODELS`
+
+The runtime map of model presets. Read its keys to list the models a user can pick.
+
+### `PaddleModel`
+
+The key union of `PADDLE_MODELS`:
 
 `v6Tiny`, `v6Small`, `v6Medium`, `v5EnglishMobile`, `v5EnglishMobileInt8`,
 `v5EnglishServer`, `v5Mobile`, `v5Server`, `v5Arabic`, `v5Cyrillic`, `v5Devanagari`,
@@ -68,13 +71,40 @@ labelled PNG or JPEG are read as TIFF. BigTIFF is not supported. `page.image()` 
 `v4EnglishMobile`, `v4Mobile`, `v4Server`, `v4ServerDocument`, `v3Mobile`, and
 `v3Japanese`.
 
-`ModelSource` is a file path, URL string, or `Uint8Array`. `PaddleModelFiles` contains
-`detection`, `recognition`, and `charactersDictionary` sources for offline or custom
-models.
+### `PaddleModelFiles`
 
-`RecognitionStrategy` is `perBox`, `perLine`, or `crossLine`. All modes return one result
-per detected region. `ImageEngine` is `openCv` or `canvas`.
+Explicit model files for offline or custom models.
 
-Model download, file, ONNX initialization, rasterization, recognition, image, and caller
-abort failures reject the load. A requested accelerator that cannot initialize falls back
-to CPU.
+```ts
+interface PaddleModelFiles {
+  readonly detection: ModelSource;
+  readonly recognition: ModelSource;
+  readonly charactersDictionary: ModelSource;
+}
+```
+
+### `ModelSource`
+
+A file path, a URL string, or the file bytes.
+
+```ts check
+type ModelSource = string | Uint8Array;
+```
+
+### `RecognitionStrategy`
+
+How the recognizer batches detected regions: `perBox`, `perLine`, or `crossLine`. Every mode returns one result per detected region.
+
+### `ImageEngine`
+
+The detection preprocessing engine: `openCv` or `canvas`.
+
+## Read TIFF files
+
+A TIFF loads one page per image file directory, in file order. The loader decodes the selected pages with the optional `utif2` peer, which loads only for TIFF input, and passes PNG to the engine. `maxPages` and requested pages apply before decoding.
+
+The loader supports classic TIFF in either byte order with no compression, LZW, Deflate, PackBits, CCITT Group 3, or CCITT Group 4. Each page can be up to 8192 x 8192 pixels, and its samples must decode to at most 256 MiB, as in 8-bit RGBA at that size. A 16-bit RGBA page fits at up to 8192 x 4096.
+
+The load rejects before decoding or recognition when the file is malformed, uses another compression, or has a larger page. BigTIFF is not supported. TIFF bytes labelled PNG or JPEG are read as TIFF.
+
+Pages decode one at a time, and an abort stops decoding before the next page. The decoder reads only the page chain and skips sub-IFD, Exif, and GPS directories. `page.image()` on a TIFF page returns the decoded PNG.

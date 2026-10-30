@@ -14,14 +14,41 @@
       ],
       "inputs": [
         "$TURBO_EXTENDS$",
-        "public/**"
+        "public/**",
+        "examples/**",
+        "api-reference.ts",
+        "next.config.mjs",
+        "source.config.ts",
+        "postcss.config.mjs",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "scripts/page-rules.ts",
+        "$TURBO_ROOT$/.changeset/**"
       ]
     },
     "typecheck": {
       "inputs": [
         "$TURBO_EXTENDS$",
+        "next.config.mjs",
         "$TURBO_ROOT$/brand/**",
-        "public/brand/**"
+        "public/brand/**",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/packages/*/AGENTS.md",
+        "$TURBO_ROOT$/packages/*/README.md",
+        "$TURBO_ROOT$/apps/examples/**",
+        "$TURBO_ROOT$/scripts/**"
+      ]
+    },
+    "test": {
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "content/**",
+        "lib/**",
+        "scripts/**",
+        "examples/**",
+        "api-reference.ts",
+        "next.config.mjs",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/packages/*/CHANGELOG.md"
       ]
     },
     "dev": {

@@ -1,9 +1,22 @@
 ---
 title: Documentation
-description: Extract, convert, evaluate, and generate documents with Docture.
+description: Pick the Docture quick start for your goal, or open an area of the documentation.
+type: overview
 ---
 
-Choose a workflow. Each area includes a quick start, focused guides, and API reference.
+Docture extracts typed data from documents, converts them to grounded content, evaluates processors, and generates labeled synthetic documents. Start with the quick start for your goal, or open an area to find its guides and API reference.
+
+## Start with a quick start
+
+<Cards>
+  <Card title="Extract your first document" href="/docs/extraction/quick-start" description="Read typed invoice fields from a PDF without an API key." />
+  <Card title="Convert your first PDF" href="/docs/conversion/quick-start" description="Turn a PDF into Markdown with PDF.js, without a model." />
+  <Card title="Run your first evaluation" href="/docs/evaluation/quick-start" description="Score a small experiment without credentials or engines." />
+  <Card title="Generate your first labeled PDF" href="/docs/synthetic/quick-start" description="Draw sampled fields and verify their labels." />
+  <Card title="Run your first CLI commands" href="/docs/cli/quick-start" description="Inspect, convert, and dry-run an extraction from a terminal." />
+</Cards>
+
+## Browse by area
 
 <Cards className="docs-start-links">
   <Card title="Getting started" href="/docs/getting-started" description="Choose a workflow, install packages, and understand the pipeline." />
@@ -16,22 +29,4 @@ Choose a workflow. Each area includes a quick start, focused guides, and API ref
   <Card title="Resources" href="/docs/resources" description="Find examples, extension and testing tools, errors, and release notes." />
 </Cards>
 
-## Get started
-
-Use the [extraction quick start](/docs/extraction/quick-start) or [conversion quick start](/docs/conversion/quick-start).
-
-## Smallest complete example
-
-Each quick start includes installation, runnable code, and the expected result.
-
-## What you install
-
-The four packages are `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic`. Add only the engines in your selected [installation recipe](/docs/getting-started/installation).
-
-## What comes back
-
-[Extraction results](/docs/extraction/results) include schema-inferred data, attempts, validation, and usage. Conversion returns content and source evidence. Evaluation returns scores and reports. Synthetic documents include ground truth and field locations.
-
-## Choose a path
-
-Use [Choose a workflow](/docs/getting-started/choose-workflow), the [API index](/docs/api), or [runnable examples](/docs/resources/examples).
+The [API index](/docs/api) lists every public export by import path.

@@ -1,10 +1,11 @@
 ---
 title: "docture eval"
 description: "Evaluate extraction quality: run, report, compare and gate"
+type: reference
 ---
 
 Runs the evaluation in docture.eval.ts and works with the runs it stores. Every
-subcommand is a thin shell over @docture/eval. Files without a subcommand run quick mode.
+subcommand uses the @docture/eval APIs, so results match the library. Files without a subcommand run quick mode.
 
 ## Arguments
 
@@ -45,4 +46,4 @@ docture eval corpus/*.pdf -s ./invoice.ts -m openai/gpt-5 --truth corpus/truth -
 - [`docture eval draft`](/docs/cli/commands/eval-draft). Draft ground truth for cases without signed-off truth.
 - [`docture eval sign-off`](/docs/cli/commands/eval-sign-off). Mark a case's drafted ground truth as reviewed.
 
-See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).
+See [Evaluate from the CLI](/docs/cli/evaluation) and [input and output behavior](/docs/cli/inputs-and-outputs).

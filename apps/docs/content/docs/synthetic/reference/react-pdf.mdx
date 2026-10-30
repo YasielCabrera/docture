@@ -1,20 +1,12 @@
 ---
 title: Synthetic react-pdf API
-description: Public API for @docture/synthetic/react-pdf.
+description: Lay out synthetic templates as React components with react-pdf and label every Field.
+type: reference
 ---
 
+`@docture/synthetic/react-pdf` renders React templates with `@react-pdf/renderer` and labels every `<Field>` with the box of its laid-out text. The [React templates guide](/docs/synthetic/react-templates) shows it in use.
+
 ## `@docture/synthetic/react-pdf`
-
-Render React templates with `@react-pdf/renderer` and label every `<Field>`. See [Create synthetic React templates](/docs/synthetic/react-templates) for a guide.
-
-- `ReactTemplate`
-- `ReactTemplateDefinition`
-- `ReactTemplateProps`
-- `ReactFont`
-- `FieldProps`
-- `FieldPath`
-- `FieldComponent`
-- `RenderReactPdfOptions`
 
 ### `defineReactTemplate`
 
@@ -22,11 +14,11 @@ Render React templates with `@react-pdf/renderer` and label every `<Field>`. See
 defineReactTemplate<T>(): (definition: ReactTemplateDefinition<T>) => ReactTemplate<T>
 ```
 
-Define a React template for values of type `T`: `defineReactTemplate<Invoice>()({ ... })`. A definition has a `key`, optional `aliases`, a `family`, optional `tags`, a `locale`, the `printed` mask, optional `fonts`, and `render`.
+Defines a React template for values of type `T`: `defineReactTemplate<Invoice>()({ ... })`. The definition fields are listed under [`ReactTemplateDefinition`](#reacttemplatedefinition).
 
-`render(props)` receives `ReactTemplateProps<T>`: the sampled `value`, a `format` for the template's locale, and `Field` typed for `T`. It returns one or more `<Page>` elements, or a promise of them. Returning a `<Document>` fails, because the renderer supplies it.
+`render(props)` receives [`ReactTemplateProps<T>`](#reacttemplateprops) and returns one or more `<Page>` elements, or a promise of them. Returning a `<Document>` fails, because the renderer supplies it.
 
-`fonts` is a list of `ReactFont` faces: a `family`, a `src` (a `FontSource`, or a file path, URL, or data URL), and an optional `fontWeight` and `fontStyle`. Faces register with react-pdf before the first render that uses them. Families are process-wide, so rendering fails with `TemplateError` when a template registers a family again with other faces, reuses a standard font name or a family from `Font.register`, or uses a family it does not declare. The 14 standard PDF fonts, such as `Helvetica` and `Times-Roman`, need no declaration.
+`fonts` lists [`ReactFont`](#reactfont) faces. Faces register with react-pdf before the first render that uses them. Families are process-wide, so rendering fails with `TemplateError` when a template registers a family again with other faces, reuses a standard font name or a family from `Font.register`, or uses a family it does not declare. The 14 standard PDF fonts, such as `Helvetica` and `Times-Roman`, need no declaration.
 
 A `ReactTemplate<T>` is a `RenderingTemplate<T>`. Its `renderDocument(sample, { createdAt })` calls `renderReactPdf`, so `writeCorpus`, `renderTemplate`, and `docture synth` render it without importing React.
 
@@ -50,8 +42,78 @@ Lay out and render the template, then label each `<Field>` with the union of its
 
 `createdAt` is written as the creation and modification date and defaults to a fixed date, so equal inputs give equal bytes on one installed set of react-pdf packages. `@react-pdf/renderer` 4.9.0 takes its layout, text, and font packages by caret range, so keep a lockfile to reproduce a corpus. `producer`, `creator`, and `title` set document info; the document language is the template's locale. `provenance` records the renderer, the react-pdf and React versions, and `createdAt`.
 
-Fails with `TemplateError` when fields and the printed mask disagree, text uses a character its font lacks (`missing-glyph`), or a field is nested in `<Text>`, hidden with `display: none`, under a transform, empty, outside its page, or cut off by a fixed height, `maxLines` or `overflow: hidden` (`invalid-template`). Fields inside `<Svg>` and fields with right-to-left text cannot be labeled and fail the same way. An error thrown by `render` or react-pdf becomes an `invalid-template` problem with the original as `cause`.
+Fails with `TemplateError` when fields and the printed mask disagree, text uses a character its font lacks (`missing-glyph`), or a field is nested in `<Text>`, hidden with `display: none`, under a transform other than `translate()`, empty, outside its page, or cut off by a fixed height, `maxLines` or `overflow: hidden` (`invalid-template`). Fields inside `<Svg>` and fields with right-to-left text cannot be labeled and fail the same way. An error thrown by `render` or react-pdf becomes an `invalid-template` problem with the original as `cause`.
 
 ### `ENGINE_RANGES`
 
 `{ react: ">=18.3.1 <20.0.0", "@react-pdf/renderer": "4.9.0" }`. A missing engine raises `MissingEngineError` naming the package and this entry.
+
+## Types
+
+### `ReactTemplateDefinition`
+
+{/* options: ReactTemplateDefinition */}
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `key` | required | Unique template name used by selectors and case ids. |
+| `aliases` | `[]` | Other names that select the template. |
+| `family` | required | Group name for templates of one document kind. |
+| `tags` | `{}` | Values copied into each case's tags. |
+| `locale` | required | The `Locale` used for `format` and the document language. |
+| `printed` | required | The [printed mask](/docs/synthetic/reference/templates#prints) for every schema field. |
+| `fonts` | `[]` | `ReactFont` faces the template draws with. |
+| `render` | required | `(props) => ReactNode \| Promise<ReactNode>`, returning `<Page>` elements. It can be async to prepare images such as QR codes before layout. |
+
+### `ReactTemplate`
+
+{/* options: ReactTemplate */}
+| Field | Meaning |
+| --- | --- |
+| `key` | The template key. |
+| `aliases` | Alternative names, empty when none were given. |
+| `family` | The template family. |
+| `tags` | Tags, empty when none were given. |
+| `locale` | The template locale. |
+| `printed` | The printed mask. |
+| `fonts` | The declared font faces. |
+| `render` | The render function. |
+| `renderDocument` | `(sample, { createdAt }) => Promise<SyntheticDocument>`, which calls `renderReactPdf`. |
+
+### `ReactTemplateProps`
+
+{/* options: ReactTemplateProps */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `value` | `T` | The sampled value. |
+| `format` | `Formatter` | Number, money, and date formatting for the template's locale. |
+| `Field` | `FieldComponent<T>` | `<Field>` with `path` typed for `T`. |
+
+### `ReactFont`
+
+{/* options: ReactFont */}
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `family` | required | The `fontFamily` name styles use. Families are process-wide in react-pdf, so give each distinct set of faces its own name. |
+| `src` | required | A `FontSource`: a standard PDF font name, a file path, a URL, a data URL, or the font bytes. |
+| `fontWeight` | none | Numeric weight of this face. |
+| `fontStyle` | none | `normal`, `italic`, or `oblique`. |
+
+### `FieldPath`, `FieldProps`, and `FieldComponent`
+
+```ts
+type FieldPath<T> = unknown extends T ? string | readonly string[] : ConcretePath<T> | readonly ConcretePath<T>[];
+type FieldProps<T> = Omit<TextProps, "render"> & { readonly path: FieldPath<T>; readonly children?: ReactNode };
+type FieldComponent<T> = (props: FieldProps<T>) => ReactElement;
+```
+
+`FieldPath` is one concrete path or several that print as the same text. `FieldProps` is every react-pdf `<Text>` prop except `render`, plus `path`. Pass a `FieldComponent<T>` to your own components that print fields.
+
+### `RenderReactPdfOptions`
+
+{/* options: RenderReactPdfOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `createdAt` | fixed date | Written as the PDF creation and modification date, so equal inputs give equal bytes. |
+| `producer` | `@docture/synthetic` | The PDF Producer field. |
+| `creator` | the template key | The PDF Creator field. |
+| `title` | `<key> <scenario> <seed>` | The PDF Title field. |

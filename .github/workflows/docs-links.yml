@@ -1,0 +1,30 @@
+name: External documentation links
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          fail: true
+          args: >-
+            --no-progress
+            --exclude-path node_modules
+            --exclude "^/"
+            --exclude "^https?://(localhost|127\.0\.0\.1)"
+            --exclude "^https?://[^/]*\.(test|example|invalid)(/|$)"
+            --exclude "^https?://(www\.)?example\.(com|org|net)"
+            "apps/docs/content/**/*.mdx"
+            "README.md"
+            "packages/*/README.md"
+            "packages/*/AGENTS.md"

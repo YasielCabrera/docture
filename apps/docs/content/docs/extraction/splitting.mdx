@@ -1,6 +1,7 @@
 ---
 title: Split document bundles
 description: How Process separates a multi-document file before extraction.
+type: how-to
 ---
 
 A bundle is one source containing several documents. `Process` loads the source once,
@@ -23,7 +24,7 @@ flowchart LR
 A splitter answers whether two adjacent pages belong to the same document. It also
 reports the classification of each page and may report confidence.
 
-```ts
+```ts check
 import { defineSplitter } from "docture";
 
 const splitter = defineSplitter({
@@ -63,7 +64,7 @@ try {
 }
 ```
 
-Each result carries the kind's typed data and original page numbers. The configured extractor supplies loaders and extraction strategies. Run `pnpm --filter @docture/examples bundles` for the repository's complete account-bundle example.
+Each result carries the kind's typed data and original page numbers. The configured extractor supplies loaders and extraction strategies.
 
 ## Eager and lazy splitting
 

@@ -1,17 +1,18 @@
 ---
 title: Use model judges in evaluation
 description: Compare semantic string values with cached asynchronous verdicts.
+type: how-to
 ---
 
 Install the judge's optional engine and your AI SDK provider:
 
 ```sh
-pnpm add ai @ai-sdk/openai
+npm install ai @ai-sdk/openai
 ```
 
 Use the judge for selected string leaves rather than replacing deterministic comparisons for identifiers or exact amounts:
 
-```ts
+```ts check
 import { defineEval, exact } from "@docture/eval";
 import { judge } from "@docture/eval/judge";
 import { openai } from "@ai-sdk/openai";

@@ -1,7 +1,10 @@
 ---
 title: Manage cancellation, deadlines, and cleanup
 description: Stop runs, bound stage time, log events, and dispose shared engines.
+type: how-to
 ---
+
+These controls stop an extraction, bound how long each stage may run, log pipeline events, and release loaders and models when you finish. A missed stage deadline raises `TimeoutError`; [errors](/docs/resources/errors) lists its fields.
 
 ## Stop a run
 

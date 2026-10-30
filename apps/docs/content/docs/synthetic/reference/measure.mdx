@@ -1,19 +1,12 @@
 ---
 title: Synthetic measure API
-description: Public API for @docture/synthetic/measure.
+description: Read the text boxes of a PDF and measure how far a template's text drifts from a reference form.
+type: reference
 ---
 
-## `@docture/synthetic/measure`
+`@docture/synthetic/measure` reads the positioned text lines of a PDF and compares two layouts line by line. It needs `pdfjs-dist`, loaded through `docture/loaders/pdfjs`. The [layout measurement guide](/docs/synthetic/layout-measurement) shows it in use.
 
-- `Measurement`
-- `MeasuredPage`
-- `MeasuredLine`
-- `LayoutSource`
-- `CompareOptions`
-- `LayoutComparison`
-- `LineDrift`
-- `PlacedLine`
-- `RepeatedLine`
+## `@docture/synthetic/measure`
 
 ### `measurePdf`
 
@@ -21,7 +14,9 @@ description: Public API for @docture/synthetic/measure.
 measurePdf(bytes: Uint8Array): Promise<Measurement>
 ```
 
-Read every text line of a PDF with its box, page by page, top to bottom and left to right. Spans on one visual line stay separate lines when a gap wider than their font size divides them, so a label and its value, or two columns, are measured apart. Boxes reach from the baseline up one font size, as every box from Docture's PDF.js loader does, so the baseline is `box.y + box.height`. Needs `pdfjs-dist` through `docture/loaders/pdfjs`.
+Reads every text line of a PDF with its box, page by page, top to bottom and left to right. Spans on one visual line stay separate lines when a gap wider than their font size divides them, so a label and its value, or two columns, are measured apart.
+
+Returns a `Measurement`.
 
 ### `compareLayouts`
 
@@ -29,7 +24,9 @@ Read every text line of a PDF with its box, page by page, top to bottom and left
 compareLayouts(reference: LayoutSource, candidate: LayoutSource, options?: CompareOptions): Promise<LayoutComparison>
 ```
 
-Measure how far the text of a candidate sits from the same text in a reference, for a template that reproduces a real form. Each side is PDF bytes, a rendered PDF `SyntheticDocument` or a `Measurement`, so `compareLayouts(referenceBytes, await renderPdf(template, sample))` works. Only text that occurs exactly once on a page of both documents is paired, by its whitespace-collapsed content. Each matched line reports `dx` and `dy` in points, candidate minus reference, and `drift`, the larger of the two. Text found on that page of one document only is listed in `onlyInReference` or `onlyInCandidate`; text repeated on either side is listed in `repeated` with its counts. `ok` is `maxDrift <= tolerance`, default 0.5 points. A document of another media type throws `RangeError`.
+Measures how far the text of a candidate sits from the same text in a reference, for a template that reproduces a real form. Only text that occurs exactly once on a page of both documents is paired, by its whitespace-collapsed content. Text found on that page of one document only goes to `onlyInReference` or `onlyInCandidate`. Text repeated on either side goes to `repeated` with its counts.
+
+Returns a `LayoutComparison`. Throws `RangeError` when a source is a document of a media type other than PDF.
 
 ```ts
 import { compareLayouts } from "@docture/synthetic/measure";
@@ -37,8 +34,100 @@ import { renderPdf } from "@docture/synthetic/pdfkit";
 
 const drift = await compareLayouts(referencePdf, await renderPdf(template, sample), { tolerance: 1 });
 for (const line of drift.matched.filter((line) => line.drift > drift.tolerance)) {
-  console.log(`p${line.pageNumber} dx=${line.dx.toFixed(2)} dy=${line.dy.toFixed(2)} ${line.text}`);
+	console.log(`p${line.pageNumber} dx=${line.dx.toFixed(2)} dy=${line.dy.toFixed(2)} ${line.text}`);
 }
 ```
 
-`ok` checks matched-line drift only. No matched lines produce `maxDrift: 0`; unmatched or repeated text does not make `ok` false. Check those lists before treating a result as an acceptable reproduction.
+`ok` checks matched-line drift only. No matched lines produce `maxDrift: 0`, and unmatched or repeated text does not make `ok` false. Check those lists before you treat a result as an acceptable reproduction.
+
+## Inputs
+
+### `LayoutSource`
+
+```ts
+type LayoutSource = Uint8Array | Pick<SyntheticDocument, "bytes" | "mimeType"> | Measurement;
+```
+
+PDF bytes, a rendered PDF `SyntheticDocument`, or a `Measurement` taken earlier. Passing a `Measurement` skips reading the PDF again.
+
+### `CompareOptions`
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `tolerance` | `0.5` | Points a matched line may drift before `ok` becomes `false`. |
+
+## Measurements
+
+All boxes use PDF points with a top-left origin and y pointing down. Like every box from Docture's PDF.js loader, a line box reaches from the baseline up one font size, so the baseline is `box.y + box.height`.
+
+### `Measurement`
+
+{/* options: Measurement */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `pages` | `readonly MeasuredPage[]` | The measured pages in document order. |
+
+### `MeasuredPage`
+
+{/* options: MeasuredPage */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `pageNumber` | `number` | One-based page number. |
+| `width` | `number` | Page width in points. |
+| `height` | `number` | Page height in points. |
+| `lines` | `readonly MeasuredLine[]` | Text lines, top to bottom and then left to right. |
+
+### `MeasuredLine`
+
+{/* options: MeasuredLine */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `text` | `string` | The text of one run of spans with no gap wider than their font size. |
+| `box` | `LayoutBox` | The line's box in points. |
+
+## Comparison results
+
+### `LayoutComparison`
+
+{/* options: LayoutComparison */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `ok` | `boolean` | `maxDrift <= tolerance`. |
+| `tolerance` | `number` | The tolerance used. |
+| `maxDrift` | `number` | The largest `drift` of a matched line, or `0` when nothing matched. |
+| `matched` | `readonly LineDrift[]` | Lines paired across the two documents. |
+| `onlyInReference` | `readonly PlacedLine[]` | Lines whose text the same page of the candidate never shows. |
+| `onlyInCandidate` | `readonly PlacedLine[]` | Lines whose text the same page of the reference never shows. |
+| `repeated` | `readonly RepeatedLine[]` | Text that occurs more than once on a page of either document, so it cannot be paired. |
+
+### `LineDrift`
+
+{/* options: LineDrift */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `pageNumber` | `number` | Page of both lines. |
+| `text` | `string` | The shared whitespace-collapsed text. |
+| `reference` | `LayoutBox` | The line's box in the reference. |
+| `candidate` | `LayoutBox` | The line's box in the candidate. |
+| `dx` | `number` | Candidate x minus reference x, in points. |
+| `dy` | `number` | Candidate y minus reference y, in points. |
+| `drift` | `number` | The larger of the absolute values of `dx` and `dy`. |
+
+### `PlacedLine`
+
+{/* options: PlacedLine */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `pageNumber` | `number` | Page the line appears on. |
+| `text` | `string` | The line's text. |
+| `box` | `LayoutBox` | The line's box in points. |
+
+### `RepeatedLine`
+
+{/* options: RepeatedLine */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `pageNumber` | `number` | Page of the repeated text. |
+| `text` | `string` | The repeated text. |
+| `reference` | `number` | Occurrences on that page of the reference. |
+| `candidate` | `number` | Occurrences on that page of the candidate. |

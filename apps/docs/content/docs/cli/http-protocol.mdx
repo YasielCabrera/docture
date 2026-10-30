@@ -1,34 +1,59 @@
 ---
 title: HTTP protocol reference
 description: Byte-based requests, result envelopes, transport errors, and capacity limits.
+type: reference
 ---
 
-The service accepts JSON POST requests to `/convert`, `/inspect`, and `/extract`. It accepts document bytes, not source paths or URLs.
+The service started by [`docture serve`](/docs/cli/http-service) accepts JSON POST requests on three routes. It accepts document bytes, not source paths or URLs.
+
+## Routes
+
+| Route | Request fields | Result |
+| --- | --- | --- |
+| `/convert` | `document`, optional `pages`, optional `format` | `content`, `format`, `mimeType`, `pageCount`, `loader`, `method`, and `warnings`, with assets embedded |
+| `/inspect` | `document`, optional `pages` | The page and fact report of `inspect --format json` |
+| `/extract` | `document`, `schema`, optional `pages` | Full data, validation, citation and evidence, and conflict fields |
+
+## Request body
 
 ```json
 {
-  "document": { "data": "SGVsbG8=", "mimeType": "text/plain", "fileName": "note.txt" },
-  "schema": "note"
+  "document": { "data": "JVBERi0xLjMK...", "mimeType": "application/pdf", "fileName": "invoice.pdf" },
+  "schema": "invoice"
 }
 ```
 
-`document.data` is canonical base64. `pages`, when supplied, contains one-based original page numbers. `/extract` requires a configured `schema` name. `/convert` accepts `format`: `text`, `markdown`, `html`, or `json`. `/inspect` accepts neither schema nor format. Unknown fields fail before loading.
-
-Responses use the version 1 CLI envelope. Conversion embeds assets and returns content, format, MIME, page count, loader, method, and warnings. Extraction retains full validation, citation/evidence, and conflict data. Document failures remain envelopes with `ok: false`.
-
-| HTTP status | Transport failure |
+| Field | Meaning |
 | --- | --- |
-| 400 | Invalid request |
-| 401 | Invalid authentication |
-| 404 | Unknown route |
-| 405 | Unsupported method |
-| 408 | Body deadline exceeded |
-| 413 | Encoded JSON body too large |
-| 415 | Unsupported content type |
-| 503 | Queue full or service shutting down |
+| `document.data` | Required. The document bytes as nonempty canonical base64 |
+| `document.mimeType` | Optional media type, at most 200 characters |
+| `document.fileName` | Optional file name, at most 255 characters |
+| `pages` | Optional nonempty array of one-based original page numbers |
+| `format` | `/convert` only. `text`, `markdown`, `html`, or `json`. Default `markdown` |
+| `schema` | `/extract` only. Required. A schema name the service was started with |
 
-Localhost is the default. Other bindings require `DOCTURE_SERVE_TOKEN`; send it as `Authorization: Bearer <token>`. Configuration and schema selection stay fixed until restart.
+A field the route does not list fails with HTTP 400 before the document loads.
 
-Concurrency, queue, encoded body size, body deadline, and drain deadline are configurable. A client disconnect cancels its work. Shutdown stops admission and drains requests before cancellation and shared disposal. A cancellation-ignoring engine can delay final exit.
+## Responses
 
-See [service startup and defaults](/docs/cli/http-service), [command flags](/docs/cli/commands/serve), and the [service API](/docs/cli/reference/service).
+Every response uses the version 1 CLI envelope. A document failure is still HTTP 200, with `ok: false` and an `error` with `code` and `message` on the result.
+
+| HTTP status | Code | Transport failure |
+| --- | --- | --- |
+| 400 | `INVALID_REQUEST` | Invalid request |
+| 401 | `UNAUTHORIZED` | Missing or invalid bearer token |
+| 404 | `NOT_FOUND` | Unknown route |
+| 405 | `METHOD_NOT_ALLOWED` | Method other than POST |
+| 408 | `BODY_TIMEOUT` | Body deadline exceeded |
+| 413 | `BODY_TOO_LARGE` | Encoded JSON body too large |
+| 415 | `INVALID_REQUEST` | Unsupported content type |
+| 500 | `SERVICE_FAILED` | Unexpected service failure |
+| 503 | `SERVICE_BUSY` | Capacity full |
+| 503 | `SERVICE_CLOSING` | Service is closing |
+| 503 | `SERVICE_SHUTDOWN` | Shutdown deadline expired |
+
+## Authentication and limits
+
+The service binds to localhost by default. Other bindings require `DOCTURE_SERVE_TOKEN`, which clients send as `Authorization: Bearer <token>`. Configuration and schema selection stay fixed until restart.
+
+The [`docture serve` flags](/docs/cli/commands/serve) set active requests, queue length, encoded body size, body deadline, and drain deadline. A client disconnect cancels its work. Shutdown stops admission and drains requests before it cancels them and disposes shared resources. An engine that ignores cancellation can delay the final exit. The [service API](/docs/cli/reference/service) exposes the same options to Node code.

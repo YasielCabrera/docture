@@ -1,11 +1,15 @@
 ---
 title: Export images and assets
 description: Return referenced, embedded, or omitted image assets without implicit filesystem writes.
+type: how-to
 ---
 
-## Assets
+Conversion returns embedded images as bytes in `result.assets` and never writes files. The
+`assets` option decides how the output refers to them.
 
-`assets` accepts `referenced`, `embedded`, or `omit`:
+## Choose an asset mode
+
+`assets` accepts `referenced`, `embedded`, or `omit`. Referenced is the default:
 
 ```ts
 const referenced = await converter.convert(source, { assets: "referenced" });
@@ -13,15 +17,31 @@ const embedded = await converter.convert(source, { assets: "embedded" });
 const textOnly = await converter.convert(source, { assets: "omit" });
 ```
 
-Referenced output uses stable relative names such as
-`report.assets/page-1-image-1.png`. `result.assets` carries each name, media type,
-position, and `Uint8Array` value. Embedded Markdown and HTML use data URLs. Omit mode
-does not ask the loader for asset bytes.
+- Choose `referenced` when you store output files. Markdown and HTML link each image by a
+  stable relative name such as `report.assets/page-1-image-1.png`.
+- Choose `embedded` for a self-contained response. Markdown and HTML use data URLs.
+- Choose `omit` when you index text only. The converter does not ask the loader for asset
+  bytes.
 
-V1 copies embedded raster figures. It does not reconstruct vector art or produce a
+Conversion copies embedded raster images. It does not reconstruct vector art or produce a
 pixel-matched HTML rendering of the page.
 
+## Write assets to disk
 
-The library does not write files. The [quick start](/docs/conversion/quick-start) writes each referenced asset beside the document. Choose embedded assets for a self-contained response, or omit them when indexing text only.
+Each `ConversionAsset` in `result.assets` carries its relative `reference`, media type,
+position, and `Uint8Array` bytes. Write each one to its reference path beside the document:
 
-See [converter results](/docs/conversion/reference/converter#result) for the asset records and [CLI conversion](/docs/cli/commands) for filesystem output.
+```ts
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+
+for (const asset of result.assets) {
+  const path = join("converted", asset.reference);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, asset.bytes);
+}
+```
+
+The [quick start](/docs/conversion/quick-start) runs this loop as part of a full
+conversion. See [converter results](/docs/conversion/reference/converter#result) for the
+asset records and [CLI conversion](/docs/cli/commands) for filesystem output.

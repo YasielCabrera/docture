@@ -1,60 +1,92 @@
 ---
 title: Chunk documents for retrieval
 description: Split converted documents into chunks that cite their pages and boxes.
+type: how-to
 ---
 
 `chunkDocument()` from `docture/chunk` splits a converted document into retrieval chunks.
 Each chunk keeps the page number, bounding box, and source IDs of the elements it holds,
 so an answer built from a chunk can point back to the PDF region it came from.
 
+The example reads the `report.pdf` that [the quick start](/docs/conversion/quick-start) generates.
+
 <SourceExample file="rag-chunks.ts" title="chunk-report.ts" />
 
 ## Choose a budget
 
-The budget counts `characters` or `estimatedTokens`. One estimated token is four
-characters, with the count rounded up. It is not a tokenizer's count. Pick a `max` below
-your embedding model's limit to leave room for that difference. The budget is soft in one
-case only. A chunk exceeds `max` when it holds a single unit larger than `max`: one
-element, or one table row group with its header rows, plus the heading path when
-`headingPath` is set. Elements are never cut.
+Set the budget in the unit your embedding model limits. Use `characters` when the limit is
+in characters. Use `estimatedTokens` when the limit is in tokens. An estimated token is
+four characters, rounded up, and it is not a tokenizer's count. Pick a `max` below your
+model's limit to leave room for that difference.
 
 ```ts
 import { chunkDocument } from "docture/chunk";
 
-const chunks = chunkDocument(result, { budget: { unit: "characters", max: 2000 } });
+const chunks = chunkDocument(result, { budget: { unit: "estimatedTokens", max: 500 } });
 console.log(chunks[0]?.text, chunks[0]?.provenance[0]?.pageNumber);
 ```
 
+Chunking never cuts an element, so a single paragraph or table row group larger than
+`max` becomes a chunk larger than `max`. If your model rejects oversized input, check
+each chunk's length before you embed it. The [budget rules](/docs/conversion/reference/chunk#budget-rules)
+give the exact limits.
+
 ## How elements are packed
 
-- Chunks hold whole elements in reading order, and each heading starts a new chunk. A
-  heading that does not fit with the element after it becomes a chunk of its own.
-- A table larger than the budget splits between rows. Every piece repeats the header rows,
-  and rows joined by a row span stay together. Pieces are sized with the heading path in
-  front when `headingPath` is set. Each piece cites only the pages of its rows. A table
-  without `rowProvenance`, such as one in a saved version 1 document, cites the whole
-  table in every piece.
-- A table or paragraph that [continues across pages](/docs/conversion/reference/continuations#tables-and-paragraphs-across-pages)
-  cites every page it covers.
-- Figures, page breaks, and running headers and footers add no chunk text.
+Chunks hold whole elements in reading order. A heading starts a new chunk once the
+current chunk holds body content. A table larger than the budget splits between rows,
+and every piece repeats the header rows.
+Figures, page breaks, and running headers and footers add no text. The
+[packing rules](/docs/conversion/reference/chunk#packing-rules) cover row spans, tables that
+continue across pages, and saved documents.
 
-Body text appears in one chunk only. `overlapElements: 1` repeats the last element of the
-previous chunk at the start of the next when both fit the budget, and drops the repeat
-when they do not. `headingPath: true` starts each chunk with the
-headings it sits under, one per level, outermost first. A heading replaces every heading at
-its level or deeper, so an earlier sibling section never appears in the path. Repeated header rows and heading paths are context and do not add
-provenance.
+Chunking the sample invoice from the [quick start](/docs/conversion/quick-start) with a
+400-character budget and `headingPath: true` gives four chunks:
+
+```ts
+const chunks = chunkDocument(result, {
+  budget: { unit: "characters", max: 400 },
+  headingPath: true,
+});
+```
+
+The first chunk holds the `# INVOICE` heading and the invoice details. The line-item table
+does not fit in one chunk, so it splits into three pieces. Each piece starts with the
+heading and repeats the table's header row. The last piece holds the totals:
+
+```md
+# INVOICE
+
+| Description | Qty | Unit Price | Amount |
+| --- | --- | --- | --- |
+|  |  | Subtotal | 20,989.96 |
+|  |  | VAT 19% | 3,988.09 |
+|  |  | TOTAL (EUR) | 24,978.05 |
+```
+
+## Add context to each chunk
+
+A chunk cut from the middle of a section can lose the context a retriever needs. Two
+options add it back:
+
+- `headingPath: true` starts each chunk with the headings it sits under. Use it when
+  section titles carry meaning, such as in contracts and manuals.
+- `overlapElements: 1` repeats the last element of the previous chunk at the start of the
+  next. Use it when a sentence or row often depends on the one before it. The repeat is
+  dropped when it does not fit the budget.
+
+The heading path is context. It adds no element ID or provenance segment to the chunk.
+A repeated overlap element is part of the chunk, so its ID and provenance appear in both
+chunks.
 
 ## Stable IDs
 
 Chunk IDs come from the element IDs, table row ranges, and options. Converting the same
 file with the same loader and options gives the same IDs, so you can update an index in
-place. A saved JSON document read with `parseDoctureDocument()` chunks to the same IDs as
-the conversion result it came from.
+place. Upsert chunks by ID and delete IDs that no longer appear. A saved JSON document read
+with `parseDoctureDocument()` chunks to the same IDs as the conversion result it came from.
 
-Element IDs come from each element's content and position, as described in
-[Element IDs](/docs/conversion/reference/evidence#element-ids). Inserting an unrelated
-element keeps the ID of every chunk whose elements and table row ranges stay the same. An
-insertion can still move elements between chunks when it changes what fits in a budget.
-
-The [chunk reference](/docs/conversion/reference/chunk) lists every option and rule.
+Changing the budget or another option changes every ID, so re-index the whole document
+after you change options. Editing the source can also move elements between chunks. See
+[`DocumentChunk`](/docs/conversion/reference/chunk#documentchunk) for what the ID covers and
+[Element IDs](/docs/conversion/reference/evidence#element-ids) for how element IDs change.

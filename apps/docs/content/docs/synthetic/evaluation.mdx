@@ -1,9 +1,10 @@
 ---
 title: Evaluate a synthetic corpus
 description: Read corpus truth and source locations with the evaluation package.
+type: how-to
 ---
 
-Install `@docture/eval` alongside `@docture/synthetic` and `docture`. `jsonlDataset` reads the manifest returned by `writeCorpus`.
+Install `@docture/eval` alongside `@docture/synthetic` and `docture`. `jsonlDataset` reads the manifest returned by `writeCorpus`. For a complete runnable example, [build the extract, generate, and evaluate loop](/docs/getting-started/build-the-loop) with one schema and no model credentials.
 
 Each case includes tags for template, family, scenario, rendition, severity, and locale, plus a `group` shared by the renditions of one rendering. Expected `locations` come from the transformed label boxes. Preserve groups in comparisons so related renditions do not count as independent ground truths.
 

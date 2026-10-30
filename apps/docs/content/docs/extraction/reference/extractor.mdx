@@ -1,24 +1,67 @@
 ---
 title: Extractor API
 description: Extractor construction, registration, run options, and extraction methods.
+type: reference
 ---
 
-Import from `docture`.
+`Extractor` composes loaders, classifiers, and extraction strategies and runs them on a document. Import it from `docture`, or from `docture/node` when you pass local file paths.
 
 ## Extractor
 
+### `Extractor`
+
+Owns registered components and defaults, and runs extraction, classification, and batches.
+
 ```ts
-new Extractor(options?: ExtractorOptions)
-createExtractor(options: ExtractorOptions): Extractor
+class Extractor implements DocumentExtractor {
+  constructor(options?: ExtractorOptions);
+  loadDocumentLoader(...loaders: readonly DocumentLoader[]): this;
+  loadStrategy(...strategies: readonly ExtractionStrategy[]): this;
+  loadLlm(backend: ModelBackend, options?: LoadLlmOptions): this;
+  loadClassifier(...classifiers: readonly Classifier[]): this;
+  loadClassifications(...classifications: readonly Classification[]): this;
+  loadPolicy(policy: RoutingPolicy): this;
+  loadLogger(logger: Logger): this;
+  get components(): { loaders; strategies; classifiers; classifications };
+  dispose(scope?: DisposalScope): Promise<void>;
+  [Symbol.asyncDispose](): Promise<void>;
+}
 ```
 
-`Extractor` owns registered components and defaults. `createExtractor()` is equivalent to
-the constructor but requires at least one loader.
+Every registration method returns the same extractor, so calls chain.
 
-`ExtractorOptions` contains:
+| Method | Effect |
+| --- | --- |
+| `loadDocumentLoader()` | Appends loaders. Registration order is the loader fallback order. |
+| `loadStrategy()` | Appends strategies. Registration order is the routing order under `declarationOrder`. |
+| `loadLlm()` | Registers `backend.extraction()`, plus `backend.vision()` and `backend.classifier()` when `LoadLlmOptions` asks for them. |
+| `loadClassifier()` | Appends classifiers. |
+| `loadClassifications()` | Appends default candidate document kinds. A call's `classifications` option overrides them. |
+| `loadPolicy()` | Replaces the routing policy. |
+| `loadLogger()` | Replaces the pipeline logger. |
 
+`components` returns read-only copies of the current registrations. `dispose()` releases every loader, strategy, and classifier once; later calls return the same promise. See [batches and lifecycle](/docs/extraction/reference/batches) for `extractBatch()` and [classification](/docs/extraction/reference/classification) for `classify()`, `classifyTree()`, and `Extractor.flatten()`.
+
+Throws `DuplicateComponentError` (`DUPLICATE_COMPONENT`) when a name is registered twice. `loadLlm()` throws `MissingComponentError` (`MISSING_COMPONENT`) when it requests a vision strategy or classifier that the backend does not provide. Used in [extract your first document](/docs/extraction/quick-start).
+
+### `createExtractor`
+
+Builds an `Extractor` from one options object.
+
+```ts
+function createExtractor(options: ExtractorOptions): Extractor
+```
+
+Equivalent to `new Extractor(options)`, except that it throws `MissingComponentError` when `loaders` is empty.
+
+### `ExtractorOptions`
+
+Constructor options for `Extractor` and `createExtractor()`.
+
+{/* options: ExtractorOptions */}
 | Option | Default | Meaning |
 | --- | --- | --- |
+| `sourceResolver` | portable resolver | Reads a `DocumentSource` into bytes. Use `resolveNodeSource` from `docture/node` for local files. |
 | `loaders` | `[]` | Loaders in fallback order. |
 | `strategies` | `[]` | Strategies in routing order. |
 | `classifiers` | `[]` | Classifiers to run when classification is needed. |
@@ -31,44 +74,137 @@ the constructor but requires at least one loader.
 | `onRuleFailure` | `"report"` | Default `RuleFailureMode`. |
 | `maxRepairs` | `1` | Default repairs per strategy. `0` disables repair. |
 
-Component registration methods return the same extractor: `loadDocumentLoader()`,
-`loadStrategy()`, `loadLlm()`, `loadClassifier()`, `loadClassifications()`, `loadPolicy()`,
-and `loadLogger()`. Duplicate names throw `DuplicateComponentError`. The `components`
-getter returns read-only copies of the current registrations.
+### `ModelBackend`
 
-`ModelBackend` is the core interface accepted by `loadLlm()`. It provides `id` and
-`extraction()`, and may provide `vision()`, `classifier()`, `splitter()`, and `layout()`.
-`LoadLlmOptions` has `vision?: boolean` and `classify?: boolean`, both `false` by default.
-Requesting an unsupported component throws `MissingComponentError` with code `MISSING_COMPONENT`.
+The core interface that `loadLlm()` accepts. `LLM` from `docture/llm` implements it.
 
-`DocumentExtractor` is the smaller interface used by classifications. It contains
-`extractResult()`.
+```ts
+interface ModelBackend {
+  readonly id: string;
+  extraction(): ExtractionStrategy;
+  vision?(): ExtractionStrategy;
+  classifier?(): Classifier;
+  splitter?(): Splitter;
+  layout?(): LayoutAnalyzer;
+}
+```
 
-`PipelineComponents` is the low-level collection passed to `runPipeline()`. It contains
-all component arrays, the routing policy, logger, and optional timeout and classification
-defaults.
+See [model backend and factory](/docs/extraction/reference/models#model-backend) for `LLM`.
 
+### `LoadLlmOptions`
+
+Selects the extra components that `loadLlm()` registers.
+
+{/* options: LoadLlmOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `vision` | `false` | Also registers `backend.vision()`. |
+| `classify` | `false` | Also registers `backend.classifier()`. |
+
+### `DocumentExtractor`
+
+The extraction interface that `Extractor` implements. Classifications and test doubles depend on it instead of the class.
+
+```ts
+interface DocumentExtractor {
+  extractResult<C extends ContractLike>(
+    source: DocumentSource,
+    contract: C,
+    options?: RunOptions<InferContract<C>>,
+  ): Promise<ExtractionResult<InferContract<C>>>;
+}
+```
+
+### `PipelineComponents`
+
+The component collection that `runPipeline()` receives. It has the same fields as `ExtractorOptions`, with `loaders`, `strategies`, `classifiers`, `classifications`, `policy`, and `logger` required.
+
+```ts
+interface PipelineComponents {
+  readonly sourceResolver?: SourceResolver;
+  readonly loaders: readonly DocumentLoader[];
+  readonly strategies: readonly ExtractionStrategy[];
+  readonly classifiers: readonly Classifier[];
+  readonly classifications: readonly Classification[];
+  readonly policy: RoutingPolicy;
+  readonly logger: Logger;
+  readonly stageTimeoutMs?: number;
+  readonly classify?: ClassifyOptions;
+  readonly rules?: readonly ValidationRule[];
+  readonly onRuleFailure?: RuleFailureMode;
+  readonly maxRepairs?: number;
+}
+```
+
+See [pipeline and disposal](/docs/extraction/reference/pipeline#low-level-pipeline).
 
 ## Extraction methods
+
+### `extract`
+
+Extracts `contract` from `source` and returns the full result.
 
 ```ts
 extract<C extends ContractLike>(
   source: DocumentSource,
   contract: C,
-  options?: RunOptions,
+  options?: RunOptions<InferContract<C>>,
 ): Promise<ExtractionResult<InferContract<C>>>
-
-extractResult<C extends ContractLike>(...): Promise<ExtractionResult<InferContract<C>>>
-extractData<C extends ContractLike>(...): Promise<InferContract<C>>
-safeExtract<C extends ContractLike>(...): Promise<SafeExtraction<InferContract<C>>>
 ```
 
-`extractResult()` is an explicit alias of `extract()`. `extractData()` returns only the
-validated data. `safeExtract()` returns `{ ok: true, result }` or `{ ok: false, error }`
-instead of throwing.
+The type of `result.data` is inferred from the contract or schema. Rejects on source, loading, eligibility, strategy, validation, timeout, or caller abort failures; see the [error reference](/docs/resources/errors). [Inspect results](/docs/extraction/results) shows how to read the returned `ExtractionResult`, and [results API](/docs/extraction/reference/results) lists its fields.
 
-`RunOptions` contains:
+### `extractResult`
 
+An explicit alias of `extract()` with the same parameters and result.
+
+### `extractData`
+
+Returns only the validated data.
+
+```ts
+extractData<C extends ContractLike>(
+  source: DocumentSource,
+  contract: C,
+  options?: RunOptions<InferContract<C>>,
+): Promise<InferContract<C>>
+```
+
+Rejects on the same failures as `extract()`.
+
+### `safeExtract`
+
+Returns failures as values instead of rejecting.
+
+```ts
+safeExtract<C extends ContractLike>(
+  source: DocumentSource,
+  contract: C,
+  options?: RunOptions<InferContract<C>>,
+): Promise<SafeExtraction<InferContract<C>>>
+```
+
+### `SafeExtraction`
+
+The outcome of `safeExtract()` and of each batch item.
+
+```ts
+type SafeExtraction<T> =
+  | { readonly ok: true; readonly result: ExtractionResult<T> }
+  | { readonly ok: false; readonly error: Error };
+```
+
+A thrown value that is not an `Error` is wrapped in one.
+
+### `ExtractionResult`
+
+The value that `extract()` returns: `data`, `method`, `loader`, `attempts`, `features`, `usage`, `validation`, and optional classification, conflicts, citations, and source identity. See [results API](/docs/extraction/reference/results#results) for every field.
+
+### `RunOptions`
+
+Per-call options for every extraction and classification method.
+
+{/* options: RunOptions */}
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `signal` | new signal | Caller cancellation. |
@@ -82,16 +218,45 @@ instead of throwing.
 | `onRuleFailure` | extractor default, then `"report"` | `"report"` keeps the data and lists rule issues in `result.validation`. `"fail"` fails the attempt with `CONTRACT_VIOLATION` and tries the next strategy. |
 | `maxRepairs` | extractor default, then `1` | Times to re-ask a strategy that implements `repair()` after its answer failed. Non-negative integer; other values reject with `RangeError`. `0` makes one call per strategy. |
 
-Extraction rejects on source, loading, eligibility, strategy, validation, timeout, or
-caller abort failures. See the [error reference](/docs/resources/errors).
+### `RuleFailureMode`
 
+How a failed validation rule affects an attempt.
+
+```ts check
+type RuleFailureMode = "report" | "fail";
+```
+
+`"report"` returns the data with its rule issues. `"fail"` fails the attempt.
+
+### `ValidationRule`
+
+A check that a schema cannot express, such as a total that equals the sum of its lines. It runs on schema-valid data.
+
+```ts
+type ValidationRule<T = unknown> = (
+  data: T,
+) => readonly ValidationIssue[] | Promise<readonly ValidationIssue[]>;
+```
+
+A rule that throws rejects the extraction. See [validate results and repair answers](/docs/extraction/validation).
 
 ## Check literal capability wiring
 
-`createCheckedExtractor({ loaders, strategies, ...options })` is an opt-in construction path. It rejects a known nonempty loader tuple when every loader explicitly lacks a known required text, geometry or image capability. Empty loader tuples are rejected. `withRasterizer` advertises image feasibility. Functional `llm`, `vision` and `defineStrategy` retain their requirement literals.
+### `createCheckedExtractor`
 
-The check covers advertised feasibility per fact. Actual document facts and the eligible strategy diagnostics remain authoritative at runtime. Widened arrays, unknown booleans, custom facts and widened requirements remain unchecked. Use ordinary constructors for preloaded documents or intentional heterogeneous fallback wiring. Existing constructor, factory and fluent APIs retain their dynamic behavior.
+Builds an `Extractor` and rejects, at compile time, literal wiring whose loaders cannot supply what every strategy requires.
 
-`sourceResolver` in `ExtractorOptions` selects explicit source access. Its default is the portable resolver. Use `resolveNodeSource` from `docture/node` for local files.
+```ts
+function createCheckedExtractor<
+  const L extends readonly DocumentLoader[],
+  const S extends readonly ExtractionStrategy[],
+>(
+  options: Omit<ExtractorOptions, "loaders" | "strategies">
+    & { readonly loaders: L; readonly strategies: S }
+    & Compatibility<NoInfer<L>, NoInfer<S>>,
+): Extractor
+```
 
-Full extraction results retain `sourceDigest`, `physicalSourceDigest` and opaque `sourceMetadata` when the loader provides them. Native Docling metadata includes its export identity, diagnostics and canonical-ID-to-native-pointer sidecar. Save these with the result; a physical digest binds highlights to exact original bytes, while an export digest identifies the normalized native input.
+The check rejects a known nonempty loader tuple when every loader explicitly lacks a known required text, geometry, or image capability. Empty loader tuples are rejected. `withRasterizer` advertises image feasibility. Functional `llm`, `vision`, and `defineStrategy` retain their requirement literals.
+
+The check covers advertised feasibility per fact. Actual document facts and eligible strategy diagnostics remain authoritative at runtime. Widened arrays, unknown booleans, custom facts, and widened requirements stay unchecked. Use the ordinary constructors for preloaded documents or intentional mixed fallback wiring.

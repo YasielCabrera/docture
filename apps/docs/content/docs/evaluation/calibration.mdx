@@ -1,7 +1,10 @@
 ---
 title: Calibrate evaluation field confidence
 description: Measure whether reported confidence matches labeled extraction correctness.
+type: how-to
 ---
+
+Calibration checks whether the confidence a processor reports matches how often its fields are correct. Use it before auto-accepting fields above a confidence threshold.
 
 ## Analyze confidence
 
@@ -21,10 +24,14 @@ console.log(report);
 
 These are the defaults. The report includes coverage and reliability statistics. Missing confidence remains uncovered; the evaluator does not invent it from citation status or extraction success.
 
+Errored-case omissions count toward overall ground truth and pattern, field-type, and segment groups. Path groups contain only scored cases because an errored case has no concrete output paths.
+
+## Choose an auto-accept threshold
+
 An auto-accept threshold requires a one-sided 95% Clopper-Pearson lower bound to reach target precision. Minimum support alone does not establish that bound. If no threshold qualifies, keep the unsupported result rather than choosing one from the displayed confidence values.
 
-Use `calibrationSection()` in `runEval.sections` to attach analysis before gates and reporting. `mergeCalibration` combines compatible reports while preserving score ties and ranking statistics.
+## Attach calibration to a run
 
-Errored-case omissions count toward overall ground truth and pattern, field-type, and segment groups. Path groups contain only scored cases because an errored case has no concrete output paths.
+Use `calibrationSection()` in `runEval.sections` to attach analysis before gates and reporting. `mergeCalibration` combines compatible reports while preserving score ties and ranking statistics.
 
 Calibration describes confidence behavior on the labeled dataset. [Grounding](/docs/evaluation/grounding) evaluates source-location support separately. See [calibration API](/docs/evaluation/reference/calibration).

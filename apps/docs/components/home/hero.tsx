@@ -37,7 +37,7 @@ export async function Hero() {
           </p>
           <div className={`flex flex-wrap gap-3 ${reveal} [animation-delay:210ms]`}>
             <QuickStartLink />
-            <CopyCommand command="pnpm add docture zod" />
+            <CopyCommand command="npm install docture zod" />
           </div>
         </div>
 
@@ -56,7 +56,7 @@ export async function Hero() {
                   }`}
                 >
                   {box.field}
-                  <span className="ms-1 opacity-75">{box.type}</span>
+                  <span className="ms-1">{box.type}</span>
                 </span>
               </FieldBox>
             ))}

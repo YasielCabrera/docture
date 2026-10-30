@@ -1,13 +1,14 @@
 ---
 title: Read and search Paperless documents
 description: Read version-pinned Paperless content or file bytes through a fetch-only adapter.
+type: how-to
 ---
 
-`docture/sources/paperless` exports `PaperlessSource`, `paperlessSource`, `PaperlessError`, `PaperlessApiVersion`, `PaperlessConnectionOptions`, `PaperlessFailure`, `PaperlessReadOptions`, `PaperlessQueryOptions`, `PaperlessSourceResult`, `PaperlessProvenance`, `PaperlessDocument`, `PaperlessMetadata`, `PaperlessFieldValue`, `PaperlessValue`, `PaperlessVersion`, `PaperlessContextKind`, `PaperlessContextEntry`, `PaperlessCustomFieldDefinition`, `PaperlessFieldType`, `PaperlessNamedObject` and `PaperlessNote`.
+`PaperlessSource` reads documents from a Paperless-ngx instance as extraction sources, pinned to an exact file version. Import it from `docture/sources/paperless`. It uses standard `fetch` and needs no SDK. To write extracted values back, see [Plan and apply Paperless updates](/docs/integrations/paperless-updates).
 
-The entry has no SDK peer and uses standard `fetch`. Importing the entry and constructing a source perform no network requests.
+## Connect to Paperless
 
-```ts
+```ts check
 import { PaperlessSource } from "docture/sources/paperless";
 
 async function readStoredText(baseUrl: string, token: string) {
@@ -16,22 +17,83 @@ async function readStoredText(baseUrl: string, token: string) {
 }
 ```
 
-`PaperlessConnectionOptions` requires an HTTP or HTTPS service root and API version `9` or `10`. It accepts a token, custom headers, a fetch implementation, `timeoutMs` and `maxResponseBytes`. The defaults are 30 seconds and 32 MiB. The token uses the native `Authorization: Token ...` header. Credentials belong in application configuration. Errors omit request headers and response bodies.
+`paperlessSource(options)` returns the same object. Importing the module and constructing the source make no network request.
 
-`read` accepts a root document ID and a mode. `versionId` selects an existing file version. Without that option, the adapter resolves the latest version and pins subsequent content, metadata and download requests to its ID. Shared root metadata remains separate from version-specific text and files.
+{/* options: PaperlessConnectionOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `baseUrl` | required | HTTP or HTTPS service root. |
+| `apiVersion` | required | `PaperlessApiVersion`, `9` or `10`. |
+| `token` | none | API token, sent in the `Authorization: Token ...` header. |
+| `headers` | none | Extra request headers. |
+| `fetch` | global `fetch` | Transport to use. |
+| `timeoutMs` | `30000` | Deadline for each request, including the response body. |
+| `maxResponseBytes` | 32 MiB | Maximum streamed response size. |
+
+Keep credentials in application configuration. Errors never include request headers or response bodies.
+
+## Read a document
+
+`read(documentId, options)` takes a root document ID and a mode, and returns a `PaperlessSourceResult` with the `source`, its `provenance`, and a list of `limitations`.
 
 | Mode | Source | Evidence limits |
 | --- | --- | --- |
-| `content` | Exact stored OCR text in a `LoadedSource` | One logical page, with zero dimensions and no positioned lines. Form feeds remain in the text and do not prove physical pages. |
-| `archive` | Confirmed archived PDF bytes in a `RawDocument` | The caller selects a PDF or Docling loader for field evidence. Missing archive rejects unless `archiveFallback: "original"` is explicit. |
-| `original` | Selected original bytes in a `RawDocument` | The actual MIME type must agree with version-specific metadata. |
+| `content` | The exact stored OCR text, as a `LoadedSource` | One logical page with zero dimensions and no positioned lines. Form feeds stay in the text and do not mark physical pages. |
+| `archive` | The archived PDF bytes, as a `RawDocument` | Pick a PDF or Docling loader to get field evidence. A missing archive rejects unless you set `archiveFallback: "original"`. |
+| `original` | The original file bytes, as a `RawDocument` | The actual MIME type must match the version's metadata. |
 
-An archive needs both native archive metadata and PDF MIME/signature confirmation. Metadata is checked again after download. A source change during the read rejects the result. The returned `PaperlessProvenance` records the configured instance, root ID, selected file ID, actual variant, SHA-256 digest, native checksum, negotiated API, server version, immutable root metadata and native UI URL. A digest identifies exactly the text or bytes the extraction consumes. Original and archive offsets are not interchangeable.
+{/* options: PaperlessReadOptions */}
+| Option | Meaning |
+| --- | --- |
+| `mode` | `content`, `archive`, or `original`. |
+| `versionId` | An existing file version to read. Omit it to read the latest version. |
+| `archiveFallback` | Set to `original` to read the original file when no archive exists. |
+| `signal` | Caller cancellation. The abort reason is kept. |
 
-`query` is an async iterator over full reads. `limit` bounds results, `pageSize` defaults to the smaller of the limit and 100, and `maxPages` defaults to 100. `query` contains native full-text query syntax. Search highlights and truncated list content never become extraction input. An empty query result yields nothing. Pagination must remain on the configured origin, service prefix and resource path. Repeated links reject.
+Without `versionId`, the source resolves the latest version and pins the content, metadata, and download requests to its ID. Shared root metadata stays separate from version-specific text and files. An archive counts only when Paperless reports one and the bytes are a PDF by MIME type and signature.
 
-`context` reads only requested definitions or taxonomy. Its `include` array accepts `customFields`, `tags`, `correspondents`, `documentTypes` and `notes`. Returned `PaperlessContextEntry` values discriminate the requested kind. The default limit is 100 records. Context reads do not create fields or tags.
+## Check what you read
 
-The supported protocol fixtures model Paperless-ngx `3.3.4`, REST API `9` and `10`, and root-versus-file version selection. A response must identify a 3.x server and API 9 or 10 through `X-Version` and `X-Api-Version`. Paperless 2.x rejects. No live-server certification is implied by the fixtures.
+The returned `PaperlessProvenance` records:
 
-`PaperlessError` carries `UNSUPPORTED_SOURCE`, a failure kind and an optional HTTP status. Permission failures preserve native object restrictions. HTTP 401, 403, 404, 406, 429 and 5xx responses are not retried. Redirects reject before another destination receives credentials. Deadlines cover the response body, byte limits count streamed bytes, and caller cancellation preserves its reason.
+- The configured instance, the root document ID, and the selected file ID.
+- The variant actually read, its SHA-256 digest, and the Paperless checksum.
+- The negotiated API version and the server version.
+- The root metadata at read time and the document's URL in the Paperless UI.
+
+The digest identifies exactly the text or bytes the extraction consumes. Original and archive offsets are not interchangeable. The source checks metadata again after a download, and rejects the result if the document changed during the read.
+
+## Search documents
+
+`query(options)` is an async iterator of full reads. `PaperlessQueryOptions` adds these fields to `PaperlessReadOptions`:
+
+- `query`, in Paperless full-text query syntax.
+- `limit`, the required maximum number of results.
+- `pageSize`, which defaults to the smaller of `limit` and 100.
+- `maxPages`, which defaults to 100.
+
+An empty result yields nothing. Search highlights and truncated list content never become extraction input. Pagination links must stay on the configured origin, service prefix, and resource path, and a repeated link rejects.
+
+## Read field definitions and taxonomy
+
+`context(documentId, { include })` reads only the kinds you request. A `PaperlessContextKind` is `customFields`, `tags`, `correspondents`, `documentTypes`, or `notes`. Each returned `PaperlessContextEntry` has a `kind` and its values:
+
+- `customFields` returns `PaperlessCustomFieldDefinition` values.
+- `tags`, `correspondents`, and `documentTypes` return `PaperlessNamedObject` values.
+- `notes` returns `PaperlessNote` values.
+
+The default `limit` is 100 records. Context reads never create fields or tags.
+
+## Supported versions
+
+The source supports Paperless-ngx 3.x with REST API 9 or 10, including root and file version selection. Each response must report a 3.x server and API 9 or 10 in its `X-Version` and `X-Api-Version` headers. Paperless 2.x is rejected. The adapter is tested against recorded Paperless-ngx 3.3.4 responses, not a live server.
+
+## Handle errors
+
+Failures throw `PaperlessError` with code [`UNSUPPORTED_SOURCE`](/docs/resources/errors#error-catalogue), a `PaperlessFailure` kind, and the HTTP status when there is one. The kinds are `configuration`, `http`, `protocol`, `transport`, `limit`, `unsupported-version`, and `source-changed`.
+
+HTTP 401, 403, 404, 406, 429, and 5xx responses are not retried. Permission failures keep Paperless's per-object restrictions. Redirects reject before another destination receives credentials.
+
+## Document types
+
+`PaperlessDocument` is a native document record, and `PaperlessMetadata` is the same record without its `content`. A `PaperlessVersion` describes one file version. `PaperlessFieldValue` pairs a custom field ID with a `PaperlessValue`, which is a string, number, boolean, `null`, or a list of document IDs. `PaperlessFieldType` names the native custom field types listed in [Plan and apply Paperless updates](/docs/integrations/paperless-updates#check-proposed-values).

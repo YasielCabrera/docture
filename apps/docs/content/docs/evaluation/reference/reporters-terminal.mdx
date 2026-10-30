@@ -1,23 +1,22 @@
 ---
 title: Evaluation terminal reporter API
-description: Terminal reports from saved evaluation results.
+description: Print an evaluation scoreboard and repaint live run progress in the terminal.
+type: reference
 ---
+
+Import the terminal scoreboard and reporter from `@docture/eval/reporters/terminal`. [Generate and customize evaluation reports](/docs/evaluation/reports) shows reporters in use.
 
 ## `@docture/eval/reporters/terminal`
 
-This entry is Node-only: its writing factory imports `node/artifacts`. Pure rendering implementations have no Node imports. The factory consumes `EvalResult` through `onResult`; writing requires an explicit `out` except for the terminal reporter.
-
-- `CellValue`
-- `Column`
-- `ScoreboardOptions`
-- `TerminalReporterOptions`
-- `TerminalStream`
+This entry imports no Node.js modules. `terminalReporter` writes to `process.stdout` unless you pass `stream`.
 
 ### `renderScoreboard`
 
 ```ts
 renderScoreboard(result: EvalResult, options?: ScoreboardOptions): string
 ```
+
+Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`ScoreboardOptions`](/docs/evaluation/reference/reporters-terminal#scoreboardoptions).
 
 The final scoreboard as plain text: overall metrics, segments, slices, failures, comparison verdicts, gate and warnings.
 
@@ -27,6 +26,8 @@ The final scoreboard as plain text: overall metrics, segments, slices, failures,
 terminalReporter(options?: TerminalReporterOptions): Reporter
 ```
 
+Takes [`TerminalReporterOptions`](/docs/evaluation/reference/reporters-terminal#terminalreporteroptions). Returns [`Reporter`](/docs/evaluation/reference/core#reporter).
+
 Print progress and the final scoreboard. On a TTY a two-line panel is repainted below the case lines; otherwise each case prints one line. Narrow terminals drop low-priority columns, never the error text.
 
 ### `defineColumn`
@@ -34,6 +35,12 @@ Print progress and the final scoreboard. On a TTY a two-line panel is repainted 
 ```ts
 defineColumn(column: Column): Column
 ```
+
+Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
+
+Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
+
+Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
 
 Declare a column. Identity at runtime; it pins the type.
 
@@ -43,4 +50,68 @@ Declare a column. Identity at runtime; it pins the type.
 defaultColumns(): readonly Column[]
 ```
 
+Returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
+
 The columns every per-case view starts from.
+
+## Types
+
+### `CellValue`
+
+A raw column value. Numbers sort numerically; `null` means there is no value for this row.
+
+```ts check
+type CellValue = string | number | boolean | null;
+```
+
+### `Column`
+
+One column of the per-case table, shared by the terminal, Markdown, CSV and the HTML documents table. `priority` 1 is always shown; narrow terminals drop the highest numbers first.
+
+```ts
+interface Column {
+	readonly id: string;
+	readonly header: string;
+	value(row: CaseResult): CellValue;
+	format?(value: CellValue, row: CaseResult): string;
+	readonly priority?: number;
+}
+```
+
+### `ScoreboardOptions`
+
+Options for `renderScoreboard`.
+
+{/* options: ScoreboardOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `width` | `number` | Line width for case lines. Default 100. |
+| `columns` | `readonly Column[]` | Columns of the case table. Default: the shared default columns. |
+| `failures` | `number` | Failing cases listed with their diffs. Default 10. |
+| `diffLines` | `number` | Diff lines shown per failing case. Default 5. |
+
+### `TerminalReporterOptions`
+
+Options for `terminalReporter`.
+
+{/* options: TerminalReporterOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `stream` | `TerminalStream` | Default `process.stdout`. |
+| `columns` | `readonly Column[]` | Columns of the case table. Default: the shared default columns. |
+| `live` | `boolean` | Repaint a progress panel in place. Default: whether the stream is a TTY. |
+| `now` | `() => number` | Clock for the ETA. Default `Date.now`. |
+| `failures` | `number` | Failing cases listed with their diffs. Default 10. |
+| `diffLines` | `number` | Diff lines shown per failing case. Default 5. |
+
+### `TerminalStream`
+
+Where the terminal reporter writes. `process.stdout` fits; so does any object with `write`.
+
+```ts check
+interface TerminalStream {
+	write(chunk: string): unknown;
+	readonly isTTY?: boolean;
+	readonly columns?: number;
+}
+```

@@ -1,0 +1,42 @@
+---
+title: How evaluation works
+description: How datasets, processors, specs, stored runs, and the versioned result fit together in @docture/eval.
+type: explanation
+---
+
+`@docture/eval` turns a dataset and one or more processors into a stored, versioned result, and reports, comparisons, and gates read that result again later without extracting anything. This page explains how the parts fit and what is stored where. To run an evaluation first, start with the [quick start](/docs/evaluation/quick-start).
+
+## Four inputs, one result
+
+An evaluation combines four things you own:
+
+- A dataset lists cases. Each case has an `id`, its `documents`, and `expected`, the approved answer. Documents load their bytes lazily. Tags, a group, and expected locations are optional. See [Prepare evaluation datasets](/docs/evaluation/datasets).
+- A processor turns a case into raw output. Several processors keyed by name are experiments over the same cases. A processor can declare `project(raw)` to map its raw output to the shape being scored, and a serializable `config` that identifies its settings. See [Connect an evaluation processor](/docs/evaluation/processors).
+- A spec from `defineEval` resolves one comparator for every leaf of the expected shape, plus array alignment, weights, and segments. It scores one expected value against one actual value. See [Define evaluation scoring rules](/docs/evaluation/scoring-rules).
+- A run store keeps what the run produced. `fileRunStore` writes a directory; the CLI uses `.docture/eval` beside the config.
+
+`runEval` and `docture eval run` combine them in a fixed order. The runner selects cases, validates every selected expected value against the spec, and only then prepares the processors, so bad truth fails before any model call. It records the run's identity: a dataset fingerprint hashed from every case, the spec's fingerprint and resolved fields, a hash of each experiment's `config`, and the Git branch and commit when available.
+
+Each case, experiment, and epoch is one job. A job calls `extract`, stores the raw output, projects it, scores it with the spec, and appends a row with the outcome: scored, errored, or skipped. When all jobs finish, the runner builds an `EvalResult`. It adds optional sections such as calibration and grounding, compares with a baseline run, applies the gate, and stores the result.
+
+## What the store keeps
+
+The file store separates what is expensive to produce from what is cheap to derive:
+
+| Path in the store | Holds | Read by |
+| --- | --- | --- |
+| `index.jsonl` | One line per run event: status, Git info, dataset and spec fingerprints, experiment hashes, and overall metrics once finished | `docture eval runs`, `baseline: "auto"` |
+| `runs/<runId>/run.json` | The run's identity, written when it starts | resume |
+| `runs/<runId>/cases.jsonl` | One scored row per job, appended as each job finishes | resume, the result |
+| `runs/<runId>/raw/<experiment>/<case>.<epoch>.json` | Raw output, confidence, evidence, and the hashes that produced them | re-scoring, resume |
+| `runs/<runId>/result.json` | The finished result without its rows | reports, comparisons, gates |
+
+A crash leaves `run.json`, the appended rows, and the raw files. [Resume](/docs/evaluation/run-history) reuses a row only when the case fingerprint and the experiment's config hash still match, so an edited document or a changed setting runs again.
+
+## Why results re-render without extraction
+
+Every reporter, `compareRuns`, and `gate` read only the `EvalResult`. The result carries a format name and version, the run identity, metric definitions, a summary per experiment, every case row with its expected and actual values, and per-case metric values. That is enough to render any report format, pair cases between two runs, and check thresholds. `docture eval report latest --reporter html` reads `result.json` and `cases.jsonl` and calls no processor.
+
+Scoring rules change more often than extraction does. `rescore` and `docture eval report --rescore` read the raw files, score them with the current spec, and store a new run whose `rescoredFrom` names the source. The source run stays unchanged, so the old and new scores can be compared like any two runs.
+
+The fingerprints decide what a comparison means. `baseline: "auto"` picks only a complete run with the same dataset fingerprint. `compareRuns` pairs rows by case and epoch, and reports a spec mismatch as a warning, so a change in scoring rules does not pass as a change in extraction quality. See [Compare evaluation runs](/docs/evaluation/comparisons) and [Gate evaluation regressions in CI](/docs/evaluation/ci).

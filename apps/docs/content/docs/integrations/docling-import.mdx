@@ -1,9 +1,12 @@
 ---
 title: Import Docling JSON
-description: Engine-free native DoclingDocument import with honest source evidence.
+description: Turn a native DoclingDocument JSON export into a Docture document and extraction source without running Docling.
+type: how-to
 ---
 
-Import from `docture/import/docling`. This entry needs no engine or service peer.
+`importDoclingDocument` turns a native DoclingDocument JSON export into a Docture document and a source you can extract from. Import it from `docture/import/docling`. The import needs no engine, service, network, or filesystem access.
+
+## Import a native export
 
 ```ts
 import { importDoclingDocument } from "docture/import/docling";
@@ -12,50 +15,67 @@ const imported = importDoclingDocument(nativeJson);
 const { document, source, diagnostics, provenance } = imported;
 ```
 
-`importDoclingDocument(raw, options?)` accepts unknown JSON and supports native
-schema `1.10.0`, modelled and fixture-tested with `docling-core@2.104.0`.
-`document` is a serializable JSON v2 snapshot. `source` is a `LoadedSource` for any
-caller extraction schema. `provenance` is a version-1 native sidecar.
+`importDoclingDocument(raw, options?)` accepts unknown JSON in native schema `1.10.0`, as written by `docling-core` 2.104.0. It returns an `ImportedDoclingDocument`:
 
+- `document` is a serializable JSON v2 snapshot. Pass it to `chunkDocument()` from `docture/chunk`.
+- `source` is a `LoadedSource`. Pass it to any extractor with your own schema.
+- `diagnostics` lists each `DoclingDiagnostic` with a code, native path, and message.
+- `provenance` is a version 1 `DoclingProvenance` sidecar. Save it beside the JSON to look up native pointers later.
+
+Diagnostics also appear in `LoadedDocument.conversionWarnings` after conversion. [Extract from Docling documents](/docs/integrations/docling-workflow) shows the import in a full extraction and review workflow.
+
+## Bind the original file for highlights
+
+By default the import keeps element and table-cell evidence without physical boxes. To highlight evidence on the original pages, supply all three bindings:
+
+- `coordinateSpace` gives the native units, either points or pixels per point. Without it, no physical boxes are produced.
+- `physicalSource` gives the original file bytes with `attestExportMatchesSource: true`, your statement that the JSON was exported from those bytes.
+- `pageImages` gives page image bytes with the matching physical source digest. The importer never fetches images.
+
+Rotated or unknown coordinate spaces never produce highlights.
+
+## Understand what the import keeps
+
+Element and table-cell evidence keeps its granularity. The importer creates no positioned lines. Nonblank native evidence counts as usable text, even a short value such as `42`. Unstructured text, positioned lines, and OCR sources still go through the ordinary noisy-text check.
+
+Headings, ordinary text, lists, code, furniture, merged table cells, and figure captions keep their structure:
+
+- Contiguous list items in the same group form one list. Each item keeps its evidence ID and native pointer.
+- Vertically merged column headers add their full row span to the header section.
+- Nested lists and non-default numbering keep their original markers and pointers, and add a degradation diagnostic.
+
+Multipage text becomes exact page-local slices. Cells in multipage tables list their candidate pages and have no physical boxes. A table that skips an existing page is rejected, because its row placement cannot be inferred. Figure assets are not fetched.
+
+Native text charspans use Python code point offsets. The sidecar also records the converted JavaScript UTF-16 offsets.
+
+## Identify sources with digests
+
+`DoclingProvenance` records three digests. `sourceDigest` identifies the canonical native JSON. `physicalSourceDigest` identifies the original bytes you bound with `physicalSource`. `documentDigest` identifies the normalized document.
+
+JSON v2 pages and retrieval chunks keep native evidence records and their neutral IDs. Native pointers stay in element provenance and in the sidecar's `sources` map, where each `DoclingNativeSource` keeps a pointer and its original source segments.
+
+## Handle unsupported content
+
+Rich table cell references and other unsupported variants produce diagnostics. Set `strict: true` to reject them instead. Strict import also rejects nested lists and non-default numbering.
+
+Invalid versions, references, cycles, spans, boxes, or limits throw `DoclingImportError` with code [`UNSUPPORTED_SOURCE`](/docs/resources/errors#error-catalogue).
+
+## Options
+
+{/* options: DoclingImportOptions */}
 | Option | Meaning |
 | --- | --- |
-| `strict` | Reject unsupported native variants instead of retaining diagnostics. |
-| `limits` | Bounds for input bytes, object count, depth, pages and table cells. |
-| `coordinateSpace` | Explicit point units or pixels-per-point scale. Omission prevents physical boxes. |
-| `physicalSource` | Original bytes and `attestExportMatchesSource: true`. Required for physical location binding. |
-| `pageImages` | Supplied page image bytes with the matching physical source digest. Images are never fetched. |
+| `strict` | Reject unsupported native variants instead of keeping diagnostics. |
+| `limits` | `DoclingImportLimits` bounds for the input. |
+| `coordinateSpace` | Native point units or a pixels-per-point scale. Omit it to produce no physical boxes. |
+| `physicalSource` | Original bytes and `attestExportMatchesSource: true`. Required for physical locations. |
+| `pageImages` | Page image bytes with the matching physical source digest. |
 
-Element and table-cell evidence retains its granularity. The importer creates no
-positioned lines. Native text charspans use Python codepoint offsets; the sidecar
-also records converted JavaScript UTF-16 offsets. Multipage text becomes exact
-page-local slices. Cells in multipage tables have unlocated candidate pages and
-no physical boxes. Tables that skip an existing normalized page reject because
-row placement cannot be inferred.
-
-Nonblank native evidence establishes usable text even for a short value such as
-`42`. The ordinary noisy-text heuristic remains in place for unstructured text,
-positioned lines and OCR sources. Native evidence does not establish line geometry.
-
-Headings, ordinary text, lists, code, furniture, merged table cells and figure
-captions retain their supported structure. Rich-table-cell references and other
-unsupported variants emit diagnostics or reject in strict mode. Figure assets
-are not fetched. Rotated or unknown coordinate spaces cannot authorize highlights.
-
-`sourceDigest` identifies canonical native JSON. `physicalSourceDigest` identifies
-explicitly bound original bytes. The sidecar also records the normalized document
-digest. JSON v2 pages and retrieval chunks preserve native evidence records and
-their neutral IDs. Native pointers remain in element provenance and the sidecar.
-
-`DoclingImportError` has code `UNSUPPORTED_SOURCE` and a stable installed-copy
-identity. It identifies invalid versions, references, cycles, spans, boxes or
-limits. Import and construction perform no network or filesystem work.
-
-`DoclingImportOptions` holds the importer settings. `DoclingImportLimits` names
-the bounds. `DoclingDiagnostic` carries a code, native path and message.
-`ImportedDoclingDocument` is the returned document/source/diagnostics/provenance
-shape. `DoclingProvenance` owns the version, digests, origin and `sources` map;
-each `DoclingNativeSource` retains a pointer and its original source segments.
-
-See [the Docling guide](/docs/integrations/docling-workflow) for service and review use.
-
-Contiguous native list siblings in the same group share a normalized list while retaining each item's evidence ID and native pointer. Vertically merged column headers contribute their full row span to the header section. Nested lists and non-default numbering retain their original markers and pointers but produce explicit degradation diagnostics; strict import rejects those unsupported presentations. Importer diagnostics also survive conversion through `LoadedDocument.conversionWarnings`.
+{/* options: DoclingImportLimits */}
+| Limit | Default | Bounds |
+| --- | --- | --- |
+| `maxBytes` | `20000000` | Canonical JSON size and `physicalSource` size, in bytes. |
+| `maxNodes` | `100000` | JSON values traversed. |
+| `maxDepth` | `100` | JSON nesting depth. |
+| `maxPages` | `10000` | Pages. |
+| `maxTableCells` | `100000` | Table cells. |

@@ -1,10 +1,13 @@
 ---
 title: How it works
 description: What happens during an extraction and where failures are reported.
+type: explanation
 ---
 
 `extract()` resolves the input, loads it, records document facts, selects strategies,
 and validates their results.
+
+For short definitions of the terms on this page, such as loader, strategy, and attempt, see [Docture concepts](/docs/getting-started/concepts).
 
 ```mermaid
 flowchart LR
@@ -49,16 +52,19 @@ failed, their failed attempts appear before the strategy attempts in `result.att
 
 ## Record document facts
 
-Routing uses facts found on the loaded document:
+Routing uses facts derived from the loaded document and the loader that produced it:
 
 | Fact | Condition |
 |---|---|
-| `TEXT_LAYER` | The document contains at least `MIN_TEXT_LAYER_CHARS` trimmed characters |
-| `GEOMETRY` | Positioned lines are present |
-| `RENDERABLE_PAGES` | Loaded pages have an `image()` function |
+| `TEXT_LAYER` | The document text has at least `MIN_TEXT_LAYER_CHARS` trimmed characters, or a page carries nonblank native evidence |
+| `GEOMETRY` | The loader declares `geometry` capability and at least one page has positioned lines |
+| `RENDERABLE_PAGES` | The loader declares `images` capability, or at least one page has an `image()` function |
 
-`features.form` is `digital`, `scanned`, `mixed`, or `unknown`. Custom loaders may add
-facts through `features.extra`.
+A `LoadedSource` passed to `extract()` has no loader, so `GEOMETRY` and
+`RENDERABLE_PAGES` come from the pages alone: positioned lines and `image()` functions.
+
+`features.form` is `digital`, `scanned`, `mixed`, or `unknown`. Custom loaders may publish
+extra facts through `capabilities.facts`; they appear in `features.extra`.
 
 Capabilities such as `GeometryLoader` are useful compile-time types when an API asks for
 one. Strategy requirements are different. The pipeline checks `requires` against the

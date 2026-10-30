@@ -1,87 +1,202 @@
 ---
 title: Splitting and Process API
 description: Splitter contracts, Process configuration, page groups, and lifecycle.
+type: reference
 ---
 
-Import from `docture`.
+Splitters find document boundaries inside one source, and `Process` splits a source and extracts each part by its classification. Import them from `docture`, or from `docture/node` when you pass local file paths. [Split document bundles](/docs/extraction/splitting) shows them in use.
 
 ## Splitter contract
 
-`Splitter` has a stable `name`, optional runtime `requires`,
-`belongsToSameDocument(first, second, context)`, optional `splitEager()`, and optional
-`dispose()`.
+### `Splitter`
 
-`SplitContext` contains classifications, signal, logger, optional `recordUsage()`, and
-optional `documentLabel`, the bundle's file name when it has one.
-
-`SplitVerdict` contains `belongsToSameDocument`, first and optional second page
-classifications, and optional confidence.
+A component that decides whether adjacent pages belong to the same document.
 
 ```ts
-defineSplitter(splitter: Splitter): Splitter
+interface Splitter {
+  readonly name: string;
+  readonly requires?: readonly DocumentFact[];
+  belongsToSameDocument(first: LoadedPage, second: LoadedPage, ctx: SplitContext): Promise<SplitVerdict>;
+  splitEager?(pages: readonly LoadedPage[], ctx: SplitContext): Promise<DocGroups>;
+  dispose?(scope?: DisposalScope): Promise<void>;
+}
+```
 
-runSplitter(
+`belongsToSameDocument()` answers one seam. `splitEager()`, when present, groups every page in one pass. [Model splitting API](/docs/extraction/reference/model-splitting) provides model implementations.
+
+### `defineSplitter`
+
+An identity helper for writing a splitter.
+
+```ts
+function defineSplitter(splitter: Splitter): Splitter
+```
+
+### `SplitContext`
+
+{/* options: SplitContext */}
+| Field | Meaning |
+| --- | --- |
+| `classifications` | Candidate kinds. |
+| `signal` | Abort signal. |
+| `logger` | Pipeline logger. |
+| `recordUsage` | Optional `(usage: Partial<Usage>) => void` that adds model usage to the split report. |
+| `documentLabel` | Optional bundle file name, when it has one. |
+
+### `SplitVerdict`
+
+One seam decision.
+
+```ts check
+interface SplitVerdict {
+  readonly belongsToSameDocument: boolean;
+  readonly classificationPage1: string;
+  readonly classificationPage2?: string;
+  readonly confidence?: number;
+}
+```
+
+### `runSplitter`
+
+Runs a splitter over pages and returns ordered groups.
+
+```ts
+function runSplitter(
   splitter: Splitter,
   pages: readonly LoadedPage[],
   strategy: SplittingStrategy,
-  context: SplitContext,
+  ctx: SplitContext,
   options?: RunSplitterOptions,
 ): Promise<DocGroups>
 ```
 
-`RunSplitterOptions.concurrency` defaults to `4` for lazy seam checks. Eager splitting
-uses `splitEager()` when implemented and otherwise uses the lazy path. The splitter may
-reject on component, abort, or rendering failures.
+Eager splitting uses `splitEager()` when implemented and otherwise uses the lazy path. Rejects on component, abort, or rendering failures.
 
-`DocGroup` contains 1-based `pages`, classification, and optional confidence. `DocGroups`
-is the ordered read-only group list. `UNCLASSIFIED` is the string `UNKNOWN`.
+### `RunSplitterOptions`
+
+{/* options: RunSplitterOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `concurrency` | `4` | Seam checks in flight under `SplittingStrategy.LAZY`. |
+
+### `SplittingStrategy`
 
 ```ts
-pageWindows<T>(pages: readonly T[], size = 2): T[][]
-aggregateDocGroups(verdicts: readonly SplitVerdict[], pageCount: number): DocGroup[]
+const SplittingStrategy: { readonly EAGER: "eager"; readonly LAZY: "lazy" };
 ```
 
-`pageWindows()` returns overlapping windows and throws when `size` is less than `2`.
-`aggregateDocGroups()` folds seam verdicts, preserves order, and covers the declared page
-count.
+`EAGER` groups the whole bundle at once; `LAZY` checks adjacent page pairs. See [eager and lazy splitting](/docs/extraction/splitting#eager-and-lazy-splitting).
 
+### `DocGroup`
+
+One document found in the source.
+
+```ts check
+interface DocGroup {
+  readonly pages: readonly number[];
+  readonly classification: string;
+  readonly confidence?: number;
+}
+```
+
+`pages` are 1-based.
+
+### `DocGroups`
+
+The ordered group list.
+
+```ts
+type DocGroups = readonly DocGroup[];
+```
+
+### `UNCLASSIFIED`
+
+The classification of a group no candidate matched.
+
+```ts
+const UNCLASSIFIED: "UNKNOWN"
+```
+
+### `pageWindows`
+
+Returns overlapping windows of `size` pages.
+
+```ts
+function pageWindows<T>(pages: readonly T[], size = 2): T[][]
+```
+
+Throws when `size` is less than `2`.
+
+### `aggregateDocGroups`
+
+Folds seam verdicts into groups.
+
+```ts
+function aggregateDocGroups(verdicts: readonly SplitVerdict[], pageCount: number): DocGroup[]
+```
+
+Preserves order and covers the declared page count.
 
 ## Process
+
+### `Process`
+
+Loads a source once, splits it into classified page groups, and extracts each group.
+
+```ts
+class Process<C extends readonly Classification[]> {
+  constructor(options?: { readonly sourceResolver?: SourceResolver });
+  loadDocumentLoader(...loaders: readonly DocumentLoader[]): this;
+  loadSplitter(splitter: Splitter): this;
+  loadExtractor(extractor: Extractor): this;
+  loadLogger(logger: Logger): this;
+  loadFile(source: DocumentSource): this;
+  loadSource(source: DocumentSource): this;
+  split<const NC extends readonly Classification[]>(classifications: NC, strategy?: SplittingStrategy): Process<NC>;
+  get lastSplit(): SplitReport | undefined;
+  extract(options?: ProcessExtractOptions): Promise<ClassifiedExtraction<C>[]>;
+  splitOnly(options?: RunOptions): Promise<SplitReport>;
+  dispose(scope?: DisposalScope): Promise<void>;
+}
+```
 
 ```ts
 new Process()
   .loadDocumentLoader(...loaders)
   .loadSplitter(splitter)
   .loadExtractor(extractor)
-  .loadLogger(logger)
   .loadFile(source)
-  .split(classifications, strategy?)
+  .split(classifications);
 ```
 
-`loadSource()` is an alias of `loadFile()`. Wiring and planning methods return the same
-process. `split()` defaults to `SplittingStrategy.EAGER` and does not read the source.
+`loadSource()` is an alias of `loadFile()`. Wiring and planning methods return the same process. `split()` defaults to `SplittingStrategy.EAGER` and does not read the source. `lastSplit` holds the report of the last completed split.
+
+For a one-page source, `Process` does not call the splitter. With one configured classification it assigns that kind directly. With several, it asks the configured extractor to classify the page. Classification uses the same loader fallback and stage deadlines as extraction. Eligible classifiers run concurrently, while their signals keep registration order. A throwing classifier records an abstention. Caller aborts propagate.
+
+Missing source, loaders, splitter, classifications, or extractor configuration throws. Unknown groups throw `UnclassifiedGroupError` unless `onUnclassified` is `"skip"`. `dispose()` settles the splitter, default extractor, and process loaders, then reports failures with `AggregateError`.
+
+### `ProcessExtractOptions`
+
+`RunOptions` plus group handling.
 
 ```ts
-extract(options?: ProcessExtractOptions): Promise<ClassifiedExtraction<C>[]>
-splitOnly(options?: RunOptions): Promise<SplitReport>
-dispose(): Promise<void>
+interface ProcessExtractOptions extends RunOptions {
+  readonly onUnclassified?: "throw" | "skip";
+  readonly concurrency?: number;
+}
 ```
 
-`ProcessExtractOptions` extends `RunOptions`. `onUnclassified` defaults to `"throw"`; the
-other value is `"skip"`. Extraction `concurrency` defaults to `4`.
+`onUnclassified` defaults to `"throw"`. `concurrency`, the number of groups extracted at once, defaults to `4`.
 
-`SplitReport` contains the splitter name, splitting strategy, groups, and splitting
-`Usage`. It is also available as `lastSplit` after a completed split.
+### `SplitReport`
 
-For a one-page source, `Process` does not call the splitter. With one configured
-classification it assigns that kind directly. With several classifications, it asks the
-configured extractor to classify the page.
+```ts
+interface SplitReport {
+  readonly splitter: string;
+  readonly strategy: SplittingStrategy;
+  readonly groups: DocGroups;
+  readonly usage: Usage;
+}
+```
 
-Missing source, loaders, splitter, classifications, or extractor configuration throws.
-Unknown groups throw `UnclassifiedGroupError` unless skipping is explicit. `dispose()`
-settles the splitter, default extractor, and process loaders, then reports failures with
-`AggregateError`.
-
-Classification uses the same loader fallback and stage deadlines as extraction.
-Eligible classifiers run concurrently, while their signals retain registration order.
-A throwing classifier records an abstention. Caller aborts propagate.
+`usage` is the splitting usage only.

@@ -1,0 +1,129 @@
+---
+title: Docture concepts
+description: Definitions of the terms used across the Docture documentation, from sources and loaders to specs, gates, and renditions.
+type: explanation
+---
+
+This glossary defines the terms you meet across the Docture documentation. Each entry links to the page that covers the term in depth. For the extraction pipeline in order, read [How it works](/docs/getting-started/how-it-works).
+
+## Inputs and loading
+
+### Source
+
+A source is anything you pass to `extract()` or `convert()`: a path, a URL, a `Uint8Array`, an `ArrayBuffer`, a `RawDocument`, or a `LoadedSource`. The portable `docture` entry accepts bytes, HTTP URLs, and loaded documents. Paths and `file:` URLs need the constructors from `docture/node`. See [Document sources](/docs/getting-started/sources).
+
+### Document
+
+In core, a document has two forms. A `RawDocument` is bytes with an optional media type and file name, and a `LoadedDocument` is what a loader returns: pages, text, a `form` such as `digital` or `scanned`, and the name of the loader. Evaluation cases and synthetic output also contain documents, described under [dataset and ground truth](#dataset-and-ground-truth) and [label](#label).
+
+### Loader
+
+A loader implements the `DocumentLoader` contract. It turns a `RawDocument` into a `LoadedDocument` with text, optional line positions, and optional page images. The extractor tries the loaders that accept the media type in declaration order, and the first one that returns a document wins. See [Choose a loader and rendering engine](/docs/integrations/loaders).
+
+### Document fact
+
+A document fact is a property of a loaded document that a strategy can require, such as `TEXT_LAYER`, `GEOMETRY`, or `RENDERABLE_PAGES`. Core computes facts from the loaded pages and the loader's declared capabilities. Custom loaders can publish their own. See [Record document facts](/docs/getting-started/how-it-works#record-document-facts).
+
+### Engine
+
+An engine is a third-party package that does the parsing, rendering, or recognition, such as `pdfjs-dist`, `mupdf`, `tesseract.js`, or `@napi-rs/canvas`. Docture declares engines as optional peer dependencies, so you install the ones you use. An adapter loads its engine on first use, and a missing engine raises `MissingEngineError` with the code `MISSING_ENGINE`. See [Engine versions](/docs/getting-started/reference/packages#engine-versions).
+
+### Adapter
+
+An adapter is the Docture module that wraps one engine or external service behind a Docture contract, imported from its own subpath such as `docture/loaders/pdfjs` or `docture/raster/canvas`. Service adapters, such as Azure Read and Docling Serve, call the service over HTTP and need no npm SDK. One PDF.js setup shows all three terms: `pdfjs-dist` is the engine, `docture/loaders/pdfjs` is the adapter, and `DocumentLoaderPdfJs` is the loader it exports.
+
+### Integration
+
+Integration is the umbrella term for everything in the [Integrations](/docs/integrations) section: loader and rasterizer adapters, email expansion, Docling import, Paperless sources and sinks, and the AI SDK extraction tool. Each integration has its own entry point, so importing one does not load the others.
+
+### Rasterizer
+
+A rasterizer turns document bytes into page images. It is separate from a loader, so the library that reads text and the library that renders pages are independent choices. `withRasterizer()` adds a rasterizer to a loader, which gives the loaded document renderable pages for vision strategies. See [Compose page rasterizers](/docs/integrations/rasterizers).
+
+### OCR loader
+
+An OCR loader recognizes text from page pixels. `DocumentLoaderTesseract` and `DocumentLoaderPaddleOcr` run locally and need a rasterizer for PDF input, and `DocumentLoaderAzureRead` sends the document to Azure Read. No OCR runs unless you configure an OCR loader. `withOcrFallback` applies one to selected weak pages only. See [Extract from scans and images](/docs/integrations/scanned-documents).
+
+## Extraction
+
+### Contract and schema
+
+A schema defines the fields you want, infers the type of `result.data`, and validates every answer. Docture accepts Zod, Valibot, ArkType, or `jsonSchema(...)`. A contract, created with `contract()`, pairs a schema with a `name`, a `description`, prompt `hints`, and worked `examples`. Every API that takes a contract also takes a bare schema. See [Define schemas and contracts](/docs/extraction/schemas).
+
+### Strategy
+
+A strategy turns a loaded document into unvalidated data. It declares the document facts it `requires`, and the pipeline skips it when a fact is missing. `llm()` and `vision()` are the built-in model strategies, and `defineStrategy` declares your own. See [Strategies and document facts](/docs/extraction/strategies).
+
+### Classifier and classification
+
+A classification is one document kind with a `name`, a `description`, and its own schema, declared with `defineClassification`. A classifier returns a signal for one kind or abstains, and core reconciles the signals into a verdict, or `UNKNOWN` when no kind wins. See [Classify documents](/docs/extraction/classification).
+
+### Splitter and bundle
+
+A bundle is one source that holds several documents, such as a scanned batch with two invoices and a contract. A splitter judges whether adjacent pages belong to the same document, and core turns those verdicts into page groups. `Process` loads the bundle once and extracts each group with its classification. See [Split document bundles](/docs/extraction/splitting).
+
+### Extractor
+
+An extractor holds loaders, strategies, and classifiers, and runs the pipeline when you call `extract()`. Create one with `new Extractor()` or `createExtractor()`. See [Extract your first document](/docs/extraction/quick-start).
+
+### Attempt
+
+An attempt is one entry in `result.attempts`: a loader, classifier, strategy, repair, or layout step with its status (`ok`, `failed`, or `skipped`), duration, error, and usage. Failed loaders and strategies stay in the list when a later one succeeds, so you can see every fallback. See [Follow attempts](/docs/extraction/results#follow-attempts).
+
+### Citation
+
+A citation links an extracted field to the source text that supports it. With `llm({ citations: true })`, `result.citations` lists each field path with a status of `verified`, `cited-unverified`, or `uncited`, and the IDs of the cited evidence. See [Verify field citations](/docs/extraction/citations).
+
+### Value model and AI model
+
+An AI model is a language model from the AI SDK, such as `openai("gpt-5")`, passed to `llm()`, `vision()`, model classifiers, and the CLI. In `@docture/synthetic`, `defineModel` and the `Model` type describe a value model instead: seeded generators that sample values for your schema, with no AI involved. Extraction and CLI pages use "model" for an AI model, and synthetic pages say "value model" or "AI model" to keep the two apart. See [Extract with a model](/docs/extraction/with-a-model) and [Define synthetic value models](/docs/synthetic/models).
+
+## Conversion and retrieval
+
+### Converter
+
+A converter turns a document into TXT, Markdown, HTML, or versioned document JSON without an extraction schema. Create one with `new DocumentConverter()` or `createDocumentConverter()`. It uses the same source resolution and loader selection as an extractor. See [Convert your first PDF](/docs/conversion/quick-start).
+
+### Evidence
+
+Evidence is the source record behind a piece of text: a positioned line, a native element, or a table cell, each with a stable ID such as `p1-line-3` and a page location. Every element in a conversion result records the evidence it came from, and citations refer to evidence IDs. See [Trace content to source evidence](/docs/conversion/evidence).
+
+### Chunk
+
+A chunk is a piece of a converted document sized for a retrieval index. `chunkDocument()` from `docture/chunk` returns chunks with Markdown text, the IDs of the elements they hold, and the page and box of each element. See [Chunk documents for retrieval](/docs/conversion/retrieval-chunks).
+
+## Evaluation
+
+### Processor and experiment
+
+A processor turns an evaluation case into raw output. `fromDocture` adapts an extractor, and any object with an `id` and an `extract()` method works, so you can evaluate tools outside Docture. An experiment is one named processor in a run, so a run with two processors compares two experiments on the same cases. A processor is unrelated to the `Process` class, which splits bundles. See [Connect an evaluation processor](/docs/evaluation/processors) and [Run evaluation experiments](/docs/evaluation/experiments).
+
+### Dataset and ground truth
+
+A dataset has an `id` and a `cases()` method that lists cases. Each case has an `id`, its `documents`, and `expected`, the ground truth: the approved answer for that case. Ground truth can be a `draft` from a processor or `signed-off` after review. See [Prepare evaluation datasets](/docs/evaluation/datasets) and [Draft and approve evaluation ground truth](/docs/evaluation/ground-truth).
+
+### Spec and comparator
+
+A spec, created with `defineEval`, assigns a comparator to every field of the expected shape, plus array alignment, weights, and segments. It validates ground truth and scores one output against it. A comparator decides whether one actual value matches one expected value, such as `exact`, `number` with a tolerance, or `date`. See [Define evaluation scoring rules](/docs/evaluation/scoring-rules) and the [comparators API](/docs/evaluation/reference/comparators).
+
+### Run and result
+
+A run is one call to `runEval` or `docture eval run`: every selected case through every experiment, saved in a run store under a run ID. The result is the versioned `EvalResult` that the run produces. Reporters, comparisons, and gates read only the result, so they work on saved runs without calling a processor. See [How evaluation works](/docs/evaluation/how-it-works).
+
+### Baseline and gate
+
+A baseline is an earlier complete run that a new run is compared with. With `baseline: "auto"`, Docture picks the newest complete run over the same dataset on the current Git branch. A gate applies pass and fail rules to a result: metric thresholds, error and fallback rates, and allowed drops against the baseline. See [Compare evaluation runs and select baselines](/docs/evaluation/comparisons) and [Gate evaluation regressions in CI](/docs/evaluation/ci).
+
+## Synthetic data
+
+### Template and printed mask
+
+A template draws a sampled value as a document. It has a `key`, a `family`, a locale, and a `printed` mask. The printed mask declares, for every schema field, whether the template prints it. Unprinted fields become `null` in the expected value, so the ground truth holds only what the page shows. See [Create synthetic PDF templates](/docs/synthetic/pdf-templates) and [Define printed fields](/docs/synthetic/printed-fields).
+
+### Label
+
+A label records where one printed value sits: the field path, the expected value, the drawn text, the page number, and a box in PDF points with a top-left origin. Evaluation reads labels as expected locations for grounding. See [Rendering and labels](/docs/synthetic/how-it-works#rendering-and-labels).
+
+### Rendition
+
+A rendition is one version of a rendered document: the `digital` original, or a scan, photo, or fax made from it by a degradation profile at a chosen severity. Every rendition keeps the original's expected values, and its label boxes move with the image. See [Simulate scans, photos, and fax](/docs/synthetic/degradation).

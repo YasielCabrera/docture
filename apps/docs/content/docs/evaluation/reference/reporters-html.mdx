@@ -1,30 +1,14 @@
 ---
-title: Evaluation html reporter API
-description: Html reports from saved evaluation results.
+title: Evaluation HTML reporter API
+description: Render evaluation results as one offline HTML report with themes, data panels, and live updates.
+type: reference
 ---
+
+Import the HTML reporter from `@docture/eval/reporters/html`. [Generate and customize evaluation reports](/docs/evaluation/reports) shows reporters in use.
 
 ## `@docture/eval/reporters/html`
 
-This entry is Node-only: its writing factory imports `node/artifacts`. Pure rendering implementations have no Node imports. The factory consumes `EvalResult` through `onResult`; writing requires an explicit `out` except for the terminal reporter.
-
-- `Bar`
-- `BarData`
-- `CellValue`
-- `Column`
-- `DocumentRow`
-- `HTML_IDS`
-- `HtmlOptions`
-- `HtmlPanel`
-- `HtmlParts`
-- `HtmlReporterOptions`
-- `HtmlTheme`
-- `HtmlView`
-- `PanelData`
-- `SectionData`
-- `Tile`
-- `TileData`
-- `Tone`
-- `panel`
+This entry imports Node.js file APIs, so it runs only in Node.js. `htmlReporter` writes the finished result to `out`.
 
 ### `embedJson`
 
@@ -39,6 +23,8 @@ JSON for a `<script type="application/json">` element: `<` and line separators a
 ```ts
 renderHtml(result: EvalResult, options?: HtmlOptions): string
 ```
+
+Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`HtmlOptions`](/docs/evaluation/reference/reporters-html#htmloptions).
 
 The result as one offline HTML file: inline CSS, the prebuilt client, and the result embedded as JSON. The page references nothing on the network and the client never parses markup from the data.
 
@@ -58,6 +44,8 @@ renderHtml(result, {
 scoreTone(value: number | null): Tone
 ```
 
+Returns [`Tone`](/docs/evaluation/reference/reporters-html#tone).
+
 Score colors: green at 99.5%, accent at 90%, amber at 60%, red below.
 
 ### `htmlReporter`
@@ -65,6 +53,8 @@ Score colors: green at 99.5%, accent at 90%, amber at 60%, red below.
 ```ts
 htmlReporter(options: HtmlReporterOptions): Reporter
 ```
+
+Takes [`HtmlReporterOptions`](/docs/evaluation/reference/reporters-html#htmlreporteroptions). Returns [`Reporter`](/docs/evaluation/reference/core#reporter).
 
 Write the result as a single offline HTML report, optionally rewritten live during the run.
 
@@ -74,6 +64,12 @@ Write the result as a single offline HTML report, optionally rewritten live duri
 defineColumn(column: Column): Column
 ```
 
+Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
+
+Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
+
+Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
+
 Declare a column. Identity at runtime; it pins the type.
 
 ### `defaultColumns`
@@ -82,4 +78,224 @@ Declare a column. Identity at runtime; it pins the type.
 defaultColumns(): readonly Column[]
 ```
 
+Returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
+
 The columns every per-case view starts from.
+
+## Types
+
+### `Bar`
+
+One bar for `panel.bars`.
+
+```ts
+interface Bar {
+	readonly label: string;
+	readonly value: number | null;
+	readonly format?: MetricFormat;
+	readonly tone?: Tone;
+}
+```
+
+### `BarData`
+
+One bar. `value` is its length relative to the panel's `max`.
+
+```ts
+interface BarData {
+	readonly label: string;
+	readonly value: number | null;
+	readonly text: string;
+	readonly tone: Tone;
+}
+```
+
+### `DocumentRow`
+
+One documents-table row: the index of its case in `result.cases`, raw values to sort by and display text.
+
+```ts
+interface DocumentRow {
+	readonly index: number;
+	readonly failed: boolean;
+	readonly values: readonly CellValue[];
+	readonly text: readonly string[];
+}
+```
+
+### `HTML_IDS`
+
+Element ids the client reads. A custom shell must keep them.
+
+```ts check
+const HTML_IDS = { result: "eval-result", view: "eval-view", copy: "eval-copy", app: "eval-app", banner: "eval-in-progress" } as const;
+```
+
+### `HtmlOptions`
+
+Options for `renderHtml`.
+
+{/* options: HtmlOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `title` | `string` | Default `Eval run <run id>`. |
+| `theme` | `HtmlTheme` | Accent color, logo, and extra CSS. Every part must keep the page offline. |
+| `columns` | `readonly Column[]` | Columns of the documents table. Default: the shared default columns. |
+| `panels` | `readonly HtmlPanel[]` | Panels shown after the overview. |
+| `detail` | `"all" \| "failures"` | `all` embeds every leaf and both documents of every case. `failures` keeps only leaves that did not match and drops whole documents, which keeps large corpora small. Default `failures`. |
+| `template` | `(parts: HtmlParts) => string` | Replace the page shell. The page must include `parts.csp` in its head. |
+
+### `HtmlPanel`
+
+A panel computed from the result on the server. The client renders the data, never markup.
+
+```ts
+type HtmlPanel = (result: EvalResult) => PanelData;
+```
+
+### `HtmlParts`
+
+The pieces of the page, for a `template` that replaces the shell. Every part is safe to place as is.
+
+```ts check
+interface HtmlParts {
+	/**
+	 * The Content-Security-Policy `<meta>` element that blocks every network load. A template must place it in the
+	 * page's head, before any `<style>`, `<script>` or `<body>`; `renderHtml` rejects a template page without it.
+	 */
+	readonly csp: string;
+	/** Escaped page title. */
+	readonly title: string;
+	/** CSS for a `<style>` element, theme included. */
+	readonly css: string;
+	/** The client for a `<script>` element. */
+	readonly script: string;
+	/** The `<script type="application/json">` elements holding the result and the view. */
+	readonly data: string;
+	/** The default body: the in-page copy `<template>` and the element the client renders into. */
+	readonly body: string;
+}
+```
+
+### `HtmlReporterOptions`
+
+Options for `htmlReporter`.
+
+{/* options: HtmlReporterOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `out` | `string` | Required. File to write. |
+| `live` | `boolean \| { readonly intervalMs?: number }` | Rewrite the file while the run progresses, at most once per `intervalMs` (default 1000), with an in-progress banner. The final write replaces it. |
+| `title` | `string` | Default `Eval run <run id>`. |
+| `theme` | `HtmlTheme` | Accent color, logo, and extra CSS. Every part must keep the page offline. |
+| `columns` | `readonly Column[]` | Columns of the documents table. Default: the shared default columns. |
+| `panels` | `readonly HtmlPanel[]` | Panels shown after the overview. |
+| `detail` | `"all" \| "failures"` | `all` embeds every leaf and both documents of every case. `failures` keeps only leaves that did not match and drops whole documents, which keeps large corpora small. Default `failures`. |
+| `template` | `(parts: HtmlParts) => string` | Replace the page shell. The page must include `parts.csp` in its head. |
+
+### `HtmlTheme`
+
+Colors, a logo and extra CSS.
+
+```ts check
+interface HtmlTheme {
+	/** A CSS color, such as `#4f46e5`. */
+	readonly accent?: string;
+	/** A `data:image/...` URL. The report references nothing on the network. */
+	readonly logo?: string;
+	/** Appended after the built-in styles. */
+	readonly css?: string;
+}
+```
+
+### `HtmlView`
+
+Everything the client shows besides the embedded result.
+
+```ts
+interface HtmlView {
+	readonly title: string;
+	/** `failures` means the embedded result keeps only leaves that did not match, and no whole documents. */
+	readonly detail: "all" | "failures";
+	readonly sections: readonly SectionData[];
+	readonly documents: {
+		readonly columns: readonly { readonly id: string; readonly header: string; readonly numeric: boolean }[];
+		readonly rows: readonly DocumentRow[];
+	};
+}
+```
+
+### `PanelData`
+
+Data the client renders generically. Every value is computed and formatted on the server.
+
+```ts
+type PanelData =
+	| { readonly kind: "tiles"; readonly title: string; readonly items: readonly TileData[] }
+	| { readonly kind: "bars"; readonly title: string; readonly max: number; readonly items: readonly BarData[] }
+	| ({ readonly kind: "table" } & TableView);
+```
+
+### `SectionData`
+
+A titled group of panels. An empty title renders no heading.
+
+```ts
+interface SectionData {
+	readonly id: string;
+	readonly title: string;
+	readonly panels: readonly PanelData[];
+}
+```
+
+### `Tile`
+
+A headline number for `panel.tiles`. A number is formatted with `format`, default `number`.
+
+```ts
+interface Tile {
+	readonly label: string;
+	readonly value: number | string | null;
+	readonly format?: MetricFormat;
+	readonly detail?: string;
+	readonly tone?: Tone;
+}
+```
+
+### `TileData`
+
+A headline number. `text` is already formatted on the server.
+
+```ts
+interface TileData {
+	readonly label: string;
+	readonly text: string;
+	readonly detail?: string;
+	readonly tone: Tone;
+}
+```
+
+### `Tone`
+
+How a tile or bar is colored.
+
+```ts check
+type Tone = "good" | "fair" | "warn" | "bad" | "neutral";
+```
+
+### `panel`
+
+Data panels for the HTML report.
+
+```ts
+const panel: {
+	/** Headline numbers. */
+	tiles: (title: string, compute: (result: EvalResult) => readonly Tile[]) => HtmlPanel;
+	/** Horizontal bars. `max` sets the full length; default 1, which suits ratios. */
+	bars: (title: string, compute: (result: EvalResult) => readonly Bar[], options?: { readonly max?: number | undefined; }) => HtmlPanel;
+	/** A table of text cells. */
+	table: (title: string, compute: (result: EvalResult) => { readonly columns: readonly string[]; readonly rows: readonly (readonly string[])[]; readonly numeric?: readonly boolean[] | undefined; }) => HtmlPanel;
+};
+```
+
+This entry also exports [`CellValue`](/docs/evaluation/reference/reporters-terminal#cellvalue) and [`Column`](/docs/evaluation/reference/reporters-terminal#column).

@@ -1,26 +1,22 @@
 ---
-title: Evaluation markdown reporter API
-description: Markdown reports from saved evaluation results.
+title: Evaluation Markdown reporter API
+description: Render evaluation results as Markdown built from composable sections and columns.
+type: reference
 ---
+
+Import the Markdown reporter from `@docture/eval/reporters/markdown`. [Generate and customize evaluation reports](/docs/evaluation/reports) shows reporters in use.
 
 ## `@docture/eval/reporters/markdown`
 
-This entry is Node-only: its writing factory imports `node/artifacts`. Pure rendering implementations have no Node imports. The factory consumes `EvalResult` through `onResult`; writing requires an explicit `out` except for the terminal reporter.
-
-- `CellValue`
-- `Column`
-- `MarkdownHelpers`
-- `MarkdownOptions`
-- `MarkdownReporterOptions`
-- `MarkdownSection`
-- `TableView`
-- `md`
+This entry imports Node.js file APIs, so it runs only in Node.js. `markdownReporter` writes the finished result to `out`.
 
 ### `renderMarkdown`
 
 ```ts
 renderMarkdown(result: EvalResult, options?: MarkdownOptions): string
 ```
+
+Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`MarkdownOptions`](/docs/evaluation/reference/reporters-markdown#markdownoptions).
 
 The result as a Markdown report built from sections.
 
@@ -30,6 +26,8 @@ The result as a Markdown report built from sections.
 markdownReporter(options: MarkdownReporterOptions): Reporter
 ```
 
+Takes [`MarkdownReporterOptions`](/docs/evaluation/reference/reporters-markdown#markdownreporteroptions). Returns [`Reporter`](/docs/evaluation/reference/core#reporter).
+
 Write the result as a Markdown report.
 
 ### `defineColumn`
@@ -38,6 +36,12 @@ Write the result as a Markdown report.
 defineColumn(column: Column): Column
 ```
 
+Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
+
+Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
+
+Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
+
 Declare a column. Identity at runtime; it pins the type.
 
 ### `defaultColumns`
@@ -45,6 +49,8 @@ Declare a column. Identity at runtime; it pins the type.
 ```ts
 defaultColumns(): readonly Column[]
 ```
+
+Returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
 
 The columns every per-case view starts from.
 
@@ -55,3 +61,110 @@ escapeMarkdown(text: string): string
 ```
 
 Backslash-escape Markdown syntax, entity-escape HTML, and fold line breaks into spaces.
+
+## Types
+
+### `MarkdownHelpers`
+
+What every Markdown section receives besides the result.
+
+```ts
+interface MarkdownHelpers {
+	/** A Markdown table. Cells are escaped; `numeric` right-aligns columns. */
+	table(headers: readonly string[], rows: readonly (readonly (string | number | null)[])[], numeric?: readonly boolean[]): string;
+	/** A summary view as a `##` heading, a table and its notes. */
+	view(view: TableView): string;
+	/** Escape text for a table cell or a paragraph. */
+	escape(text: string): string;
+	percent(value: number | null | undefined): string;
+	usd(value: number | null | undefined): string;
+	ms(value: number | null | undefined): string;
+	count(value: number | null | undefined): string;
+	metric(value: number | null | undefined, format: MetricFormat): string;
+	/** The columns of per-case tables. */
+	readonly columns: readonly Column[];
+}
+```
+
+### `MarkdownOptions`
+
+Options for `renderMarkdown`.
+
+{/* options: MarkdownOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `title` | `string` | Default `Eval run <run id>`. |
+| `sections` | `readonly MarkdownSection[]` | Default `md.defaultSections`. |
+| `columns` | `readonly Column[]` | Default `md.defaultColumns`. |
+
+### `MarkdownReporterOptions`
+
+Options for `markdownReporter`.
+
+{/* options: MarkdownReporterOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `out` | `string` | Required. File to write. |
+| `title` | `string` | Default `Eval run <run id>`. |
+| `sections` | `readonly MarkdownSection[]` | Default `md.defaultSections`. |
+| `columns` | `readonly Column[]` | Default `md.defaultColumns`. |
+
+### `MarkdownSection`
+
+One part of a Markdown report. An empty string leaves the section out.
+
+```ts
+type MarkdownSection = (result: EvalResult, helpers: MarkdownHelpers) => string;
+```
+
+### `TableView`
+
+A summary table with display text in every cell. Markdown, the terminal and the HTML report render the same views.
+
+```ts check
+interface TableView {
+	readonly title: string;
+	readonly columns: readonly string[];
+	/** Per column: right-align it. */
+	readonly numeric: readonly boolean[];
+	readonly rows: readonly (readonly string[])[];
+	readonly notes: readonly string[];
+}
+```
+
+### `md`
+
+Composable Markdown sections. Each returns a function `(result, helpers) => string`.
+
+```ts
+const md: {
+	/** Run line and headline metrics per experiment. */
+	overview: () => MarkdownSection;
+	/** Scores and field counts per segment. */
+	segments: () => MarkdownSection;
+	/** Scores per slice value, for one slice name or all of them. */
+	slices: (name?: string | undefined) => MarkdownSection;
+	/** Path patterns, worst F1 first. Default limit 20. */
+	paths: (options?: { readonly limit?: number | undefined; }) => MarkdownSection;
+	/** Metric deltas, significance and changed cases against the baseline. */
+	comparison: () => MarkdownSection;
+	/** Calibration error and auto-accept coverage. */
+	calibration: () => MarkdownSection;
+	/** Grounded precision, recall and F1. */
+	grounding: () => MarkdownSection;
+	/** The gate verdict and every check. */
+	gate: () => MarkdownSection;
+	/** Failing cases as a table, then the field diffs with repair hints of the first `limit`. Default limit 20. */
+	failures: (options?: { readonly limit?: number | undefined; }) => MarkdownSection;
+	/** Every case as a table of the report's columns. */
+	cases: () => MarkdownSection;
+	/** Warnings recorded while building the result. */
+	warnings: () => MarkdownSection;
+	/** Overview, segments, slices, paths, comparison, calibration, grounding, gate, failures and warnings. */
+	defaultSections: readonly MarkdownSection[];
+	/** The shared default columns. */
+	defaultColumns: readonly Column[];
+};
+```
+
+This entry also exports [`CellValue`](/docs/evaluation/reference/reporters-terminal#cellvalue) and [`Column`](/docs/evaluation/reference/reporters-terminal#column).

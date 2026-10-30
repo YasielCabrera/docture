@@ -1,7 +1,10 @@
 ---
 title: Evaluation array alignment API
 description: Index, ordered, and Hungarian row alignment.
+type: reference
 ---
+
+Import the row alignment rules for array fields from `@docture/eval`. [Match evaluation array items](/docs/evaluation/array-matching) shows when to use each rule.
 
 ## `@docture/eval`
 
@@ -11,6 +14,8 @@ description: Index, ordered, and Hungarian row alignment.
 byIndex(): ArrayRule
 ```
 
+Returns [`ArrayRule`](/docs/evaluation/reference/arrays#arrayrule).
+
 Pair row i with row i. Right for tables whose order is part of the data.
 
 ### `hungarian`
@@ -18,6 +23,8 @@ Pair row i with row i. Right for tables whose order is part of the data.
 ```ts
 hungarian(options?: { readonly key?: readonly string[]; readonly minSimilarity?: number; readonly weights?: Readonly<Record<string, number>>; readonly maxCells?: number; }): ArrayRule
 ```
+
+Returns [`ArrayRule`](/docs/evaluation/reference/arrays#arrayrule).
 
 Order-free pairing: rows with equal `key` values pair first, the rest by an optimal assignment on row similarity. Rows below `minSimilarity` stay unpaired.
 
@@ -27,4 +34,35 @@ Order-free pairing: rows with equal `key` values pair first, the rest by an opti
 ordered(options?: { readonly minSimilarity?: number; readonly maxCells?: number; }): ArrayRule
 ```
 
+Returns [`ArrayRule`](/docs/evaluation/reference/arrays#arrayrule).
+
 Order-preserving pairing that maximizes total row similarity, like a diff. Rows below `minSimilarity` stay unpaired.
+
+### `DEFAULT_MAX_CELLS`
+
+Cost-matrix cells (expected rows times actual rows) above which `ordered` and `hungarian` fall back to greedy alignment and record a warning.
+
+```ts check
+const DEFAULT_MAX_CELLS = 250_000;
+```
+
+## Types
+
+### `ArrayRule`
+
+How the rows of an array are paired before their fields are compared.
+
+```ts check
+type ArrayRule =
+	| { readonly kind: "index" }
+	| { readonly kind: "ordered"; readonly minSimilarity: number; readonly maxCells: number }
+	| {
+		readonly kind: "hungarian";
+		readonly minSimilarity: number;
+		readonly maxCells: number;
+		/** Row-relative paths whose values, when all present and equal, pair rows before any similarity is computed. */
+		readonly key?: readonly string[];
+		/** Row-relative leaf patterns weighting row similarity. Default 1 each. */
+		readonly weights?: Readonly<Record<string, number>>;
+	};
+```

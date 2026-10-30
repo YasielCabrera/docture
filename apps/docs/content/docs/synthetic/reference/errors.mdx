@@ -1,18 +1,50 @@
 ---
 title: Synthetic errors API
-description: Public signatures, types, behavior, and defaults for synthetic errors.
+description: Error classes that synthetic sampling, rendering, and verification throw, with their problem fields.
+type: reference
 ---
+
+The root entry `@docture/synthetic` exports three error classes. Each extends `DoctureError` and has a stable `code`. `instanceof` recognizes instances from any installed copy of the package, as described in [errors from another installed copy](/docs/resources/errors#errors-from-another-installed-copy).
 
 ## `@docture/synthetic`
 
 ### `SynthesisError`
 
-Code `SYNTHESIS_FAILED`. A model could not sample a value that satisfies its schema, constraints and scenario. `problems` lists each `SynthesisProblem` with the path or constraint it concerns.
+Code `SYNTHESIS_FAILED`. A model could not sample a value that satisfies its schema, constraints, and scenario, for example when a `constraint` or a `scenario` promise fails. `problems` lists every problem.
+
+{/* options: SynthesisProblem */}
+| Field | Meaning |
+| --- | --- |
+| `path` | The path or constraint name the problem concerns. |
+| `message` | What went wrong. |
 
 ### `TemplateError`
 
-Code `TEMPLATE_INVALID`. `template` names the template and `problems` lists each `TemplateProblem` with a `TemplateProblemCode`: `undeclared-field`, `unprinted-field`, `unknown-path`, `missing-glyph` or `invalid-template`.
+Code `TEMPLATE_INVALID`. A template drew something its printed mask does not declare, skipped a declared field, or used a glyph its font lacks. `template` names the template and `problems` lists every `TemplateProblem`.
+
+{/* options: TemplateProblem */}
+| Field | Meaning |
+| --- | --- |
+| `code` | A `TemplateProblemCode`. |
+| `path` | The concrete path concerned, or an empty string for a problem with the whole template. |
+| `message` | What went wrong. |
+
+| `TemplateProblemCode` | Cause |
+| --- | --- |
+| `undeclared-field` | The template drew a field the printed mask does not declare. |
+| `unprinted-field` | The mask declares a field printed, but the template did not draw it. |
+| `unknown-path` | Part of the type. The current renderers do not raise it. |
+| `missing-glyph` | The font has no glyph for a drawn character. |
+| `invalid-template` | The template is malformed or its render function failed. When `draw` or `render` throws, the original error is the `cause`. |
 
 ### `LabelVerificationError`
 
-Code `LABEL_VERIFICATION_FAILED`. `failures` lists each `LabelFailure` with its path, page and a `LabelFailureKind`: `missing`, `outside-box` or `page-overflow`.
+Code `LABEL_VERIFICATION_FAILED`. Thrown by [`assertVerified`](/docs/synthetic/reference/verify#assertverified) when a rendered document does not show a labeled value inside its labeled box. `failures` lists every failed label.
+
+{/* options: LabelFailure */}
+| Field | Meaning |
+| --- | --- |
+| `path` | The label's concrete path. |
+| `kind` | A `LabelFailureKind`: `missing`, `outside-box`, or `page-overflow`. |
+| `pageNumber` | The label's page. |
+| `message` | What verification found. |

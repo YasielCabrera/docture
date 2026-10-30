@@ -1,15 +1,22 @@
 ---
 title: Read DOCX with Mammoth
 description: Read DOCX text on one logical page with an optional Mammoth install.
+type: how-to
 ---
 
-Install the exact tested engine explicitly.
+`DocumentLoaderMammoth` reads the text of a DOCX file with Mammoth. Import it from `docture/loaders/mammoth`. The loader runs only in Node.js.
+
+## Install Mammoth
 
 ```sh
-pnpm add docture mammoth
+npm install docture mammoth
 ```
 
-```ts
+Mammoth loads on the first `load()` call. If it is not installed, the call fails with [`MISSING_ENGINE`](/docs/resources/errors#error-catalogue).
+
+## Convert a DOCX file
+
+```ts check
 import { DocumentConverter } from "docture";
 import { DocumentLoaderMammoth } from "docture/loaders/mammoth";
 
@@ -23,8 +30,12 @@ async function convertDocx(docxBytes: Uint8Array) {
 }
 ```
 
-`DocumentLoaderMammoth` uses `extractRawText` and returns one logical page with zero width and height. Headings, paragraphs and table cells retain source order. Formatting, physical pagination, positioned geometry and images are unavailable. Only DOCX is accepted. A page request may select page 1; another page fails with `PAGE_OUT_OF_RANGE`.
+The loader accepts only DOCX. It reads the raw text with Mammoth's `extractRawText` and returns one logical page with zero width and height. Headings, paragraphs, and table cells keep their source order. Formatting, physical pagination, line geometry, and images are not available. Mammoth produces no HTML, and its access to external files stays disabled. Diagnostics log counts and types, never document content.
 
-The adapter is Node-only. Mammoth loads on the first call, and a missing install raises `MISSING_ENGINE`. Parsing an invalid DOCX raises `MammothDocumentError` with `LOAD_FAILED` and its engine cause. Cancellation is cooperative before and after parsing; it cannot interrupt Mammoth while it is running. Raw-text extraction does not produce HTML and leaves external-file access at Mammoth's disabled default. Diagnostics log counts and types without document content.
+A page request can select page 1. Any other page fails with [`PAGE_OUT_OF_RANGE`](/docs/resources/errors#error-catalogue).
 
-Run `pnpm --dir apps/examples exec tsx 20-input-loaders/index.ts` for a deterministic real DOCX conversion.
+## Handle errors and cancellation
+
+An invalid DOCX throws `MammothDocumentError` with code [`LOAD_FAILED`](/docs/resources/errors#error-catalogue) and the Mammoth error as its cause. The loader checks for cancellation before and after parsing. It cannot interrupt Mammoth while a parse runs.
+
+The repository example in [`apps/examples/20-input-loaders`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/20-input-loaders), `index.ts`, converts a real DOCX file without network access.

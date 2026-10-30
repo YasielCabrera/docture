@@ -1,11 +1,14 @@
 ---
 title: Compare evaluation runs and select baselines
 description: Pair compatible cases and experiments before interpreting a change.
+type: how-to
 ---
+
+A comparison tells you whether a difference between two runs is a real change or noise. Pair two stored runs, read the statistics, and pick a baseline automatically.
 
 ## Compare two runs
 
-Compare two saved results:
+Compare two saved results. Read each with `store.readResult(runId)` from your [run store](/docs/evaluation/run-history), or with `readEvalResult(dir)` from `@docture/eval/node`, or pass the values `runEval` returned:
 
 ```ts
 import { compareRuns } from "@docture/eval/compare";
@@ -14,12 +17,16 @@ const comparison = compareRuns(baseline, candidate, { seed: "release-check" });
 console.log(comparison.experiments);
 ```
 
-The default compares common experiment IDs. Select a named experiment or pair when needed. Pairing uses case and epoch rows; incompatible comparisons throw `IncomparableRunsError` with reasons.
+The default compares common experiment IDs. Select a named experiment or pair when needed. Pairing uses case and epoch rows. An unknown experiment, a case and epoch row that appears twice, or no shared case and epoch rows throws `IncomparableRunsError` with every reason. Different dataset or spec fingerprints do not throw; they set `comparison.compatible.dataset` or `comparison.compatible.spec` to `false` and add a warning.
+
+## Read the statistics
 
 Continuous measures use a seeded cluster bootstrap. Binary outcomes use exact McNemar. Related cases share the dataset's `group` cluster, so digital, scan, and photo renditions of one original do not count as independent truth. Small samples use exact sign-flip p-values; subgroup families use Holm correction. Defaults are `10000` resamples, alpha `0.05`, and seed `docture-eval`.
 
 Read the summary delta and verdict together. Verdicts include `improved`, `regressed`, `unchanged`, `inconclusive`, `insufficient`, `not-tested`, and `incomparable`. A visible difference alone does not establish statistical significance.
 
-For automatic history lookup, give `runEval` a store, Git provenance, and `baseline: "auto"`. The resolver selects compatible complete history on the current branch. Set `fallbackBranch` explicitly when another branch should be searched. Missing required provenance fails closed. Use an explicit run ID for a fixed release baseline.
+## Select a baseline automatically
+
+For automatic history lookup, give `runEval` a store and `baseline: "auto"`. The resolver selects the most recent complete run with the same dataset fingerprint. Pass Git provenance to restrict lookup to the current branch, and set `fallbackBranch` to search another branch when the current one has no match. Without Git provenance or `fallbackBranch`, lookup can select a run from any branch. Lookup does not compare spec fingerprints, so check `comparison.compatible.spec` and its warnings before you interpret the result. Use an explicit run ID for a fixed release baseline.
 
 See [comparison API](/docs/evaluation/reference/comparison), [baseline API](/docs/evaluation/reference/gates), and [CI gates](/docs/evaluation/ci).

@@ -1,7 +1,12 @@
 ---
 title: Check document conversion
-description: Assert text presence order and table structure in converted documents.
+description: Assert text presence, reading order, and table structure in converted documents.
+type: how-to
 ---
+
+Conversion checks test a converted document for expected text, reading order, and table cells, without ground-truth JSON or a model.
+
+## Run conversion checks
 
 Use `checkConversion` from `@docture/eval/conversion` to test a converted document without a model judge. The runnable recipe generates its own PDF:
 
@@ -11,7 +16,11 @@ The recipe prints `4/4 conversion checks passed`. It checks text presence, absen
 
 Pass the converted result when checks need pages, provenance, or table structure. A plain Markdown or text string supports text checks only.
 
+## Understand text matching
+
 Text matching normalizes Unicode with NFKC and folds whitespace runs. A match stays within one unit: an element, a list item, a table cell, or a blank-line-separated block in string output. Text spread across separate units does not match one phrase.
+
+## Act on the report
 
 Each check returns its ID, pass state, and failure reason. Inspect `report.passed`, `report.failed`, and `report.results`, then fail your test or CI command according to your policy.
 

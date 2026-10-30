@@ -91,7 +91,7 @@ export function addCounts(a: StatusCounts, b: StatusCounts): StatusCounts {
   };
 }
 
-/** Precision, recall and F1 from counts. F1 is 2·match / (2·match + 2·mismatch + omission + hallucination), so it is 0, not null, when nothing was predicted. */
+/** Precision, recall and F1 from counts. F1 is 2·match / (2·match + 2·mismatch + omission + hallucination), so it is 0 when expected fields exist but nothing was predicted, and null when there are neither expected nor predicted fields. */
 export function prf(counts: StatusCounts): Prf {
   const predicted = counts.match + counts.mismatch + counts.hallucination;
   const relevant = counts.match + counts.mismatch + counts.omission;

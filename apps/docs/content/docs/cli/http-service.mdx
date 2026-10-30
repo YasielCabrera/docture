@@ -1,35 +1,68 @@
 ---
 title: Run a local HTTP service
 description: Reuse configured document engines across byte-based HTTP requests.
+type: how-to
 ---
 
-Start the service with a caller-selected schema and pipeline configuration.
+`docture serve` keeps configured loaders and model clients loaded and answers `/convert`, `/inspect`, and `/extract` requests over HTTP. The [HTTP protocol reference](/docs/cli/http-protocol) lists every request field and status code.
+
+## Start the service
+
+Pass the config and the schemas that requests may select:
 
 ```sh
-docture serve --config ./docture.config.ts --schema note=./note.ts --port 8787
+docture serve --config ./docture.config.ts --schema invoice=./invoice.ts --port 8787
 ```
 
-The CLI prints one version 1 readiness record with the bound address. Use `--port 0` for an ephemeral port. Repeat `--schema name=module` for several schemas. A plain module is named `default`, and an existing config schema also supplies `default`. Requests select a configured name; they cannot upload executable configuration, arbitrary schemas, model settings or credentials. Restart to refresh configuration.
-
-Send JSON with document bytes encoded as canonical base64.
+When the service is ready, it prints one version 1 readiness record with the bound address on stdout:
 
 ```json
-{
-  "document": { "data": "SGVsbG8=", "mimeType": "text/plain", "fileName": "note.txt" },
-  "schema": "note"
-}
+{"version":1,"command":"serve","ok":true,"address":{"host":"127.0.0.1","port":8787,"url":"http://127.0.0.1:8787"}}
 ```
 
-POST this extraction request to `/extract`. `/convert` accepts the same document with `format` set to `text`, `markdown`, `html` or `json`. `/inspect` accepts the document without schema or format. All routes accept optional one-based `pages`. Unknown fields fail before any document loads. The service accepts document bytes only; local paths and network source URLs are not request inputs.
+The default port is `8787`. Use `--port 0` for an ephemeral port. Repeat `--schema name=module` for several schemas. A plain module is named `default`, and the config's `schema` also supplies `default`. Requests select a configured name. They cannot upload executable configuration, arbitrary schemas, model settings, or credentials. Restart the service to load changed configuration.
 
-Successful operations return the same version 1 envelope shape as the CLI. Extraction includes full data, validation, citation/evidence and conflict fields. Inspection has the CLI's default page/fact report. Conversion returns `content`, `format`, MIME, page count, loader, method and warnings. Assets are embedded, so converted content has no unresolved filesystem asset references. CLI conversion writes its content to a file; compare that file with the service content, excluding output locations and timing.
+## Send a request
 
-Document failures remain result envelopes with `ok: false`. Transport errors use HTTP 400 for invalid requests, 401 for invalid authentication, 404 for unknown routes, 405 for methods, 408 for body deadlines, 413 for body limits, 415 for content type and 503 for full capacity or shutdown. stdout carries only the readiness record; diagnostics use stderr.
+Requests carry document bytes as canonical base64. This Node script converts `invoice.pdf` to Markdown:
 
-Localhost is the default binding. To bind another interface, set `DOCTURE_SERVE_TOKEN` in the service environment and use `--host`. Clients send `Authorization: Bearer <token>`. There is no command-line token flag. Run behind your deployment's TLS terminator when clients cross a network.
+```js
+import { readFile } from "node:fs/promises";
 
-`--concurrency` bounds active work. `--max-queue` bounds accepted waiting requests before bodies are buffered. `--max-body-bytes` caps encoded JSON bytes, and `--body-timeout` includes queue wait and body receipt. A client disconnect cancels its queued or active operation. Configured loaders and clients stay warm after ordinary request failures.
+const data = (await readFile("invoice.pdf")).toString("base64");
+const response = await fetch("http://127.0.0.1:8787/convert", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    document: { data, mimeType: "application/pdf", fileName: "invoice.pdf" },
+    format: "markdown",
+  }),
+});
+const envelope = await response.json();
+console.log(envelope.results[0].content);
+```
 
-SIGTERM and the CLI's abort signal stop admission and drain accepted requests. After `--shutdown-timeout`, the service aborts outstanding work and waits for it to settle before disposing each shared resource once. A loader that ignores cancellation can delay final exit. Set your container stop grace period above the drain timeout.
+The response is the same version 1 envelope as the CLI. A conversion result holds `content`, `format`, `mimeType`, `pageCount`, `loader`, `method`, and `warnings`. Assets are embedded, so the content has no file references. To extract, POST `{ document, schema: "invoice" }` to `/extract`.
 
-Run `pnpm --dir apps/examples exec tsx 22-http-service/index.ts` for a deterministic port-zero example with conversion, inspection, extraction and disposal assertions. See the [service API](/docs/cli/reference/service) for library startup and shutdown, and the [container guide](/docs/cli/containers) for the Linux build recipe.
+The service accepts document bytes only. It does not read local paths or fetch source URLs.
+
+## Bind beyond localhost
+
+The service binds to `127.0.0.1` by default. To bind another interface, set `DOCTURE_SERVE_TOKEN` in the service environment and pass `--host`. Clients then send `Authorization: Bearer <token>`. There is no command-line token flag. Run the service behind your deployment's TLS terminator when clients cross a network.
+
+## Set capacity limits
+
+| Flag | Default | Limit |
+| --- | --- | --- |
+| `--concurrency` | 4 | Active requests |
+| `--max-queue` | 16 | Accepted requests waiting for a slot, before their bodies are read |
+| `--max-body-bytes` | 16777216 | Encoded JSON bytes per request |
+| `--body-timeout` | 30000 | Milliseconds for queue wait plus body receipt |
+
+A request beyond the queue gets HTTP 503. A client disconnect cancels its queued or active operation. Configured loaders and clients stay loaded after ordinary request failures. Stdout carries only the readiness record. Diagnostics go to stderr.
+
+## Shut down
+
+SIGTERM and Ctrl-C stop admission and drain accepted requests. After `--shutdown-timeout`, 30000 milliseconds by default, the service aborts outstanding work, waits for it to settle, and then disposes each shared resource once. A loader that ignores cancellation can delay the final exit, so set your container stop grace period above the drain timeout.
+
+To run the service from Node code, see the [service API](/docs/cli/reference/service). To package it as an image, see [Build a Docture container](/docs/cli/containers).

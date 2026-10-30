@@ -1,20 +1,22 @@
 ---
 title: Evaluation files and storage API
 description: Filesystem datasets, result artifacts, provenance, and run stores.
+type: reference
 ---
+
+Import file-backed datasets, run stores, and result files from `@docture/eval/node`. [Prepare evaluation datasets](/docs/evaluation/datasets) and [Save, resume, and re-score evaluation runs](/docs/evaluation/run-history) show them in use.
 
 ## `@docture/eval/node`
 
 `folderDataset` ignores dot folders, hashes documents and rejects unsigned drafts by default. `include` selects explicit case ids. `jsonlDataset` resolves documents relative to its manifest unless `base` is set. `readEvalResult` and `writeEvalResult` use `result.json` with `cases.jsonl`.
-
-- `FolderDatasetOptions`
-- `LiveArtifact`
 
 ### `gitInfo`
 
 ```ts
 gitInfo(cwd: string): Promise<RunInfo["git"]>
 ```
+
+Returns [`RunInfo`](/docs/evaluation/reference/types#runinfo).
 
 Read repository provenance on demand, returning undefined outside a Git repository. A detached HEAD reports the branch `detached@<first 12 hex digits of the sha>`, which never matches another commit's runs.
 
@@ -24,6 +26,8 @@ Read repository provenance on demand, returning undefined outside a Git reposito
 fileDocument(path: string, mimeType?: string): CaseDocument
 ```
 
+Returns [`CaseDocument`](/docs/evaluation/reference/core#casedocument).
+
 Make a lazy filesystem document; an explicit MIME type overrides extension inference.
 
 ### `folderDataset`
@@ -31,6 +35,8 @@ Make a lazy filesystem document; an explicit MIME type overrides extension infer
 ```ts
 folderDataset<T = unknown>(root: string, options: FolderDatasetOptions<T>): DraftableDataset<T>
 ```
+
+Takes [`FolderDatasetOptions`](/docs/evaluation/reference/storage#folderdatasetoptions). Returns [`DraftableDataset`](/docs/evaluation/reference/datasets#draftabledataset).
 
 Discover one case per subfolder of `root`; folders whose name starts with `.` are ignored. Documents load lazily, but each listed document's content is hashed while listing, because the resume key and the dataset fingerprint must survive a fresh checkout, which resets modification times. Fails on a missing root, document or expected file, a draft without sign-off unless `drafts` allows it, and an unknown `include` id.
 
@@ -40,6 +46,8 @@ Discover one case per subfolder of `root`; folders whose name starts with `.` ar
 jsonlDataset<T = unknown>(manifest: string, options?: { readonly id?: string; readonly base?: string; readonly toExpected?: (json: unknown, id: string) => T; }): Dataset<T>
 ```
 
+Returns [`Dataset`](/docs/evaluation/reference/core#dataset).
+
 Load a JSONL manifest with `id`, `documents` (paths relative to `base`, default the manifest's folder) and `expected` on each line, plus optional `tags`, `params` and `group`. Errors name the manifest line and case.
 
 ### `fileRunStore`
@@ -47,6 +55,8 @@ Load a JSONL manifest with `id`, `documents` (paths relative to `base`, default 
 ```ts
 fileRunStore(dir: string): RunStore
 ```
+
+Returns [`RunStore`](/docs/evaluation/reference/types#runstore).
 
 A run store in a directory. `index.jsonl` is an append-only list of run events, and `runs/<runId>/` holds `run.json`, `cases.jsonl`, `result.json` and `raw/<experiment>/<caseId>.<epoch>.json`. Each id in a raw path is `x-` plus its UTF-8 bytes in lowercase hex, or `h-` plus their SHA-256 when longer than 60 bytes, so ids that differ only in letter case never share a file. A crash can tear the last line of a log; readers ignore it and the next append cuts it.
 
@@ -56,6 +66,8 @@ A run store in a directory. `index.jsonl` is an append-only list of run events, 
 readEvalResult(dir: string): Promise<EvalResult>
 ```
 
+Returns [`EvalResult`](/docs/evaluation/reference/types#evalresult).
+
 Read and validate the small metadata file and separate case rows.
 
 ### `runDirectory`
@@ -64,6 +76,8 @@ Read and validate the small metadata file and separate case rows.
 runDirectory(dir: string): Pick<RunStore, "readResult" | "readRaw">
 ```
 
+Returns [`RunStore`](/docs/evaluation/reference/types#runstore).
+
 Read one run directory on its own, such as `runs/<runId>/` copied out of a store. It holds the result and the raw outputs. Pass it as `source` to `rescore(store, runId, spec, { source })`. The re-scored run is written to `store`. Reading another run id fails with `RunStoreError` (`not-found`).
 
 ### `writeEvalResult`
@@ -71,6 +85,8 @@ Read one run directory on its own, such as `runs/<runId>/` copied out of a store
 ```ts
 writeEvalResult(dir: string, result: EvalResult): Promise<void>
 ```
+
+Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult).
 
 Replace case rows, then atomically write `result.json`, the commit point a reader checks first. Raw files remain available.
 
@@ -88,4 +104,39 @@ Write a file so readers see either the old or the new content, never a partial o
 liveArtifact(path: string, options?: { readonly intervalMs?: number; }): LiveArtifact
 ```
 
+Returns [`LiveArtifact`](/docs/evaluation/reference/storage#liveartifact).
+
 Create a throttled atomic writer for an artifact that is rewritten while a run progresses.
+
+## Types
+
+### `FolderDatasetOptions`
+
+Configuration of a folder-per-case adapter.
+
+{/* options: FolderDatasetOptions */}
+| Option | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Dataset ID. Default: the root folder name. |
+| `documents` | `string \| RegExp \| ((files: readonly string[]) => readonly string[])` | Required. A file name, a pattern matched against each case folder's files, or a function that picks file names. |
+| `expected` | `string` | Required. File name of the signed-off ground truth. |
+| `draft` | `string` | File name of drafted ground truth. Default `expected.draft.json`. |
+| `locations` | `string` | Expected locations file, read when present. Default `locations.json`. |
+| `toExpected` | `(json: unknown, caseId: string) => T` | Converts the parsed expected JSON into the scoring view. |
+| `tags` | `(caseId: string, dir: string) => EvalCase["tags"]` | Returns tags for a case from its ID and folder. |
+| `group` | `(caseId: string) => string` | Returns the group of related cases, such as renditions of one original. |
+| `include` | `readonly string[]` | Case IDs to load. An ID without a folder throws `DatasetError`. |
+| `drafts` | `"error" \| "skip" \| "include"` | How a case with only a draft loads: `error` throws, `skip` leaves it out, `include` loads the draft as expected truth. Default `error`. |
+
+### `LiveArtifact`
+
+Rewrites one artifact during a run without writing more often than `intervalMs`.
+
+```ts check
+interface LiveArtifact {
+	/** Schedule a rewrite with the latest content. Calls inside the interval coalesce into one write. */
+	update(render: () => string): void;
+	/** Write the final content now and wait for every pending write. Rejects with the first write failure. */
+	finish(content: string): Promise<void>;
+}
+```

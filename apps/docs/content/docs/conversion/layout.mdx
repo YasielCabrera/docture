@@ -1,6 +1,7 @@
 ---
 title: Preserve layout and tables
 description: Inspect detected structure, merged cells, and elements that continue across pages.
+type: how-to
 ---
 
 The converter uses source text, tagged hints, geometry, and typography to infer reading order and structure. It keeps uncertain content as paragraphs. It does not paraphrase, dehyphenate, or generate captions.
@@ -25,6 +26,10 @@ Joining requires compatible geometry, typography, and continuation evidence. Wea
 
 ## Inspect headers and footers
 
-Detected running headers and footers remain available as `page-header` and `page-footer` elements. Markdown and HTML omit them from body text. TXT and JSON retain them. Untagged repeated furniture needs at least three pages; tags can identify furniture on one page.
+Detected running headers and footers remain available as `page-header` and `page-footer` elements. Markdown and HTML omit them from body text. TXT and JSON retain them. Untagged repeated furniture needs at least three pages. Tags can identify furniture on one page.
 
-Review conversion warnings and [source evidence](/docs/conversion/evidence). Use [CLI review](/docs/cli/review) to inspect boxes. The [semantic layout reference](/docs/conversion/reference/layout) specifies detection thresholds, continuation rules, and known limits. [Model assistance](/docs/conversion/model-layout) can refine roles and order.
+## Check the result
+
+Review conversion warnings and [source evidence](/docs/conversion/evidence). Use [CLI review](/docs/cli/review) to inspect boxes. [Model assistance](/docs/conversion/model-layout) can refine roles and order.
+
+The exact thresholds and known limits are in the [table](/docs/conversion/reference/tables), [continuation](/docs/conversion/reference/continuations), and [header and footer](/docs/conversion/reference/furniture) detection references. The [semantic layout API](/docs/conversion/reference/layout) lists every element type.

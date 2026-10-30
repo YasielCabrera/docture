@@ -16,6 +16,9 @@ const config = {
       ];
     });
   },
+  headers() {
+    return [{ source: "/docs/:path*", headers: [{ key: "Vary", value: "Accept" }] }];
+  },
   rewrites() {
     return [
       { source: "/docs.md", destination: "/llms.mdx/docs/content.md" },

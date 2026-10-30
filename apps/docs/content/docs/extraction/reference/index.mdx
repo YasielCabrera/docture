@@ -1,27 +1,41 @@
 ---
 title: Extraction API reference
-description: Public interfaces, defaults, results, and failure behavior.
+description: Signatures, options, defaults, and errors for the extractor, strategies, model components, classification, and splitting.
+type: reference
 ---
 
-- [Batch and lifecycle API](/docs/extraction/reference/batches)
-- [Cache and pricing API](/docs/extraction/reference/cache-pricing)
-- [Field citations API](/docs/extraction/reference/citations)
-- [Classification API](/docs/extraction/reference/classification)
-- [Contracts and schemas API](/docs/extraction/reference/contracts)
+These pages list every public extraction symbol with its signature, options, defaults, and errors. Import core symbols from `docture`, or from `docture/node` when you pass local file paths. Model components come from `docture/llm` and its narrow entries.
+
+## Core extraction
+
 - [Extractor API](/docs/extraction/reference/extractor)
+- [Contracts and schemas API](/docs/extraction/reference/contracts)
+- [Strategies and routing API](/docs/extraction/reference/strategies)
+- [Extraction results API](/docs/extraction/reference/results)
+- [Validation and repair API](/docs/extraction/reference/validation)
+- [Field citations API](/docs/extraction/reference/citations)
+- [Batch and lifecycle API](/docs/extraction/reference/batches)
+- [Pipeline and disposal API](/docs/extraction/reference/pipeline)
+
+## Classification and splitting
+
+- [Classification API](/docs/extraction/reference/classification)
+- [Splitting and Process API](/docs/extraction/reference/splitting)
+
+## Model components
+
+- [Model backend and factory API](/docs/extraction/reference/models)
+- [Text extraction API](/docs/extraction/reference/text)
+- [Vision extraction API](/docs/extraction/reference/vision)
 - [Model classification API](/docs/extraction/reference/model-classification)
 - [Model splitting API](/docs/extraction/reference/model-splitting)
-- [Model backend and factory API](/docs/extraction/reference/models)
 - [Chunking and merge helpers API](/docs/extraction/reference/partials)
-- [Concurrency controls and measurements](/docs/extraction/reference/performance)
-- [Pipeline and disposal API](/docs/extraction/reference/pipeline)
 - [Prompt helpers API](/docs/extraction/reference/prompts)
-- [Extraction results API](/docs/extraction/reference/results)
-- [Splitting and Process API](/docs/extraction/reference/splitting)
-- [Strategies and routing API](/docs/extraction/reference/strategies)
+- [Cache and pricing API](/docs/extraction/reference/cache-pricing)
 - [Model telemetry API](/docs/extraction/reference/telemetry)
-- [Text extraction API](/docs/extraction/reference/text)
-- [Validation and repair API](/docs/extraction/reference/validation)
-- [Vision extraction API](/docs/extraction/reference/vision)
+
+## Performance
+
+- [Concurrency controls and measurements](/docs/extraction/reference/performance)
 
 See the [global API index](/docs/api) for all four packages.

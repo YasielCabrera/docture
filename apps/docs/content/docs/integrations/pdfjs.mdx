@@ -1,36 +1,52 @@
 ---
 title: PDF.js
-description: Public API for docture/loaders/pdfjs.
+description: Read PDF text, line positions, and page counts with the PDF.js loader from docture/loaders/pdfjs.
+type: reference
 ---
 
-Import from `docture/loaders/pdfjs`.
+`DocumentLoaderPdfJs` reads the text layer and line geometry of a PDF with Mozilla PDF.js. Import it from `docture/loaders/pdfjs`.
+
+## Install
 
 ```sh
 npm install docture pdfjs-dist
 ```
 
+PDF.js loads on the first `load()` call. If `pdfjs-dist` is not installed, the call fails with `MissingEngineError`.
+
+## Loader
+
+### `DocumentLoaderPdfJs`
+
+Creates a loader named `pdfjs` that accepts `application/pdf`.
+
 ```ts
 new DocumentLoaderPdfJs(options?: DocumentLoaderPdfJsOptions)
 ```
 
+The loader reports text and geometry capabilities and no image capability. A loaded document contains:
+
+- Lines with top-left-origin geometry in PDF points.
+- Page text, and document text with pages separated by form feeds.
+- The inferred document form.
+- Metadata with the total and read page counts.
+
+Opening, password, page decode, and caller abort failures reject `load()`. In an extractor, the next eligible loader can run. If every eligible loader fails, the extractor throws `LoadFailedError` with each attempt. [Choose a loader and rendering engine](/docs/integrations/loaders) explains loader selection.
+
+### `DocumentLoaderPdfJsOptions`
+
+{/* options: DocumentLoaderPdfJsOptions */}
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `password` | none | Password for an encrypted PDF. |
 | `maxPages` | all | Maximum pages to read. |
 | `lineTolerance` | core default `0.5` | Vertical band used to group text runs into lines. |
 
-The loader is named `pdfjs`, accepts `application/pdf`, and reports text and geometry
-capabilities. It does not report image capability. Use `withRasterizer()` when a later
-component needs page images.
+## Add page images
 
-It returns top-left-origin geometry in PDF points, page text, form-feed-separated document
-text, inferred form, and metadata with total and read page counts.
+The loader produces no page images. To give a vision strategy or OCR images, compose it with a rasterizer such as the [Canvas rasterizer](/docs/integrations/canvas):
 
-Opening, password, page decode, and caller abort failures reject `load()`. In an extractor,
-the next eligible loader may run. If every eligible loader fails, `LoadFailedError`
-contains their attempts.
-
-```ts
+```ts check
 import { withRasterizer } from "docture";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { NapiCanvasRasterizer } from "docture/raster/canvas";
@@ -40,3 +56,5 @@ const loader = withRasterizer(
   new NapiCanvasRasterizer(),
 );
 ```
+
+[Compose page rasterizers](/docs/integrations/rasterizers) covers lazy images and per-call render options.

@@ -1,45 +1,67 @@
 ---
 title: MuPDF
-description: Public API for docture/loaders/mupdf.
+description: Read PDF text and render page images with the MuPDF loader and rasterizer from docture/loaders/mupdf.
+type: reference
 ---
 
-Import from `docture/loaders/mupdf`. The adapter is MIT licensed; its `mupdf`
-runtime dependency is AGPL-3.0-or-later.
+MuPDF reads PDF text and renders PDF pages from one WASM engine. Import `DocumentLoaderMuPdf`, `MuPdfRasterizer`, and `muPdfRasterizer` from `docture/loaders/mupdf`. The loader and the rasterizer are separate, so you can pair either one with another engine.
 
-## Loader
+## Install
 
 ```sh
 npm install docture mupdf
 ```
 
+The adapter is MIT licensed. Its `mupdf` dependency is licensed AGPL-3.0-or-later. MuPDF loads on first use. If `mupdf` is not installed, the call fails with `MissingEngineError`.
+
+## Loader
+
+### `DocumentLoaderMuPdf`
+
+Creates a loader named `mupdf` that accepts `application/pdf`.
+
 ```ts
 new DocumentLoaderMuPdf(options?: DocumentLoaderMuPdfOptions)
 ```
 
+The loader reports text and geometry capabilities. Rendering stays in the separate rasterizer. A loaded document contains lines with top-left-origin geometry in PDF points, page text, document text with pages separated by form feeds, the inferred form, and page-count metadata.
+
+MuPDF engine, password, decode, page, and caller abort failures reject `load()`. [Choose a loader and rendering engine](/docs/integrations/loaders) explains how an extractor picks among loaders.
+
+### `DocumentLoaderMuPdfOptions`
+
+{/* options: DocumentLoaderMuPdfOptions */}
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `password` | none | Password for an encrypted PDF. |
 | `maxPages` | all | Maximum pages to read. |
 | `lineTolerance` | core default `0.5` | Vertical band used to group text runs into lines. |
 
-The loader is named `mupdf`, accepts `application/pdf`, and reports text and geometry
-capabilities. Rendering stays in the separate rasterizer.
-
-It returns top-left-origin geometry in PDF points, page text, form-feed-separated document
-text, inferred form, and page-count metadata. MuPDF engine, password, decode, page, and
-abort failures reject the load.
-
 ## Rasterizer
+
+### `MuPdfRasterizer`
+
+Creates a rasterizer named `mupdf` that renders PDF pages to PNG or JPEG.
 
 ```ts
 new MuPdfRasterizer(options?: MuPdfRasterizerOptions)
+```
+
+Per-call `RasterOptions` override the DPI, format, quality, maximum edge, and selected pages. The returned `RasterPage` values contain the unique selected pages in document order and report their actual scale.
+
+The rasterizer rejects for an invalid password, an unsupported or corrupt PDF, an out-of-range page, a render error, or a caller abort.
+
+### `muPdfRasterizer`
+
+Returns the same rasterizer as `new MuPdfRasterizer(options)`.
+
+```ts
 muPdfRasterizer(options?: MuPdfRasterizerOptions): Rasterizer
 ```
 
-Both forms create a rasterizer named `mupdf` that supports PNG and JPEG.
+### `MuPdfRasterizerOptions`
 
-`MuPdfRasterizerOptions` contains:
-
+{/* options: MuPdfRasterizerOptions */}
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `dpi` | `300` | Render resolution. |
@@ -49,8 +71,16 @@ Both forms create a rasterizer named `mupdf` that supports PNG and JPEG.
 | `password` | none | Password for an encrypted PDF. |
 | `annotations` | `true` | Include annotation and form-field appearances. |
 
-Per-call `RasterOptions` override DPI, format, quality, maximum edge, and selected pages.
-The returned `RasterPage` values contain unique selected pages in document order and include their actual scale.
+## Use both together
 
-The rasterizer rejects for an invalid password, unsupported or corrupt PDF, out-of-range
-page, render error, or caller abort. MuPDF loads and renders through WASM.
+```ts check
+import { withRasterizer } from "docture";
+import { DocumentLoaderMuPdf, MuPdfRasterizer } from "docture/loaders/mupdf";
+
+const loader = withRasterizer(
+  new DocumentLoaderMuPdf(),
+  new MuPdfRasterizer({ dpi: 300 }),
+);
+```
+
+[Compose page rasterizers](/docs/integrations/rasterizers) covers lazy page images and render options.

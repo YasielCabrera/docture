@@ -1,9 +1,10 @@
 ---
 title: "docture eval gate"
 description: "Apply the config's gate to a stored run"
+type: reference
 ---
 
-Apply the config's gate to a stored run
+Apply the config's gate to a stored run.
 
 ## Arguments
 
@@ -16,7 +17,7 @@ Apply the config's gate to a stored run
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--baseline <runId\|auto\|none>` | the run's stored comparison | Compare first, so regression budgets apply |
-| `--format <fmt>` | text | Text for people; JSON prints the eval result or record as is Choices: `text`, `json`. |
+| `--format <fmt>` | text | Text for people; JSON prints the eval result or record as is. Choices: `text`, `json`. |
 | `--store <dir>` | Not set | Run store directory. Default: the config's store, else .docture/eval beside the config |
 | `--config <path>` | Not set | Eval config. Default: the nearest docture.eval.&#123;ts,mts,js,mjs&#125; |
 | `--verbose`, `-v` | Not set | Report the wiring, the routing, and every attempt |
@@ -30,4 +31,4 @@ Apply the config's gate to a stored run
 docture eval gate latest --baseline auto
 ```
 
-See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).
+See [Evaluate from the CLI](/docs/cli/evaluation) and [input and output behavior](/docs/cli/inputs-and-outputs).

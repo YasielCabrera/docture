@@ -1,24 +1,128 @@
 ---
 title: Layout analyzer API
 description: Custom layout analyzer inputs, annotations, and validation.
+type: reference
 ---
 
-Import from `docture`.
+A layout analyzer refines the roles and reading order of a deterministic conversion
+without changing its text. Import these types from `docture`. For the model analyzer, see
+[Add model-assisted layout](/docs/conversion/model-layout).
 
 ## Layout analyzer contract
+
+### `defineLayoutAnalyzer`
+
+Declare a custom analyzer with its type checked.
 
 ```ts
 defineLayoutAnalyzer(analyzer: LayoutAnalyzer): LayoutAnalyzer
 ```
 
-`LayoutAnalyzer.analyze(context)` receives a `LayoutDocument` without page headers and
-footers, a signal, a logger, and `documentLabel`, the source file name when it has one.
-Core ignores annotations that name furniture, and
-furniture keeps its place. A table or paragraph with `continuations` stays last in its
-page's text after reordering, and annotations that retype or group it are ignored. `LayoutElementRole` excludes the furniture kinds. It
-returns `LayoutAnalysis` with `LayoutAnnotation` values, warnings, and optional usage.
-An annotation can contain an existing element ID, `LayoutElementRole`, heading level,
-group label, and page-local order. The contract has no text property.
+Returns the analyzer unchanged. Register it with `loadLayoutAnalyzer()` or the
+`layoutAnalyzer` option of [`DocumentConverter`](/docs/conversion/reference/converter#documentconverter).
 
-Core validates IDs and order before applying an analysis. `LayoutAnalyzerContext` and
-`LayoutAnalysis` are public for custom analyzers.
+```ts check
+import { defineLayoutAnalyzer } from "docture";
+
+const upperCaseHeadings = defineLayoutAnalyzer({
+  name: "upper-case-headings",
+  async analyze({ document }) {
+    return {
+      annotations: document.pages.flatMap((page) =>
+        page.elements
+          .filter((element) => element.kind === "paragraph" && element.text === element.text.toUpperCase())
+          .map((element) => ({ id: element.id, role: "heading" as const, level: 2 as const })),
+      ),
+    };
+  },
+});
+```
+
+### `LayoutAnalyzer`
+
+The analyzer contract.
+
+```ts
+interface LayoutAnalyzer {
+  readonly name: string;
+  analyze(ctx: LayoutAnalyzerContext): Promise<LayoutAnalysis>;
+  dispose?(scope?: DisposalScope): Promise<void>;
+}
+```
+
+`name` appears in `ConversionResult.method` as `deterministic+<name>` and in attempt
+records. The converter calls `dispose()` once from its own `dispose()`.
+
+### `LayoutAnalyzerContext`
+
+What `analyze()` receives.
+
+{/* options: LayoutAnalyzerContext */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `document` | `LayoutDocument` | The deterministic layout without page headers and footers. |
+| `signal` | `AbortSignal` | Aborts when the call is cancelled or the stage deadline passes. |
+| `logger` | `Logger` | A child logger tagged with the analyzer name. |
+| `documentLabel` | `string` | The source's file name, when it has one. For logs and telemetry only. |
+
+### `LayoutDocument`
+
+The layout an analyzer reads.
+
+{/* options: LayoutDocument */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `pages` | `readonly LayoutPage[]` | The [layout pages](/docs/conversion/reference/layout#layoutpage). |
+| `metadata` | `DocumentMetadata` | Document metadata such as title and author, when the loader reports it. |
+| `sourceDigest` | `string` | Digest of the imported source representation, when recorded. |
+| `physicalSourceDigest` | `string` | Digest of separately bound original bytes, when recorded. |
+
+### `LayoutAnalysis`
+
+What `analyze()` returns.
+
+{/* options: LayoutAnalysis */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `annotations` | `readonly LayoutAnnotation[]` | One annotation per element the analyzer changes. |
+| `warnings` | `readonly ConversionWarning[]` | Added to the result when the annotations are applied. |
+| `usage` | `Partial<Usage>` | Model tokens and cost, when the analyzer calls a model. |
+
+### `LayoutAnnotation`
+
+A change to one existing element. It has no text property, so an analyzer cannot add,
+remove, or rewrite content.
+
+{/* options: LayoutAnnotation */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `id` | `string` | The ID of an existing element. |
+| `role` | `LayoutElementRole` | The element's new kind. Only a paragraph, heading, or code element can change kind, and only to `paragraph`, `heading`, `code`, or a one-item unordered `list`. Another role must match the element's current kind. |
+| `level` | `1 \| 2 \| 3 \| 4 \| 5 \| 6` | Heading level. A paragraph or code element retyped as a heading without a level gets level 2. |
+| `group` | `string` | Elements with the same page-local label are grouped after ordering. |
+| `order` | `number` | Zero-based order inside the element's page. |
+
+### `LayoutElementRole`
+
+The roles an analyzer may assign. They are every `DocumentElement` kind except the furniture kinds.
+
+```ts
+type LayoutElementRole = Exclude<DocumentElement["kind"], "page-header" | "page-footer">;
+```
+
+## Validation
+
+Core validates an analysis before applying it. It rejects the whole analysis when an
+annotation names an unknown or repeated ID, assigns a role the element cannot take, orders
+only some elements of a page, gives a page an order that is not a permutation, or forms an
+invalid group. A rejected analysis leaves the deterministic layout in place and adds an
+`INVALID_LAYOUT_ANALYSIS` warning. An analyzer that throws or passes the stage deadline
+adds `LAYOUT_ANALYZER_FAILED`. Neither throws from `convert()`, except that cancellation
+through the caller's signal still rejects.
+
+Core also protects the deterministic structure:
+
+- Annotations that name running headers or footers are ignored, and furniture keeps its
+  place.
+- A table or paragraph with `continuations` stays last in its page's text after
+  reordering, and annotations that retype or group it are ignored.

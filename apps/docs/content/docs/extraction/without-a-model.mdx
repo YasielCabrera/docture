@@ -1,6 +1,7 @@
 ---
 title: Extract without a model
 description: Parse a known document layout with a deterministic strategy.
+type: how-to
 ---
 
 Use a deterministic parser for a known layout. A geometry loader supplies text lines and positions.
@@ -15,7 +16,7 @@ See [installation recipes](/docs/getting-started/installation) for other engines
 
 ## Read positioned lines
 
-```ts
+```ts check
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 
 const loader = new DocumentLoaderPdfJs();

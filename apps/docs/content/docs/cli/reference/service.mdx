@@ -1,14 +1,110 @@
 ---
 title: HTTP service
 description: Persistent convert, inspect and configured-schema extraction over Node HTTP.
+type: reference
 ---
 
-`@docture/cli/service` exports `createHttpService`, `HttpService`, `HttpServiceOptions` and `HttpServiceAddress`. Import and construction do not bind a socket or load engines. `start()` creates persistent wiring and returns the bound address. Port 0 selects an ephemeral port. Repeated `start()` calls share readiness. A closed instance cannot restart.
+`@docture/cli/service` runs the HTTP service behind `docture serve` from Node code. Import `createHttpService` and its types from `@docture/cli/service`. The service uses Node `http` without a server framework.
 
-`HttpServiceOptions` accepts `io`, optional loaded `config`, a `schemas` allowlist, startup wiring `flags`, `host`, `port`, `token`, `maxConcurrency`, `maxQueue`, `maxBodyBytes`, `bodyTimeoutMs` and `shutdownTimeoutMs`. Defaults are localhost, port 0, four active requests, sixteen queued requests, sixteen MiB of encoded JSON and thirty-second body and shutdown deadlines. `config.schema` is available as `default`. Explicit schema names override that default at startup. The allowlist and configuration arrays are snapshotted at startup.
+## `@docture/cli/service`
 
-`HttpService.address` is absent before startup. `pending` counts admitted active and queued requests. `close()` is idempotent and returns the same promise. It stops admission, drains accepted work, aborts it after the shutdown deadline, waits for actual operation settlement and then disposes shared resources. An engine that ignores cancellation can extend shutdown beyond the drain deadline. Resources are never disposed underneath an unsettled operation.
+### `createHttpService`
 
-`HttpServiceAddress` contains `host`, `port` and `url`. An external host requires a bearer token from options or `DOCTURE_SERVE_TOKEN`. Tokens never enter request JSON or readiness output.
+Creates an idle service. Importing the module and calling `createHttpService()` bind no socket and load no engines.
 
-The [HTTP service guide](/docs/cli/http-service) defines request and response formats, limits and source access. The API uses Node `http` without a server framework. Persistent inspect wiring is separate from extraction wiring. Normal completed request bodies do not cancel operations; a real client disconnect does.
+```ts
+createHttpService(options: HttpServiceOptions): HttpService
+```
+
+Returns an `HttpService`. Throws `RangeError` when a numeric option is not an integer within its minimum. See [Run a local HTTP service](/docs/cli/http-service) for the request flow and the [HTTP protocol reference](/docs/cli/http-protocol) for request and response formats.
+
+### `HttpServiceOptions`
+
+{/* options: HttpServiceOptions */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `io` | `Io` | Required. Streams, working directory, and environment |
+| `config` | `{ config: DoctureConfig; path: string }` | Loaded configuration. `path` is the config file's absolute path; relative paths in the config resolve against its directory. Its `schema` is available as `default` |
+| `schemas` | `Readonly<Record<string, FlexibleSchema>>` | Schema names that `/extract` requests may select. An explicit name overrides the config's `default` |
+| `flags` | object | Optional startup model and pipeline settings. Fields are listed below |
+| `host` | `string` | Address to bind. Default: `127.0.0.1` |
+| `port` | `number` | Port to bind, 0 through 65535. `0` selects an ephemeral port. Default: `0` |
+| `token` | `string` | Bearer token. Default: `DOCTURE_SERVE_TOKEN` from `io.env` |
+| `maxConcurrency` | `number` | Active requests, at least 1. Default: `4` |
+| `maxQueue` | `number` | Queued requests, at least 0. Default: `16` |
+| `maxBodyBytes` | `number` | Encoded JSON bytes per request. Default: 16 MiB |
+| `bodyTimeoutMs` | `number` | Deadline for queue wait plus body receipt. Default: `30000` |
+| `shutdownTimeoutMs` | `number` | Drain deadline before `close()` aborts outstanding work. Default: `30000` |
+
+A host other than `127.0.0.1`, `localhost`, or `::1` requires a token, and `start()` rejects without one. Tokens never enter request JSON or readiness output. The service snapshots the schema allowlist and the configuration arrays at startup.
+
+`DoctureConfig` is available from `@docture/cli/config`. The wrapper accepted by `config` and the object accepted by `flags` have no separately exported types. All `flags` fields are optional:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `model` | `string` | Provider and model identifier, such as `openai/gpt-5` |
+| `gateway` | `boolean` | Route the model through AI Gateway |
+| `pricingPath` | `string` | Pricing module path |
+| `cacheDir` | `string` | Model response cache directory |
+| `instructions` | `string` | Additional model instructions |
+| `temperature` | `number` | Model temperature |
+| `vision` | `boolean` | Render pages and enable the vision strategy |
+| `dpi` | `number` | Page render resolution |
+| `maxPages` | `number` | Maximum page images per vision request |
+| `completion` | `"forbidden" \| "concatenate" \| "paginate"` | Text completion strategy |
+| `maxChars` | `number` | Character budget per concatenated request |
+| `timeoutMs` | `number` | Per-stage deadline in milliseconds |
+| `classify` | `boolean` | Classify before extraction |
+| `assistLayout` | `boolean` | Use model layout assistance for conversion |
+| `classificationsPath` | `string` | Module containing candidate classifications |
+| `citations` | `boolean` | Cite and verify extracted values with the CLI-built text strategy |
+
+The service can start on an ephemeral port and close after requests complete:
+
+```ts
+import { processIo } from "@docture/cli";
+import { createHttpService } from "@docture/cli/service";
+
+const service = createHttpService({ io: processIo(), port: 0 });
+const address = await service.start();
+try {
+  console.log(address.url);
+  // Send requests to address.url here.
+} finally {
+  await service.close();
+}
+```
+
+The [HTTP service example](https://github.com/YasielCabrera/docture/tree/main/apps/examples/22-http-service) supplies a custom loader, configuration, and schema, then sends requests to all three routes and closes the service.
+
+### `HttpService`
+
+```ts
+interface HttpService {
+  readonly address: HttpServiceAddress | undefined;
+  readonly pending: number;
+  start(): Promise<HttpServiceAddress>;
+  close(): Promise<void>;
+}
+```
+
+| Member | Behavior |
+| --- | --- |
+| `address` | The bound address, or `undefined` before startup |
+| `pending` | Admitted requests, active and queued |
+| `start()` | Builds the shared wiring, binds the socket, and resolves to the bound address. Repeated calls share one startup. Rejects after `close()`, because a closed service cannot restart |
+| `close()` | Stops admission, drains accepted work, aborts it after `shutdownTimeoutMs`, waits for every operation to settle, and then disposes shared resources. Repeated calls return the same promise |
+
+An engine that ignores cancellation can extend shutdown beyond the drain deadline. The service never disposes resources under an unsettled operation. A completed request body does not cancel its operation. A client disconnect does.
+
+### `HttpServiceAddress`
+
+```ts check
+interface HttpServiceAddress {
+  readonly host: string;
+  readonly port: number;
+  readonly url: string;
+}
+```
+
+`url` is the `http://` URL of the bound address, with IPv6 hosts in brackets.

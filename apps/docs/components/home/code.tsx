@@ -1,4 +1,5 @@
 import { highlight } from "fumadocs-core/highlight";
+import { codeThemes } from "@/lib/code-themes";
 import type { ReactNode } from "react";
 
 /**
@@ -19,7 +20,7 @@ export async function Code({
 }): Promise<ReactNode> {
   const rendered = await highlight(code, {
     lang,
-    themes: { light: "github-light", dark: "github-dark" },
+    themes: codeThemes,
     components: {
       pre: ({ className: inner, ...props }) => (
         <pre

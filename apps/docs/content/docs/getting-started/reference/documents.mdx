@@ -1,204 +1,696 @@
 ---
 title: Core documents and loaders
 description: Sources, loaded documents, loaders, geometry, rasterizers, and composition.
+type: reference
 ---
 
-Import these APIs from `docture`.
+These are the source, document, loader, geometry, and rasterizer types every integration shares. Import them from `docture`, or from `docture/node`, which re-exports core. [Document sources](/docs/getting-started/sources) and [custom components](/docs/resources/custom-components) show them in use.
 
 ## Sources
 
-`DocumentSource` accepts a path string, `URL`, `Uint8Array`, `ArrayBuffer`, `RawDocument`,
-or `LoadedSource`.
+### `DocumentSource`
 
-`RawDocument` contains `bytes` and optional `mimeType` and `fileName`. `LoadedSource`
-contains `loaded` and optional `mimeType`, `fileName`, and custom `facts`. A loaded source
-skips source resolution and loading.
+The input that extraction and conversion accept.
 
 ```ts
-resolveSource(source: DocumentSource, signal?: AbortSignal): Promise<RawDocument>
-sniffMimeType(bytes: Uint8Array): string | undefined
+type DocumentSource = string | URL | Uint8Array | ArrayBuffer | RawDocument | LoadedSource;
+```
+
+A string or `URL` names an HTTP, HTTPS, or local file source. Local paths and `file:` URLs need the Node resolver described under [`resolveSource`](#resolvesource).
+
+### `RawDocument`
+
+Bytes with optional naming facts, the output of source resolution and the input of every loader.
+
+```ts
+interface RawDocument {
+  readonly bytes: Uint8Array;
+  readonly mimeType?: string;
+  readonly fileName?: string;
+}
+```
+
+{/* options: RawDocument */}
+| Field | Meaning |
+| --- | --- |
+| `bytes` | The document bytes. |
+| `mimeType` | Declared media type. Byte signatures override generic or conflicting declarations. |
+| `fileName` | File name, used for extension-based media types and telemetry labels. |
+
+### `LoadedSource`
+
+A document that was already read. It skips source resolution and loading.
+
+```ts
+interface LoadedSource {
+  readonly loaded: LoadedDocument;
+  readonly mimeType?: string;
+  readonly fileName?: string;
+  readonly facts?: readonly string[];
+}
+```
+
+{/* options: LoadedSource */}
+| Field | Meaning |
+| --- | --- |
+| `loaded` | The `LoadedDocument` to extract from. |
+| `mimeType` | Reported as `features.mimeType`. Defaults to `application/octet-stream`. |
+| `fileName` | Source file name. |
+| `facts` | Custom facts to publish for strategy eligibility. Text and geometry facts come from the pages. |
+
+### `isLoadedSource`
+
+Tells a loaded source apart from the other source forms.
+
+```ts
 isLoadedSource(source: DocumentSource): source is LoadedSource
 ```
 
-The portable `resolveSource()` fetches HTTP and HTTPS URLs and normalizes byte inputs.
-Local file paths and `file:` URLs require `resolveNodeSource()` from `docture/node`,
-or a Node extractor or converter that supplies that resolver. `DocumentSource` includes
-these file forms so the same source type can be used with explicit Node wiring.
+Returns `true` when `source` is an object with a `loaded` property.
 
-The portable resolver throws `UnsupportedSourceError` for unsupported protocols,
-local files, failed HTTP requests or body reads, empty input, and a `LoadedSource` passed
-directly to this low-level function. Network and body-read failures retain their cause.
-Caller cancellation keeps its abort reason. The Node resolver also maps file read failures
-and retains the file-system cause.
-`sniffMimeType()` recognizes supported byte signatures without reading the full document.
+### `sniffMimeType`
+
+Reads a media type from the leading magic bytes.
+
+```ts
+sniffMimeType(bytes: Uint8Array): string | undefined
+```
+
+Returns `application/pdf`, `image/png`, `image/jpeg`, `image/gif`, `image/tiff`, `image/webp`, or `application/zip`, and `undefined` for any other signature. DOCX, XLSX, and other ZIP-based formats all report `application/zip`; resolution then uses the file extension.
 
 ## Document data loader
 
+### `DocumentLoaderData`
+
+Loads text you already have: plain text, Markdown, CSV, HTML, XHTML, JSON, and XML. It requires no optional engine.
+
 ```ts
-new DocumentLoaderData(config?: DataLoaderConfig)
+class DocumentLoaderData implements DocumentLoader<LoaderCapabilities<true, false, false>> {
+  constructor(config?: DataLoaderConfig);
+}
+```
+
+The loader returns text without geometry or images. Page width and height are `0` because the input has no physical page size. Text splits into pages on the page delimiter. HTML and XHTML load the bundled syntax parsers on first use, drop markup, head content, scripts, styles, templates, and comments, and return one page. `TextDecoder` errors and invalid encoding names reject the load.
+
+### `documentLoaderData`
+
+Factory form of `new DocumentLoaderData(config)`.
+
+```ts
 documentLoaderData(config?: DataLoaderConfig): DocumentLoaderData
 ```
 
-`DataLoaderConfig` has `name`, `encoding`, `pageDelimiter`, and additional `mimeTypes`.
-Defaults are `DocumentLoaderData`, UTF-8, form feed, and the built-in plain text,
-Markdown, CSV, HTML, JSON, and XML media types.
+### `DataLoaderConfig`
 
-The loader returns text without geometry or images. Page width and height are `0` because
-the input has no physical page size. `TextDecoder` errors and invalid encoding names
-reject the load.
+Options for `DocumentLoaderData`.
+
+{/* options: DataLoaderConfig */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `name` | `"DocumentLoaderData"` | Loader name reported in `result.loader`. |
+| `encoding` | `"utf-8"` | `TextDecoder` encoding label. |
+| `pageDelimiter` | `"\f"` (form feed) | String or regular expression that separates pages. Not applied to HTML or XHTML. |
+| `mimeTypes` | None | Media types accepted in addition to `text/plain`, `text/markdown`, `text/csv`, `text/html`, `application/xhtml+xml`, `application/json`, `application/xml`, and `text/xml`. |
 
 ## Loader contract
 
-`LoaderCapabilities<Text, Geometry, Images>` contains the three literal capability
-booleans, accepted `mimeTypes`, and optional custom `facts`.
+### `DocumentLoader`
 
-`DocumentLoader<C>` has a stable `name`, `capabilities`, `load(document, context)`, and
-optional `dispose()`. `LoadContext` contains `signal`, `logger`, and optional
-`LoadRequest`. A conversion request can set `layout` and `assets`; extraction leaves the
-request absent so custom loaders do not pay conversion-only costs.
+The interface every loader implements. A loader is a plain object; [custom components](/docs/resources/custom-components#loader) shows one.
 
 ```ts
-defineLoader<const C extends LoaderCapabilities>(
-  loader: DocumentLoader<C>,
-): DocumentLoader<C>
+interface DocumentLoader<C extends LoaderCapabilities = LoaderCapabilities> {
+  readonly name: string;
+  readonly capabilities: C;
+  load(document: RawDocument, ctx: LoadContext): Promise<LoadedDocument>;
+  dispose?(scope?: DisposalScope): Promise<void>;
+}
+```
 
+{/* options: DocumentLoader */}
+| Member | Meaning |
+| --- | --- |
+| `name` | Stable id. Appears in `result.loader` and in attempts. |
+| `capabilities` | What the loader can produce and which media types it accepts. |
+| `load` | Reads the bytes. Throw when the bytes cannot be read, so the next eligible loader can try. |
+| `dispose` | Releases engines, workers, and WASM instances. The owner that composed the loader calls it once. |
+
+### `LoaderCapabilities`
+
+What a loader can produce. The three booleans are type parameters, so literal values check wiring at compile time.
+
+```ts
+interface LoaderCapabilities<Text extends boolean = boolean, Geometry extends boolean = boolean, Images extends boolean = boolean>
+```
+
+{/* options: LoaderCapabilities */}
+| Field | Meaning |
+| --- | --- |
+| `text` | Produces page text. |
+| `geometry` | Produces positioned lines. Also required for the runtime `GEOMETRY` fact. |
+| `images` | Can render pages. Satisfies the runtime `RENDERABLE_PAGES` fact. |
+| `mimeTypes` | Accepted media types. Supports exact types, wildcards such as `image/*`, and `*/*`. |
+| `facts` | Custom facts the loader publishes for strategies to require. |
+
+### `LoadContext`
+
+The second argument to `load()`.
+
+{/* options: LoadContext */}
+| Field | Meaning |
+| --- | --- |
+| `signal` | Cancels the load. |
+| `logger` | The extractor's or converter's logger. |
+| `request` | Optional [`LoadRequest`](#loadrequest) work hints. |
+
+### `defineLoader`
+
+Identity helper that keeps capability booleans as literal types.
+
+```ts
+defineLoader<const C extends LoaderCapabilities>(loader: DocumentLoader<C>): DocumentLoader<C>
+```
+
+Returns `loader` unchanged. Without it, `{ text: true }` widens to `boolean` and compile-time capability checks stop applying.
+
+### `loaderAccepts`
+
+Checks a media type against a loader's `capabilities.mimeTypes`.
+
+```ts
 loaderAccepts(loader: DocumentLoader, mimeType: string): boolean
 ```
 
-`defineLoader()` preserves literal capability types. `loaderAccepts()` supports exact
-media types, type wildcards such as `image/*`, and `*/*`.
+Matches exact media types, type wildcards such as `image/*`, and `*/*`.
 
-`TextLoader`, `GeometryLoader`, and `ImageLoader` are capability-specific aliases. They
-produce a compile error only when an API explicitly asks for one of those aliases. Normal
-pipeline eligibility still checks the loaded document at runtime.
+### `TextLoader`
+
+A loader whose type guarantees text.
+
+```ts
+type TextLoader = DocumentLoader<LoaderCapabilities<true, boolean, boolean>>;
+```
+
+### `GeometryLoader`
+
+A loader whose type guarantees positioned geometry.
+
+```ts
+type GeometryLoader = DocumentLoader<LoaderCapabilities<boolean, true, boolean>>;
+```
+
+### `ImageLoader`
+
+A loader whose type guarantees page rendering.
+
+```ts
+type ImageLoader = DocumentLoader<LoaderCapabilities<boolean, boolean, true>>;
+```
+
+These three aliases produce a compile error only when an API explicitly asks for one of them. Normal pipeline eligibility still checks the loaded document at runtime.
 
 ## Loaded documents and geometry
 
-`LoadedDocument` contains ordered `pages`, whole-document `text`, inferred `form`, loader
-name, and optional metadata. Pages in `document.text` are joined with a form feed.
-`conversionWarnings` retains typed loader diagnostics in conversion results and saved
-JSON. `sourceMetadata` holds serializable source provenance separately from runtime `meta`.
+### `LoadedDocument`
 
-`LoadedPage` contains a 1-based `pageNumber`, dimensions in PDF points, page `text`,
-optional positioned `lines`, optional `LayoutBlock` and `LoadedAsset` values, and optional
-lazy `image(options)`. `TextLayoutBlock` and `ImageLayoutBlock` share a `LayoutBox`.
-`LayoutRoleHint` carries tagged semantics when a loader can recover them.
+What a loader returns.
 
-`TextLine` contains its vertical box, joined text, and left-to-right `spans`. `TextSpan`
-contains text, a top-left-origin box, and optional confidence, `TextStyle`, direction, and
-link target. `TextStyle` can carry family, size, weight, slant, monospace, and color facts.
-Coordinates use PDF points, with `y` increasing downward.
+{/* options: LoadedDocument */}
+| Field | Meaning |
+| --- | --- |
+| `pages` | `LoadedPage` values in document order. |
+| `text` | Whole-document text, pages joined with a form feed. |
+| `form` | `DocumentForm` reported by the loader. |
+| `loader` | Name of the loader that produced the document. |
+| `metadata` | Optional `DocumentMetadata`. |
+| `meta` | Optional runtime metadata from the loader. |
+| `sourceMetadata` | Serializable source provenance, kept in results separately from `meta`. |
+| `conversionWarnings` | Typed loader diagnostics, kept in conversion results and saved JSON. |
+| `sourceDigest` | Digest of the imported source representation. |
+| `physicalSourceDigest` | Digest of separately bound original source bytes. |
 
-`LoadedDocument.metadata` uses `DocumentMetadata` for title, author, subject, keywords,
-language, and other loader facts. `LoadedAsset` contains stable identity, page and box
-provenance, media type, bytes, and optional pixel dimensions and alt text.
+### `LoadedPage`
 
-`DocumentForm` is `"digital" | "scanned" | "mixed" | "unknown"`.
-`DocumentFeatures` contains media type, page and text counts, text, geometry, and rendering
-facts, form, and optional custom facts.
+One page of a loaded document.
 
-`KnownDocumentFact` is `TEXT_LAYER`, `GEOMETRY`, or `RENDERABLE_PAGES`. `DocumentFact`
-also accepts custom string facts.
+{/* options: LoadedPage */}
+| Field | Meaning |
+| --- | --- |
+| `pageNumber` | 1-based, in document order. |
+| `width` | Page width in PDF points. `0` when the input has no physical size. |
+| `height` | Page height in PDF points. |
+| `text` | Page text. An empty string for a page without a text layer. |
+| `lines` | Positioned `TextLine` values, when the loader produces geometry. |
+| `blocks` | `LayoutBlock` reading-order candidates, produced when conversion requests layout. |
+| `assets` | `LoadedAsset` figures used by the blocks. |
+| `layout` | Normalized elements from an importer, independent of line geometry. |
+| `evidence` | Native evidence records that citations can reference. |
+| `image` | Lazy `(options?: RasterOptions, call?: { signal?: AbortSignal }) => Promise<Uint8Array>` that renders this page. |
 
-| Helper | Signature | Behavior |
-| --- | --- | --- |
-| `inferForm` | `(pageTextLengths: readonly number[]) => DocumentForm` | Infers digital, scanned, mixed, or unknown from per-page text lengths. |
-| `preloadedFeatures` | `(source: LoadedSource) => DocumentFeatures` | Computes features for a source that skipped loading. |
-| `hasFact` | `(features: DocumentFeatures, fact: DocumentFact) => boolean` | Reads a built-in or custom runtime fact. |
+`image()` returns encoded bytes. For PNG or JPEG sources a loader may return the original bytes and ignore the requested format, `dpi`, and `maxEdge`, so identify the media type from the bytes. `call.signal` cancels one call; callers waiting on the same render share it.
 
-`MIN_TEXT_LAYER_CHARS` is `50`, the whole-document trimmed text threshold used for
-`TEXT_LAYER`.
+### `DocumentMetadata`
 
-Page selection recomputes these features from the selected document and uses the same
-50-character threshold. A short digital selection can therefore have `form: "digital"`
-and `hasTextLayer: false`. A `Process` group below the threshold needs a strategy that
-does not require `TEXT_LAYER`; otherwise extraction fails with `NO_ELIGIBLE_STRATEGY`.
+Document properties a loader can read.
+
+{/* options: DocumentMetadata */}
+| Field | Meaning |
+| --- | --- |
+| `title` | Document title. |
+| `author` | Author. |
+| `subject` | Subject. |
+| `keywords` | Keyword list. |
+| `language` | Document language. |
+
+### `TextLine`
+
+Spans on one visual line, left to right. Coordinates use PDF points with a top-left origin and `y` increasing downward.
+
+{/* options: TextLine */}
+| Field | Meaning |
+| --- | --- |
+| `y` | Top edge of the line box. |
+| `height` | Line box height. |
+| `text` | Span texts joined with single spaces. |
+| `spans` | `TextSpan` values, left to right. |
+
+### `TextSpan`
+
+One run of positioned text.
+
+{/* options: TextSpan */}
+| Field | Meaning |
+| --- | --- |
+| `text` | The run's text. |
+| `x` | Left edge. |
+| `y` | Top edge. |
+| `width` | Width in points. |
+| `height` | Height in points. |
+| `confidence` | 0 to 1 when the producer reports one. OCR does; a text layer does not. |
+| `direction` | `"ltr"`, `"rtl"`, or `"ttb"`. |
+| `style` | `TextStyle` facts. |
+| `href` | Authored link target that intersects this span. |
+
+### `TextStyle`
+
+Typography a loader can recover.
+
+{/* options: TextStyle */}
+| Field | Meaning |
+| --- | --- |
+| `fontFamily` | Font family name. |
+| `fontSize` | Size in points. |
+| `bold` | Bold weight. |
+| `italic` | Italic slant. |
+| `monospace` | Monospaced font. |
+| `color` | CSS hex color. |
+
+### `LayoutBox`
+
+An axis-aligned box in PDF points, with the same top-left origin as text.
+
+{/* options: LayoutBox */}
+| Field | Meaning |
+| --- | --- |
+| `x` | Left edge. |
+| `y` | Top edge. |
+| `width` | Width. |
+| `height` | Height. |
+
+### `LayoutBlock`
+
+A reading-order candidate on a page.
+
+```ts
+type LayoutBlock = TextLayoutBlock | ImageLayoutBlock;
+```
+
+### `TextLayoutBlock`
+
+A block of text lines. Extends `LayoutBox` with `id`, `kind: "text"`, `lines`, an optional `role` hint, and an optional heading `level` from 1 to 6 when a tagged PDF names it.
+
+### `ImageLayoutBlock`
+
+A figure position. Extends `LayoutBox` with `id`, `kind: "image"`, the `assetId` of a `LoadedAsset`, and optional `alt` text.
+
+### `LayoutRoleHint`
+
+A semantic hint from a tagged document. Conversion's layout analysis may refine or ignore it.
+
+```ts
+type LayoutRoleHint = "heading" | "paragraph" | "list-item" | "table" | "code" | "figure" | "header" | "footer";
+```
+
+### `LoadedAsset`
+
+An embedded raster figure, copied out before the engine is released. Extends `LayoutBox` with `id`, `pageNumber`, `name`, `mimeType`, `bytes`, and optional `widthPx`, `heightPx`, and `alt`.
+
+## Document facts
+
+### `DocumentForm`
+
+How the document's text was produced.
+
+```ts
+type DocumentForm = "digital" | "scanned" | "mixed" | "unknown";
+```
+
+### `KnownDocumentFact`
+
+The built-in facts strategies can require.
+
+```ts
+type KnownDocumentFact = "TEXT_LAYER" | "GEOMETRY" | "RENDERABLE_PAGES";
+```
+
+[How Docture works](/docs/getting-started/how-it-works#record-document-facts) explains when each fact holds.
+
+### `DocumentFact`
+
+A built-in fact or a custom string fact.
+
+```ts
+type DocumentFact = KnownDocumentFact | (string & {});
+```
+
+### `DocumentFeatures`
+
+Facts the pipeline derives from a loaded document.
+
+{/* options: DocumentFeatures */}
+| Field | Meaning |
+| --- | --- |
+| `mimeType` | Media type of the source. |
+| `pageCount` | Number of loaded pages, after page selection. |
+| `textLength` | Trimmed length of the whole-document text. |
+| `hasTextLayer` | The `TEXT_LAYER` fact. |
+| `hasGeometry` | The `GEOMETRY` fact. |
+| `hasRenderablePages` | The `RENDERABLE_PAGES` fact. |
+| `form` | `DocumentForm` from the loader. |
+| `extra` | Custom facts from loader capabilities or `LoadedSource.facts`. |
+
+### `MIN_TEXT_LAYER_CHARS`
+
+The trimmed whole-document character count that satisfies `TEXT_LAYER` without native evidence.
+
+```ts
+const MIN_TEXT_LAYER_CHARS = 50;
+```
+
+Page selection recomputes features from the selected pages with the same threshold. A short digital selection can have `form: "digital"` and `hasTextLayer: false`. A `Process` group below the threshold needs a strategy that does not require `TEXT_LAYER`; otherwise extraction fails with `NO_ELIGIBLE_STRATEGY`.
+
+### `hasFact`
+
+Reads a built-in or custom fact.
+
+```ts
+hasFact(features: DocumentFeatures, fact: DocumentFact): boolean
+```
+
+Returns the matching `has*` field for a built-in fact, `features.extra[fact]` for a custom fact, and `false` when a custom fact is absent.
+
+### `inferForm`
+
+Infers a `DocumentForm` from per-page trimmed text lengths, for loaders that read text.
+
+```ts
+inferForm(pageTextLengths: readonly number[]): DocumentForm
+```
+
+A page counts as having text when its length reaches `MIN_TEXT_LAYER_CHARS` divided by the page count, with a floor of 1. Returns `unknown` for no pages, `scanned` when no page has text, `digital` when every page has text, and `mixed` otherwise.
+
+### `preloadedFeatures`
+
+Computes features for a `LoadedSource`.
+
+```ts
+preloadedFeatures(source: LoadedSource): DocumentFeatures
+```
+
+There is no loader, so geometry and rendering facts come from the pages alone: positioned lines and `image()` functions.
 
 ## Geometry helpers
 
-`PositionedWord` contains text, `[xMin, yMin, xMax, yMax]`, and optional confidence,
-direction, style, and link target.
+### `PositionedWord`
+
+One OCR or engine word, the input to `linesFromWords()`.
+
+{/* options: PositionedWord */}
+| Field | Meaning |
+| --- | --- |
+| `text` | Word text. |
+| `box` | `[xMin, yMin, xMax, yMax]` in the engine's units. |
+| `confidence` | 0 to 1 confidence. |
+| `direction` | `"ltr"`, `"rtl"`, or `"ttb"`. |
+| `style` | `TextStyle` facts. |
+| `href` | Link target. |
+
+### `linesFromWords`
+
+Groups words into sorted `TextLine` values, the same geometry shape the built-in loaders produce.
 
 ```ts
-linesFromWords(
-  words: readonly PositionedWord[],
-  options?: LinesFromWordsOptions,
-): TextLine[]
+linesFromWords(words: readonly PositionedWord[], options?: LinesFromWordsOptions): TextLine[]
 ```
 
-`LinesFromWordsOptions.scale` defaults to `1`. `lineTolerance` defaults to `0.5` median
-word height. Blank words are removed; output lines and spans are sorted in reading order.
+Removes blank words and returns lines top to bottom with spans left to right.
+
+### `LinesFromWordsOptions`
+
+{/* options: LinesFromWordsOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `scale` | `1` | Multiplied into every coordinate. A 300 DPI raster passes `72 / 300` to return to PDF points. |
+| `lineTolerance` | `0.5` | Largest distance between word centers on one line, as a fraction of the median word height. |
+
+### `textFromLines`
+
+Page text from lines in reading order.
 
 ```ts
 textFromLines(lines: readonly TextLine[]): string
+```
+
+Joins line text with newlines.
+
+### `imageSize`
+
+Reads pixel dimensions from an image header.
+
+```ts
 imageSize(bytes: Uint8Array): ImageSize | undefined
+```
+
+Reads PNG, JPEG, and classic TIFF headers, and reports the first page of a TIFF. Returns `undefined` for other or unreadable bytes.
+
+### `ImageSize`
+
+```ts
+interface ImageSize {
+  readonly widthPx: number;
+  readonly heightPx: number;
+}
+```
+
+### `tiffPages`
+
+Lists the pages of a classic TIFF.
+
+```ts
 tiffPages(bytes: Uint8Array): readonly TiffPage[] | undefined
 ```
 
-`textFromLines()` joins line text with newlines. `imageSize()` returns `ImageSize` with
-`widthPx` and `heightPx` for readable PNG, JPEG, and classic TIFF headers, otherwise
-`undefined`. For a TIFF it reports the first page.
+Reads the image file directory (IFD) chain in either byte order. Returns `undefined` when any page is malformed: a looping IFD chain, an IFD or strip outside the bytes, or a page without a size. BigTIFF is not recognized.
 
-`tiffPages()` reads the image file directory (IFD) chain of a classic TIFF in either byte
-order. Each `TiffPage` adds `pageNumber` (1-based, in IFD order), `ifdOffset`,
-`littleEndian`, and the TIFF `compression` code to `widthPx` and `heightPx`. It returns
-`undefined` when any page is malformed: a looping IFD chain, an IFD or strip outside the
-bytes, or a page without a size. BigTIFF is not recognized.
+### `TiffPage`
+
+One page of a classic TIFF.
+
+{/* options: TiffPage */}
+| Field | Meaning |
+| --- | --- |
+| `pageNumber` | 1-based position in the IFD chain. |
+| `widthPx` | Width in pixels. |
+| `heightPx` | Height in pixels. |
+| `ifdOffset` | Byte offset of the page's IFD. |
+| `littleEndian` | Byte order of the file. |
+| `compression` | TIFF compression code: 1 none, 3 CCITT G3, 4 CCITT G4, 5 LZW, 8 Deflate, 32773 PackBits. |
 
 ## Rasterizers
 
-`Rasterizer` has a stable `name`, supported `formats`, `rasterize()`, and optional
-`dispose()`. `RasterizeContext` contains `signal` and `logger`.
+### `Rasterizer`
+
+Renders document pages to images. It is a separate component from the loader, so the engine that renders pages and the engine that reads them are independent choices.
+
+```ts
+interface Rasterizer {
+  readonly name: string;
+  readonly formats: readonly RasterFormat[];
+  rasterize(document: RawDocument, options: RasterOptions, ctx: RasterizeContext): Promise<readonly RasterPage[]>;
+  dispose?(scope?: DisposalScope): Promise<void>;
+}
+```
+
+Implementations reject on decode, render, unsupported format, or abort failures. [Custom components](/docs/resources/custom-components#rasterizer) shows one.
+
+### `RasterizeContext`
+
+{/* options: RasterizeContext */}
+| Field | Meaning |
+| --- | --- |
+| `signal` | Cancels the render. |
+| `logger` | The caller's logger. |
+
+### `defineRasterizer`
+
+Identity helper, for symmetry with `defineLoader()`.
 
 ```ts
 defineRasterizer(rasterizer: Rasterizer): Rasterizer
 ```
 
-`defineRasterizer()` is an identity helper. Rasterizer implementations reject on decode,
-render, unsupported format, or abort failures.
+### `RasterFormat`
 
-`RasterFormat` is `"png" | "jpeg"`. `RasterOptions` contains optional `dpi`, `format`,
-JPEG `quality`, `maxEdge`, and 1-based `pages`. `DEFAULT_RASTER_OPTIONS` is 300 DPI PNG.
+```ts
+type RasterFormat = "png" | "jpeg";
+```
 
-`RasterPage` contains page number, bytes, pixel dimensions, format, and point-per-pixel
-`scale`.
+### `RasterOptions`
+
+Render settings for `rasterize()` and `page.image()`.
+
+{/* options: RasterOptions */}
+| Option | Meaning |
+| --- | --- |
+| `dpi` | Render resolution. 300 is the usual floor for OCR accuracy. |
+| `format` | `"png"` or `"jpeg"`. |
+| `quality` | JPEG quality from 0 to 1. Ignored for PNG. |
+| `maxEdge` | Caps the long edge in pixels, downscaling when needed. |
+| `pages` | 1-based page numbers to render. Omit for all pages. |
+| `maxPages` | Highest original page number to render. A cap above the page count renders all pages. A custom rasterizer must honor it to bound work; see [raster page caps](/docs/extraction/reference/pipeline#raster-page-caps). |
+
+### `DEFAULT_RASTER_OPTIONS`
+
+```ts
+const DEFAULT_RASTER_OPTIONS = { dpi: 300, format: "png" } as const;
+```
+
+### `RasterPage`
+
+One rendered page.
+
+{/* options: RasterPage */}
+| Field | Meaning |
+| --- | --- |
+| `pageNumber` | 1-based page number. |
+| `bytes` | Encoded image bytes. |
+| `widthPx` | Width in pixels. |
+| `heightPx` | Height in pixels. |
+| `format` | `RasterFormat` of the bytes. |
+| `scale` | PDF points per pixel. |
 
 ## Loader and rasterizer composition
+
+### `withRasterizer`
+
+Adds lazy page rendering to a loader.
 
 ```ts
 withRasterizer<C extends LoaderCapabilities>(
   loader: DocumentLoader<C>,
   rasterizer: Rasterizer,
   options?: WithRasterizerOptions,
-): DocumentLoader<WithImages<C>>
+): DocumentLoader<WithImages<C>> & AsyncDisposable
 ```
 
-`WithImages<C>` preserves the loader's text and geometry capability types and sets images
-to `true`. `WithRasterizerOptions.defaults` sets default raster options.
+The composed loader is named `<loader>+<rasterizer>` and adds an `image()` function to each page. Calls are memoized by page and effective options. Per-call options override composition defaults. Disposal settles both components and reports failures with `AggregateError`. [Scans and images](/docs/integrations/scanned-documents) uses it for vision.
 
-The composed loader adds a lazy `image()` function to each page. Calls are memoized by
-page and effective options. Per-call options override composition defaults. Disposal
-settles both components and reports failures with `AggregateError`.
+### `WithImages`
+
+The composed capability type: the loader's `text` and `geometry`, with `images` set to `true`.
+
+```ts
+type WithImages<C extends LoaderCapabilities> = LoaderCapabilities<C["text"], C["geometry"], true>;
+```
+
+### `WithRasterizerOptions`
+
+{/* options: WithRasterizerOptions */}
+| Option | Meaning |
+| --- | --- |
+| `defaults` | `RasterOptions` applied to every `page.image()` call. Per-call options override them. |
 
 ## Logging
 
-`Logger` defines `debug`, `info`, `warn`, `error`, and `child`. `silentLogger` discards
-all messages and is the default. `consoleLogger(bindings?)` writes structured fields to
-the matching console method and returns child loggers with merged bindings.
+### `Logger`
+
+The structural logging interface. Pass a pino logger, a console wrapper, or nothing.
+
+```ts
+interface Logger {
+  debug(msg: string, fields?: Record<string, unknown>): void;
+  info(msg: string, fields?: Record<string, unknown>): void;
+  warn(msg: string, fields?: Record<string, unknown>): void;
+  error(msg: string, fields?: Record<string, unknown>): void;
+  child(bindings: Record<string, unknown>): Logger;
+}
+```
+
+### `silentLogger`
+
+Discards every message. It is the default logger.
+
+```ts
+const silentLogger: Logger
+```
+
+### `consoleLogger`
+
+Writes `[docture]` messages and merged structured fields to the matching `console` method.
+
+```ts
+consoleLogger(bindings?: Record<string, unknown>): Logger
+```
+
+`child()` returns a logger with the parent and child bindings merged.
 
 ## Requested loading
 
-`LoadRequest.pages` is an optional list of original one-based page numbers. PDF loaders
-read only those pages, and OCR loaders pass the selection to rasterization before
-recognition. Numbers are deduplicated and results stay in document order. Constructor
-`maxPages` remains a cap on the original source prefix. Invalid or unavailable
-selections raise `PAGE_OUT_OF_RANGE`. A custom loader may ignore the optimization;
-the pipeline still projects and validates the selected pages.
+### `LoadRequest`
 
-`DocumentFeatures.pageCount` describes the selected loaded pages. PDF loader metadata
-can also report the physical source count. Selected OCR loads omit that physical count
-when the rasterizer cannot provide it.
+Optional work hints in `LoadContext.request`. A loader may ignore any field it cannot provide; the pipeline still projects and validates the selected pages.
+
+{/* options: LoadRequest */}
+| Field | Meaning |
+| --- | --- |
+| `pages` | Original 1-based page numbers to read. Extraction sets it when `RunOptions.pages` is supplied. |
+| `layout` | Conversion requests layout blocks. Extraction omits it. |
+| `assets` | Conversion requests embedded figures. Extraction omits it. |
+
+PDF loaders read only the selected pages, and OCR loaders pass the selection to rasterization before recognition. Numbers are deduplicated and results stay in document order. A constructor `maxPages` remains a cap on the original source prefix. Invalid or unavailable selections raise `PAGE_OUT_OF_RANGE`.
+
+`DocumentFeatures.pageCount` describes the selected loaded pages. PDF loader metadata can also report the physical source count. Selected OCR loads omit that physical count when the rasterizer cannot provide it.
 
 ## Resolve portable sources
 
-`SourceResolver` is a structural function from `DocumentSource` and an optional abort signal to `Promise<RawDocument>`. The portable `resolveSource` accepts bytes, ArrayBuffer, raw documents and HTTP URLs. Loaded sources bypass resolution in pipelines. Local paths and file URLs require `docture/node` or a caller-configured resolver. HTTP transport and response-body failures raise `UnsupportedSourceError` with their cause; caller abort reasons remain intact.
+### `SourceResolver`
+
+A function that turns a `DocumentSource` into bytes.
+
+```ts
+type SourceResolver = (source: DocumentSource, signal?: AbortSignal) => Promise<RawDocument>;
+```
+
+### `resolveSource`
+
+The portable resolver.
+
+```ts
+const resolveSource: SourceResolver
+```
+
+Normalizes `Uint8Array`, `ArrayBuffer`, and `RawDocument` inputs and fetches HTTP and HTTPS URLs. Pipelines pass a `LoadedSource` straight through without resolution. Local file paths and `file:` URLs need [`resolveNodeSource`](/docs/getting-started/reference/node) from `docture/node`, or a Node extractor or converter that supplies it.
+
+Media types come from specific magic bytes first, which override generic or conflicting declarations. Custom declarations and ZIP types stay authoritative. Otherwise the resolver uses the signature, then the file extension, then `application/octet-stream`.
+
+Throws `UnsupportedSourceError` for unsupported protocols, local files, failed HTTP requests or body reads, empty input, and a `LoadedSource` passed directly to it. Network and body-read failures keep their cause. Caller cancellation keeps its abort reason.

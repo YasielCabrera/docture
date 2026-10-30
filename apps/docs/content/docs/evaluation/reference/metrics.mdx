@@ -1,7 +1,10 @@
 ---
 title: Evaluation metrics and assertions API
 description: Precision, recall, F1, omissions, custom metrics, assertions, and grounding rules.
+type: reference
 ---
+
+Import metric helpers, custom metrics, and assertions from `@docture/eval`. [Define evaluation scoring rules](/docs/evaluation/scoring-rules) shows how specs report them.
 
 ## `@docture/eval`
 
@@ -11,13 +14,17 @@ description: Precision, recall, F1, omissions, custom metrics, assertions, and g
 prf(counts: StatusCounts): Prf
 ```
 
-Precision, recall and F1 from counts. F1 is 2·match / (2·match + 2·mismatch + omission + hallucination), so it is 0, not null, when nothing was predicted.
+Takes [`StatusCounts`](/docs/evaluation/reference/types#statuscounts). Returns [`Prf`](/docs/evaluation/reference/types#prf).
+
+Precision, recall and F1 from counts. F1 is 2·match / (2·match + 2·mismatch + omission + hallucination), so it is 0 when expected fields exist but nothing was predicted, and null when there are neither expected nor predicted fields.
 
 ### `groundingRule`
 
 ```ts
 groundingRule(rule?: GroundingRule): ResolvedGroundingRule
 ```
+
+Takes [`GroundingRule`](/docs/evaluation/reference/metrics#groundingrule). Returns [`ResolvedGroundingRule`](/docs/evaluation/reference/metrics#resolvedgroundingrule).
 
 Apply defaults and check the rule. Throws `EvalSpecError` when `iou` is outside (0, 1] or `level` is unknown.
 
@@ -27,6 +34,8 @@ Apply defaults and check the rule. Throws `EvalSpecError` when `iou` is outside 
 isGrounded(field: Pick<FieldResult, "status" | "evidence">, locations: readonly ExpectedLocation[], rule?: GroundingRule): boolean
 ```
 
+Takes [`FieldResult`](/docs/evaluation/reference/types#fieldresult), [`ExpectedLocation`](/docs/evaluation/reference/types#expectedlocation), and [`GroundingRule`](/docs/evaluation/reference/metrics#groundingrule).
+
 Whether a field is grounded: it matched and its evidence supports one of its expected locations. The scorer sets `FieldResult.grounded` with the default rule, and `@docture/eval/grounding` uses the rule it was given.
 
 ### `supportsLocation`
@@ -34,6 +43,8 @@ Whether a field is grounded: it matched and its evidence supports one of its exp
 ```ts
 supportsLocation(evidence: readonly EvidenceRef[], locations: readonly ExpectedLocation[], options?: GroundingRule): boolean
 ```
+
+Takes [`EvidenceRef`](/docs/evaluation/reference/types#evidenceref), [`ExpectedLocation`](/docs/evaluation/reference/types#expectedlocation), and [`GroundingRule`](/docs/evaluation/reference/metrics#groundingrule).
 
 Whether any evidence reference supports any expected location under the rule.
 
@@ -43,6 +54,12 @@ Whether any evidence reference supports any expected location under the rule.
 defineAssertion(assertion: Assertion): Assertion
 ```
 
+Takes and returns [`Assertion`](/docs/evaluation/reference/metrics#assertion).
+
+Takes and returns [`Assertion`](/docs/evaluation/reference/metrics#assertion).
+
+Takes and returns [`Assertion`](/docs/evaluation/reference/metrics#assertion).
+
 Declare a custom assertion. Identity at runtime; it pins the type.
 
 ### `sumOf`
@@ -50,6 +67,8 @@ Declare a custom assertion. Identity at runtime; it pins the type.
 ```ts
 sumOf(path: string): { equals(target: string, options?: { readonly abs?: number; }): Assertion; }
 ```
+
+Returns [`Assertion`](/docs/evaluation/reference/metrics#assertion).
 
 `sumOf("lineItems[].amount").equals("totals.total", { abs: 0.01 })`: the values at one path sum to the value at another.
 
@@ -59,6 +78,12 @@ sumOf(path: string): { equals(target: string, options?: { readonly abs?: number;
 defineMetric(metric: MetricDefinition): MetricDefinition
 ```
 
+Takes and returns [`MetricDefinition`](/docs/evaluation/reference/metrics#metricdefinition).
+
+Takes and returns [`MetricDefinition`](/docs/evaluation/reference/metrics#metricdefinition).
+
+Takes and returns [`MetricDefinition`](/docs/evaluation/reference/metrics#metricdefinition).
+
 Declare a custom metric. `aggregate` turns an experiment's rows into one value; `perCase`, when given, lets run comparison test the change for significance.
 
 ### `builtinMetrics`
@@ -66,6 +91,8 @@ Declare a custom metric. `aggregate` turns an experiment's rows into one value; 
 ```ts
 builtinMetrics(): readonly MetricDefinition[]
 ```
+
+Returns [`MetricDefinition`](/docs/evaluation/reference/metrics#metricdefinition).
 
 The metrics every result carries. Custom metrics from `defineMetric` are added after these.
 
@@ -75,6 +102,8 @@ The metrics every result carries. Custom metrics from `defineMetric` are added a
 omittedOf(score: CaseScore): OmittedLeaves
 ```
 
+Takes [`CaseScore`](/docs/evaluation/reference/types#casescore). Returns [`OmittedLeaves`](/docs/evaluation/reference/types#omittedleaves).
+
 What `omitted` an errored case records, computed from a score against an absent output.
 
 ### `runScopeOmissions`
@@ -82,6 +111,8 @@ What `omitted` an errored case records, computed from a score against an absent 
 ```ts
 runScopeOmissions(row: CaseResult, scope?: string): OmittedLeaves | undefined
 ```
+
+Takes [`CaseResult`](/docs/evaluation/reference/types#caseresult). Returns [`OmittedLeaves`](/docs/evaluation/reference/types#omittedleaves).
 
 The omitted leaves an errored row adds to precision, recall and F1. They count only at `run` scope, the default, so the result is `undefined` for a scored or skipped row and for another scope.
 
@@ -99,6 +130,8 @@ Linear interpolation between closest ranks.
 prfMetricId(metric: "precision" | "recall" | "f1", scope?: PrfScope): string
 ```
 
+Takes [`PrfScope`](/docs/evaluation/reference/types#prfscope).
+
 The metric id of precision, recall or F1 in a scope: `f1` for run scope, `f1.micro`, `f1.macro`.
 
 ### `prfOf`
@@ -107,4 +140,86 @@ The metric id of precision, recall or F1 in a scope: `f1` for run scope, `f1.mic
 prfOf(rows: readonly CaseResult[], scope: PrfScope, segment?: string): Prf
 ```
 
+Takes [`CaseResult`](/docs/evaluation/reference/types#caseresult) and [`PrfScope`](/docs/evaluation/reference/types#prfscope). Returns [`Prf`](/docs/evaluation/reference/types#prf).
+
 Precision, recall and F1 of rows in one scope, optionally restricted to a segment.
+
+## Types
+
+### `Assertion`
+
+A cross-field rule, such as line items summing to the total. Checked on ground truth by `validate` and on output by `score`.
+
+```ts
+interface Assertion {
+	readonly id: string;
+	/** Paths the assertion reads. `defineEval` checks that each exists in the schema. */
+	readonly paths?: readonly string[];
+	/** Serializable configuration, hashed into the spec fingerprint so a changed tolerance changes the spec. */
+	readonly options?: JsonValue;
+	check(value: unknown): AssertionOutcome;
+}
+```
+
+### `AssertionOutcome`
+
+The outcome of an assertion on one value.
+
+```ts
+type AssertionOutcome =
+	| { readonly status: "pass" }
+	| { readonly status: "skipped"; readonly reason: string }
+	| { readonly status: "fail"; readonly message: string; readonly expected?: JsonValue; readonly actual?: JsonValue };
+```
+
+### `GroundingRule`
+
+How evidence must meet an expected location to support a field.
+
+```ts check
+interface GroundingRule {
+	/** Minimum intersection over union between an expected box and an evidence box, in (0, 1]. Default 0.5. */
+	readonly iou?: number;
+	/**
+	 * `box` (default): a boxed location needs a boxed evidence reference on its page overlapping by `iou`;
+	 * a location without a box needs only the same page. `page`: the same page is enough.
+	 */
+	readonly level?: "box" | "page";
+}
+```
+
+### `MetricContext`
+
+What a metric can read besides the rows. Calibration and grounding are present only for the whole experiment.
+
+```ts
+interface MetricContext {
+	readonly experiment: string;
+	readonly scope: "overall" | "slice" | "epoch";
+	readonly calibration?: CalibrationSummary;
+	readonly grounding?: GroundingSummary;
+}
+```
+
+### `MetricDefinition`
+
+A metric that the result builder computes per case and per experiment. Create one with `defineMetric`.
+
+```ts
+interface MetricDefinition extends MetricInfo {
+	/** Per-case value. Enables paired significance tests in run comparison. */
+	perCase?(row: CaseResult): number | null;
+	aggregate(rows: readonly CaseResult[], context: MetricContext): number | null;
+}
+```
+
+### `ResolvedGroundingRule`
+
+A grounding rule with its defaults applied.
+
+```ts check
+interface ResolvedGroundingRule {
+	readonly iou: number;
+	readonly level: "box" | "page";
+}
+```

@@ -1,43 +1,80 @@
 ---
 title: Batch and lifecycle API
 description: Batch options, result ordering, cancellation, and resource ownership.
+type: reference
 ---
 
-Import from `docture`.
+Batch extraction runs many documents through one extractor with bounded concurrency. Import these types from `docture` or `docture/node`. [Process batches](/docs/extraction/batches) shows them in use.
 
 ## Batches
+
+### `extractBatch`
+
+An `Extractor` method that extracts many sources and yields each outcome as it finishes.
 
 ```ts
 extractBatch<C extends ContractLike>(
   sources: readonly DocumentSource[],
   contract: C,
-  options?: BatchOptions,
-): AsyncGenerator<BatchItem<InferContract<C>>>
+  options?: BatchOptions<InferContract<C>>,
+): AsyncGenerator<BatchItem<InferContract<C>>, void, undefined>
 ```
 
-`BatchOptions` extends `RunOptions` with `concurrency`, default `4`. A noninteger or a value below `1` rejects the batch with `RangeError` before processing starts.
+Items are yielded as they finish, so output order may differ from input order. Individual extraction errors stay in their item; the generator does not reject for them. An aborted signal suppresses fallback inside affected runs; those items are still yielded as failed outcomes. Leaving the generator early aborts in-flight jobs and waits for them to settle.
 
-Each `BatchItem<T>` has the original `source`, input `index`, and a `SafeExtraction<T>`
-outcome. Items are yielded as they finish, so output order may differ from input order.
-Individual extraction errors stay in their item. An aborted signal suppresses fallback
-inside affected runs; those items are still yielded as failed outcomes.
-Leaving the generator early aborts in-flight jobs and waits for them to settle.
+Rejects with `RangeError` before processing starts when `concurrency` is not an integer of at least `1`.
 
+### `BatchOptions`
+
+`RunOptions` plus a concurrency limit.
+
+```ts
+interface BatchOptions<T = unknown> extends RunOptions<T> {
+  readonly concurrency?: number;
+}
+```
+
+`concurrency` is the number of documents processed at once. Default `4`. See [run options](/docs/extraction/reference/extractor#runoptions) for the inherited fields.
+
+### `BatchItem`
+
+One finished document.
+
+```ts
+interface BatchItem<T> {
+  readonly source: DocumentSource;
+  readonly index: number;
+  readonly outcome: SafeExtraction<T>;
+}
+```
+
+`source` is the original input, `index` its position in `sources`, and `outcome` a [`SafeExtraction`](/docs/extraction/reference/extractor#safeextraction).
 
 ## Lifecycle
 
+### `dispose`
+
+An `Extractor` method that releases every registered disposable loader, strategy, and classifier.
+
 ```ts
-dispose(): Promise<void>
+dispose(scope?: DisposalScope): Promise<void>
 ```
 
-`dispose()` calls every registered disposable loader, strategy, and classifier. It is
-idempotent. All components are given a chance to dispose; one or more failures reject
-with `AggregateError`.
-
+It is idempotent. Every component gets a chance to dispose; one or more failures reject with `AggregateError`. Pass a shared [`DisposalScope`](/docs/extraction/reference/pipeline#share-disposal-ownership) when components are shared between owners. See [manage cancellation, deadlines, and cleanup](/docs/extraction/lifecycle#release-resources).
 
 ## Bounded work
 
-`mapWithConcurrency(items, limit, fn, signal?)` runs at most `limit` tasks at once and
-returns results in input order. The callback receives the item, index, and a child
-abort signal. A first failure aborts sibling work, stops new tasks, drains active tasks,
-and rejects with that failure. The limit must be a positive integer.
+### `mapWithConcurrency`
+
+Runs at most `limit` tasks at once and returns results in input order.
+
+```ts
+function mapWithConcurrency<In, Out>(
+  items: readonly In[],
+  limit: number,
+  fn: (item: In, index: number, signal: AbortSignal) => Promise<Out>,
+  signal?: AbortSignal,
+): Promise<Out[]>
+```
+
+The callback receives the item, its index, and a child abort signal. A first failure aborts sibling work, stops new tasks, drains active tasks, and rejects with that failure. `limit` must be a positive integer.

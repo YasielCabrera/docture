@@ -105,7 +105,7 @@ const MODEL: readonly FlagSpec[] = [
     name: "cache",
     type: "string",
     placeholder: "<dir>",
-    describe: "Cache model responses on disk, so a re-run is free",
+    describe: "Cache model responses on disk and reuse them on a rerun",
   },
   {
     name: "instructions",
@@ -127,7 +127,7 @@ const RUN: readonly FlagSpec[] = [
   {
     name: "vision",
     type: "boolean",
-    describe: "Render pages and add a vision strategy — this is what reads a scan",
+    describe: "Render pages and add a vision strategy, which reads scans",
   },
   { name: "dpi", type: "string", placeholder: "<n>", describe: "Render resolution for --vision", defaultLabel: "200" },
   {
@@ -197,7 +197,7 @@ export const EXTRACT: CommandSpec = {
       type: "string",
       short: "o",
       placeholder: "<path>",
-      describe: "Write to a file — or, with several inputs, to a directory",
+      describe: "Write to a file, or to a directory with several inputs",
     },
     { ...OUTPUT_FORMAT, defaultLabel: "json" },
     {
@@ -294,10 +294,10 @@ export const CLASSIFY: CommandSpec = {
 
 export const INSPECT: CommandSpec = {
   name: "inspect",
-  summary: "Show what the loaders see — no model, no API key",
+  summary: "Show what the loaders see, without a model or API key",
   positionals: FILES,
   description:
-    "The answer to “why did no strategy run?”. Loads the document exactly as `extract`\n" +
+    "Shows why a strategy did or did not run. Loads the document exactly as `extract`\n" +
     "would and prints the features eligibility is decided from.",
   flags: [
     { name: "text", type: "boolean", describe: "Print the extracted text as well" },
@@ -458,7 +458,7 @@ export const EVAL_RUN: CommandSpec = {
       name: "string-similarity",
       type: "string",
       placeholder: "<n>",
-      describe: "Quick mode: minimum similarity, 0–1, for two strings to count as equal",
+      describe: "Quick mode: minimum similarity, from 0 to 1, for two strings to count as equal",
       defaultLabel: "0.9",
     },
     ...MODEL,
@@ -577,7 +577,7 @@ export const EVAL: CommandSpec = {
   positionals: [{ name: "command", describe: "A subcommand. Default: run", required: false, variadic: false }],
   description:
     "Runs the evaluation in docture.eval.ts and works with the runs it stores. Every\n" +
-    "subcommand is a thin shell over @docture/eval. Files without a subcommand run quick mode.",
+    "subcommand uses the @docture/eval APIs, so results match the library. Files without a subcommand run quick mode.",
   flags: COMMON.filter((flag) => flag.name === "help" || flag.name === "no-color"),
   subcommands: [EVAL_RUN, EVAL_REPORT, EVAL_COMPARE, EVAL_GATE, EVAL_RUNS, EVAL_VALIDATE, EVAL_SAMPLE, EVAL_MIGRATE, EVAL_DRAFT, EVAL_SIGN_OFF],
   examples: [
@@ -676,8 +676,8 @@ export const SYNTH: CommandSpec = {
   positionals: [{ name: "command", describe: "A subcommand", required: true, variadic: false }],
   description:
     "Samples values from the model in docture.synth.ts, renders them with its templates and\n" +
-    "writes each document with its ground truth and field boxes. Every subcommand is a thin\n" +
-    "shell over @docture/synthetic. PDF templates need pdfkit, React templates react and\n" +
+    "writes each document with its ground truth and field boxes. Every subcommand uses the\n" +
+    "@docture/synthetic APIs, so results match the library. PDF templates need pdfkit, React templates react and\n" +
     "@react-pdf/renderer, degraded renditions sharp, and verification the CLI's PDF.js.\n" +
     "Node does not compile JSX: run with NODE_OPTIONS=\"--import tsx\" when the config\n" +
     "imports .tsx templates.",
@@ -692,11 +692,12 @@ export const SYNTH: CommandSpec = {
 
 export const MCP: CommandSpec = {
   name: "mcp",
-  summary: "Serve convert and inspect to an agent over MCP stdio",
+  summary: "Serve convert, inspect, configured extract, and Paperless tools over MCP stdio",
   positionals: [],
   description:
-    "Starts a Model Context Protocol server on stdin and stdout. Its convert and inspect\n" +
-    "tools return the same version 1 envelope as --format json, and call no model.\n" +
+    "Starts a Model Context Protocol server on stdin and stdout. Its tools return the same\n" +
+    "version 1 envelope as --format json. convert and inspect call no model; extract uses\n" +
+    "the configured schema and model.\n" +
     "Needs the optional peer @modelcontextprotocol/sdk.",
   flags: COMMON.filter((flag) => flag.name !== "verbose" && flag.name !== "quiet"),
   examples: ["docture mcp", "docture mcp --config ./docture.config.ts"],
@@ -704,7 +705,7 @@ export const MCP: CommandSpec = {
     "Register it with an MCP host, for example in its JSON server configuration:",
     '  { "mcpServers": { "docture": { "command": "npx", "args": ["docture", "mcp"] } } }',
     "Relative sources resolve against the directory the host starts the server in.",
-    `Install the SDK beside the CLI: npm install @modelcontextprotocol/sdk`,
+    "Install the SDK beside the CLI: `npm install @modelcontextprotocol/sdk`",
   ],
 };
 
@@ -796,14 +797,14 @@ export const SERVE: CommandSpec = {
   positionals: [],
   description: "Keeps configured loaders and clients warm. Binds to localhost by default. Non-loopback binding requires DOCTURE_SERVE_TOKEN.",
   flags: [
-    { name: "host", type: "string", describe: "Address to bind", defaultLabel: "127.0.0.1" },
-    { name: "port", type: "string", describe: "Port to bind; 0 selects an ephemeral port", defaultLabel: "8787" },
+    { name: "host", type: "string", placeholder: "<addr>", describe: "Address to bind", defaultLabel: "127.0.0.1" },
+    { name: "port", type: "string", placeholder: "<port>", describe: "Port to bind; 0 selects an ephemeral port", defaultLabel: "8787" },
     { name: "schema", type: "string", multiple: true, placeholder: "<name=module>", describe: "Allow a named schema; a plain module uses default" },
-    { name: "concurrency", type: "string", describe: "Maximum active requests", defaultLabel: "4" },
-    { name: "max-queue", type: "string", describe: "Maximum queued requests", defaultLabel: "16" },
-    { name: "max-body-bytes", type: "string", describe: "Maximum encoded JSON request bytes", defaultLabel: "16777216" },
-    { name: "body-timeout", type: "string", describe: "Request body deadline in milliseconds", defaultLabel: "30000" },
-    { name: "shutdown-timeout", type: "string", describe: "Drain deadline before aborting active work", defaultLabel: "30000" },
+    { name: "concurrency", type: "string", placeholder: "<n>", describe: "Maximum active requests", defaultLabel: "4" },
+    { name: "max-queue", type: "string", placeholder: "<n>", describe: "Maximum queued requests", defaultLabel: "16" },
+    { name: "max-body-bytes", type: "string", placeholder: "<bytes>", describe: "Maximum encoded JSON request bytes", defaultLabel: "16777216" },
+    { name: "body-timeout", type: "string", placeholder: "<ms>", describe: "Request body deadline in milliseconds", defaultLabel: "30000" },
+    { name: "shutdown-timeout", type: "string", placeholder: "<ms>", describe: "Drain deadline before aborting active work", defaultLabel: "30000" },
     ...MODEL,
     ...COMMON,
   ],
@@ -820,10 +821,10 @@ export const PAPERLESS: CommandSpec = {
   description: "Uses the configured Paperless instance and named schemas. Credentials and mappings cannot be replaced by command arguments.",
   flags: [
     { name: "schema", type: "string", placeholder: "<name>", describe: "Configured schema and mapping name" },
-    { name: "query", type: "string", describe: "Bounded native document query" },
-    { name: "limit", type: "string", describe: "Maximum query results within the configured bound" },
-    { name: "version", type: "string", describe: "Selected file-version ID" },
-    { name: "out", type: "string", short: "o", describe: "Save the returned artifact to this path" },
+    { name: "query", type: "string", placeholder: "<text>", describe: "Bounded native document query" },
+    { name: "limit", type: "string", placeholder: "<n>", describe: "Maximum query results within the configured bound" },
+    { name: "version", type: "string", placeholder: "<id>", describe: "Selected file-version ID" },
+    { name: "out", type: "string", short: "o", placeholder: "<path>", describe: "Save the returned artifact to this path" },
     { name: "dry-run", type: "boolean", describe: "Print the proposed plan and perform no Paperless writes" },
     ...COMMON,
   ],

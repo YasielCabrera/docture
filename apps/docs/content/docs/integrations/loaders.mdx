@@ -1,9 +1,10 @@
 ---
 title: Choose a loader and rendering engine
 description: How bytes become pages, text, positions, and document facts.
+type: explanation
 ---
 
-A loader accepts `RawDocument` bytes and returns a `LoadedDocument`.
+A loader reads `RawDocument` bytes and returns a `LoadedDocument` with pages, text, optional line positions, and document facts. This page explains what loaders report and how an extractor picks one.
 
 ```ts
 interface DocumentLoader {
@@ -23,9 +24,11 @@ interface DocumentLoader {
 | `DocumentLoaderMuPdf` | PDF | Text and geometry |
 | `DocumentLoaderTesseract` | PNG, JPEG, multi-page TIFF, and PDF with a rasterizer | OCR text, geometry, confidence, images |
 | `DocumentLoaderPaddleOcr` | PNG, JPEG, multi-page TIFF with `utif2`, and PDF with a rasterizer | OCR text, geometry, confidence, images |
+| `DocumentLoaderMammoth` | DOCX | Text on one logical page |
+| `DocumentLoaderAzureRead` | PDF, PNG, JPEG, TIFF through Azure | Text and geometry |
+| `DocumentLoaderDoclingServe` | PDF, DOCX, XLSX, PPTX, EPUB through docling-serve | Text and native element evidence |
 
-The public subpath identifies the document library. See
-[installation recipes](/docs/getting-started/installation) for each adapter's engine peer. Each loader exports one class name and one matching options type.
+`DocumentLoaderData` comes from `docture`. Import each other loader from its own subpath, such as `docture/loaders/pdfjs`. [Installation](/docs/getting-started/installation) lists the engine packages each adapter needs.
 
 ## Capabilities
 
@@ -61,12 +64,12 @@ appears in `result.loader`.
 
 ## Selection and failures
 
-docture filters loaders by media type, then tries them in declaration order. A later
+Docture filters loaders by media type, then tries them in declaration order. A later
 loader runs only when an earlier eligible loader throws.
 
-When fallback reaches a working loader, `result.attempts` starts with the failed loaders.
-The successful loader is recorded in `result.loader`, not as an attempt. If every eligible
-loader fails, `LoadFailedError.attempts` contains all of their failures.
+In an extraction result, `result.attempts` starts with the failed loaders, and the
+successful loader appears only in `result.loader`. A conversion result also records the
+successful load attempt. If every eligible loader fails, `LoadFailedError.attempts` contains all of their failures.
 
 See [sources and inputs](/docs/getting-started/sources) for source forms and
 [loader API pages](/docs/integrations/pdfjs) for options.

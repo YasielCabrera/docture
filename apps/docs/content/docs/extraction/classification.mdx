@@ -1,13 +1,14 @@
 ---
 title: Classify documents
 description: Document kinds, classifier signals, and verdict selection.
+type: how-to
 ---
 
 Classification assigns a document to one of the kinds supplied by the caller. Each
 kind has its own schema, so a classified extraction keeps the document name and data
 type connected.
 
-```ts
+```ts check
 import { defineClassification } from "docture";
 import { z } from "zod";
 

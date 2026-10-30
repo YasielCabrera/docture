@@ -1,7 +1,10 @@
 ---
 title: Evaluation datasets and reporter contracts API
-description: In-memory datasets and custom reporter construction.
+description: Dataset, case, and reporter contracts, with in-memory datasets and custom reporter construction.
+type: reference
 ---
+
+Import the dataset, case, and reporter contracts, in-memory datasets, and custom reporters from `@docture/eval`. [Prepare evaluation datasets](/docs/evaluation/datasets) and [Generate and customize evaluation reports](/docs/evaluation/reports) show them in use.
 
 ## `@docture/eval`
 
@@ -11,6 +14,8 @@ description: In-memory datasets and custom reporter construction.
 inMemoryDataset<T>(id: string, cases: readonly EvalCase<T>[]): Dataset<T>
 ```
 
+Takes [`EvalCase`](/docs/evaluation/reference/core#evalcase). Returns [`Dataset`](/docs/evaluation/reference/core#dataset).
+
 A dataset over cases already in memory, for tests and generated corpora.
 
 ### `defineReporter`
@@ -19,4 +24,85 @@ A dataset over cases already in memory, for tests and generated corpora.
 defineReporter(reporter: Reporter): Reporter
 ```
 
+Takes and returns [`Reporter`](/docs/evaluation/reference/core#reporter).
+
+Takes and returns [`Reporter`](/docs/evaluation/reference/core#reporter).
+
+Takes and returns [`Reporter`](/docs/evaluation/reference/core#reporter).
+
 Declare a custom reporter. Identity at runtime; it pins the type.
+
+## Types
+
+### `CaseDocument`
+
+One input file of a case. Bytes load lazily so a dataset can list thousands of cases cheaply.
+
+```ts check
+interface CaseDocument {
+	readonly name: string;
+	readonly mimeType: string;
+	bytes(): Promise<Uint8Array>;
+	/** Content hash when the dataset knows it; resume keys use it to detect a changed document. */
+	readonly hash?: string;
+}
+```
+
+### `Dataset`
+
+A project's corpus, in any layout, seen as a list of cases.
+
+```ts
+interface Dataset<T = unknown> {
+	readonly id: string;
+	cases(options?: { readonly signal?: AbortSignal }): Promise<readonly EvalCase<T>[]>;
+}
+```
+
+### `EvalCase`
+
+What eval needs from a case. Nothing about how the project stores it.
+
+```ts
+interface EvalCase<T = unknown> {
+	readonly id: string;
+	readonly documents: readonly CaseDocument[];
+	/** Ground truth, already in the comparable view the spec describes. */
+	readonly expected: T;
+	readonly status?: "signed-off" | "draft";
+	readonly tags?: Readonly<Record<string, TagValue>>;
+	readonly params?: Readonly<Record<string, unknown>>;
+	/** Cases that share one ground truth, such as renditions of one document. Also the bootstrap cluster key. */
+	readonly group?: string;
+	/** Expected locations keyed by concrete path, for grounding. */
+	readonly locations?: Readonly<Record<string, readonly ExpectedLocation[]>>;
+}
+```
+
+### `Progress`
+
+Live run progress passed with each finished case.
+
+```ts check
+interface Progress {
+	readonly completed: number;
+	readonly total: number;
+	readonly scored: number;
+	readonly errored: number;
+	readonly skipped: number;
+	readonly elapsedMs: number;
+}
+```
+
+### `Reporter`
+
+Renders or ships a result. Only `onResult` is required; the live hooks serve progress displays.
+
+```ts
+interface Reporter {
+	readonly id: string;
+	onRunStart?(run: RunInfo): void | Promise<void>;
+	onCase?(row: CaseResult, progress: Progress): void | Promise<void>;
+	onResult(result: EvalResult): void | Promise<void>;
+}
+```

@@ -1,21 +1,12 @@
 ---
 title: Synthetic degrade API
-description: Public API for @docture/synthetic/degrade.
+description: Turn a digital PDF into scan, photo, or fax renditions and tune the degradation profiles.
+type: reference
 ---
 
-## `@docture/synthetic/degrade`
+`@docture/synthetic/degrade` rasterizes a digital PDF, applies paper, geometry, capture, and encoding effects, and moves every label box through the same geometry. It needs `sharp`, plus `pdfjs-dist` and `@napi-rs/canvas` through `docture/raster/canvas`. PDF output also needs `pdfkit`. The [degradation guide](/docs/synthetic/degradation) shows it in use, and the corpus writer exposes the profiles as the `scan`, `scanLq`, `photo`, and `fax` [rendition helpers](/docs/synthetic/reference/node#scan).
 
-- `BedKnobs`
-- `DegradeOptions`
-- `EncodeKnobs`
-- `GeometryKnobs`
-- `Matrix`
-- `PaperKnobs`
-- `Profile`
-- `ProfileKey`
-- `Range`
-- `ResolvedKnobs`
-- `Rgb`
+## `@docture/synthetic/degrade`
 
 ### `degrade`
 
@@ -23,7 +14,9 @@ description: Public API for @docture/synthetic/degrade.
 degrade(document: SyntheticDocument, options: DegradeOptions): Promise<SyntheticDocument>
 ```
 
-A scan, low-quality scan, photo or fax rendition of a PDF document. Each page is rasterized at `dpi` (default 200), aged, warped by one homography, captured and encoded. Every label box goes through the same homography and is stored as the axis-aligned bound of the warped quad. `severity` runs from 0 to 1 and interpolates every knob. `output` is `pdf` (default), `png` or `jpeg`; images need a one-page document. `salt` varies the random draws without changing the profile. The knobs each page used are recorded in `provenance`.
+Creates a scan, low-quality scan, photo, or fax rendition of a PDF document. Each page is rasterized at `dpi`, aged, warped by one homography, captured, and encoded. Every label box goes through the same homography and is stored as the axis-aligned bound of the warped quad. The knobs each page used are recorded in `provenance`.
+
+Returns a new `SyntheticDocument` whose `rendition` records the profile key, severity, DPI, and image output. Throws `RangeError` for an unknown profile key, a severity outside 0 to 1, a DPI that is not positive, a document that is not a PDF, or `png` or `jpeg` output for a document with more than one page. Throws `MissingEngineError` when `sharp`, or `pdfkit` for PDF output, is not installed.
 
 ### `profiles`
 
@@ -31,7 +24,7 @@ A scan, low-quality scan, photo or fax rendition of a PDF document. Each page is
 profiles.scan profiles["scan-lq"] profiles.photo profiles.fax
 ```
 
-The built-in `Profile` recipes. A profile groups `PaperKnobs` (tint, stains, folds, fibres), `GeometryKnobs` (skew, shear, offset, perspective, surface colour), `BedKnobs` (falloff, shadow, dust, streaks, blur, motion blur, grain, contrast) and `EncodeKnobs` (softness, greyscale, bilevel threshold, JPEG quality). Each knob is a `Range` from severity 0 to severity 1. Pass your own `Profile` to `degrade` for a different capture.
+The built-in `Profile` recipes, keyed by `ProfileKey`. Pass your own `Profile` to `degrade` for a different capture.
 
 ### `transformBox`
 
@@ -39,8 +32,107 @@ The built-in `Profile` recipes. A profile groups `PaperKnobs` (tint, stains, fol
 transformBox(matrix: Matrix, box: LayoutBox): LayoutBox
 ```
 
-The axis-aligned bound of a box mapped through a row-major 3×3 homography.
+Returns the axis-aligned bound of a box mapped through a homography.
 
 ### `ENGINE_RANGES`
 
-`{ sharp: "0.35.5", pdfkit: ">=0.17.2 <0.21.0" }`. Rasterizing also needs `pdfjs-dist` and `@napi-rs/canvas` through `docture/raster/canvas`; `pdfkit` is needed only for PDF output.
+`{ sharp: "0.35.5", pdfkit: ">=0.17.2 <0.21.0" }`. Rasterizing also needs `pdfjs-dist` and `@napi-rs/canvas` through `docture/raster/canvas`. `pdfkit` is needed only for PDF output.
+
+## Options
+
+### `DegradeOptions`
+
+{/* options: DegradeOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `profile` | required | A `ProfileKey` or a custom `Profile`. |
+| `severity` | required | 0 to 1. Every knob is interpolated between its two ends at this value. |
+| `dpi` | `200` | Raster resolution. |
+| `output` | `pdf` | `pdf`, `png`, or `jpeg`. Image output needs a one-page document. |
+| `salt` | none | A string that varies the random draws without changing the profile. |
+
+### `ProfileKey`
+
+```ts check
+type ProfileKey = "scan" | "scan-lq" | "photo" | "fax";
+```
+
+## Profiles
+
+A profile groups four stages of knobs. Each knob is a `Range`, the pair of its values at severity 0 and at severity 1. `degrade` interpolates between them linearly.
+
+```ts check
+type Range = readonly [atSeverity0: number, atSeverity1: number];
+type Rgb = readonly [red: number, green: number, blue: number];
+type Matrix = readonly [number, number, number, number, number, number, number, number, number];
+```
+
+A `Matrix` is a row-major 3 by 3 homography.
+
+### `Profile`
+
+{/* options: Profile */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `key` | `string` | The name recorded as the rendition kind. |
+| `paper` | `PaperKnobs` | Aging of the sheet. |
+| `geometry` | `GeometryKnobs` | Placement and warping of the sheet. |
+| `bed` | `BedKnobs` | Lighting, dirt, and blur of the capture. |
+| `encode` | `EncodeKnobs` | Resolution loss, color, and compression of the output. |
+
+### `PaperKnobs`
+
+{/* options: PaperKnobs */}
+| Knob | Meaning |
+| --- | --- |
+| `tint` | 0 is white paper and 1 is a strongly yellowed sheet. |
+| `blotches` | Number of stains. |
+| `creases` | Number of fold lines. |
+| `fibre` | Number of visible paper fibres. |
+
+### `GeometryKnobs`
+
+{/* options: GeometryKnobs */}
+| Knob | Meaning |
+| --- | --- |
+| `skew` | Rotation about the page center, in degrees. |
+| `shear` | Horizontal shear factor about the page center. |
+| `offset` | Translation in points. |
+| `perspective` | Largest inward displacement of a page corner, as a fraction of the page size. |
+| `surface` | Optional `Rgb` color of what lies beyond the sheet. Defaults to the paper color, as on a flatbed scanner. |
+
+### `BedKnobs`
+
+{/* options: BedKnobs */}
+| Knob | Meaning |
+| --- | --- |
+| `falloff` | Light lost at the corners, 0 to 1. |
+| `shadow` | Darkness of a shadow along one edge, 0 to 1. |
+| `dust` | Number of dust specks. |
+| `streaks` | Number of scan-direction streaks. |
+| `blur` | Gaussian blur sigma in points. |
+| `motionBlur` | Length of a camera-shake trail in points. |
+| `grain` | Standard deviation of sensor noise, in 8-bit levels. |
+| `contrast` | Contrast change. Negative values flatten and positive values steepen. |
+
+### `EncodeKnobs`
+
+{/* options: EncodeKnobs */}
+| Knob | Meaning |
+| --- | --- |
+| `softness` | Fraction of resolution lost to a downscale and upscale. |
+| `greyscale` | 0 keeps color and 1 is fully grey. |
+| `threshold` | Bilevel cutoff in 8-bit levels. 0 keeps continuous tones. |
+| `quality` | JPEG quality. 100 is stored losslessly. |
+
+### `ResolvedKnobs`
+
+{/* options: ResolvedKnobs */}
+| Field | Meaning |
+| --- | --- |
+| `paper` | `PaperKnobs` with each `Range` resolved to a number. |
+| `geometry` | `GeometryKnobs` with each `Range` resolved to a number. |
+| `bed` | `BedKnobs` with each `Range` resolved to a number. |
+| `encode` | `EncodeKnobs` with each `Range` resolved to a number. |
+
+The knob values one page was degraded with, as recorded in `provenance`.

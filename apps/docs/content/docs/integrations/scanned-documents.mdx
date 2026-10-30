@@ -1,6 +1,7 @@
 ---
 title: Extract from scans and images
 description: Extract from page images with OCR or a vision model.
+type: how-to
 ---
 
 A scanned PDF has no usable text layer. A text strategy such as `llm()` is not eligible
@@ -14,7 +15,7 @@ npm install docture pdfjs-dist @napi-rs/canvas ai @ai-sdk/openai zod
 
 Compose a rasterizer with the PDF loader, then add `vision()`:
 
-```ts
+```ts check
 import { withRasterizer } from "docture";
 import { createExtractor } from "docture/node";
 import { llm } from "docture/llm/text";
@@ -56,7 +57,7 @@ canvas-backed PDF setup below:
 npm install docture tesseract.js pdfjs-dist @napi-rs/canvas
 ```
 
-```ts
+```ts check
 import { DocumentLoaderTesseract } from "docture/loaders/tesseract";
 import { NapiCanvasRasterizer } from "docture/raster/canvas";
 
@@ -79,7 +80,7 @@ npm install docture ppu-paddle-ocr onnxruntime-node pdfjs-dist @napi-rs/canvas
 
 PaddleOCR reads TIFF files when `utif2@4.1.0` is also installed.
 
-```ts
+```ts check
 import { DocumentLoaderPaddleOcr } from "docture/loaders/paddleocr";
 import { NapiCanvasRasterizer } from "docture/raster/canvas";
 
@@ -118,8 +119,9 @@ Use one of these setups:
 - Use an OCR loader as the PDF loader.
 - Wrap the text-layer loader so it throws when `form` is `scanned`, then list OCR next.
 
-When a later loader succeeds, failed loader attempts appear in `result.attempts`. The
-successful loader appears in `result.loader`. If every eligible loader fails,
+In an extraction result, `result.attempts` starts with the failed loaders, and the
+successful loader appears only in `result.loader`. A conversion result also records the
+successful load attempt. If every eligible loader fails,
 `LoadFailedError.attempts` contains all loader failures.
 
 ## Mixed documents
