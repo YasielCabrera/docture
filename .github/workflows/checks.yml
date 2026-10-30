@@ -28,8 +28,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test
+      - run: pnpm --filter @docture/docs exec playwright-core install --with-deps chromium
+      - run: pnpm test --concurrency=1
       - run: pnpm build
       - run: pnpm --filter @docture/docs check:site
-      - run: pnpm --filter @docture/docs exec playwright-core install --with-deps chromium
       - run: pnpm --filter @docture/docs check:a11y

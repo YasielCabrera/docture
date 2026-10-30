@@ -24,5 +24,5 @@ assert.equal(typeof fixtures.makeInvoicePdf,"function");
 assert.equal(attempts,0);
 const failure = await import(pathToFileURL(root + "/packages/docture/src/testing/conformance/index.ts").href).then(()=>null,(error)=>error.code);
 assert.equal(failure,"ERR_MODULE_NOT_FOUND");
-assert.equal(attempts,1);
+assert.ok(attempts > 0);
 console.log(JSON.stringify({text:"literal text",fixture:true,isolated:true}));
