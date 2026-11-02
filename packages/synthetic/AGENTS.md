@@ -37,6 +37,29 @@ photo and fax renditions, `react` and `@react-pdf/renderer` for
 `/react-pdf`, `playwright-core` for `/html`, and `ai` for `/llm`. A missing
 engine throws `MissingEngineError` naming the package to install.
 
+Install `@faker-js/faker@10.6.0` explicitly to use `fakerFor` from `/faker`.
+Generate individual fields with `gen.pattern`, `gen.pick`, `fakerFor`, and
+`gen.from`. The consuming schema owns the record shape. Use `get` or `sibling`
+for related values. `gen.iban({ country, bban })` computes an IBAN string from
+caller-generated BBAN fields. Keep national formatting rules and catalogue
+metadata in the consuming model. Existing `gen.iban(country?)` calls retain
+their random numeric BBAN behavior.
+
+Use `valuePool` for structured records in any JSON data model or locale. Use
+`llmObjectPool` from `/llm` for opt-in provider generation. Both require a
+runtime-validating Standard Schema with input JSON Schema conversion, an exact
+count of distinct outputs, and a validation-policy revision. They validate cache
+hits and preserve transformed outputs. Caches store raw input records. A corrupt
+cache fails without a provider call. Explicit `cache-only` sources require a
+cache and never generate missing records. Keep provider mocks in wiring tests.
+
+Declare captured bank catalogues, pool values, rule revisions, renderer pins and
+asset bytes in `dependencies` on the model or corpus configuration. Values must
+be JSON data or `Uint8Array` bytes. The corpus stores hashes, keeps case IDs, and
+rewrites cases when declared inputs change. The writer records peer versions,
+including Faker and AI, without importing their runtime code. Function source
+hashes do not discover undeclared closure inputs.
+
 Verify rendered documents before using them as ground truth. `assertVerified`
 from `@docture/synthetic/verify` reads the PDF back and fails with
 `LabelVerificationError` when a value is not inside its box. `writeCorpus` from

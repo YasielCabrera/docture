@@ -17,6 +17,8 @@ npm install playwright-core   # @docture/synthetic/html, then: npx playwright-co
 npm install ai                    # @docture/synthetic/llm
 ```
 
+The supported Faker version is `10.6.0`. Pin that version in the consuming project's development dependencies.
+
 ## Quick start
 
 ```ts
@@ -69,6 +71,30 @@ document.labels; // [{ path: "store", value: "…", text: "…", pageNumber: 1, 
 
 A template must declare every schema field in `printed`, so a new field fails to compile until each template decides whether it prints it. `false` makes the field's ground truth `null`; `prints((value) => label)` makes it what the page shows, such as a plan name that two tariffs share. A field drawn without a declaration, or declared and never drawn, fails the render with `TemplateError`.
 
+## Generate fields and related records
+
+Your schema chooses the fields in a document. Use `gen.pattern` for identifiers, `gen.pick` for known values, and `fakerFor` for names. Related fields can read one another through `gen.from`, `get`, and `sibling`.
+
+`gen.iban({ country, bban })` generates one IBAN string from a supplied BBAN generator. The country can be a string or another generator. For example, a model can generate its own routing and account fields, then derive an IBAN:
+
+```ts
+const fields = {
+  routingCode: gen.pattern("########"),
+  accountNumber: gen.pattern("##########"),
+  iban: gen.iban({
+    country: "DE",
+    bban: gen.from((context) =>
+      context.get<string>("routingCode") + context.get<string>("accountNumber")),
+  }),
+};
+```
+
+The caller owns the national BBAN format and any bank metadata. Other documents can choose different fields. Existing `gen.iban(country?)` calls retain their random numeric BBAN behavior. Checksum validity does not establish that an account exists.
+
+`valuePool` validates records from a named offline source or a cache. Use it for inventory items, appointments, customer profiles, or another JSON data model, then sample its array with `gen.pick(pool)`. Each pool requires a runtime-validating Standard Schema with input JSON Schema output, a `revision`, and an exact `count`. Cache hits undergo the same validation as newly generated values. The returned JSON-safe outputs are copied and deep-frozen, including schema defaults and transformations. Faker generators select their locale explicitly, including `ja`, `en_US`, and `de`; pools impose no country or industry rules.
+
+`llmObjectPool` from `@docture/synthetic/llm` uses that same boundary for structured provider replies. Its `source` is either `{ kind: "model", model }` or `{ kind: "cache-only", model: "provider/model-id" }`. Cache-only mode requires a cache and never loads AI. A missing or corrupt offline entry fails instead of calling a provider. Cache raw input records so transformations run once per read. Change `revision` when refinements or transforms change outside the JSON Schema. See the [pool reference](https://github.com/YasielCabrera/docture/blob/main/apps/docs/content/docs/synthetic/reference/text-generators.mdx).
+
 ## Verify, degrade and write a corpus
 
 ```ts
@@ -86,7 +112,9 @@ const report = await writeCorpus("corpus", {
 });
 ```
 
-`writeCorpus` renders each seed, scenario and template once, verifies it, and derives each rendition from that rendering. Scans and photos warp each page by one homography and move every label box through the same matrix. The corpus holds one folder per case plus `manifest.jsonl`, which `@docture/eval`'s `jsonlDataset` reads with tags for `template`, `scenario`, `rendition` and `severity`, a `group` per rendering, and `locations` for grounding. A rerun skips every case whose inputs and files are unchanged. The case key hashes the source text of template and scenario functions, not the values they read from outside, so change `createdAt` after editing a constant or an asset a template reads.
+`writeCorpus` renders each seed, scenario and template once, verifies it, and derives each rendition from that rendering. Scans and photos warp each page by one homography and move every label box through the same matrix. The corpus holds one folder per case plus `manifest.jsonl`, which `@docture/eval`'s `jsonlDataset` reads with tags for `template`, `scenario`, `rendition` and `severity`, a `group` per rendering, and `locations` for grounding. A rerun skips every case whose inputs and files are unchanged.
+
+Declare captured inputs in `dependencies` on `defineModel` or `writeCorpus`. The same field is available in `defineSynthConfig`. Dependencies accept JSON data and `Uint8Array` bytes, such as bank catalogues, pool contents, helper revisions, logos, and renderer pins. The writer hashes those values before writing, ignores record key order, and records digests in `corpus.json`. Changed inputs rewrite the same case IDs. Corpus evidence also records installed peer versions, including Faker and AI, without loading those engines. Function source fingerprints cannot inspect closures, so undeclared external values still need an explicit revision or a fresh corpus directory.
 
 `degrade(document, { output: "png" })` or `"jpeg"` returns one page as an image and writes its `dpi` into the image metadata. Its label boxes stay in PDF points, so read the image at the same dpi, for example with the Tesseract loader's `dpi: document.rendition.dpi`.
 
@@ -125,7 +153,7 @@ Templates draw with the standard PDF fonts (Helvetica and Courier) unless they d
 
 Each error extends `DoctureError` and carries a literal `code`:
 
-- `SynthesisError`, code `SYNTHESIS_FAILED`: a sample breaks the schema, a constraint or its scenario's promise.
+- `SynthesisError`, code `SYNTHESIS_FAILED`: a sample breaks its rules, or a structured pool fails schema validation, distinctness, count, or cache requirements.
 - `TemplateError`, code `TEMPLATE_INVALID`: the drawing and the printed mask disagree, or a font lacks a glyph.
 - `LabelVerificationError`, code `LABEL_VERIFICATION_FAILED`: a labeled value is not inside its box on the rendered page.
 
@@ -135,7 +163,7 @@ See the [synthetic corpus guide](https://github.com/YasielCabrera/docture/blob/m
 
 | Entry | Purpose | Engines |
 |---|---|---|
-| `@docture/synthetic` | Models, generators, constraints, scenarios, printed masks, templates, tables, formatting, `toEvalCase` | none |
+| `@docture/synthetic` | Models, generators, validated value pools, constraints, scenarios, printed masks, templates, tables, formatting, `toEvalCase` | none |
 | `@docture/synthetic/pdfkit` | Render templates to PDF with field boxes | `pdfkit` |
 | `@docture/synthetic/verify` | Read a PDF back and confirm every label | `pdfjs-dist` |
 | `@docture/synthetic/measure` | Measure text lines in a PDF and how far a template's text drifts from a reference PDF | `pdfjs-dist` |
@@ -144,6 +172,6 @@ See the [synthetic corpus guide](https://github.com/YasielCabrera/docture/blob/m
 | `@docture/synthetic/faker` | Seeded, locale-aware values from Faker | `@faker-js/faker` |
 | `@docture/synthetic/react-pdf` | React templates laid out by react-pdf, with a box for every `<Field>` | `react`, `@react-pdf/renderer` |
 | `@docture/synthetic/html` | HTML and CSS templates printed by Chromium | `playwright-core` |
-| `@docture/synthetic/llm` | Model-written text pools, cached for offline rebuilds | `ai` |
+| `@docture/synthetic/llm` | Model-written text and structured pools, cached for offline rebuilds | `ai` for generation |
 
 Engines are optional peers. An entry whose engine is missing throws `MissingEngineError` naming the package and range to install.

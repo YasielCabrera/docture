@@ -31,6 +31,7 @@ export async function corpusCommand(parsed: Parsed, io: Io, signal: AbortSignal)
 
   const report = await writeCorpus(directory, {
     model: config.model,
+    ...(config.dependencies === undefined ? {} : { dependencies: config.dependencies }),
     templates: templatesFor(config, commaList(listFlag(parsed, "templates"))),
     seeds,
     ...(renditions === undefined ? {} : { renditions }),

@@ -39,6 +39,7 @@ try {
   assert.ok(markdown.includes("<!-- page: 1 -->"), "converted Markdown preserves its page marker");
 
   assert.equal(await example("synthetic-corpus.ts"), summary, "the home page shows the synthetic-corpus output");
+  assert.equal(await example("synthetic-data.ts"), "2 inventory records, 2 customer profiles, 2 unchanged cases skipped, 2 changed cases rebuilt");
   assert.equal(await example("react-invoice.tsx"), "2 pages, 126 labels verified");
   assert.match(await example("rag-chunks.ts"), /^chunk-[0-9a-f]{16} page 1 box [\d.]+,[\d.]+,[\d.]+,[\d.]+$/mu);
 

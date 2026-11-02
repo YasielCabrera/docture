@@ -1,4 +1,5 @@
 import type { Model, Scenario } from "./model.js";
+import type { DependencyInputs } from "./dependencies.js";
 import type { SynthTemplate } from "./template.js";
 
 /**
@@ -18,6 +19,8 @@ export type SynthRendition =
 /** The configuration `docture synth` loads from `docture.synth.ts`. */
 export interface SynthConfig<T> {
   readonly model: Model<T>;
+  /** External corpus inputs, such as renderer revisions and asset bytes. */
+  readonly dependencies?: DependencyInputs;
   readonly templates: readonly SynthTemplate<T>[];
   readonly scenarios?: readonly Scenario<T>[];
   /** Seeds `docture synth corpus` renders when `--seeds` is absent. */

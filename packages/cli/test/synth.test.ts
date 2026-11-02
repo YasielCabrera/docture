@@ -143,6 +143,23 @@ export default defineSynthConfig({ model: invoiceModel, templates: [classic, rea
 });
 
 describe("docture synth corpus and verify", () => {
+  it("forwards declared dependencies and rewrites cases when the config inputs change", async () => {
+    const cwd = await workspace('dependencies: { rules: "v1" },');
+    const args = ["synth", "corpus", "--seeds", "1", "--scenarios", "base", "--out", "corpus"];
+    expect((await cli(args, { cwd })).code).toBe(0);
+    const path = join(cwd, "corpus/corpus.json");
+    const before = JSON.parse(await readFile(path, "utf8"));
+    expect(before.dependencies.corpus.rules).toMatch(/^[a-f0-9]{64}$/u);
+    expect((await cli(args, { cwd })).stderr).toContain("written 0, skipped 1");
+    const config = join(cwd, "docture.synth.ts");
+    await writeFixture(cwd, "updated.synth.ts", (await readFile(config, "utf8")).replace('rules: "v1"', 'rules: "v2"'));
+    const changed = await cli([...args, "--config", "updated.synth.ts"], { cwd });
+    expect(changed.code, changed.stderr).toBe(0);
+    expect(changed.stderr).toContain("written 1, skipped 0");
+    const after = JSON.parse(await readFile(path, "utf8"));
+    expect(after.dependencies.hash).not.toBe(before.dependencies.hash);
+  });
+
   it("writes a corpus, skips every case on a rerun, and verifies the digital cases", async () => {
     const cwd = await workspace("seeds: [1, 2, 3],");
     const first = await cli(["synth", "corpus", "--seeds", "1-2", "--scenarios", "base", "--out", "corpus"], { cwd });

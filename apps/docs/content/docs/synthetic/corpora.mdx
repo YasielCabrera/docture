@@ -26,15 +26,40 @@ console.log(report.written, report.skipped, report.failed);
 
 `templates` can mix [PDF](/docs/synthetic/pdf-templates) and [React templates](/docs/synthetic/react-templates). A fresh run writes four cases. Each seed, scenario, and template renders once; verification precedes derivation of its renditions. `includeBase` defaults to true, renditions to digital only, concurrency to 4, and verification to true. `signal` cancels work.
 
-Each `cases/<id>/` contains its document, `expected.json`, `labels.json`, `sample.json`, and `case.json`. The root contains `manifest.jsonl`, `coverage.json`, `failures.jsonl`, and `corpus.json` with plan, engine versions, and file hashes. Verification failure fails that rendering's cases rather than stopping the entire batch.
+Each `cases/<id>/` contains its document, `expected.json`, `labels.json`, `sample.json`, and `case.json`. The root contains `manifest.jsonl`, `coverage.json`, `failures.jsonl`, and `corpus.json` with plan, engine versions, dependency hashes, and file hashes. Verification failure fails that rendering's cases rather than stopping the entire batch.
+
+## Declare external inputs
+
+Pass captured values through `dependencies` so a change invalidates saved cases. Use model dependencies for generation tables, pool contents, and rule revisions. Use corpus dependencies for assets and renderer inputs.
+
+```ts
+const report = await writeCorpus("corpus", {
+	model,
+	templates: [template],
+	seeds: [1, 2],
+	dependencies: {
+		customers: customerPool,
+		logo: logoBytes,
+		renderer: "reference-react-pdf@4.5.1",
+		rules: "billing-policy-2",
+	},
+	createdAt: "2025-11-01T00:00:00Z",
+});
+```
+
+Supply JSON values or `Uint8Array` bytes. The writer validates and snapshots declared inputs before changing corpus files. It sorts record keys, preserves array order, and distinguishes bytes from numeric arrays. Equivalent declarations skip existing cases. Changed values rewrite the same case IDs. `corpus.json` stores per-input hashes and a combined hash, rather than raw dependency values.
+
+Keep helper revisions explicit when imported code changes without changing a generator's function text. The writer cannot discover arbitrary closure inputs.
 
 ## Reproduce a corpus
 
-Cases whose key and file hashes match are skipped. An interrupted run can complete missing cases. Keys include seed, scenario, template, rendition, date, package version, and source fingerprints. Function source fingerprints cannot detect changes to captured constants or external assets. Change `createdAt` or rebuild into a new directory after editing those inputs. Persist model text pools for offline rebuilds.
+Cases whose key and file hashes match are skipped. An interrupted run can complete missing cases. Keys include seed, scenario, template, rendition, date, package version, source fingerprints, declared dependency hashes, and observed peer versions. The writer records installed peer versions, including Faker and AI, through package metadata without importing their engines. Missing peers appear as `null`. Record aliased renderer pins in `dependencies`; those declarations do not overwrite observed versions.
+
+Persist structured and text pools for offline rebuilds. Use explicit cache-only sources to prohibit new structured generation. Undeclared external inputs remain invisible to freshness checks, so declare them or rebuild into a fresh directory after changing them.
 
 ## Use the CLI
 
-Define `docture.synth.ts` with `defineSynthConfig`. It accepts model, templates, scenarios, seeds, renditions, output directory, and `createdAt`.
+Define `docture.synth.ts` with `defineSynthConfig`. It accepts model, templates, scenarios, seeds, renditions, output directory, `createdAt`, and corpus `dependencies`. The CLI forwards dependencies to the writer.
 
 | Command | Result |
 | --- | --- |

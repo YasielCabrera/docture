@@ -20,6 +20,7 @@ Returns a `Model` of the values `schema` describes. `schema` is a Docture contra
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `fields` | `{}` | `Fields<T>` generators by pattern or concrete path. |
+| `dependencies` | none | Captured `DependencyInputs` whose hashes affect corpus freshness. |
 | `derive` | none | `(value) => value` that recomputes every derived field from its inputs. It runs after sampling and again after a scenario's `shape`, so it must be idempotent. |
 | `constraints` | `[]` | [Constraints](/docs/synthetic/reference/constraints#constraint) every sample must satisfy. |
 | `presence` | `0.85` | Probability that an optional property without a generator is present. |
@@ -65,11 +66,27 @@ Reads the JSON Schema and the optional validator of a contract, Standard Schema,
 gen.value(value) gen.from(generate) gen.int(min, max) gen.float(min, max, { decimals })
 gen.pick(items) gen.weighted([[value, weight], ...]) gen.pattern("INV-######")
 gen.date({ from, to }) gen.dateAfter(path, { days }) gen.words(min, max, pool?)
-gen.iban(country?) gen.luhn(prefix, length) gen.absent() gen.null() gen.maybe(inner, p?)
+gen.iban(country?) gen.iban({ country, bban }) gen.luhn(prefix, length)
+gen.absent() gen.null() gen.maybe(inner, p?)
 gen.array({ length })
 ```
 
 Built-in generators. Each one draws only from its position's own stream. In `gen.pattern`, `#` is a digit, `A` an uppercase letter, `?` either, and a backslash escapes the next character. `gen.dateAfter` reads the ISO date at another concrete path. `gen.luhn` returns `length` digits whose last digit is the Luhn check digit. `gen.array` sets a length; items come from the item generators. `gen.from` receives a [`GenContext`](#gencontext).
+
+`gen.iban` returns a string. Its `IbanOptions` form accepts a country and generated BBAN, which can read related fields from the consuming schema. See [IBAN composition](/docs/synthetic/reference/text-generators#geniban).
+
+### `DependencyInputs` and `DependencyValue`
+
+```ts check
+type DependencyValue = null | boolean | number | string | Uint8Array
+	| readonly DependencyValue[]
+	| { readonly [key: string]: DependencyValue };
+type DependencyInputs = Readonly<Record<string, DependencyValue>>;
+```
+
+Named external inputs captured by a model, corpus, or structured pool. Corpus dependencies enter freshness as hashes. Structured-pool dependencies enter the pool cache key. Record insertion order has no effect. Array order and byte contents do affect identity.
+
+Runtime validation rejects cycles, non-finite numbers, undefined, functions, symbols, sparse arrays, accessors, and unsupported object instances. Corpus validation occurs before filesystem mutation. Function fingerprints cannot discover undeclared closure inputs. See [dependency provenance](/docs/synthetic/reference/node#dependency-provenance).
 
 ## Samples
 

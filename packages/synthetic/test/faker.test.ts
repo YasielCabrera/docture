@@ -1,9 +1,22 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { defineModel } from "../src/index.js";
 import { fakerFor } from "../src/faker/index.js";
 import { Invoice, invoiceFields, withTotals } from "./fixtures.js";
 
 describe("fakerFor", () => {
+  it("generates repeatable Japanese product data without a document or banking schema", async () => {
+    const fake = await fakerFor("ja");
+    const products = defineModel(z.object({ manufacturer: z.string(), stock: z.number().int() }), {
+      fields: { manufacturer: fake((faker) => faker.company.name()), stock: fake((faker) => faker.number.int({ min: 0, max: 500 })) },
+    });
+    const first = await products.sample({ seed: 7 });
+    expect(await products.sample({ seed: 7 })).toEqual(first);
+    expect((await products.sample({ seed: 8 })).value).not.toEqual(first.value);
+    expect(first.value.manufacturer).toMatch(/[^\u0000-\u007f]/u);
+    expect(first.value.stock).toBeGreaterThanOrEqual(0);
+  });
+
   it("gives the same German names for the same seed and different ones for another seed", async () => {
     const f = await fakerFor("de");
     const model = defineModel(Invoice, {

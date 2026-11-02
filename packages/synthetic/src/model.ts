@@ -1,4 +1,5 @@
 import type { Constraint } from "./constraints.js";
+import type { DependencyInputs } from "./dependencies.js";
 import { SynthesisError, type SynthesisProblem } from "./errors.js";
 import { gen, internal, type ArrayLength, type FieldSpec, type GenContext, type Generator } from "./generators.js";
 import { formatPath, formatPattern, parsePath, type ConcretePath, type PathPattern, type PathSegment, type ValueAt } from "./path.js";
@@ -27,6 +28,8 @@ export interface Scenario<T> {
 
 export interface ModelOptions<T> {
   readonly fields?: Fields<T>;
+  /** External inputs captured by generators or derivation, included in corpus freshness. */
+  readonly dependencies?: DependencyInputs;
   /** Recompute every derived field from its inputs. Runs after sampling and again after a scenario's `shape`, so it must be idempotent. */
   readonly derive?: (value: T) => T;
   readonly constraints?: readonly Constraint<T>[];

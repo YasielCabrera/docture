@@ -1,9 +1,9 @@
-import { MissingEngineError } from "docture";
 import type { LanguageModel } from "ai";
 import { SynthesisError } from "../errors.js";
+import { loadAi } from "./engine.js";
 
-/** Supported optional engine of this entry. */
-export const ENGINE_RANGES = { ai: "^7.0.0" } as const;
+export { ENGINE_RANGES } from "./engine.js";
+export { llmObjectPool, type ObjectPoolOptions } from "./object-pool.js";
 
 /** A persistent or in-memory store for generated pools, so a corpus rebuilds offline. */
 export interface TextPoolCache {
@@ -19,17 +19,6 @@ export interface TextPoolOptions {
   readonly cache?: TextPoolCache;
   /** Default 0. */
   readonly temperature?: number;
-}
-
-async function loadAi(): Promise<typeof import("ai")> {
-  try {
-    return await import("ai");
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ERR_MODULE_NOT_FOUND" && /^Cannot find package 'ai' imported from /u.test(error.message)) {
-      throw new MissingEngineError("ai", ENGINE_RANGES.ai, "@docture/synthetic/llm", { cause: error });
-    }
-    throw error;
-  }
 }
 
 const SYSTEM =

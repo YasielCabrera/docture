@@ -115,6 +115,7 @@ What every renderer and `degrade` return.
 | Field | Default | Meaning |
 | --- | --- | --- |
 | `model` | required | The `Model` to sample. |
+| `dependencies` | none | External corpus inputs forwarded by the CLI to [`writeCorpus`](/docs/synthetic/reference/node#dependency-provenance). |
 | `templates` | required | PDFKit, React, or other rendering templates. |
 | `scenarios` | `[]` | Scenarios to sample in addition to the base case. |
 | `seeds` | none | Seeds `docture synth corpus` renders when `--seeds` is absent. |

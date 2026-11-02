@@ -33,10 +33,153 @@ Install `@faker-js/faker` to use `fakerFor` from `@docture/synthetic/faker`:
 npm install --save-dev @faker-js/faker
 ```
 
-`fakerFor` reseeds Faker for each field and uses a fixed reference date for relative dates. Its locale names follow Faker, such as `de` or `en_US`.
+The supported Faker version is `10.6.0`. Pin it in the consuming project's development dependencies. `fakerFor` reseeds Faker for each field and uses a fixed reference date for relative dates. Its locale names follow Faker, such as `de` or `en_US`.
+
+Choose a locale for each generator factory. This example produces Japanese names without changing the model or pool APIs:
+
+```ts check
+import { fakerFor } from "@docture/synthetic/faker";
+
+const japanese = await fakerFor("ja");
+const personName = japanese((faker) => faker.person.fullName());
+```
+
+Use [fonts that cover the generated text](/docs/synthetic/fonts-and-locales#supply-fonts) when rendering it.
+
+## Reuse generated customer records
+
+Build a `valuePool` from a seeded source, then use `gen.pick` to select a whole record. This keeps related fields together across documents.
+
+```ts check
+import { defineModel, gen, valuePool } from "@docture/synthetic";
+import { fakerFor } from "@docture/synthetic/faker";
+import { z } from "zod";
+
+const Customer = z.object({ customerNumber: z.string(), name: z.string() });
+const fake = await fakerFor("en_US");
+const customers = defineModel(Customer, {
+	fields: {
+		customerNumber: gen.pattern("CUST-######"),
+		name: fake((faker) => faker.company.name()),
+	},
+});
+const cache = new Map<string, readonly unknown[]>();
+const pool = await valuePool({
+	schema: Customer,
+	revision: "customer-policy-1",
+	count: 20,
+	cache,
+	source: {
+		kind: "generate",
+		id: "seeded-customers-en-us-1",
+		generate: (count) => Promise.all(Array.from({ length: count }, async (_, index) =>
+			(await customers.sample({ seed: `customer:${index}` })).value)),
+	},
+});
+const selection = gen.pick(pool);
+```
+
+Back `PoolCache` with persistent storage for offline reuse. To require a saved pool, use `source: { kind: "cache-only", id: "seeded-customers-en-us-1" }` with the same schema, revision, count, dependencies, and cache. A missing or invalid entry fails without generation.
+
+Keep pool records as JSON data. `valuePool` validates new records and cache hits through the supplied Standard Schema, retains defaults and transformed outputs, and freezes a defensive copy. Change `revision` when refinements or transforms change outside the JSON Schema.
+
+## Generate records for another data model
+
+Supply a schema for the records your documents need. This inventory pool uses the same API as the customer pool:
+
+```ts check
+import { defineModel, gen, valuePool } from "@docture/synthetic";
+import { z } from "zod";
+
+const Item = z.object({ sku: z.string(), title: z.string(), units: z.number().int().min(0) });
+const inventory = defineModel(Item, {
+	fields: {
+		sku: gen.pattern("SKU-######"),
+		title: gen.words(2, 4),
+		units: gen.int(0, 250),
+	},
+});
+const items = await valuePool({
+	schema: Item,
+	revision: "inventory-1",
+	count: 20,
+	source: {
+		kind: "generate",
+		id: "seeded-inventory-1",
+		generate: (count) => Promise.all(Array.from({ length: count }, async (_, index) =>
+			(await inventory.sample({ seed: `inventory:${index}` })).value)),
+	},
+});
+```
+
+Pools apply your schema's rules. They have no built-in banking, industry, or country branch.
+
+## Compose related identifier fields
+
+Choose the fields in your document schema. Use `gen.pattern` for identifiers, `gen.pick` for known values, and Faker for names. Use `get` or `sibling` when one field depends on another.
+
+This schema keeps a routing code and account number as separate fields. The IBAN generator reads those fields to calculate a matching string:
+
+```ts check
+import { defineModel, gen } from "@docture/synthetic";
+import { z } from "zod";
+
+const Statement = z.object({ routingCode: z.string(), accountNumber: z.string(), iban: z.string() });
+const statement = defineModel(Statement, {
+	fields: {
+		routingCode: gen.pattern("########"),
+		accountNumber: gen.pattern("##########"),
+		iban: gen.iban({
+			country: "DE",
+			bban: gen.from((context) =>
+				context.get<string>("routingCode") + context.get<string>("accountNumber")),
+		}),
+	},
+});
+```
+
+Another document can use different fields. This British format includes separate institution and sort codes:
+
+```ts check
+import { defineModel, gen } from "@docture/synthetic";
+import { z } from "zod";
+
+const Payment = z.object({ institution: z.string(), sortCode: z.string(), account: z.string(), iban: z.string() });
+const payment = defineModel(Payment, {
+	fields: {
+		institution: gen.pattern("AAAA"),
+		sortCode: gen.pattern("######"),
+		account: gen.pattern("########"),
+		iban: gen.iban({
+			country: "GB",
+			bban: gen.from((context) => context.get<string>("institution") +
+				context.get<string>("sortCode") + context.get<string>("account")),
+		}),
+	},
+});
+```
+
+For documents that use other account identifiers, generate those fields directly:
+
+```ts check
+import { gen } from "@docture/synthetic";
+
+const fields = {
+	routingNumber: gen.pattern("#########"),
+	accountNumber: gen.pattern("############"),
+};
+```
+
+The patterns describe synthetic field formats. They do not identify existing banks or accounts. To reuse a catalogue, select its identifier with `gen.pick`, then look up related fields with `gen.from`. Keep country-specific assembly and catalogue metadata in the consuming model. See [IBAN options](/docs/synthetic/reference/text-generators#ibanoptions).
+
+## Declare captured generation inputs
+
+Put external tables, generated pools, and rule revisions in the model's `dependencies`. Put template asset bytes and renderer pins in the [corpus configuration](/docs/synthetic/corpora#declare-external-inputs). The writer hashes these values and rewrites affected cases when they change. Function source fingerprints cannot inspect the values inside a closure.
 
 ## Generate text with an AI model
 
 For strings written by an AI model, install `ai` and use `llmTextPool` from `@docture/synthetic/llm`. Sample its result with `gen.pick(pool)`. Supply a persistent `TextPoolCache` to rebuild without another AI model call. The cache key includes the AI model, prompt, count, and temperature. A seed alone does not reproduce a fresh provider response.
 
-See [value model and generator options](/docs/synthetic/reference/models) and [Faker and text pools](/docs/synthetic/reference/text-generators).
+For related fields, use `llmObjectPool` with a runtime-validating schema, required `revision`, and `source: { kind: "model", model }`. Fill the cache through an explicit preparation command. Use `source: { kind: "cache-only", model: "provider/model-id" }` for offline reads. Cache-only mode requires a cache and never loads AI. Schema validation checks the declared record rules; it does not establish real road topology or postcode geography.
+
+See [value model and generator options](/docs/synthetic/reference/models) and [Faker and structured pools](/docs/synthetic/reference/text-generators).

@@ -28,6 +28,12 @@ export interface Generator<V> {
   readonly source?: unknown;
 }
 
+/** Inputs for one IBAN string, composed from the caller's country and BBAN fields. */
+export interface IbanOptions {
+  readonly country: string | Generator<string>;
+  readonly bban: Generator<string>;
+}
+
 /** Sets the length of an array; its items are generated per position. */
 export interface ArrayLength {
   readonly kind: "length";
@@ -144,14 +150,28 @@ export const gen = {
     }, ["dateAfter", path, options]),
   words: (min: number, max: number, pool: readonly string[] = WORDS): Generator<string> =>
     generator(({ stream }) => Array.from({ length: stream.int(min, max) }, () => stream.pick(pool)).join(" "), ["words", min, max, pool]),
-  /** A valid IBAN for `country` with a random numeric BBAN. */
-  iban: (country = "DE"): Generator<string> =>
-    generator(({ stream }) => {
-      const length = IBAN_LENGTHS[country];
-      if (length === undefined) throw new RangeError(`iban() has no BBAN length for ${country}`);
-      const bban = Array.from({ length }, () => stream.pick([...DIGITS])).join("");
-      return `${country}${ibanCheckDigits(country, bban)}${bban}`;
-    }, ["iban", country]),
+  /** An IBAN string from a supplied BBAN, or a random numeric BBAN for a supported country. */
+  iban: (options: string | IbanOptions = "DE"): Generator<string> => {
+    if (typeof options === "string") {
+      const country = options;
+      return generator(({ stream }) => {
+        const length = IBAN_LENGTHS[country];
+        if (length === undefined) throw new RangeError(`iban() has no BBAN length for ${country}`);
+        const bban = Array.from({ length }, () => stream.pick([...DIGITS])).join("");
+        return `${country}${ibanCheckDigits(country, bban)}${bban}`;
+      }, ["iban", country]);
+    }
+    const { country, bban } = options;
+    return generator((context) => {
+      const code = typeof country === "string" ? country : country.generate({ ...context, stream: context.stream.fork("country") });
+      if (typeof code !== "string" || code.length !== 2 || /[^A-Z]/u.test(code)) throw new RangeError("iban() country must contain two uppercase letters");
+      const body = bban.generate({ ...context, stream: context.stream.fork("bban") });
+      if (typeof body !== "string" || body.length < 8 || body.length > 30 || /[^A-Z0-9]/u.test(body)) throw new RangeError("iban() BBAN must contain 8 to 30 uppercase letters or digits");
+      const length = IBAN_LENGTHS[code];
+      if (length !== undefined && body.length !== length) throw new RangeError(`iban() BBAN for ${code} must contain ${length} characters`);
+      return `${code}${ibanCheckDigits(code, body)}${body}`;
+    }, ["iban", Object.freeze({ country, bban })]);
+  },
   /** Digits that pass the Luhn check, such as card or account numbers. */
   luhn: (prefix: string, length: number): Generator<string> =>
     generator(({ stream }) => {

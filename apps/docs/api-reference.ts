@@ -1727,6 +1727,8 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       "content/docs/synthetic/reference/models.mdx": [
         "ArrayLength",
         "ConcretePath",
+        "DependencyInputs",
+        "DependencyValue",
         "FieldSpec",
         "Fields",
         "GenContext",
@@ -1807,7 +1809,13 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       ],
       "content/docs/synthetic/reference/text-generators.mdx": [
         "Generator",
-        "gen"
+        "IbanOptions",
+        "PoolCache",
+        "PoolSource",
+        "RuntimeSchema",
+        "ValuePoolOptions",
+        "gen",
+        "valuePool"
       ],
       "content/docs/synthetic/reference/errors.mdx": [
         "LabelFailure",
@@ -1951,8 +1959,10 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "ENGINE_RANGES"
       ],
       "content/docs/synthetic/reference/text-generators.mdx": [
+        "ObjectPoolOptions",
         "TextPoolCache",
         "TextPoolOptions",
+        "llmObjectPool",
         "llmTextPool"
       ]
     }

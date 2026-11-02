@@ -1,7 +1,9 @@
 export { streamFor, type Stream } from "./rng.js";
+export type { DependencyInputs, DependencyValue } from "./dependencies.js";
 export { formatPath, formatPattern, parsePath, type ConcretePath, type PathPattern, type PathSegment, type ValueAt } from "./path.js";
 export { readSchema, type JsonSchema, type SchemaSource } from "./schema.js";
-export { gen, ibanCheckDigits, isValidIban, isValidLuhn, luhnCheckDigit, type ArrayLength, type FieldSpec, type GenContext, type Generator } from "./generators.js";
+export { gen, ibanCheckDigits, isValidIban, isValidLuhn, luhnCheckDigit, type ArrayLength, type FieldSpec, type GenContext, type Generator, type IbanOptions } from "./generators.js";
+export { valuePool, type PoolCache, type PoolSource, type RuntimeSchema, type ValuePoolOptions } from "./pool.js";
 export { before, constraint, sumOf, unique, validIban, validLuhn, valuesAt, type Constraint } from "./constraints.js";
 export {
   defineModel,

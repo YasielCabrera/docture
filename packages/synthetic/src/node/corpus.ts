@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { canonicalDependency, type DependencyInputs } from "../dependencies.js";
 import { degrade, type Profile, type ProfileKey } from "../degrade/index.js";
 import { caseIdOf, toEvalCase, type Rendition, type SyntheticDocument } from "../document.js";
 import type { Model, Sample, Scenario } from "../model.js";
@@ -37,6 +38,8 @@ export const fax = degraded("fax");
 
 export interface CorpusPlan<T> {
   readonly model: Model<T>;
+  /** External corpus inputs. Their hashes affect freshness and appear in corpus.json. */
+  readonly dependencies?: DependencyInputs;
   readonly templates: readonly SynthTemplate<T>[];
   readonly seeds: readonly (number | string)[];
   readonly scenarios?: readonly Scenario<T>[];
@@ -100,7 +103,6 @@ type CaseOutcome =
 const CASE_ROW = "case.json";
 const KEY_FILE = ".key";
 const EXTENSIONS: Readonly<Record<string, string>> = { "application/pdf": "pdf", "image/png": "png", "image/jpeg": "jpg" };
-const ENGINES = ["docture", "pdfkit", "pdfjs-dist", "@napi-rs/canvas", "sharp", "react", "@react-pdf/renderer"] as const;
 
 /**
  * Render every seed, scenario and template once, derive each rendition, and write a corpus that
@@ -108,16 +110,19 @@ const ENGINES = ["docture", "pdfkit", "pdfjs-dist", "@napi-rs/canvas", "sharp", 
  * skipped, and each case lands by renaming a finished temporary folder into place.
  */
 export async function writeCorpus<T>(directory: string, plan: CorpusPlan<T>): Promise<CorpusReport> {
+  const inputs = { model: dependencyHashes(plan.model.options.dependencies), corpus: dependencyHashes(plan.dependencies) };
+  const dependencies = { ...inputs, hash: sha256(canonicalDependency(inputs)) };
+  const metadata = await packageMetadata();
+  const version = metadata.version;
+  const engines = Object.fromEntries(await Promise.all(Object.keys(metadata.peerDependencies).sort().map(async (name) => [name, await engineVersion(name)] as const)));
+  const renderings = planRenderings(plan, version, engines, dependencies.hash);
   const root = resolve(directory);
   const cases = join(root, "cases");
   const staging = join(root, ".tmp");
-  const version = await packageVersion();
   await rm(staging, { recursive: true, force: true });
   await mkdir(cases, { recursive: true });
   await mkdir(staging, { recursive: true });
 
-  const engines = Object.fromEntries(await Promise.all(ENGINES.map(async (name) => [name, await engineVersion(name)] as const)));
-  const renderings = planRenderings(plan, version, engines);
   const outcomes = (
     await pool(renderings, plan.concurrency ?? 4, plan.signal, (rendering) => writeRendering(rendering, plan, { cases, staging }))
   ).flat();
@@ -148,6 +153,7 @@ export async function writeCorpus<T>(directory: string, plan: CorpusPlan<T>): Pr
     },
     counts: { cases: rows.length, failed: failed.length },
     engines,
+    dependencies,
     node: process.version,
     files: sortedByKey(files),
   };
@@ -161,7 +167,8 @@ export async function writeCorpus<T>(directory: string, plan: CorpusPlan<T>): Pr
   };
 }
 
-function planRenderings<T>(plan: CorpusPlan<T>, version: string, engines: Readonly<Record<string, string | null>>): Rendering<T>[] {
+function planRenderings<T>(plan: CorpusPlan<T>, version: string, engines: Readonly<Record<string, string | null>>, dependencies: string): Rendering<T>[] {
+  const { dependencies: _declaredInputs, ...modelOptions } = plan.model.options;
   const scenarios = [...((plan.includeBase ?? true) ? [undefined] : []), ...(plan.scenarios ?? [])];
   const specs = plan.renditions ?? [digital()];
   const renderings: Rendering<T>[] = [];
@@ -180,7 +187,8 @@ function planRenderings<T>(plan: CorpusPlan<T>, version: string, engines: Readon
             verify: plan.verify ?? true,
             version,
             engines,
-            source: fingerprint([plan.model.schema, plan.model.options, template, scenario ?? null]),
+            dependencies,
+            source: fingerprint([plan.model.schema, modelOptions, template, scenario ?? null]),
           };
           return { id: caseIdOf({ sample: { seed, scenario: scenarioName }, template, rendition }), spec, rendition, key: sha256(JSON.stringify(inputs)) };
         });
@@ -359,9 +367,15 @@ async function writeAtomic(target: string, temporary: string, text: string): Pro
   await rename(temporary, target);
 }
 
-async function packageVersion(): Promise<string> {
-  const manifest = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8")) as { version: string };
-  return manifest.version;
+async function packageMetadata(): Promise<{ readonly version: string; readonly peerDependencies: Readonly<Record<string, string>> }> {
+  return JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"));
+}
+
+function dependencyHashes(inputs: DependencyInputs | undefined): Record<string, string> {
+  if (inputs === undefined) return {};
+  if (inputs === null || typeof inputs !== "object" || Array.isArray(inputs) || inputs instanceof Uint8Array) throw new TypeError("dependencies must be a record of named inputs");
+  canonicalDependency(inputs);
+  return Object.fromEntries(Object.keys(inputs).sort().map((key) => [key, sha256(canonicalDependency(inputs[key]))]));
 }
 
 /** The installed version of `name`, found from its resolved entry, or `null` when it is not installed. */

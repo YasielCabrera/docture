@@ -16,9 +16,19 @@ writeCorpus<T>(directory: string, plan: CorpusPlan<T>): Promise<CorpusReport>
 
 Renders every seed, scenario, and template once, verifies the digital rendering, derives each rendition, and writes the cases. Returns a `CorpusReport`. Throws `RangeError` when the plan produces duplicate case ids or `concurrency` is not a positive integer. When `signal` aborts, no further rendering starts and the call rejects with the signal's reason.
 
-The directory holds `cases/<id>/` with the document, `expected.json`, `labels.json`, `sample.json`, and `case.json`. The root holds `manifest.jsonl`, `coverage.json` with case counts per scenario, template, family, rendition, and severity, `failures.jsonl`, and `corpus.json` with the plan, engine versions, and file hashes. A rendering that fails verification fails its cases, not the batch.
+The directory holds `cases/<id>/` with the document, `expected.json`, `labels.json`, `sample.json`, and `case.json`. The root holds `manifest.jsonl`, `coverage.json` with case counts per scenario, template, family, rendition, and severity, `failures.jsonl`, and `corpus.json` with the plan, engine versions, dependency hashes, and file hashes. A rendering that fails verification fails its cases, not the batch.
 
-Rerunning converges. Each case is keyed by its seed, scenario, template, rendition, `createdAt`, package version, and a fingerprint of the schema, template, and scenario source. A case whose key and file hashes match is skipped, and each case lands by renaming a finished temporary folder. The fingerprint reads function source text, not values a function captures. Change `createdAt` or delete the corpus after you edit a constant or an asset a template reads.
+Rerunning converges. Each case is keyed by its seed, scenario, template, rendition, `createdAt`, package version, observed peer versions, declared dependency hashes, and a fingerprint of schema, template, and scenario source. A case whose key and file hashes match is skipped. Each case lands by renaming a finished temporary folder. Changes to freshness inputs preserve case IDs.
+
+### Dependency provenance
+
+`dependencies` on the model and corpus accept named [`DependencyInputs`](/docs/synthetic/reference/models#dependencyinputs-and-dependencyvalue). The writer validates and snapshots them before changing corpus files. Record key order has no effect. Array order, byte content, and value types affect identity. Unsupported inputs throw `TypeError` before filesystem mutation.
+
+`corpus.json.dependencies` contains `model` and `corpus` records of SHA-256 digests by input name, plus a combined `hash`. It stores no raw dependency values. The combined hash enters every case freshness key. Captured pool contents, catalogues, helper revisions, and asset bytes can therefore invalidate unchanged case IDs.
+
+Observed engine versions come from the package's peer list, including Faker and AI. The writer resolves and reads package metadata without importing engine code. Missing peers appear as `null`. Caller-declared renderer aliases or pins stay in dependency inputs and cannot replace observed versions.
+
+Function source fingerprints do not inspect closure values or imported helpers. Inputs omitted from `dependencies` remain invisible unless their source fingerprint changes.
 
 ### `digital`
 
@@ -56,6 +66,7 @@ A bilevel fax rendition.
 | Field | Default | Meaning |
 | --- | --- | --- |
 | `model` | required | The `Model` to sample. |
+| `dependencies` | none | External input values hashed into freshness and recorded as provenance. |
 | `templates` | required | PDFKit, React, or other rendering templates. |
 | `seeds` | required | Numbers or strings to sample with. |
 | `scenarios` | `[]` | Scenarios to sample in addition to the base case. |

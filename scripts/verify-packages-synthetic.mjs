@@ -54,6 +54,8 @@ export async function verifySyntheticPackage({ packed, tools, check, newConsumer
       await run(`${manager}-synthetic-types`, tsc, tscArgs("synthetic-types.ts"), consumer);
       await save(join(consumer, "synthetic-missing.mjs"), syntheticMissingEngineRuntime);
       await run(`${manager}-synthetic-missing-engines`, "node", ["synthetic-missing.mjs"], consumer);
+      await save(join(consumer, "synthetic-data.mjs"), syntheticDataRuntime);
+      await run(`${manager}-synthetic-data-without-engines`, "node", ["synthetic-data.mjs"], consumer);
       await save(join(consumer, "synthetic-identity.mjs"), syntheticIdentityRuntime);
       await run(`${manager}-synthetic-identity`, "node", ["synthetic-identity.mjs"], consumer);
     });
@@ -163,6 +165,44 @@ function syntheticTypes(exports) {
   }).join("\n");
 }
 
+const syntheticDataRuntime = String.raw`
+import assert from "node:assert/strict";
+import { defineModel, gen, valuePool, isValidIban } from "@docture/synthetic";
+import { llmObjectPool } from "@docture/synthetic/llm";
+const source = defineModel({ type: "object", properties: { bankCode: { type: "string" }, accountNumber: { type: "string" }, iban: { type: "string" } } }, { fields: {
+  bankCode: gen.pick(["29050101", "20050550"]), accountNumber: gen.pattern("##########"),
+  iban: gen.iban({ country: "DE", bban: gen.from(ctx => ctx.get("bankCode") + ctx.get("accountNumber")) }),
+} });
+const sampled = (await source.sample({ seed: 7 })).value;
+assert.equal(sampled.iban.slice(4, 12), sampled.bankCode);
+assert.equal(sampled.iban.slice(12), sampled.accountNumber);
+assert.ok(isValidIban(sampled.iban));
+const british = defineModel({ type: "object", properties: { routing: { type: "string" }, account: { type: "string" }, reference: { type: "string" } } }, { fields: {
+  routing: gen.pattern("AAAA######"), account: gen.pattern("########"),
+  reference: gen.iban({ country: gen.value("GB"), bban: gen.from(ctx => ctx.get("routing") + ctx.get("account")) }),
+} });
+const gb = (await british.sample({ seed: 7 })).value;
+assert.equal(gb.reference.slice(4, 14), gb.routing);
+assert.ok(isValidIban(gb.reference));
+const otherFields = defineModel({ type: "object", properties: { routingNumber: { type: "string" }, accountNumber: { type: "string" } } }, { fields: { routingNumber: gen.pattern("#########"), accountNumber: gen.pattern("############") } });
+const us = (await otherFields.sample({ seed: 7 })).value;
+assert.deepEqual(Object.keys(us).sort(), ["accountNumber", "routingNumber"]);
+assert.match(us.accountNumber, /^\d{12}$/);
+const schema = { "~standard": {
+  jsonSchema: { input: () => ({ type: "string" }) },
+  validate: value => typeof value === "string" ? { value: value.trim() } : { issues: [{ message: "Expected a string" }] },
+} };
+const cache = new Map();
+const seeded = await valuePool({ schema, revision: "trim-1", count: 1, source: { kind: "generate", id: "seeded", generate: () => ["  Fleet  "] }, cache });
+assert.deepEqual(seeded, ["Fleet"]);
+assert.deepEqual(await valuePool({ schema, revision: "trim-1", count: 1, source: { kind: "cache-only", id: "seeded" }, cache }), seeded);
+assert.ok(Object.isFrozen(seeded));
+const readOnlyCache = { get: () => ["  Offline  "], set: () => { throw new Error("Must not write"); } };
+assert.deepEqual(await llmObjectPool({ schema, revision: "trim-1", count: 1, prompt: "Names", source: { kind: "cache-only", model: "provider/model" }, cache: readOnlyCache }), ["Offline"]);
+await assert.rejects(llmObjectPool({ schema, revision: "trim-1", count: 1, prompt: "Names", source: { kind: "cache-only", model: "provider/model" }, cache: new Map() }), /no cached pool/);
+console.log("packed scalar identifiers and validated offline pools work without optional engines");
+`;
+
 const invoiceModule = String.raw`
 import { defineModel, defineTemplate, gen, locales, toEvalCase } from "@docture/synthetic";
 export const schema = {
@@ -216,7 +256,7 @@ import { measurePdf } from "@docture/synthetic/measure";
 import { degrade } from "@docture/synthetic/degrade";
 import { fakerFor } from "@docture/synthetic/faker";
 import { renderHtmlPdf, defineHtmlTemplate } from "@docture/synthetic/html";
-import { llmTextPool } from "@docture/synthetic/llm";
+import { llmTextPool, llmObjectPool } from "@docture/synthetic/llm";
 import { defineReactTemplate, renderReactPdf } from "@docture/synthetic/react-pdf";
 const missing = (engine, entry) => error => {
   assert.ok(error instanceof MissingEngineError, String(error?.stack ?? error));
@@ -240,6 +280,8 @@ const html = defineHtmlTemplate()({
 });
 await assert.rejects(renderHtmlPdf(html, sample), missing("playwright-core", "@docture/synthetic/html"));
 await assert.rejects(llmTextPool({ model: "openai/gpt-5", prompt: "German trade names", count: 3 }), missing("ai", "@docture/synthetic/llm"));
+const poolSchema = { "~standard": { jsonSchema: { input: () => ({ type: "string" }) }, validate: value => typeof value === "string" ? { value } : { issues: [{ message: "Expected string" }] } } };
+await assert.rejects(llmObjectPool({ source: { kind: "model", model: "openai/gpt-5" }, schema: poolSchema, revision: "1", prompt: "Names", count: 1 }), missing("ai", "@docture/synthetic/llm"));
 const react = defineReactTemplate()({ key: "packed-react", family: "invoice", locale: locales["de-DE"], printed: { invoiceNumber: true, seller: true, totalCents: true }, render: () => null });
 await assert.rejects(renderReactPdf(react, sample), missing("react", "@docture/synthetic/react-pdf"));
 await assert.rejects(react.renderDocument(sample), missing("react", "@docture/synthetic/react-pdf"));
@@ -298,6 +340,21 @@ import { digital, writeCorpus } from "@docture/synthetic/node";
 import { createElement as h, version as reactVersion } from "react";
 import { Page, View } from "@react-pdf/renderer";
 import { jsonlDataset } from "@docture/eval/node";
+import { llmObjectPool } from "@docture/synthetic/llm";
+import { MockLanguageModelV4 } from "ai/test";
+import { z } from "zod";
+
+const poolWriter = new MockLanguageModelV4({ modelId: "packed-pool", doGenerate: async () => ({
+  content: [{ type: "text", text: '{"values":[{"name":"Fleet","count":"2"}]}' }],
+  finishReason: { unified: "stop", raw: "stop" },
+  usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } }, warnings: [],
+}) });
+const poolSchema = z.object({ name: z.string(), count: z.string().transform(Number) });
+const poolCache = new Map();
+const objects = await llmObjectPool({ schema: poolSchema, revision: "counts-1", prompt: "Fictional fleet", count: 1, source: { kind: "model", model: poolWriter }, cache: poolCache });
+assert.deepEqual(objects, [{ name: "Fleet", count: 2 }]);
+assert.deepEqual(await llmObjectPool({ schema: poolSchema, revision: "counts-1", prompt: "Fictional fleet", count: 1, source: { kind: "cache-only", model: poolWriter.provider + "/" + poolWriter.modelId }, cache: poolCache }), objects);
+assert.equal(poolWriter.doGenerateCalls.length, 1, "provider mocks cover pool wiring only");
 
 const sample = await model.sample({ seed: 3 });
 const doc = await renderPdf(template, sample);
@@ -356,6 +413,14 @@ try {
   const rerun = await writeCorpus(directory, { model, templates: [template, react], seeds: [1, 2], renditions: [digital()] });
   assert.deepEqual([rerun.written, rerun.skipped], [0, 4], "rewriting an unchanged corpus skips every case");
   assert.equal(await readFile(written.manifest, "utf8"), await readFile(rerun.manifest, "utf8"));
+  const declared = { model, templates: [template, react], seeds: [1, 2], renditions: [digital()], dependencies: { rules: "v1", pool: objects } };
+  assert.equal((await writeCorpus(directory, declared)).written, 4);
+  assert.equal((await writeCorpus(directory, { ...declared, dependencies: { pool: objects, rules: "v1" } })).skipped, 4);
+  assert.equal((await writeCorpus(directory, { ...declared, dependencies: { pool: objects, rules: "v2" } })).written, 4);
+  const metadata = JSON.parse(await readFile(join(directory, "corpus.json"), "utf8"));
+  assert.ok(metadata.engines["@faker-js/faker"]);
+  assert.ok(metadata.engines.ai);
+  assert.match(metadata.dependencies.corpus.pool, /^[a-f0-9]{64}$/);
 } finally { await rm(directory, { recursive: true, force: true }); }
 console.log("packed synthetic engines render PDFKit and React templates, verify, degrade, generate and write an eval corpus");
 `;
@@ -364,9 +429,10 @@ const syntheticEngineTypes = String.raw`
 import type { LanguageModel } from "ai";
 import type { Faker } from "@faker-js/faker";
 import type { Browser } from "playwright-core";
-import { defineModel, typedJsonSchema, type Generator } from "@docture/synthetic";
+import { defineModel, typedJsonSchema, gen, valuePool, type Generator, type IbanOptions, type DependencyInputs } from "@docture/synthetic";
 import { fakerFor } from "@docture/synthetic/faker";
-import { llmTextPool, type TextPoolOptions } from "@docture/synthetic/llm";
+import { llmTextPool, llmObjectPool, type TextPoolOptions } from "@docture/synthetic/llm";
+import { z } from "zod";
 import { renderHtmlPdf, type RenderHtmlPdfOptions } from "@docture/synthetic/html";
 declare const model: LanguageModel;
 declare const browser: Browser;
@@ -375,6 +441,19 @@ const options: RenderHtmlPdfOptions = { browser };
 const fake = await fakerFor("de");
 const name: Generator<string> = fake((faker: Faker) => faker.person.fullName());
 const people = defineModel(typedJsonSchema<{ name: string }>({ type: "object", required: ["name"], properties: { name: { type: "string" } } }), { fields: { name } });
+const identifier: Generator<string> = gen.iban({ country: "GB", bban: gen.pattern("AAAA##############") } satisfies IbanOptions);
+const countryField: Generator<string> = gen.iban({ country: gen.value("NO"), bban: gen.pattern("###########") });
+// @ts-expect-error the BBAN source is a generator, not a bank record
+gen.iban({ country: "DE", bban: { bankCode: "29050101", accountNumber: "1234567890" } });
+const structured = z.object({ company: z.string(), count: z.string().transform(Number) });
+const records: Promise<readonly { company: string; count: number }[]> = valuePool({ schema: structured, revision: "1", count: 1, source: { kind: "generate", id: "seeded", generate: () => [{ company: "Fleet", count: "2" }] } });
+const written: Promise<readonly { company: string; count: number }[]> = llmObjectPool({ schema: structured, revision: "1", count: 1, prompt: "Fleet", source: { kind: "model", model } });
+const dependencies: DependencyInputs = { rule: "v1", bytes: new Uint8Array([1, 2]) };
+// @ts-expect-error cache-only reads require a cache
+valuePool({ schema: structured, revision: "1", count: 1, source: { kind: "cache-only", id: "seeded" } });
+// @ts-expect-error plain JSON Schema cannot validate structured records
+valuePool({ schema: { type: "object" }, revision: "1", count: 1, source: { kind: "generate", id: "seeded", generate: () => [] } });
+void identifier; void countryField; void records; void written; void dependencies;
 void pool; void options; void people; void renderHtmlPdf;
 `;
 

@@ -1,6 +1,6 @@
 # Implemented synthetic API
 
-Status: implementation reference for T-165/P1, 2026-10-28. The declarations in `packages/synthetic/src` are authoritative. [ADR 0003](../decisions/0003-synthetic-publication.md) records the package boundaries.
+The declarations in `packages/synthetic/src` are authoritative. [ADR 0003](../decisions/0003-synthetic-publication.md) records the package boundaries.
 
 All examples use this invoice type:
 
@@ -15,6 +15,10 @@ The root is portable. It has no Node built-ins and no engines.
 - `defineModel(schema, options)` accepts a Standard Schema such as Zod 4.2 or later, a Docture contract, an AI SDK schema, or a JSON Schema branded with `typedJsonSchema<T>()`. `model.sample({ seed, scenario? })` returns `Sample<T>` with `value`, `seed`, `scenario` (`"base"` by default), and `tags`. Sampling runs generators, a scenario's `shape`, `derive`, the constraints, and the scenario's `expect`, then validates against the schema. A failure raises `SynthesisError` (`SYNTHESIS_FAILED`).
 - Field paths use eval's path format. `Fields<T>` keys are patterns such as `lineItems[].amountCents`.
 - `gen` has `value`, `from`, `int`, `float`, `pick`, `weighted`, `pattern`, `date`, `dateAfter`, `words`, `iban`, `luhn`, `absent`, `null`, `maybe`, and `array({ length })`.
+- `gen.iban(country?)` retains random numeric BBAN generation using its country-length table. `gen.iban(options: IbanOptions)` accepts `country: string | Generator<string>` and `bban: Generator<string>`, validates their syntax and known lengths, and returns one checksum-derived IBAN string. The caller owns the record schema, national BBAN assembly and catalogue metadata. Use `gen.pattern`, `gen.pick`, `fakerFor`, and `gen.from` with `get` or `sibling` to compose other reusable field values. Checksum validity does not establish an account exists.
+- `valuePool({ schema, revision, count, source, cache?, dependencies? })` returns exactly `count` distinct validated outputs as a defensive, deep-frozen JSON array. `RuntimeSchema<Output>` structurally requires Standard Schema runtime validation and input JSON Schema conversion. Validated `result.value` preserves defaults and transforms. Plain JSON Schema is insufficient. `ValuePoolOptions` requires a `PoolSource` with either `kind: "generate"`, nonempty `id`, and `generate(count)`, or `kind: "cache-only"` and the same `id`. Cache-only sources require a `PoolCache`.
+- `PoolCache.get(key)` returns raw cached inputs or `undefined`; `set(key, values)` stores raw input arrays. Keys include source identity, input JSON Schema, required validation-policy `revision`, count, and canonical dependencies. Hits undergo the same validation as new records. Raw inputs avoid double-applying output transforms. Wrong counts, invalid records, duplicate validated outputs, and corrupt caches fail with `SynthesisError` without fallback generation. A cache-only miss also fails. `llmTextPool` retains its separate string trim/dedup contract.
+- `DependencyInputs` maps names to `DependencyValue`: JSON data or `Uint8Array` bytes, including nested arrays and records. Models declare captured generation inputs through `ModelOptions.dependencies`. Corpus plans and CLI configs declare rendering inputs through `dependencies`. Canonical identity ignores record insertion order, preserves array order, distinguishes bytes, and rejects lossy values, accessors, cycles, and unsupported objects.
 - The constraints are `sumOf`, `before`, `validIban`, `validLuhn`, `unique`, and `constraint(name, check)`. `valuesAt` lists concrete paths for a pattern.
 - `scenario({ name, tags?, fields?, shape?, expect? })` defines a named variation that keeps the model's invariants.
 - `streamFor(seed, key)` is the only source of randomness. Each position draws from a stream keyed by its path, so adding a field does not change the other fields' values.
@@ -76,7 +80,7 @@ scan.rendition; // { kind: "scan", severity: 0.5, dpi: 200 }
 
 ## `@docture/synthetic/faker`
 
-`fakerFor(locale, { refDate? })` resolves a Faker locale with an English fallback. It returns a factory that turns `build(faker)` into a `Generator`. Each generated value reseeds Faker from its own position's stream, so a value depends only on the seed and its path. Relative dates count back from `refDate`, never from the wall clock. The engine is `@faker-js/faker`.
+`fakerFor(locale, { refDate? })` resolves a Faker locale with an English fallback. It returns a factory that turns `build(faker)` into a `Generator`. Each generated value reseeds Faker from its own position's stream, so a value depends only on the seed and its path. Relative dates count back from `refDate`, never from the wall clock. The supported optional engine is `@faker-js/faker` version `10.6.0`; consumers install and pin it explicitly.
 
 ```ts
 import { fakerFor } from "@docture/synthetic/faker";
@@ -88,9 +92,11 @@ defineModel(schema, { fields: { "buyer.name": fake((faker) => faker.company.name
 
 `llmTextPool({ model, prompt, count, cache?, temperature? })` asks an AI SDK model once for `count` distinct strings and caches them by model, prompt, count, and temperature. Sample from the pool with `gen.pick`, so ground truth stays the sampled value. The engine is `ai`.
 
+`llmObjectPool<Output>(options: ObjectPoolOptions<Output>)` uses `valuePool` for structured records. Options include `schema`, required `revision`, `count`, `prompt`, optional `temperature`, optional `dependencies`, and either `source: { kind: "model", model }` with optional cache or `source: { kind: "cache-only", model: "provider/model-id" }` with required cache. Model identity, prompt, and temperature enter the pool key. Provider responses and cached inputs both undergo runtime validation. Cache-only reads never load AI. Only a genuine model-source cache miss can make a provider call. Deterministic mocks verify provider wiring; schema validity does not establish geographic facts.
+
 ```ts
 import { llmTextPool } from "@docture/synthetic/llm";
-const names = await llmTextPool({ model: "openai/gpt-5", prompt: "German names of small trade businesses", count: 50, cache });
+const names = await llmTextPool({ model: "openai/gpt-5", prompt: "Fictional titles for a book catalogue", count: 50, cache });
 defineModel(schema, { fields: { "seller.name": gen.pick(names) } });
 ```
 
@@ -109,7 +115,9 @@ const htmlDocument = await renderHtmlPdf(web, sample);
 
 ## `@docture/synthetic/node`
 
-`writeCorpus(directory, { model, templates, seeds, scenarios?, includeBase?, renditions?, concurrency?, verify?, createdAt?, signal? })` renders each seed, scenario, and template once. It derives each rendition from `digital()`, `scan()`, `scanLq()`, `photo()`, or `fax()`, and writes `manifest.jsonl`, `coverage.json`, and `failures.jsonl`. A rerun skips cases whose key and files match. Each case lands by renaming a finished temporary folder, so an interrupted run converges on the next attempt. A rendering that fails verification is listed in `failures`, and the rest of the batch continues. The manifest rows are `jsonlDataset` rows with `locations`. This is the only entry that imports `node:` built-ins. Its engines are those of the requested renditions, plus `pdfjs-dist` for verification, which is on by default.
+`writeCorpus(directory, { model, templates, seeds, dependencies?, scenarios?, includeBase?, renditions?, concurrency?, verify?, createdAt?, signal? })` renders each seed, scenario, and template once. It derives each rendition from `digital()`, `scan()`, `scanLq()`, `photo()`, or `fax()`, and writes `manifest.jsonl`, `coverage.json`, and `failures.jsonl`. A rerun skips cases whose key and files match. Each case lands by renaming a finished temporary folder, so an interrupted run converges on the next attempt. A rendering that fails verification is listed in `failures`, and the rest of the batch continues. The manifest rows are `jsonlDataset` rows with `locations`. This is the only entry that imports `node:` built-ins. Its engines are those of the requested renditions, plus `pdfjs-dist` for verification, which is on by default.
+
+The writer validates and snapshots model and corpus dependencies before filesystem mutation. `corpus.json.dependencies` holds named SHA-256 digests under `model` and `corpus`, plus a combined `hash`. Those hashes enter freshness keys without persisting raw input values. Changes rewrite cases under the same IDs. The writer derives observed engine names from the synthetic package peers and reads installed versions without importing engines, including Faker and AI. Missing peers appear as `null`. Aliased renderer pins remain declared inputs and do not replace observed versions. Function source fingerprints still cannot discover undeclared closure values or imported helper changes. `SynthConfig.dependencies` reaches the same writer through `docture synth corpus`.
 
 ```ts
 import { digital, scan, writeCorpus } from "@docture/synthetic/node";

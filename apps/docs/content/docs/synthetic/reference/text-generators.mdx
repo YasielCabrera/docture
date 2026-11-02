@@ -1,10 +1,94 @@
 ---
-title: Synthetic text-generators API
-description: Seeded Faker generators and cached, model-written text pools for realistic synthetic strings.
+title: Synthetic text and record generators API
+description: Reusable field values, seeded Faker generators, and validated offline or model-backed pools.
 type: reference
 ---
 
-Two entries supply realistic strings for models. `@docture/synthetic/faker` wraps Faker in seeded generators, and `@docture/synthetic/llm` asks a model once for a pool of strings to sample from with `gen.pick`. The [models guide](/docs/synthetic/models#generate-realistic-text) shows both in use.
+The root entry supplies field generators and validated record pools without an engine. `@docture/synthetic/faker` wraps Faker in seeded generators. `@docture/synthetic/llm` fills text or structured pools through an AI model. Pool arrays work with `gen.pick`. The [models guide](/docs/synthetic/models#reuse-generated-customer-records) shows seeded offline generation.
+
+## `@docture/synthetic`
+
+### `gen.iban`
+
+```ts
+gen.iban(country?: string): Generator<string>
+gen.iban(options: IbanOptions): Generator<string>
+```
+
+Returns an IBAN string. The string form retains its random numeric BBAN generation and country-length lookup, with `DE` as the default. The options form accepts a generated BBAN and calculates its mod-97 check digits. The caller chooses the fields and national format that produce that BBAN.
+
+A supplied country is an uppercase two-letter code. The BBAN contains 8 to 30 uppercase letters or digits and must match the known country length when one is available. A supplied BBAN also supports countries outside the random numeric generator's length table. Format and checksum checks do not establish that an account exists or validate every national banking rule.
+
+Country and BBAN generators use separate forks of the field's stream. Their configuration enters generator identity. External values captured by a custom generator need declared model dependencies or a changed rule revision.
+
+### `IbanOptions`
+
+```ts check
+import type { Generator } from "@docture/synthetic";
+
+interface IbanOptions {
+	readonly country: string | Generator<string>;
+	readonly bban: Generator<string>;
+}
+```
+
+`bban` can read fields from the caller's schema with `gen.from`, `get`, or `sibling`. `country` can be fixed or generated. This configures one string generator; the caller's schema determines the record shape.
+
+Other account identifiers use the existing field generators. `gen.pattern` produces routing codes and account digits. `gen.pick` selects known metadata, and Faker supplies names. Related fields can use `get` or `sibling` to read the same selected identifier.
+
+### `valuePool`
+
+```ts
+valuePool<Output>(options: ValuePoolOptions<Output>): Promise<readonly Output[]>
+```
+
+Produces or loads exactly `count` distinct validated values from a named source. `Output` follows the supplied runtime schema, including defaults and transformations. The result is a defensive, deep-frozen JSON copy. The root entry needs no Faker or AI engine.
+
+Both generated values and cache hits must be arrays of exactly `count` JSON-safe raw records. Each raw record passes through `RuntimeSchema` validation. Distinctness compares validated outputs with canonical record key order. Duplicate outputs, invalid values, wrong counts, and corrupt cache entries throw `SynthesisError`. A failed pool writes no cache and never retries through a different source.
+
+Invalid counts, blank revisions, and blank source identities throw `RangeError`. Unsupported dependency values throw `TypeError`.
+
+The versioned cache key includes source identity, count, input JSON Schema, required `revision`, and declared `dependencies`. Change `revision` when refinements or transforms change outside the JSON Schema. The cache stores raw inputs, so transforms run once per read. Cache-only misses throw before generation.
+
+### `ValuePoolOptions`
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `schema` | required | A `RuntimeSchema<Output>` with input JSON Schema conversion and runtime validation. |
+| `revision` | required | Nonempty validation-policy identity for refinements and transformations. |
+| `count` | required | Positive safe integer number of distinct validated outputs. |
+| `source` | required | A `PoolSource` that generates records or requires an offline cache hit. |
+| `cache` | none | A `PoolCache`. Required for a cache-only source. |
+| `dependencies` | none | External [`DependencyInputs`](/docs/synthetic/reference/models#dependencyinputs-and-dependencyvalue) included in cache identity. |
+
+### `PoolSource`
+
+```ts check
+type PoolSource =
+	| {
+			readonly kind: "generate";
+			readonly id: string;
+			readonly generate: (count: number) => readonly unknown[] | Promise<readonly unknown[]>;
+		}
+	| { readonly kind: "cache-only"; readonly id: string };
+```
+
+`id` is nonempty and identifies the producer. Both variants use the same identity, so a generated pool can later load through cache-only mode. A cache miss invokes `generate` only for the generate variant. Source callback errors propagate unchanged.
+
+### `PoolCache`
+
+```ts check
+interface PoolCache {
+	get(key: string): unknown | Promise<unknown>;
+	set(key: string, values: readonly unknown[]): unknown;
+}
+```
+
+Stores raw input arrays by opaque key. A `Map<string, readonly unknown[]>` works in memory. `get` returns `undefined` for a miss. The implementation awaits asynchronous reads and writes. Cached data undergoes the same validation as newly generated data. Corrupt data fails without calling a producer or provider.
+
+### `RuntimeSchema`
+
+A structural Standard Schema with `~standard.validate`, `~standard.jsonSchema.input`, and optional input/output type metadata. Its input JSON Schema conversion accepts target `draft-2020-12`. Validation may be asynchronous and returns either `value: Output` or `issues`. The pool retains `value`, including transformations. Zod 4.2 and later supplies this shape. A plain JSON Schema without a runtime validator is insufficient.
 
 ## `@docture/synthetic/faker`
 
@@ -14,7 +98,7 @@ Two entries supply realistic strings for models. `@docture/synthetic/faker` wrap
 fakerFor(locale: string, options?: { readonly refDate?: string }): Promise<<V>(build: (faker: Faker) => V) => Generator<V>>
 ```
 
-Returns a factory of generators backed by Faker in `locale` (`de`, `de-AT`, `en_US`, and other Faker locale names), falling back to English for missing data. Each `Generator` reseeds Faker from its position's stream before it calls `build`, so a value depends only on the seed and its path. Relative dates count back from `refDate`, default `2025-01-01T00:00:00.000Z`, never from the wall clock.
+Returns a factory of generators backed by Faker in `locale` (`ja`, `en_US`, `de`, and other Faker locale names), falling back to English for missing data. Each `Generator` reseeds Faker from its position's stream before it calls `build`, so a value depends only on the seed and its path. Relative dates count back from `refDate`, default `2025-01-01T00:00:00.000Z`, never from the wall clock.
 
 Throws `RangeError` for an unknown locale. Throws `MissingEngineError` when `@faker-js/faker` is not installed.
 
@@ -23,6 +107,31 @@ Throws `RangeError` for an unknown locale. Throws `MissingEngineError` when `@fa
 `{ "@faker-js/faker": "10.6.0" }`.
 
 ## `@docture/synthetic/llm`
+
+### `llmObjectPool`
+
+```ts
+llmObjectPool<Output>(options: ObjectPoolOptions<Output>): Promise<readonly Output[]>
+```
+
+Asks an AI SDK model for structured records, then uses `valuePool` for validation and caching. Model identity, prompt, and temperature join the schema, revision, count, and dependency inputs in cache identity. Model objects identify themselves as `provider/modelId`; cache-only reads supply the same identity string.
+
+The model source loads `ai` only after a genuine cache miss. Cache-only hits and misses never load AI. A missing offline entry throws `SynthesisError`. A corrupt entry also throws and does not trigger a provider call. Schema validity proves the declared data rules, not external facts such as road topology.
+
+### `ObjectPoolOptions`
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `schema` | required | The same `RuntimeSchema<Output>` contract as `valuePool`. |
+| `revision` | required | Nonempty revision covering refinements and transforms invisible in JSON Schema. |
+| `count` | required | Exact positive safe integer count of distinct validated outputs. |
+| `source` | required | `{ kind: "model", model: LanguageModel }` or `{ kind: "cache-only", model: string }`. |
+| `prompt` | required | Nonblank description of the fictional records. |
+| `temperature` | `0` | Finite sampling temperature. |
+| `cache` | none | A `PoolCache`; required in cache-only mode. |
+| `dependencies` | none | External input values included in the pool key. |
+
+Provider generation requires the optional `ai` engine. Importing this entry and reading an offline cache do not. Live generation is an explicit application choice; deterministic provider mocks verify API wiring only.
 
 ### `llmTextPool`
 
@@ -40,7 +149,7 @@ Throws `RangeError` when `count` is not a positive integer, and `SynthesisError`
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `model` | required | An AI SDK `LanguageModel`, as a model object or a model id string. |
-| `prompt` | required | What the strings are, such as `German company names of small trades`. |
+| `prompt` | required | What the strings are, such as `fictional product titles for a book catalogue`. |
 | `count` | required | Positive integer number of strings to request. The pool keeps distinct, non-empty strings, so it can hold fewer. |
 | `cache` | none | A `TextPoolCache` that stores pools by key. |
 | `temperature` | `0` | Sampling temperature passed to the model. |
