@@ -23,10 +23,7 @@ export default defineConfig({
       ...sources("docture", "docture"),
       ...sources("eval", "@docture/eval"),
       ...sources("synthetic", "@docture/synthetic"),
-      {
-        find: "@docture/cli",
-        replacement: fileURLToPath(new URL("./packages/cli/src/index.ts", import.meta.url)),
-      },
+      ...sources("cli", "@docture/cli"),
     ].sort((a, b) => b.find.length - a.find.length),
   },
   test: { testTimeout: 30_000, hookTimeout: 30_000 },

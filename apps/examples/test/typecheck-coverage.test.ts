@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,10 +21,10 @@ it("type-checks a source file from every example folder", async () => {
       .map((file) => file.split(sep)[0]),
   );
   const examples = (await readdir(root, { withFileTypes: true }))
-    .filter((entry) => entry.isDirectory() && /^\d{2}-/.test(entry.name))
+    .filter((entry) => entry.isDirectory() && existsSync(new URL(`../${entry.name}/index.ts`, import.meta.url)))
     .map((entry) => entry.name);
 
   expect(listed.status).toBe(0);
-  expect(examples).toContain("01-quick-start");
-  expect([...examples, "shared", "test"].filter((folder) => !checked.has(folder))).toEqual([]);
+  expect(examples).toContain("quick-start");
+  expect([...examples, "test"].filter((folder) => !checked.has(folder))).toEqual([]);
 });

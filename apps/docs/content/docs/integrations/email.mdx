@@ -71,4 +71,4 @@ Omitted inline resources still count toward the limits. A running parser cannot 
 
 Missing message headers, invalid limits, and exceeded limits throw `EmailInputError` with code [`LOAD_FAILED`](/docs/resources/errors#error-catalogue). Other malformed MIME follows the parser's own recovery behavior.
 
-The repository example in [`apps/examples/20-input-loaders`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/20-input-loaders), `index.ts`, expands an email with an HTML body and a PDF attachment, then converts both.
+The repository example in [`apps/examples/input-loaders`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/input-loaders), `index.ts`, reads the adjacent `invoice.eml`, expands its text body and PDF attachment, then converts both.

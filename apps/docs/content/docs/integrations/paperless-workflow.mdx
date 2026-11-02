@@ -101,7 +101,7 @@ With Paperless configuration present, the [MCP server](/docs/cli/mcp) lists `pap
 
 ## Trigger extraction when documents arrive
 
-The repository example in [`apps/examples/21-paperless`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/21-paperless), `triggers.ts`, shows a webhook endpoint and queue that your application owns:
+The repository example in [`apps/examples/paperless`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/paperless), `triggers.ts`, shows a webhook endpoint and queue that your application owns:
 
 1. Create the endpoint with a configured instance, a bearer token, and a queue.
 2. Configure the Paperless Document Added webhook to send the document ID and the configured instance.
@@ -116,4 +116,4 @@ Your application owns queue durability, deduplication retention, and retries. Im
 
 Paperless provides AI suggestions and chat, and paperless-gpt provides OCR, custom field workflows, and review. Use Docture when you need TypeScript schemas you define, field evidence status, reusable validation and repair, conflict reports, chunking, and evaluation across document sources.
 
-The repository example uses a local authenticated mock server and deterministic providers. Running against a live Paperless instance, Docling, or a model needs your own credentials.
+The repository example connects to your Paperless instance. Read its README for the required configuration. Tests use deterministic service responses so verification needs no live credentials.

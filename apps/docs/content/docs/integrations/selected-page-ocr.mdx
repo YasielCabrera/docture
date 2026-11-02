@@ -51,4 +51,4 @@ Replaced pages keep their original page numbers and known physical dimensions. T
 
 Per-page metadata names the loader that supplied the page, the quality scores, and the requested pages. It reports elapsed OCR time and unknown external cost separately from model token usage.
 
-The repository example in [`apps/examples/20-input-loaders`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/20-input-loaders), `ocr.ts`, runs an offline mixed-document example with stub loaders.
+The repository example in [`apps/examples/input-loaders`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/input-loaders), `ocr.ts`, composes PDF.js with OCR for a local PDF. It uses the configured OCR engine and may download model files on its first run.

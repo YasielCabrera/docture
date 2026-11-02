@@ -1,0 +1,4 @@
+[
+  { "file": "invoice.pdf", "expected": { "invoiceNumber": "INV-2026-0142", "total": 717.3 } },
+  { "file": "tax-invoice.pdf", "expected": { "invoiceNumber": "INV-2026-0142", "total": 17348.36 } }
+]

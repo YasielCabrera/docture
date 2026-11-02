@@ -63,4 +63,4 @@ When the unit is unknown or the scale is missing, pages have zero dimensions, ca
 
 HTTP, service-state, and result-format failures throw `AzureReadError` with code [`LOAD_FAILED`](/docs/resources/errors#error-catalogue). Exceeding `timeoutMs` fails with code [`TIMEOUT`](/docs/resources/errors#error-catalogue). A caller abort keeps the abort reason.
 
-The repository example in [`apps/examples/20-input-loaders`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/20-input-loaders), `azure.ts`, runs the loader against a local mock server, so it needs no Azure account.
+The repository example in [`apps/examples/input-loaders`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/input-loaders), `azure.ts`, reads a local PDF through your Azure resource. Set `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` and `AZURE_DOCUMENT_INTELLIGENCE_KEY` to configure the resource.

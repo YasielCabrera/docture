@@ -1,0 +1,7 @@
+{
+  "invoiceNumber": "INV-53631",
+  "customer": "Example Studio",
+  "quantity": 10,
+  "unitPriceCents": 107,
+  "totalCents": 1070
+}

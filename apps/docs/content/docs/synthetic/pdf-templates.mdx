@@ -22,7 +22,7 @@ A template declares a key, family, locale, printed mask, and draw function. Opti
 
 Use `drawTable(surface, options)` with an array path, items, columns, and page bounds. A keyed column labels each cell as a concrete path such as `usage[3].kwh`. Rows stay intact and headers repeat. `reserveAfter` leaves space for totals; `onPage` draws content before each repeated header. The returned y is on the page where the closing block fits.
 
-The [runnable utility-bill example](https://github.com/YasielCabrera/docture/tree/main/apps/examples/24-synthetic-corpus) demonstrates tables, two layouts, and different printed masks.
+The [synthetic corpus example](https://github.com/YasielCabrera/docture/tree/main/apps/examples/synthetic-corpus) keeps its model and PDF template beside a short generation script and inspectable PDF output.
 
 To lay out a page with components and automatic page wrapping instead of coordinates, use [React templates](/docs/synthetic/react-templates).
 

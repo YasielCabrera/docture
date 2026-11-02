@@ -4,41 +4,46 @@ description: Choose a complete program and check its prerequisites before runnin
 type: how-to
 ---
 
-The examples workspace installs the optional development engines. Each folder contains a complete program, a command, prerequisites, and expected behavior. For a guided first run, follow [your first extraction](/docs/extraction/quick-start).
+Each example keeps its input documents beside the code. PDF examples use bundled invoices or bank statements, so no corpus download is needed. DOCX, email, and Docling examples keep their native input formats.
+
+From a repository clone, install the workspace and run an example:
 
 ```sh
 pnpm install
-pnpm --filter @docture/examples run fetch
 pnpm --filter @docture/examples quick-start
 ```
 
-| Example | Folder | What it teaches | Needs |
-| --- | --- | --- | --- |
-| 01 | [quick-start](https://github.com/YasielCabrera/docture/tree/main/apps/examples/01-quick-start) | `Extractor` wiring, `contract`, and the result envelope | No key |
-| 02 | [contracts-and-schemas](https://github.com/YasielCabrera/docture/tree/main/apps/examples/02-contracts-and-schemas) | contracts vs schemas, `null` ≠ absent, inferred types, any schema library | No key |
-| 03 | [loaders-and-sources](https://github.com/YasielCabrera/docture/tree/main/apps/examples/03-loaders-and-sources) | pdf.js vs MuPDF, text documents, every `DocumentSource`, `pages` | No key |
-| 04 | [capabilities-and-composition](https://github.com/YasielCabrera/docture/tree/main/apps/examples/04-capabilities-and-composition) | typed capabilities, `withRasterizer`, lazy page images | No key |
-| 05 | [your-own-plugins](https://github.com/YasielCabrera/docture/tree/main/apps/examples/05-your-own-plugins) | `defineStrategy`, `defineLoader`, `defineRasterizer` | No key |
-| 06 | [fallback-routing-and-errors](https://github.com/YasielCabrera/docture/tree/main/apps/examples/06-fallback-routing-and-errors) | eleven layouts, two parsers, fourteen typed errors, timeouts | No key |
-| 07 | [with-a-model](https://github.com/YasielCabrera/docture/tree/main/apps/examples/07-with-a-model) | the AI SDK seam, prompts, caching, cost | key |
-| 08 | [long-documents](https://github.com/YasielCabrera/docture/tree/main/apps/examples/08-long-documents) | completion strategies, chunking, merging | key¹ |
-| 09 | [scanned-and-ocr](https://github.com/YasielCabrera/docture/tree/main/apps/examples/09-scanned-and-ocr) | no text layer, OCR as a loader, vision | key / `RUN_OCR=1`¹ |
-| 10 | [classification](https://github.com/YasielCabrera/docture/tree/main/apps/examples/10-classification) | narrowing, custom + LLM classifiers, consensus, trees | key¹ |
-| 11 | [bundles-and-splitting](https://github.com/YasielCabrera/docture/tree/main/apps/examples/11-bundles-and-splitting) | `Process`, splitters, unclassified pages, split cost | key¹ |
-| 12 | [accuracy-and-batch](https://github.com/YasielCabrera/docture/tree/main/apps/examples/12-accuracy-and-batch) | scoring, the truth-completeness trap, `extractBatch` | No key |
-| 13 | [under-the-hood](https://github.com/YasielCabrera/docture/tree/main/apps/examples/13-under-the-hood) | config-driven wiring, read-once, `runPipeline` | No key |
-| 14 | [testing-your-pipeline](https://github.com/YasielCabrera/docture/tree/main/apps/examples/14-testing-your-pipeline) | doubles, fixtures, conformance, mocking a model | No key |
-| 15 | [cli](https://github.com/YasielCabrera/docture/tree/main/apps/examples/15-cli) | `inspect`, `extract`, `classify`, `eval`, a config file | No key² |
-| 16 | [document-conversion](https://github.com/YasielCabrera/docture/tree/main/apps/examples/16-document-conversion) | `DocumentConverter`, TXT/Markdown/HTML/JSON, assets, provenance | No key |
-| 18 | [docling](https://github.com/YasielCabrera/docture/tree/main/apps/examples/18-docling) | native JSON, element/cell evidence and mock service jobs | No key |
-| 19 | [checked-tools-eval](https://github.com/YasielCabrera/docture/tree/main/apps/examples/19-checked-tools-eval) | Checked construction, AI SDK tool with source policy, descriptive calibration | No key |
-| 20 | [input-loaders](https://github.com/YasielCabrera/docture/tree/main/apps/examples/20-input-loaders) | DOCX, EML, Azure mock and selected-page OCR | No key |
-| 21 | [paperless](https://github.com/YasielCabrera/docture/tree/main/apps/examples/21-paperless) | versioned sources and fill-empty plan/apply with a mock server | No key |
-| 22 | [http-service](https://github.com/YasielCabrera/docture/tree/main/apps/examples/22-http-service) | warm HTTP operations and shutdown on an ephemeral port | No key |
-| 23 | [evaluate-a-schema](https://github.com/YasielCabrera/docture/tree/main/apps/examples/23-evaluate-a-schema) | a lab-report spec, a manifest dataset adapter, two experiments, reporters, comparison and gate | No key |
-| 24 | [synthetic-corpus](https://github.com/YasielCabrera/docture/tree/main/apps/examples/24-synthetic-corpus) | a utility-bill model, two templates with printed masks, digital, scan and photo renditions, scored with eval and grounding | No key |
+For a guided first run, follow [your first extraction](/docs/extraction/quick-start).
 
-No key in Needs means no provider key. A superscript 1 marks a partial keyless path; superscript 2 refers to keyless CLI extraction through that folder's config. OCR may require opt-in model downloads.
+| Folder | What it demonstrates | Needs |
+| --- | --- | --- |
+| [quick-start](https://github.com/YasielCabrera/docture/tree/main/apps/examples/quick-start) | Extract a typed result from a local invoice PDF | No key |
+| [contracts-and-schemas](https://github.com/YasielCabrera/docture/tree/main/apps/examples/contracts-and-schemas) | Define a contract and validate invoice fields | No key |
+| [loaders-and-sources](https://github.com/YasielCabrera/docture/tree/main/apps/examples/loaders-and-sources) | Read local files and compare document loaders | No key |
+| [capabilities-and-composition](https://github.com/YasielCabrera/docture/tree/main/apps/examples/capabilities-and-composition) | Add page images with a rasterizer | No key |
+| [your-own-plugins](https://github.com/YasielCabrera/docture/tree/main/apps/examples/your-own-plugins) | Define a strategy for a known invoice layout | No key |
+| [fallback-routing-and-errors](https://github.com/YasielCabrera/docture/tree/main/apps/examples/fallback-routing-and-errors) | Try two invoice strategies and handle failure | No key |
+| [with-a-model](https://github.com/YasielCabrera/docture/tree/main/apps/examples/with-a-model) | Extract invoice fields with an AI SDK model | Provider key |
+| [long-documents](https://github.com/YasielCabrera/docture/tree/main/apps/examples/long-documents) | Process pages from a multipage statement | No key for the primary example |
+| [scanned-and-ocr](https://github.com/YasielCabrera/docture/tree/main/apps/examples/scanned-and-ocr) | Read an image-only statement with OCR | OCR model download |
+| [classification](https://github.com/YasielCabrera/docture/tree/main/apps/examples/classification) | Classify an invoice and a statement | No key |
+| [bundles-and-splitting](https://github.com/YasielCabrera/docture/tree/main/apps/examples/bundles-and-splitting) | Split a statement into account sections | No key |
+| [accuracy-and-batch](https://github.com/YasielCabrera/docture/tree/main/apps/examples/accuracy-and-batch) | Extract several invoices and score against JSON truth | No key |
+| [under-the-hood](https://github.com/YasielCabrera/docture/tree/main/apps/examples/under-the-hood) | Read a PDF once and reuse the loaded document | No key |
+| [testing-your-pipeline](https://github.com/YasielCabrera/docture/tree/main/apps/examples/testing-your-pipeline) | Test extraction against a local PDF and expected data | No key |
+| [cli](https://github.com/YasielCabrera/docture/tree/main/apps/examples/cli) | Inspect and extract a local PDF with a CLI config | No key |
+| [document-conversion](https://github.com/YasielCabrera/docture/tree/main/apps/examples/document-conversion) | Convert a local PDF with `DocumentConverter` | No key |
+| [docling](https://github.com/YasielCabrera/docture/tree/main/apps/examples/docling) | Import native Docling JSON and connect to Docling Serve | No key for JSON import; service for conversion |
+| [checked-tools-eval](https://github.com/YasielCabrera/docture/tree/main/apps/examples/checked-tools-eval) | Construct checked extraction and expose a tool with a source policy | No key for checked extraction |
+| [input-loaders](https://github.com/YasielCabrera/docture/tree/main/apps/examples/input-loaders) | Read DOCX, email, and PDFs through selected loaders | Azure credentials for `azure.ts`; OCR models for `ocr.ts` |
+| [paperless](https://github.com/YasielCabrera/docture/tree/main/apps/examples/paperless) | Read and extract a document from Paperless | Paperless instance and credentials |
+| [http-service](https://github.com/YasielCabrera/docture/tree/main/apps/examples/http-service) | Start an HTTP service and send a local PDF from a client | No key |
+| [evaluate-a-schema](https://github.com/YasielCabrera/docture/tree/main/apps/examples/evaluate-a-schema) | Evaluate invoice PDFs against reviewed truth files | No key |
+| [synthetic-corpus](https://github.com/YasielCabrera/docture/tree/main/apps/examples/synthetic-corpus) | Generate inspectable PDFs with their ground truth | No key |
+
+The examples workspace installs the optional development engines. Model and remote service examples document their configuration in the folder README. OCR engines may download model files on their first run.
+
+Run the local examples and verification from the repository root:
 
 ```sh
 pnpm --filter @docture/examples offline
@@ -46,4 +51,4 @@ pnpm --filter @docture/examples test
 pnpm --filter @docture/examples typecheck
 ```
 
-The offline tour avoids model calls and OCR model downloads; the loaders example still makes a URL-source HTTP request. For the full prerequisites and corpus provenance, read the [examples README](https://github.com/YasielCabrera/docture/tree/main/apps/examples).
+The offline command excludes provider calls, remote services, and OCR model downloads. Read the [examples README](https://github.com/YasielCabrera/docture/tree/main/apps/examples) for commands, document sources, and prerequisites.

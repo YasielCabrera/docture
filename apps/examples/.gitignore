@@ -1,2 +1,3 @@
-documents/
+output/
 .cache/
+*.traineddata*

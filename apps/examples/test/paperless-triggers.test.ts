@@ -1,7 +1,7 @@
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { afterEach, expect, it } from "vitest";
-import { createExampleQueue, createPaperlessIngress, enqueuePostConsume, runPaperlessJob } from "../21-paperless/triggers.js";
+import { createExampleQueue, createPaperlessIngress, enqueuePostConsume, runPaperlessJob } from "../paperless/triggers.js";
 
 const servers: ReturnType<typeof createServer>[] = [];
 afterEach(async () => { await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => { server.closeAllConnections(); server.close(() => resolve()); }))); });

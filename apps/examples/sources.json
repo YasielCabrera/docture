@@ -1,0 +1,45 @@
+[
+  {
+    "name": "Larkspur supply invoice",
+    "source": "https://raw.githubusercontent.com/Egrarobo/apify-actors/main/pdf-tables-to-rows/samples/invoice-us-ruled.pdf",
+    "terms": "https://apify.com/egra_van/pdf-invoice-table-extractor",
+    "license": "CC0-1.0",
+    "sha256": "7156acffdfc3fc9f45e1cf428c8f9c27e03a69f7b9e3e59a254c692ccfe4221e",
+    "pages": 1,
+    "text": "Larkspur Sample Supply Co."
+  },
+  {
+    "name": "Larkfield tax invoice",
+    "source": "https://filedone.ai/sample-files/sample-invoice.pdf",
+    "terms": "https://filedone.ai/sample-files/sample-invoice-pdf",
+    "license": "CC0-1.0",
+    "sha256": "545655fc231453aaf2a6c60b44b3b137d506db0d1d79bff12eeef86044aedb86",
+    "pages": 1,
+    "text": "Larkfield Stationers"
+  },
+  {
+    "name": "Carson Bank statement",
+    "source": "https://www.carsonbank.com/wp-content/uploads/2021/01/Sample-Statement.pdf",
+    "sha256": "f1aa9c97ef0a64fec8fac14f93153d10d1e10c305287d8400db2c2288d14fe67",
+    "pages": 6,
+    "text": "TRUE CHECKING"
+  },
+  {
+    "name": "Impact Bank scanned statement",
+    "source": "https://www.impact-bank.com/user/file/dummy_statement.pdf",
+    "sha256": "a85eec86fe966b0e63d0de592a2a66649265824e93052e534fedfad0a4670c2d",
+    "pages": 2,
+    "text": ""
+  },
+  {
+    "name": "Mixed digital and scanned statement input",
+    "source": "https://www.impact-bank.com/user/file/dummy_statement.pdf",
+    "sha256": "6445ec7bb1fd4546621fa405b119674a76c32ed82469d2310b813f867caf0ebf",
+    "pages": 3,
+    "text": "Larkfield Stationers",
+    "derivedFrom": [
+      "Larkfield tax invoice, page 1",
+      "Impact Bank scanned statement, pages 1 and 2"
+    ]
+  }
+]

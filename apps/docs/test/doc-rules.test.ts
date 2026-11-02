@@ -55,8 +55,8 @@ describe("documentation drift rules", () => {
       await write("packages/docture/README.md", "| `LOAD_FAILED` | Meaning |\n");
       await write("packages/cli/package.json", '{"name":"@docture/cli","bin":"cli.js"}');
       await write("apps/examples/package.json", '{"scripts":{"offline":"pnpm first"}}');
-      await write("apps/examples/README.md", "| 01 | first | Example | — |\n");
-      await write("apps/examples/01-first/index.ts", 'const command = "npx docture extract input.pdf";');
+      await write("apps/examples/README.md", "| [first](first) | Example | None |\n");
+      await write("apps/examples/first/index.ts", 'const command = "npx docture extract input.pdf";');
       await write("apps/docs/components/home/proof.tsx", 'const claim = "Fifteen examples. Eleven need no key.";');
       await write("apps/docs/content/docs/reference/api/raster.mdx",
         "<!-- options: NapiCanvasRasterizerOptions -->\n| Option | Default |\n| --- | --- |\n| `pages` | all |\n");
@@ -66,7 +66,7 @@ describe("documentation drift rules", () => {
       ], { target: ts.ScriptTarget.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler, module: ts.ModuleKind.ESNext, skipLibCheck: true });
       const failures = await checkAdditionalDocs(root, program);
       expect(failures.some((failure) => failure.startsWith("packages/docture/README.md: Error table is missing"))).toBe(true);
-      expect(failures).toContain("apps/examples/01-first/index.ts: Command package has no binary: docture");
+      expect(failures).toContain("apps/examples/first/index.ts: Command package has no binary: docture");
       expect(failures).toContain("apps/docs/components/home/proof.tsx: Example counts disagree with the example census");
       expect(failures).toContain("apps/docs/content/docs/reference/api/raster.mdx: Options table differs from NapiCanvasRasterizerOptions");
     } finally {

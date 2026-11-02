@@ -283,7 +283,7 @@ const model = defineModel(Invoice, { fields: { invoiceNumber: gen.pattern("INV-#
 await writeCorpus("corpus", { model, templates: [classic], seeds: [1, 2, 3], renditions: [digital(), scan({ severity: 0.3 })] });
 ```
 
-See [example 24](apps/examples/24-synthetic-corpus) and the
+See [synthetic corpus example](apps/examples/synthetic-corpus) and the
 [synthetic corpus guide](apps/docs/content/docs/synthetic/quick-start.mdx).
 
 ### CLI
@@ -522,15 +522,13 @@ the [migration guide](apps/docs/content/docs/resources/migration.mdx) for the co
 - **Architecture**: [`packages/docture/ARCHITECTURE.md`](packages/docture/ARCHITECTURE.md) for the layering.
 
 ```bash
-pnpm --filter @docture/examples run fetch    # ~2 MB, once
-pnpm --filter @docture/examples quick-start  # the library in one screen
+pnpm --filter @docture/examples quick-start  # extract from the bundled invoice
 pnpm --filter @docture/examples offline      # run examples without an API key
 ```
 
-The one worth opening is
-[`06-fallback-routing-and-errors`](apps/examples/06-fallback-routing-and-errors): eleven
-real layouts, two hand-written parsers, and a table of exactly which strategy answered
-each document and what was tried before it.
+Start with [`quick-start`](apps/examples/quick-start). Each example keeps its input
+documents beside the code. The [fallback example](apps/examples/fallback-routing-and-errors)
+uses two invoice layouts to show strategy selection and failure handling.
 
 ## Why docture?
 

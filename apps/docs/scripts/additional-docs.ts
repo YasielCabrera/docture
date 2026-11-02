@@ -8,7 +8,7 @@ import { checkCliInvocations, checkErrorTable, checkExampleCounts, checkOptionsT
 async function filesBelow(directory: string): Promise<string[]> {
   const files: string[] = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if (["node_modules", "documents", ".next", ".source"].includes(entry.name)) continue;
+    if (["node_modules", "documents", "output", ".cache", ".next", ".source"].includes(entry.name)) continue;
     const path = join(directory, entry.name);
     if (entry.isDirectory()) files.push(...await filesBelow(path));
     else if ([".md", ".mdx", ".ts", ".tsx"].includes(extname(path))) files.push(path);
@@ -55,13 +55,13 @@ export async function checkAdditionalDocs(root: string, program: ts.Program): Pr
   files.push(...await filesBelow(resolve(root, "apps/docs/content/docs")));
   const exampleRoot = resolve(root, "apps/examples");
   const exampleReadme = await readFile(resolve(exampleRoot, "README.md"), "utf8");
-  const rows = exampleReadme.split("\n").filter((row) => /^\| \d\d \|/.test(row));
+  const rows = exampleReadme.split("\n").filter((row) => /^\| \[/.test(row));
   const needs = rows.map((row) => row.split("|").at(-2)?.trim() ?? "");
   const examplePackage = z.object({ scripts: z.object({ offline: z.string() }) })
     .parse(JSON.parse(await readFile(resolve(exampleRoot, "package.json"), "utf8")));
   const counts = {
-    total: (await readdir(exampleRoot)).filter((name) => /^\d\d-/.test(name)).length,
-    keyless: needs.filter((need) => need.startsWith("—")).length,
+    total: (await readdir(exampleRoot)).filter((name) => existsSync(join(exampleRoot, name, "index.ts"))).length,
+    keyless: needs.filter((need) => need === "None").length,
     partial: needs.filter((need) => need.includes("¹")).length,
     offline: [...examplePackage.scripts.offline.matchAll(/\bpnpm\s+[\w-]+/g)].length,
   };

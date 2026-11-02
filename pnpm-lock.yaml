@@ -190,6 +190,9 @@ importers:
       ai:
         specifier: 7.0.51
         version: 7.0.51(zod@4.4.3)
+      mammoth:
+        specifier: 1.13.0
+        version: 1.13.0
       mupdf:
         specifier: 1.28.0
         version: 1.28.0
@@ -202,6 +205,9 @@ importers:
       pdfkit:
         specifier: 0.19.1
         version: 0.19.1
+      postal-mime:
+        specifier: 4.1.4
+        version: 4.1.4
       ppu-paddle-ocr:
         specifier: 6.3.0
         version: 6.3.0(onnxruntime-node@1.27.0)
