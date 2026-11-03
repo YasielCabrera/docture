@@ -1,0 +1,95 @@
+---
+title: Evaluation run-store types
+description: Run-store contracts, raw-output keys, stored runs, and index records.
+type: reference
+---
+
+Import these names from `@docture/eval`. The [data type index](/docs/evaluation/reference/data-types) links the other type groups and their task guides.
+
+## Run stores
+
+Used in [Save, resume, and re-score evaluation runs](/docs/evaluation/run-history). [`memoryRunStore`](/docs/evaluation/reference/runner#memoryrunstore) and [`fileRunStore`](/docs/evaluation/reference/storage#filerunstore) implement `RunStore`.
+
+### `RawKey`
+
+Addresses one raw processor output.
+
+```ts check
+interface RawKey {
+	readonly experiment: string;
+	readonly caseId: string;
+	readonly epoch: number;
+}
+```
+
+### `RunIndexEntry`
+
+One line of a store's run index, enough to list runs and pick a baseline without reading results.
+
+```ts
+interface RunIndexEntry {
+	readonly id: string;
+	readonly status: RunInfo["status"];
+	readonly startedAt: string;
+	readonly finishedAt?: string;
+	readonly git?: RunInfo["git"];
+	readonly dataset: { readonly id: string; readonly size: number; readonly fingerprint: string };
+	readonly spec: { readonly fingerprint: string };
+	readonly experiments: readonly { readonly id: string; readonly configHash: string }[];
+	readonly rescoredFrom?: string;
+	/** Overall metrics per experiment, present once the run is finalized. */
+	readonly summary?: Readonly<Record<string, MetricValues>>;
+}
+```
+
+### `RunStore`
+
+Where runs live. A file store and an in-memory store both implement it; the runner, resume, `rescore`, baseline resolution and the CLI only call these methods.
+
+```ts
+interface RunStore {
+	/** Register a run with status `in-progress`. Throws `RunStoreError` (`conflict`) for an existing id. */
+	createRun(run: RunInfo): Promise<void>;
+	/** Append one finished row. Rows survive a crash, so an aborted run can resume. */
+	appendCase(runId: string, row: CaseResult): Promise<void>;
+	/** Keep the processor's raw output and scoring signals for re-scoring, replacing an earlier one for the same key. */
+	writeRaw(runId: string, key: RawKey, value: StoredRaw): Promise<void>;
+	/** The stored raw output, or `undefined` when none was kept. Throws `RunStoreError` (`format`) for a damaged one. */
+	readRaw(runId: string, key: RawKey): Promise<StoredRaw | undefined>;
+	/** Run metadata and appended rows, for resume. Throws `RunStoreError` (`not-found`). */
+	openRun(runId: string): Promise<StoredRun>;
+	/** Store the final result and update the index entry's status and summary. */
+	finalize(result: EvalResult): Promise<void>;
+	/** Index entries, oldest first. */
+	listRuns(): Promise<readonly RunIndexEntry[]>;
+	/** The finalized result with its cases. Throws `RunStoreError` (`not-found`) when the run was never finalized. */
+	readResult(runId: string): Promise<EvalResult>;
+}
+```
+
+### `StoredRaw`
+
+A processor's raw output with the scoring signals `rescore` and resume need, kept per job. Not part of the result contract.
+
+```ts
+interface StoredRaw {
+	readonly raw: unknown;
+	readonly confidence?: Readonly<Record<string, number>>;
+	readonly evidence?: readonly FieldEvidence[];
+	/** The experiment config hash of the job that wrote it. Resume reuses the output only when it matches. */
+	readonly configHash?: string;
+	/** The content hash of the case that produced it. Resume reuses the output only when it matches. */
+	readonly caseFingerprint?: string;
+}
+```
+
+### `StoredRun`
+
+A run as stored so far: its metadata and the rows appended before it stopped.
+
+```ts
+interface StoredRun {
+	readonly run: RunInfo;
+	readonly cases: readonly CaseResult[];
+}
+```

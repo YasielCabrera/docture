@@ -8,7 +8,9 @@ import legacyContract from "../lib/legacy-doc-contract.json";
 import { legacyDocs } from "../lib/docs-migration.js";
 import { checkDocsStructure } from "./check-docs-structure.js";
 import { checkAdditionalDocs } from "./additional-docs.js";
-import { checkInboundLinks, checkMetadata, checkOpening, checkOutboundLinks, checkPageType, checkPortableLocalPaths, checkSections, countInstallCommands, versionedInstallSpecs } from "./page-rules.js";
+import { checkInboundLinks, checkMetadata, checkOpening, checkOutboundLinks, checkPageType, checkPortableLocalPaths, checkRepeatedParagraphs, checkSections, countInstallCommands } from "./page-rules.js";
+import { supportedInstallCommands } from "./install-specs.js";
+import { headingSlug } from "./api-symbols.js";
 
 const ROOT = process.cwd();
 const DOCS_ROOT = resolve(ROOT, "content/docs");
@@ -39,22 +41,11 @@ function routeFor(file: string): string {
   return `/docs/${path.replace(/\/index$/, "")}`;
 }
 
-function slugifyHeading(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[`*_~]/g, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/[^\p{Letter}\p{Number}\s-]/gu, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
-
 function anchorsOf(source: string): Set<string> {
   const anchors = new Set<string>();
   const counts = new Map<string, number>();
   for (const match of source.matchAll(/^#{2,6}\s+(.+)$/gm)) {
-    const base = slugifyHeading(match[1] ?? "");
+    const base = headingSlug(match[1] ?? "");
     if (base === "") continue;
     const count = counts.get(base) ?? 0;
     counts.set(base, count + 1);
@@ -198,9 +189,7 @@ async function checkInstallRecipes(files: readonly string[]): Promise<number> {
   for (const file of files) {
     const source = await readFile(file, "utf8");
     count += countInstallCommands(source);
-    for (const spec of versionedInstallSpecs(source)) {
-      fail(`${relative(ROOT, file)}: install commands name packages without versions; drop the version from ${spec}`);
-    }
+    if (file.endsWith(".mdx") && supportedInstallCommands(source) !== source) fail(`${relative(ROOT, file)}: install commands differ from supported engine requirements; run generate:installs`);
     for (const failure of checkPortableLocalPaths(source)) fail(`${relative(ROOT, file)}: ${failure}`);
   }
   return count;
@@ -230,7 +219,7 @@ async function checkNpmInstalls(files: readonly string[]): Promise<void> {
 
 async function checkPages(files: readonly string[]): Promise<void> {
   const pages = await Promise.all(files.map(async (file) => ({ route: routeFor(file), source: await readFile(file, "utf8") })));
-  for (const page of pages) for (const failure of [...checkSections(page), ...checkPageType(page), ...checkOpening(page), ...checkOutboundLinks(page)]) fail(failure);
+  for (const page of pages) for (const failure of [...checkSections(page), ...checkPageType(page), ...checkOpening(page), ...checkOutboundLinks(page), ...checkRepeatedParagraphs(page)]) fail(failure);
   for (const failure of [...checkMetadata(pages), ...checkInboundLinks(pages)]) fail(failure);
 }
 

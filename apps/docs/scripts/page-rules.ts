@@ -1,3 +1,5 @@
+import { transformMarkdownProse } from "../lib/agent-markdown.js";
+
 export const PAGE_TYPES = ["overview", "tutorial", "how-to", "explanation", "reference", "troubleshooting"] as const;
 export type PageType = (typeof PAGE_TYPES)[number];
 
@@ -68,6 +70,24 @@ export function checkPageType({ route, source }: DocPage): string[] {
   if (expected !== undefined && type !== expected) return [`${route}: pages at this location have type ${expected}, not ${type}`];
   if (type === "tutorial" && !/^## Next steps$/m.test(source)) return [`${route}: tutorials end with a "Next steps" section`];
   return [];
+}
+
+export function checkRepeatedParagraphs({ route, source }: DocPage): string[] {
+  const failures: string[] = [];
+  transformMarkdownProse(source, (section) => {
+    let previous: string | undefined;
+    for (const block of section.split(/\n\s*\n/)) {
+      const prose = block.trim();
+      if (/^(?:#|\||<|import\b|---|\{\/\*)/.test(prose) || prose.length < 30) {
+        previous = undefined;
+        continue;
+      }
+      if (prose === previous) failures.push(`${route}: remove the adjacent repeated paragraph: ${prose.slice(0, 80)}`);
+      previous = prose;
+    }
+    return section;
+  });
+  return failures;
 }
 
 const ACRONYMS: Readonly<Record<string, string>> = {

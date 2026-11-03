@@ -16,7 +16,7 @@ Defaults: 10 bins, grouping by `pattern`, target precision 0.99 and minimum supp
 calibrate(result: EvalResult, options?: CalibrationOptions): CalibrationReport
 ```
 
-Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`CalibrationOptions`](/docs/evaluation/reference/calibration#calibrationoptions). Returns [`CalibrationReport`](/docs/evaluation/reference/types#calibrationreport).
+Takes [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult) and [`CalibrationOptions`](/docs/evaluation/reference/calibration#calibrationoptions). Returns [`CalibrationReport`](/docs/evaluation/reference/data-types/analysis#calibrationreport).
 
 Calibrate exact confidence counts. Auto-accept requires a one-sided 95% Clopper-Pearson lower bound. An errored case's omissions count toward `groundTruth` overall and in pattern, field-type and segment groups; `by: "path"` groups count only scored cases, because an errored case has no concrete paths.
 
@@ -26,11 +26,7 @@ Calibrate exact confidence counts. Auto-accept requires a one-sided 95% Clopper-
 mergeCalibration(a: CalibrationReport, b: CalibrationReport): CalibrationReport
 ```
 
-Takes and returns [`CalibrationReport`](/docs/evaluation/reference/types#calibrationreport).
-
-Takes and returns [`CalibrationReport`](/docs/evaluation/reference/types#calibrationreport).
-
-Takes and returns [`CalibrationReport`](/docs/evaluation/reference/types#calibrationreport).
+Takes and returns [`CalibrationReport`](/docs/evaluation/reference/data-types/analysis#calibrationreport).
 
 Merge reports without losing score ties, AUROC or average precision.
 
@@ -40,7 +36,7 @@ Merge reports without losing score ties, AUROC or average precision.
 calibrationSection(options?: CalibrationOptions): (result: EvalResult) => { calibration: CalibrationReport; }
 ```
 
-Takes [`CalibrationOptions`](/docs/evaluation/reference/calibration#calibrationoptions). Returns a [`ResultSection`](/docs/evaluation/reference/runner#resultsection) that reads an [`EvalResult`](/docs/evaluation/reference/types#evalresult) and sets its `calibration` to a [`CalibrationReport`](/docs/evaluation/reference/types#calibrationreport).
+Takes [`CalibrationOptions`](/docs/evaluation/reference/calibration#calibrationoptions). Returns a [`ResultSection`](/docs/evaluation/reference/runner#resultsection) that reads an [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult) and sets its `calibration` to a [`CalibrationReport`](/docs/evaluation/reference/data-types/analysis#calibrationreport).
 
 Add calibration through the runner's result sections hook.
 

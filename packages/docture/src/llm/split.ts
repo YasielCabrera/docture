@@ -56,7 +56,7 @@ export interface SplitterOptions {
   readonly format?: RasterFormat;
   /** Cap the pages an EAGER split sends in one request. Default 40. */
   readonly maxEagerPages?: number;
-  /** AI SDK telemetry. Inputs and outputs are not recorded unless enabled here. */
+  /** AI SDK telemetry. Recording defaults to false; integration callbacks still receive prompts and answers. */
   readonly telemetry?: LlmTelemetryOptions;
 }
 

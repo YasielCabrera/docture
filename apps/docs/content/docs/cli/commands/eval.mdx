@@ -7,6 +7,8 @@ type: reference
 Runs the evaluation in docture.eval.ts and works with the runs it stores. Every
 subcommand uses the @docture/eval APIs, so results match the library. Files without a subcommand run quick mode.
 
+Examples use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Arguments
 
 | Argument | Required | Meaning |
@@ -23,9 +25,9 @@ subcommand uses the @docture/eval APIs, so results match the library. Files with
 ## Examples
 
 ```sh
-docture eval run
-docture eval compare <baseRunId> latest
-docture eval corpus/*.pdf -s ./invoice.ts -m openai/gpt-5 --truth corpus/truth --min-f1 0.95
+npx docture eval run
+npx docture eval compare <baseRunId> latest
+npx docture eval corpus/*.pdf -s ./invoice.ts -m openai/gpt-5 --truth corpus/truth --min-f1 0.95
 ```
 
 ## Behavior

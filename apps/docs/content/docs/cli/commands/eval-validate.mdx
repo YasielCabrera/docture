@@ -6,6 +6,8 @@ type: reference
 
 Check every case's ground truth against the spec and list all problems.
 
+Examples use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Flags
 
 | Flag | Default | Meaning |
@@ -15,5 +17,43 @@ Check every case's ground truth against the spec and list all problems.
 | `--quiet`, `-q` | Not set | Only failures and the first hint per error code on stderr |
 | `--no-color` | Not set | Never emit ANSI colour |
 | `--help`, `-h` | Not set | Show this help |
+
+## Output examples
+
+These outputs use the configured invoices dataset with one case, invoice-001, and a deterministic parser experiment. No model runs. Replace the case ID and experiment names with those in your configuration.
+
+### Successful command
+
+```sh
+npx docture eval validate
+```
+
+Exit code: `0`.
+
+`stdout`:
+
+```txt
+1 case of invoices satisfy the spec.
+```
+
+`stderr` is empty.
+
+### Failed command
+
+```sh
+npx docture eval validate
+```
+
+Exit code: `1`.
+
+`stdout` is empty.
+
+`stderr`:
+
+```txt
+error [GROUND_TRUTH_INVALID] Ground truth for case "invoice-001" is invalid:
+  - invoiceNumber: expected string, got the number 42
+      The expected values do not satisfy the eval spec. Correct the listed paths in the case's expected file, or change the spec if the schema is what changed.
+```
 
 See [Evaluate from the CLI](/docs/cli/evaluation) and [input and output behavior](/docs/cli/inputs-and-outputs).

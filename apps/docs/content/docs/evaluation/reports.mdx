@@ -6,6 +6,8 @@ type: how-to
 
 Reports render a finished `EvalResult` as a scoreboard, HTML, Markdown, CSV, JSON, or JUnit. Render saved results, write reports during a run, and customize their output.
 
+For the CLI commands on this page, complete the [CLI quick start](/docs/cli/quick-start) to install the executable in your project.
+
 ## Render a saved result
 
 Choose one reporter entry for the output you need. Terminal, JSON, Markdown, CSV, JUnit, HTML, and custom templates consume the same `EvalResult`.
@@ -42,4 +44,4 @@ Customize columns with `defineColumn`, compose Markdown sections, add data-drive
 
 Reporter failures become result warnings. Inspect warnings before treating a missing artifact as a successful report.
 
-Use `docture eval report` to render saved runs from the [CLI](/docs/cli/commands). See the [reporter API index](/docs/evaluation/reference).
+Use `npx docture eval report` to render saved runs from the [CLI](/docs/cli/commands). See the [reporter API index](/docs/evaluation/reference).

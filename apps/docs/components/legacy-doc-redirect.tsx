@@ -8,5 +8,5 @@ export function LegacyDocRedirect({ entry }: { entry: LegacyDoc }) {
     window.location.replace(legacyDestination(entry, window.location.hash, window.location.search));
   }, [entry]);
 
-  return <p>This page moved. <a href={entry.to}>Open the current documentation.</a></p>;
+  return <main id="nd-page" tabIndex={-1}><p>This page moved. <a href={entry.to}>Open the current documentation.</a></p></main>;
 }

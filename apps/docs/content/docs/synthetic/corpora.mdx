@@ -2,9 +2,12 @@
 title: Build reproducible synthetic corpora
 description: Write verified cases, resume unchanged work, and preserve their provenance.
 type: how-to
+tasks: ["Generate a synthetic corpus"]
 ---
 
 `writeCorpus` renders many seeds, scenarios, and templates into a directory of verified cases that `@docture/eval` reads. Install the [degradation engines](/docs/synthetic/degradation) for scanned renditions.
+
+For the CLI commands on this page, complete the [CLI quick start](/docs/cli/quick-start) to install the executable in your project.
 
 ## Write cases
 
@@ -40,7 +43,7 @@ const report = await writeCorpus("corpus", {
 	dependencies: {
 		customers: customerPool,
 		logo: logoBytes,
-		renderer: "reference-react-pdf@4.5.1",
+		renderer: "invoice-renderer-v2",
 		rules: "billing-policy-2",
 	},
 	createdAt: "2025-11-01T00:00:00Z",
@@ -63,11 +66,11 @@ Define `docture.synth.ts` with `defineSynthConfig`. It accepts model, templates,
 
 | Command | Result |
 | --- | --- |
-| `docture synth list` | Lists templates, scenarios, and rendition profiles |
-| `docture synth gen --seed 7` | Prints sampled values as JSON |
-| `docture synth render --seed 7 --out bill.pdf` | Writes a PDF and `bill.pdf.labels.json` |
-| `docture synth corpus --seeds 1-40 --renditions digital,scan:0.3,photo:0.6` | Writes the corpus and manifest |
-| `docture synth verify corpus` | Verifies digital cases |
+| `npx docture synth list` | Lists templates, scenarios, and rendition profiles |
+| `npx docture synth gen --seed 7` | Prints sampled values as JSON |
+| `npx docture synth render --seed 7 --out bill.pdf` | Writes a PDF and `bill.pdf.labels.json` |
+| `npx docture synth corpus --seeds 1-40 --renditions digital,scan:0.3,photo:0.6` | Writes the corpus and manifest |
+| `npx docture synth verify corpus` | Verifies digital cases |
 
 `render` and `corpus` accept template and scenario selectors and `--no-verify`. Rendition selectors are `digital` or `scan`, `scan-lq`, `photo`, and `fax` with a severity, such as `photo:0.6`. Commands exit 0 on success, 1 for a failed rendering or verification, and 2 for a usage error. See [command reference](/docs/cli/commands).
 

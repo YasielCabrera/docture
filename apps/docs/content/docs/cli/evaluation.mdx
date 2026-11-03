@@ -6,6 +6,8 @@ type: how-to
 
 `docture eval` runs the evaluation described in `docture.eval.ts`, works with the runs it stores, and scores files against ground truth without a config. To write the config, start with the [evaluation quick start](/docs/evaluation/quick-start). To fail a CI job on thresholds or regressions, see [Gate evaluation regressions in CI](/docs/evaluation/ci). Every flag is listed in the [`docture eval run` reference](/docs/cli/commands/eval-run).
 
+These commands use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Run the configured evaluation
 
 The config names the dataset, the spec, the experiments, the gate, and the baseline:
@@ -30,7 +32,7 @@ export default defineEvalConfig({
 Run every experiment over the dataset:
 
 ```sh
-docture eval run
+npx docture eval run
 ```
 
 `eval run` stores the run, writes the reporters, prints the scoreboard, and applies the gate. The config may also set `sections`, analyses such as `calibrationSection()` that run before the gate and the reporters.
@@ -52,7 +54,7 @@ These flags narrow or repeat a run:
 `--reporter` accepts `terminal`, `html`, `md`, `json`, `csv`, `junit`, or a module path, comma-separated or repeated. It replaces the config's reporters for that command. Files go to `--out`, by default `eval-report`:
 
 ```sh
-docture eval run --reporter html,junit --out eval-report
+npx docture eval run --reporter html,junit --out eval-report
 ```
 
 A module exports a reporter as `default` or `reporter`, or a function `(result) => string`. The CLI writes the function's text to the module's exported `fileName`, or to `<module name>.txt`. The text scoreboard always prints, so `terminal` changes nothing.
@@ -86,7 +88,7 @@ Runs are stored in the config's `store`, by default `.docture/eval` beside the c
 Quick mode scores each document against its ground truth with the loose comparisons of `looseEval`, using `docture.config.ts` for extraction. `docture eval <files...>` and `docture eval run <files...>` are the same command:
 
 ```sh
-docture eval 'corpus/*.pdf' \
+npx docture eval 'corpus/*.pdf' \
   -s ./invoice.ts \
   -m openai/gpt-5 \
   --truth corpus/truth \

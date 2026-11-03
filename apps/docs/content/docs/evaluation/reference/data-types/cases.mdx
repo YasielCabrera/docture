@@ -1,0 +1,76 @@
+---
+title: Evaluation case and processor types
+description: Document boxes, expected locations, source evidence, tags, and processor usage records.
+type: reference
+---
+
+Import these names from `@docture/eval`. The [data type index](/docs/evaluation/reference/data-types) links the other type groups and their task guides.
+
+## Cases and processors
+
+Used in [Connect an evaluation processor](/docs/evaluation/processors) and [Prepare evaluation datasets](/docs/evaluation/datasets).
+
+### `Box`
+
+A rectangle on a page in PDF points with a top-left origin, Docture's layout convention.
+
+```ts check
+interface Box {
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+}
+```
+
+### `ExpectedLocation`
+
+Where a ground-truth value appears in the document, for grounding.
+
+```ts
+interface ExpectedLocation {
+	/** Physical page number, starting at 1. */
+	readonly pageNumber: number;
+	readonly box?: Box;
+}
+```
+
+### `FieldEvidence`
+
+Where a processor found a value. Neutral, so a non-Docture processor can supply it.
+
+```ts
+interface FieldEvidence {
+	/** Concrete path in the processor's output, such as `lineItems[0].amount`. */
+	readonly path: string;
+	readonly pageNumber: number;
+	readonly box?: Box;
+	/** Processor-specific evidence status, such as Docture's `verified` or `cited-unverified`. */
+	readonly status?: string;
+	readonly confidence?: number;
+}
+```
+
+### `TagValue`
+
+A value used to slice results: a tag, a group or a derived bucket.
+
+```ts check
+type TagValue = string | number | boolean;
+```
+
+### `UsageInfo`
+
+Usage a processor reports for one case. Every field is optional because processors measure different things.
+
+```ts check
+interface UsageInfo {
+	readonly inputTokens?: number;
+	readonly outputTokens?: number;
+	readonly calls?: number;
+	readonly pages?: number;
+	/** Absent when no price was known. */
+	readonly costUsd?: number;
+	readonly wallMs?: number;
+}
+```

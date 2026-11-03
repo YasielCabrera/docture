@@ -10,7 +10,10 @@
         "VERCEL",
         "VERCEL_URL",
         "VERCEL_PROJECT_PRODUCTION_URL",
-        "VERCEL_ENV"
+        "VERCEL_ENV",
+        "DOCS_REVISION",
+        "GITHUB_SHA",
+        "VERCEL_GIT_COMMIT_SHA"
       ],
       "inputs": [
         "$TURBO_EXTENDS$",

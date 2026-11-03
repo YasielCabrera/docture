@@ -2,15 +2,16 @@
 title: Extract your first document
 description: Generate a sample invoice PDF and extract typed fields from it without an API key.
 type: tutorial
+tasks: ["Extract invoice fields", "Read structured data from a PDF"]
 ---
 
-In this tutorial you generate a sample invoice PDF, define the fields you want from it, and extract them with a small parser. Every step runs locally on Node.js 22 or newer. You need a model API key only for the optional last step.
+In this tutorial you generate a sample invoice PDF, define the fields you want from it, and extract them with a small parser. Every step runs locally on Node.js 22.18 or newer, including the PDF.js engine. You need a model API key only for the optional last step.
 
 ## Install
 
 ```sh
-npm install docture zod pdfjs-dist
-npm install --save-dev tsx pdfkit
+npm install docture zod@^4.1.8 pdfjs-dist@^6.2.108
+npm install --save-dev tsx 'pdfkit@>=0.17.2 <0.21.0'
 ```
 
 `pdfjs-dist` reads the text layer of a PDF. `pdfkit` draws the sample invoice and `tsx` runs the scripts, so both are development dependencies. Docture declares `pdfjs-dist` and `pdfkit` as optional peers, so you install them explicitly. See [installation](/docs/getting-started/installation) for other document engines and model providers.
@@ -77,7 +78,7 @@ read-labels used 0 model tokens
 A parser reads only the layouts you write it for. To extract from documents you have not seen, let a model read the text. Install the AI SDK and the OpenAI provider:
 
 ```sh
-npm install ai @ai-sdk/openai
+npm install ai@7 @ai-sdk/openai
 ```
 
 Create `extract-with-a-model.mts`:

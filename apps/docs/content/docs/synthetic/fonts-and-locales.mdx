@@ -24,6 +24,8 @@ HTML templates embed fonts as data URLs in CSS. Keep the Chromium build and font
 
 ## Rebuild after changing fonts
 
-Changing a font or asset captured by a template does not change its function source fingerprint. Change the corpus `createdAt` or rebuild into a new directory after changing those inputs.
+Pass the font bytes and other captured assets in `writeCorpus.dependencies`. For example, if a template draws with `fontBytes`, include `dependencies: { regularFont: fontBytes }` in its corpus plan. Add explicit revisions for imported formatting or drawing helpers as well.
+
+The writer hashes those declarations, so changed fonts or helper revisions rewrite saved cases while retaining their IDs. A function source fingerprint cannot discover arbitrary captured values. Keep `createdAt` for the document date. Rebuild into a fresh directory only when an input was not declared.
 
 See [formatting and font APIs](/docs/synthetic/reference/templates#locales) and [corpus reproducibility](/docs/synthetic/corpora#reproduce-a-corpus).

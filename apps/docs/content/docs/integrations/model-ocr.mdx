@@ -9,7 +9,7 @@ type: reference
 ## Install
 
 ```sh
-npm install docture pdfjs-dist @napi-rs/canvas ai @ai-sdk/openai zod
+npm install docture pdfjs-dist@^6.2.108 @napi-rs/canvas@^1.0.10 ai@7 @ai-sdk/openai zod@^4.1.8
 ```
 
 Any AI SDK provider with image input works in place of `@ai-sdk/openai`. The loader needs a [rasterizer](/docs/integrations/rasterizers) to render the pages, here `NapiCanvasRasterizer`.
@@ -96,7 +96,7 @@ llmOcr(options: LlmOcrLoaderOptions): LlmOcrLoader
 | `temperature` | `0` | Sampling temperature. |
 | `providerOptions` | None | Provider-specific request settings. Part of the cache key. |
 | `maxRetries` | `2` | AI SDK retries for a failed call. |
-| `telemetry` | None | AI SDK telemetry. Calls use the function ID `docture.vision.llm-ocr`. Inputs and outputs are not recorded unless enabled here. |
+| `telemetry` | None | AI SDK telemetry. Calls use the function ID `docture.vision.llm-ocr`. Recording flags default to false, but integration callbacks still receive prompts and answers. See [telemetry data handling](/docs/extraction/telemetry#control-what-gets-recorded). |
 
 ### `LlmOcrElement`
 

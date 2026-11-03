@@ -16,7 +16,7 @@ Import the runner and the processor contract from `@docture/eval/runner` to proc
 runEval<T>(options: RunEvalOptions<T>): Promise<EvalResult>
 ```
 
-Takes [`RunEvalOptions`](/docs/evaluation/reference/runner#runevaloptions). Returns [`EvalResult`](/docs/evaluation/reference/types#evalresult).
+Takes [`RunEvalOptions`](/docs/evaluation/reference/runner#runevaloptions). Returns [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult).
 
 Run every case through every experiment with bounded concurrency and return the stored result. Lanes share one cursor, and the first lane failure aborts the others. Rows interrupted by an abort are dropped so a resume extracts them again. `dispose` runs once on success, failure and abort: on success its failures become warnings; on failure the original error is thrown with `disposalErrors` attached. Reporter failures become warnings, persisted after every hook ran.
 
@@ -28,7 +28,7 @@ When `extract` throws a value with a `usage` member, such as Docture's `Extracti
 memoryRunStore(): RunStore
 ```
 
-Returns [`RunStore`](/docs/evaluation/reference/types#runstore).
+Returns [`RunStore`](/docs/evaluation/reference/data-types/stores#runstore).
 
 Create an isolated in-memory store, including raw outputs for re-scoring.
 
@@ -38,7 +38,7 @@ Create an isolated in-memory store, including raw outputs for re-scoring.
 rescore<T>(store: RunStore, runId: string, spec: EvalSpec<T>, options?: RescoreOptions<T>): Promise<EvalResult>
 ```
 
-Takes [`RunStore`](/docs/evaluation/reference/types#runstore), [`EvalSpec`](/docs/evaluation/reference/types#evalspec), and [`RescoreOptions`](/docs/evaluation/reference/runner#rescoreoptions). Returns [`EvalResult`](/docs/evaluation/reference/types#evalresult).
+Takes [`RunStore`](/docs/evaluation/reference/data-types/stores#runstore), [`EvalSpec`](/docs/evaluation/reference/data-types/specs#evalspec), and [`RescoreOptions`](/docs/evaluation/reference/runner#rescoreoptions). Returns [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult).
 
 Score a stored run again from its raw outputs, without calling `extract`, and store the outcome as a new run whose `run.rescoredFrom` names the source run. The source run is never changed. Warnings, comparison and gate describe the new run, so they come from `options`, not from the source.
 

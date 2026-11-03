@@ -6,6 +6,8 @@ type: how-to
 
 The document commands read paths, globs, http(s) URLs, or stdin, and report results as one JSON envelope, NDJSON lines, or text.
 
+These commands use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Output streams
 
 `extract`, `convert`, `classify`, `inspect`, and `eval run` accept `--format json|ndjson|text`. `extract` defaults to JSON;
@@ -50,7 +52,7 @@ subcommands print eval's own versioned records with `--format json`.
 Diagnostics go to stderr. To read an extracted value:
 
 ```sh
-docture extract invoice.pdf -s ./invoice.ts -m openai/gpt-5 | jq '.results[0].data.total'
+npx docture extract invoice.pdf -s ./invoice.ts -m openai/gpt-5 | jq '.results[0].data.total'
 ```
 
 With one input, `extract --out <file>` writes the envelope. `--out <directory>/`
@@ -77,7 +79,7 @@ follows the selected format.
 ## Batches
 
 ```sh
-docture extract 'invoices/*.pdf' \
+npx docture extract 'invoices/*.pdf' \
   -s ./invoice.ts \
   -m openai/gpt-5 \
   --out out/ \
@@ -94,7 +96,7 @@ One document failure does not stop the remaining files.
 A `-` file argument reads the document from stdin:
 
 ```sh
-curl -s https://example.com/invoice.pdf | docture extract - -s ./invoice.ts -m openai/gpt-5
+curl -s https://example.com/invoice.pdf | npx docture extract - -s ./invoice.ts -m openai/gpt-5
 ```
 
 `extract`, `convert`, `classify`, `inspect`, `review`, and quick-mode `eval` accept it. The result is labelled `stdin`. Directory output

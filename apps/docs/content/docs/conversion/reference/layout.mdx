@@ -22,13 +22,13 @@ elements. The detection rules that create them are on separate pages:
 One page of the normalized layout.
 
 {/* options: LayoutPage */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `pageNumber` | `number` | One-based page number in the original document. |
-| `width` | `number` | Page width in PDF points. |
-| `height` | `number` | Page height in PDF points. |
-| `elements` | `readonly DocumentElement[]` | Every element that starts on this page, in reading order. |
-| `evidence` | `readonly SourceEvidence[]` | Native element and table-cell evidence, when the input provides it. See [native element evidence](/docs/conversion/reference/evidence#native-element-evidence). |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `pageNumber` | `number` | Yes | One-based page number in the original document. |
+| `width` | `number` | Yes | Page width in PDF points. |
+| `height` | `number` | Yes | Page height in PDF points. |
+| `elements` | `readonly DocumentElement[]` | Yes | Every element that starts on this page, in reading order. |
+| `evidence` | `readonly SourceEvidence[]` | No | Native element and table-cell evidence, when the input provides it. See [native element evidence](/docs/conversion/reference/evidence#native-element-evidence). |
 
 A page lists its running headers first and its running footers last, before the page
 break.
@@ -64,52 +64,52 @@ A switch over `DocumentElement["kind"]` must handle the two furniture kinds,
 A heading.
 
 {/* options: HeadingElement */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `kind` | `"heading"` | Discriminant. |
-| `id` | `string` | Element ID. |
-| `provenance` | `ElementProvenance` | Source location. |
-| `level` | `1 \| 2 \| 3 \| 4 \| 5 \| 6` | Heading level. |
-| `text` | `string` | Plain text. |
-| `runs` | `readonly InlineText[]` | Text runs with link targets. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `kind` | `"heading"` | Yes | Discriminant. |
+| `id` | `string` | Yes | Element ID. |
+| `provenance` | `ElementProvenance` | Yes | Source location. |
+| `level` | `1 \| 2 \| 3 \| 4 \| 5 \| 6` | Yes | Heading level. |
+| `text` | `string` | Yes | Plain text. |
+| `runs` | `readonly InlineText[]` | Yes | Text runs with link targets. |
 
 ### `ParagraphElement`
 
 A paragraph of body text.
 
 {/* options: ParagraphElement */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `kind` | `"paragraph"` | Discriminant. |
-| `id` | `string` | Element ID. |
-| `provenance` | `ElementProvenance` | Source location. A paragraph that continues across a page break has `continuations`. |
-| `text` | `string` | Plain text. |
-| `runs` | `readonly InlineText[]` | Text runs with link targets. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `kind` | `"paragraph"` | Yes | Discriminant. |
+| `id` | `string` | Yes | Element ID. |
+| `provenance` | `ElementProvenance` | Yes | Source location. A paragraph that continues across a page break has `continuations`. |
+| `text` | `string` | Yes | Plain text. |
+| `runs` | `readonly InlineText[]` | Yes | Text runs with link targets. |
 
 ### `CodeElement`
 
 A block of preformatted code.
 
 {/* options: CodeElement */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `kind` | `"code"` | Discriminant. |
-| `id` | `string` | Element ID. |
-| `provenance` | `ElementProvenance` | Source location. |
-| `text` | `string` | The code, with its line breaks. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `kind` | `"code"` | Yes | Discriminant. |
+| `id` | `string` | Yes | Element ID. |
+| `provenance` | `ElementProvenance` | Yes | Source location. |
+| `text` | `string` | Yes | The code, with its line breaks. |
 
 ### `ListElement`
 
 An ordered or unordered list.
 
 {/* options: ListElement */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `kind` | `"list"` | Discriminant. |
-| `id` | `string` | Element ID. |
-| `provenance` | `ElementProvenance` | Source location. |
-| `ordered` | `boolean` | Whether the list is numbered. |
-| `items` | `readonly { text; runs; marker? }[]` | One entry per item. `marker` keeps the original presentation marker for exact TXT output. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `kind` | `"list"` | Yes | Discriminant. |
+| `id` | `string` | Yes | Element ID. |
+| `provenance` | `ElementProvenance` | Yes | Source location. |
+| `ordered` | `boolean` | Yes | Whether the list is numbered. |
+| `items` | `readonly { text; runs; marker? }[]` | Yes | One entry per item. `marker` keeps the original presentation marker for exact TXT output. |
 
 ### `TableElement`
 
@@ -117,16 +117,16 @@ A table. The [table detection rules](/docs/conversion/reference/tables) describe
 header rows, and spans are found.
 
 {/* options: TableElement */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `kind` | `"table"` | Discriminant. |
-| `id` | `string` | Element ID. |
-| `provenance` | `ElementProvenance` | Source location. A table that continues across a page break has `continuations`. |
-| `rows` | `readonly (readonly string[])[]` | Cell text by row. Every row has one slot per column when `spans` is present. |
-| `headerRows` | `number` | Leading rows that label columns, from `0` to `rows.length`. |
-| `spans` | `readonly TableCellSpan[]` | Merged cells, sorted by row and then column. Absent when every cell is 1x1. |
-| `rowProvenance` | `readonly ProvenanceSegment[]` | One segment per row, index-aligned with `rows`, with that row's page, line box, source IDs, and line ID. Present on tables built from positioned lines. |
-| `sourceText` | `string` | The original loader lines, kept for exact TXT output. It includes a header row repeated at the top of a continuation page, which `rows` drops. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `kind` | `"table"` | Yes | Discriminant. |
+| `id` | `string` | Yes | Element ID. |
+| `provenance` | `ElementProvenance` | Yes | Source location. A table that continues across a page break has `continuations`. |
+| `rows` | `readonly (readonly string[])[]` | Yes | Cell text by row. Every row has one slot per column when `spans` is present. |
+| `headerRows` | `number` | Yes | Leading rows that label columns, from `0` to `rows.length`. |
+| `spans` | `readonly TableCellSpan[]` | No | Merged cells, sorted by row and then column. Absent when every cell is 1x1. |
+| `rowProvenance` | `readonly ProvenanceSegment[]` | No | One segment per row, index-aligned with `rows`, with that row's page, line box, source IDs, and line ID. Present on tables built from positioned lines. |
+| `sourceText` | `string` | No | The original loader lines, kept for exact TXT output. It includes a header row repeated at the top of a continuation page, which `rows` drops. |
 
 `parseDoctureDocument()` rejects a saved table whose spans break the
 [`TableCellSpan`](#tablecellspan) rules, and `rowProvenance` whose length differs from
@@ -137,12 +137,12 @@ header rows, and spans are found.
 A merged table cell.
 
 {/* options: TableCellSpan */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `row` | `number` | Zero-based anchor row. |
-| `col` | `number` | Zero-based anchor column. |
-| `rowSpan` | `number` | Rows covered, at least `1`. |
-| `colSpan` | `number` | Columns covered, at least `1`. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `row` | `number` | Yes | Zero-based anchor row. |
+| `col` | `number` | Yes | Zero-based anchor column. |
+| `rowSpan` | `number` | Yes | Rows covered, at least `1`. |
+| `colSpan` | `number` | Yes | Columns covered, at least `1`. |
 
 The cell's text is in the anchor slot `rows[row][col]`, and every other slot it covers
 holds `""`. Spans stay inside the grid, do not overlap, cover more than one cell, and never
@@ -153,25 +153,25 @@ cross the `headerRows` boundary. Rows have equal length when spans are present.
 An embedded image.
 
 {/* options: FigureElement */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `kind` | `"figure"` | Discriminant. |
-| `id` | `string` | Element ID. |
-| `provenance` | `ElementProvenance` | Source location. |
-| `assetId` | `string` | The `id` of the matching `ConversionAsset`. |
-| `alt` | `string` | Alternative text from the source, when present. |
-| `caption` | `string` | Caption text, when present. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `kind` | `"figure"` | Yes | Discriminant. |
+| `id` | `string` | Yes | Element ID. |
+| `provenance` | `ElementProvenance` | Yes | Source location. |
+| `assetId` | `string` | Yes | The `id` of the matching `ConversionAsset`. |
+| `alt` | `string` | No | Alternative text from the source, when present. |
+| `caption` | `string` | No | Caption text, when present. |
 
 ### `PageBreakElement`
 
 The end of a page. Its ID is `p<page>-page-break`.
 
 {/* options: PageBreakElement */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `kind` | `"page-break"` | Discriminant. |
-| `id` | `string` | Element ID. |
-| `provenance` | `ElementProvenance` | Source location. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `kind` | `"page-break"` | Yes | Discriminant. |
+| `id` | `string` | Yes | Element ID. |
+| `provenance` | `ElementProvenance` | Yes | Source location. |
 
 ### `PageHeaderElement`
 
@@ -180,14 +180,14 @@ A running header. Markdown and HTML omit it. TXT and JSON keep it. The
 becomes one.
 
 {/* options: PageHeaderElement */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `kind` | `"page-header"` | Discriminant. |
-| `id` | `string` | Element ID. |
-| `provenance` | `ElementProvenance` | Source location. |
-| `text` | `string` | Plain text. |
-| `runs` | `readonly InlineText[]` | Text runs with link targets. |
-| `evidence` | `FurnitureEvidence` | Why the line is furniture. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `kind` | `"page-header"` | Yes | Discriminant. |
+| `id` | `string` | Yes | Element ID. |
+| `provenance` | `ElementProvenance` | Yes | Source location. |
+| `text` | `string` | Yes | Plain text. |
+| `runs` | `readonly InlineText[]` | Yes | Text runs with link targets. |
+| `evidence` | `FurnitureEvidence` | Yes | Why the line is furniture. |
 
 ### `PageFooterElement`
 
@@ -195,14 +195,14 @@ A running footer, such as a page number. It has the same fields as `PageHeaderEl
 with `kind: "page-footer"`.
 
 {/* options: PageFooterElement */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `kind` | `"page-footer"` | Discriminant. |
-| `id` | `string` | Element ID. |
-| `provenance` | `ElementProvenance` | Source location. |
-| `text` | `string` | Plain text. |
-| `runs` | `readonly InlineText[]` | Text runs with link targets. |
-| `evidence` | `FurnitureEvidence` | Why the line is furniture. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `kind` | `"page-footer"` | Yes | Discriminant. |
+| `id` | `string` | Yes | Element ID. |
+| `provenance` | `ElementProvenance` | Yes | Source location. |
+| `text` | `string` | Yes | Plain text. |
+| `runs` | `readonly InlineText[]` | Yes | Text runs with link targets. |
+| `evidence` | `FurnitureEvidence` | Yes | Why the line is furniture. |
 
 ### `FurnitureEvidence`
 
@@ -222,10 +222,10 @@ it from text that repeats in the top or bottom band of several pages.
 A run of text with an optional link target.
 
 {/* options: InlineText */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `text` | `string` | The run's text. |
-| `href` | `string` | The link target, when the run is a link. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `text` | `string` | Yes | The run's text. |
+| `href` | `string` | No | The link target, when the run is a link. |
 
 ### `ElementProvenance`
 
@@ -233,13 +233,13 @@ Where an element came from. It extends [`ProvenanceSegment`](/docs/conversion/re
 with the later pages of a continued element.
 
 {/* options: ElementProvenance */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `pageNumber` | `number` | The page where the element starts. |
-| `box` | `LayoutBox` | The element's region on that page, in PDF points with a top-left origin. |
-| `sourceIds` | `readonly string[]` | Stable IDs of the loader blocks or lines on that page. |
-| `lineIds` | `readonly LineSourceId[]` | Canonical IDs of the positioned lines on that page. Absent when the page has no positioned lines. |
-| `continuations` | `readonly ProvenanceSegment[]` | One segment per later page of a table or paragraph that continues across a page break, in page order, starting with the next page. Absent when the element is page-local. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `pageNumber` | `number` | Yes | The page where the element starts. |
+| `box` | `LayoutBox` | Yes | The element's region on that page, in PDF points with a top-left origin. |
+| `sourceIds` | `readonly string[]` | Yes | Stable IDs of the loader blocks or lines on that page. |
+| `lineIds` | `readonly LineSourceId[]` | No | Canonical IDs of the positioned lines on that page. Absent when the page has no positioned lines. |
+| `continuations` | `readonly ProvenanceSegment[]` | No | One segment per later page of a table or paragraph that continues across a page break, in page order, starting with the next page. Absent when the element is page-local. |
 
 Read every page's share with [`provenanceSegments()`](/docs/conversion/reference/continuations#provenancesegments).
 `parseDoctureDocument()` rejects continuations on other element kinds and continuations

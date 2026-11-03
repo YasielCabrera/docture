@@ -89,6 +89,22 @@ html {
   --fd-header-height: var(--site-header-height);
 }
 
+.docs-skip-link {
+  position: fixed;
+  inset-block-start: 0.5rem;
+  inset-inline-start: 1rem;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  color: var(--color-fd-foreground);
+  background: var(--color-fd-background);
+  border: 2px solid var(--color-brand);
+  transform: translateY(-200%);
+}
+
+.docs-skip-link:focus {
+  transform: translateY(0);
+}
+
 .site-header {
   contain: inline-size;
   position: sticky;

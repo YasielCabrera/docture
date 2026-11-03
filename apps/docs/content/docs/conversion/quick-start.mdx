@@ -2,6 +2,7 @@
 title: Convert your first PDF
 description: Generate a sample invoice PDF and convert it to Markdown with PDF.js, without a model or API key.
 type: tutorial
+tasks: ["PDF to Markdown", "Convert a PDF without a model"]
 ---
 
 In this tutorial you generate a sample invoice PDF, convert it to Markdown, and check the
@@ -10,12 +11,12 @@ key.
 
 ## Install
 
-Use Node 22 or later. Install Docture and PDF.js, and add `pdfkit` as a development
+Use Node 22.18 or later. Install Docture and PDF.js, and add `pdfkit` as a development
 dependency to generate the sample PDF:
 
 ```sh
-npm install docture pdfjs-dist zod
-npm install --save-dev tsx pdfkit
+npm install docture pdfjs-dist@^6.2.108 zod@^4.1.8
+npm install --save-dev tsx 'pdfkit@>=0.17.2 <0.21.0'
 ```
 
 ## Create a sample PDF

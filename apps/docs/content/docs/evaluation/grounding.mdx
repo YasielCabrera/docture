@@ -2,28 +2,50 @@
 title: Score evaluation source grounding
 description: Check correct values against labeled document pages and boxes.
 type: how-to
+tasks: ["Score source evidence"]
 ---
 
-Add expected locations to dataset cases, keyed by concrete expected paths:
+Grounding checks whether correct values have supporting source pages and boxes. Use it alongside value scoring to inspect the evidence a processor returns.
+
+## Prepare locations and evidence
+
+Create `evaluation-analysis.mts` from the [custom processor example](/docs/evaluation/processors#run-a-processor-with-confidence-and-evidence), including its install steps. The two recorded page fixtures already have expected locations and processor evidence.
+
+Expected locations belong to dataset cases and are keyed by concrete expected paths:
 
 ```ts check
 const locations = {
-	total: [{ pageNumber: 1, box: { x: 20, y: 40, width: 80, height: 12 } }],
+	totalCents: [{ pageNumber: 1, box: { x: 20, y: 40, width: 80, height: 12 } }],
 };
 ```
 
-Coordinates use PDF points with a top-left origin. A processor returns evidence keyed by actual output paths, with a one-based page number and optional box. Array alignment connects actual rows with their expected rows.
+Coordinates use PDF points with a top-left origin. A processor returns a `FieldEvidence[]` array. Each entry has its own actual output `path`, one-based `pageNumber`, and optional `box`. Confidence is a separate path-keyed record. Array alignment connects actual rows with their expected rows.
+
+## Score the evidence
+
+Save this as `ground.mts` beside the shared example:
 
 ```ts
 import { grounding } from "@docture/eval/grounding";
+import { evaluateBills } from "./evaluation-analysis.mjs";
 
+const result = await evaluateBills();
 const report = grounding(result, { level: "box", iou: 0.5 });
-console.log(report.experiments);
+const overall = report.experiments.parser?.overall;
+console.log({ labelled: overall?.labelled, grounded: overall?.grounded, f1: overall?.groundedF1 });
+```
+
+Run `npx tsx ground.mts`. It prints:
+
+```txt
+{ labelled: 2, grounded: 1, f1: 0.5 }
 ```
 
 Use `level: "page"` when expected truth has page labels without physical boxes. Grounding requires both a correct value and supporting location evidence. A plausible citation for an incorrect answer does not make the answer grounded.
 
 Unlabeled fields stay outside expected-location denominators. Missing predictions for labeled fields remain omissions. Inspect coverage alongside grounded precision, recall, and F1 so a partially labeled corpus does not imply complete grounding coverage.
+
+## Include grounding in saved reports
 
 Use `groundingSection()` in the runner's `sections` to include grounding in saved reports. External expected locations can also be supplied through the analysis options.
 

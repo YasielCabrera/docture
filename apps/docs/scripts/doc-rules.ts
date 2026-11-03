@@ -5,7 +5,8 @@ export function checkErrorTable(text: string, codes: readonly string[]): string[
 }
 
 export function checkCliInvocations(text: string, bins: ReadonlyMap<string, boolean>): string[] {
-  const installed = /(?:npm|pnpm|yarn|bun)\s+(?:install|add|i)\b[^\n]*@docture\/cli/.test(text);
+  const installed = /(?:npm|pnpm|yarn|bun)\s+(?:install|add|i)\b[^\n]*@docture\/cli/.test(text)
+    || /\]\(\/docs\/cli\/quick-start(?:#[\w-]+)?\)/.test(text);
   return [...text.matchAll(/\b(?:npx|pnpm\s+dlx)\s+(@?[\w/-]+(?:@[\w.^~+-]+)?)/g)].flatMap((match) => {
     const raw = match[1] ?? "";
     const version = raw.lastIndexOf("@");

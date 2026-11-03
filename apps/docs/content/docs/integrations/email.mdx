@@ -6,13 +6,13 @@ type: how-to
 
 `expandEmail` splits one `.eml` message into its body and its attachments, each as a separate source you can convert or extract. Import it from `docture/inputs/email`.
 
-## Install the parser
+## Install the parser and PDF engine
 
 ```sh
-npm install docture postal-mime
+npm install docture postal-mime@4.1.4 pdfjs-dist@^6.2.108
 ```
 
-The parser loads on the first expansion. If `postal-mime` is not installed, `expandEmail` fails with [`MISSING_ENGINE`](/docs/resources/errors#error-catalogue). Expansion needs no filesystem or network access.
+The parser loads on the first expansion. If `postal-mime` is not installed, `expandEmail` fails with [`MISSING_ENGINE`](/docs/resources/errors#error-catalogue). Expansion needs no filesystem or network access. The conversion example below also needs `pdfjs-dist` to read PDF attachments. If you only expand messages, you can omit that engine.
 
 ## Expand a message and convert its parts
 

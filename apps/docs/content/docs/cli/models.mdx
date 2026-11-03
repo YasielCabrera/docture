@@ -21,7 +21,7 @@ Each route needs its credential before the CLI processes a document. The [enviro
 `--vision` renders pages and adds a vision strategy, which reads documents that have no text layer. `--dpi` sets the render resolution, 200 by default:
 
 ```sh
-docture extract scan.pdf \
+npx docture extract scan.pdf \
   -s ./invoice.ts \
   -m openai/gpt-5 \
   --vision \
@@ -31,5 +31,5 @@ docture extract scan.pdf \
 The CLI renders with `docture/raster/canvas` and its optional default dependency `@napi-rs/canvas`. A normal install attempts the native prebuild. If optional dependencies were omitted, install it explicitly:
 
 ```sh
-npm install --save-dev @docture/cli @napi-rs/canvas
+npm install --save-dev @docture/cli @napi-rs/canvas@^1.0.10
 ```

@@ -12,6 +12,7 @@ import {
 import { createRelativeLink } from "fumadocs-ui/mdx";
 import { getMDXComponents } from "@/components/mdx";
 import { PageActions } from "@/components/page-actions";
+import { PageTOCPopover } from "@/components/page-toc";
 import { gitConfig, repositoryUrl } from "@/lib/shared";
 import { getPageMarkdownUrl, source } from "@/lib/source";
 
@@ -27,7 +28,14 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   const MDX = page.data.body;
 
   return (
-    <DocsPage toc={page.data.toc} full={page.data.full}>
+    <DocsPage
+      toc={page.data.toc}
+      full={page.data.full}
+      role="main"
+      tabIndex={-1}
+      tableOfContent={{ container: { role: "navigation", "aria-label": "Page contents" } }}
+      tableOfContentPopover={{ component: <PageTOCPopover /> }}
+    >
       <header className="docs-page-header">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <DocsTitle className="text-3xl tracking-tight sm:text-4xl">
@@ -62,5 +70,5 @@ export async function generateMetadata(
     return { title: "Documentation moved", robots: { index: false, follow: true }, alternates: { canonical: entry.to } };
   }
 
-  return { title: page.data.title, description: page.data.description, alternates: { canonical: page.url } };
+  return { title: page.data.title, description: page.data.description, alternates: { canonical: page.url, types: { "text/markdown": getPageMarkdownUrl(page) } } };
 }

@@ -6,12 +6,14 @@ type: how-to
 
 `docture serve` keeps configured loaders and model clients loaded and answers `/convert`, `/inspect`, and `/extract` requests over HTTP. The [HTTP protocol reference](/docs/cli/http-protocol) lists every request field and status code.
 
+These commands use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Start the service
 
 Pass the config and the schemas that requests may select:
 
 ```sh
-docture serve --config ./docture.config.ts --schema invoice=./invoice.ts --port 8787
+npx docture serve --config ./docture.config.ts --schema invoice=./invoice.ts --port 8787
 ```
 
 When the service is ready, it prints one version 1 readiness record with the bound address on stdout:

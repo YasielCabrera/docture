@@ -6,6 +6,8 @@ type: how-to
 
 An experiment is one processor run over the dataset. Run several experiments over the same cases and read their outcomes, slices, epochs, and errors.
 
+For the CLI commands on this page, complete the [CLI quick start](/docs/cli/quick-start) to install the executable in your project.
+
 ## Run processors side by side
 
 Pass one processor or a record of named processors to `runEval`:
@@ -42,4 +44,4 @@ Set `signal` for cancellation. Interrupted rows are not reused as completed answ
 
 ## Run from the CLI
 
-For CLI use, export `defineEvalConfig` from `@docture/eval/config` in `docture.eval.ts`, then run `docture eval run`. [Evaluate from the CLI](/docs/cli/evaluation) covers the other `docture eval` commands. See [configuration API](/docs/evaluation/reference/config) and [reports](/docs/evaluation/reports).
+For CLI use, export `defineEvalConfig` from `@docture/eval/config` in `docture.eval.ts`, then run `npx docture eval run`. [Evaluate from the CLI](/docs/cli/evaluation) covers the other `npx docture eval` commands. See [configuration API](/docs/evaluation/reference/config) and [reports](/docs/evaluation/reports).

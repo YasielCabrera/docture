@@ -6,6 +6,8 @@ type: reference
 
 Render one document with its labels.
 
+Examples use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Flags
 
 | Flag | Default | Meaning |
@@ -25,8 +27,8 @@ Render one document with its labels.
 ## Examples
 
 ```sh
-docture synth render --seed 7 --out invoice.pdf
-docture synth render --template classic --seed 7 --rendition photo:0.6 --out photo.pdf
+npx docture synth render --seed 7 --out invoice.pdf
+npx docture synth render --template classic --seed 7 --rendition photo:0.6 --out photo.pdf
 ```
 
 ## Behavior

@@ -2,9 +2,10 @@
 title: Run your first CLI commands
 description: Install the docture command, then inspect, convert, and dry-run an extraction of a sample invoice PDF.
 type: tutorial
+tasks: ["Run docture commands"]
 ---
 
-In this tutorial you install the `docture` command in a project, inspect a sample invoice PDF, convert it to Markdown, and check an extraction setup before any model call. You need Node.js 22 or later.
+In this tutorial you install the `docture` command in a project, inspect a sample invoice PDF, convert it to Markdown, and check an extraction setup before any model call. Use Node.js 22.18 or newer for the PDF engine and TypeScript configuration in this tutorial.
 
 ## Install the CLI
 
@@ -24,7 +25,7 @@ To run one command without adding the package to a project, use `npx --package @
 Any PDF with a text layer works. To get the output shown on this page, generate the sample invoice that ships with `docture/testing/fixtures`. The fixture renders with `pdfkit`:
 
 ```sh
-npm install --save-dev docture pdfkit
+npm install --save-dev docture 'pdfkit@>=0.17.2 <0.21.0'
 ```
 
 Save this script as `make-invoice.mjs`:
@@ -101,7 +102,7 @@ Pass `--to html`, `--to txt`, or `--to json` for the other formats.
 Extraction needs a schema and a model. Install Zod and the OpenAI provider package:
 
 ```sh
-npm install --save-dev zod @ai-sdk/openai
+npm install --save-dev zod@^4.1.8 @ai-sdk/openai
 ```
 
 Save the schema as `invoice.ts`:
@@ -117,7 +118,7 @@ export default z.object({
 });
 ```
 
-Node 22.18 and later import a TypeScript schema directly. On earlier Node 22 releases, write the schema as `invoice.mjs` instead.
+Node 22.18 and later import the TypeScript schema directly. See [runtime compatibility](/docs/getting-started/runtime) for other deployment requirements.
 
 Set `OPENAI_API_KEY`, then add `--dry-run` to check the schema, model route, and credentials without calling the model:
 

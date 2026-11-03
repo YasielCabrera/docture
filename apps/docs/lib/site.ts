@@ -8,6 +8,8 @@ export const docsRelease = pendingChangesets
   ? `${doctureManifest.version} plus unreleased changes`
   : doctureManifest.version.replace(/\.\d+$/, ".x");
 
+export const docsRevision = process.env.DOCS_REVISION ?? "unavailable";
+
 // Next resolves relative metadata URLs on Vercel by itself; the sitemap and llms.txt need the origin explicitly.
 export function siteOrigin(): string | undefined {
   if (process.env.SITE_URL) return new URL(process.env.SITE_URL).origin;

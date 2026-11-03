@@ -14,7 +14,7 @@ type: reference
 renderPdf<T>(template: Template<T>, sample: Sample<T>, options?: RenderPdfOptions): Promise<SyntheticDocument>
 ```
 
-Renders a `Sample` with a template into a PDF and labels every printed field with its page and box. Returns a [`SyntheticDocument`](/docs/synthetic/reference/documents#toevalcase). Throws `TemplateError` when the drawing and the printed mask disagree, a font lacks a glyph, or `draw` throws. Throws `MissingEngineError` when `pdfkit` is not installed.
+Renders a `Sample` with a template into a PDF and labels every printed field with its page and box. Returns a [`SyntheticDocument`](/docs/synthetic/reference/documents#syntheticdocument). Throws `TemplateError` when the drawing and the printed mask disagree, a font lacks a glyph, or `draw` throws. Throws `MissingEngineError` when `pdfkit` is not installed.
 
 ### `renderTemplate`
 

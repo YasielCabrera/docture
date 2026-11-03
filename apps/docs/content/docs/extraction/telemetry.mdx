@@ -4,7 +4,9 @@ description: Trace model stages without assuming that recording flags filter sen
 type: how-to
 ---
 
-Pass AI SDK integrations to the selected model component:
+Pass AI SDK integrations to each selected model component.
+
+## Configure a model component
 
 ```ts
 import { llm } from "docture/llm/text";
@@ -20,6 +22,8 @@ const strategy = llm({
 ```
 
 Text, vision, classification, splitting, layout, and repair accept telemetry. `LLM` passes its telemetry configuration to each component it builds. Function IDs use `docture.<stage>.<component>`. Runtime context identifies the stage, component, document label when enabled, pages, and chunk when known.
+
+## Control what gets recorded
 
 `recordInputs` and `recordOutputs` default to false. These are event flags, not filters. Integrations still receive callback messages and answers and decide whether to honor the flags. Check the integration before passing sensitive documents. Set `documentLabel: false` to omit the source filename.
 

@@ -6,6 +6,8 @@ type: how-to
 
 Ground truth is the expected answer each case is scored against. Draft it with a processor, record human sign-off, and keep unreviewed drafts out of regression runs.
 
+For the CLI commands on this page, complete the [CLI quick start](/docs/cli/quick-start) to install the executable in your project.
+
 ## Draft and sign off from the CLI
 
 Use a writable dataset for draft generation and sign-off. `folderDataset` implements both methods. Its default draft filename is `expected.draft.json`; set `expected` to the signed-off filename.
@@ -13,9 +15,9 @@ Use a writable dataset for draft generation and sign-off. `folderDataset` implem
 Configure the dataset, spec, and one processor in `docture.eval.ts`, as shown in [Evaluate from the CLI](/docs/cli/evaluation). Then run:
 
 ```sh
-docture eval draft --experiment parser
-docture eval sign-off case-001
-docture eval validate
+npx docture eval draft --experiment parser
+npx docture eval sign-off case-001
+npx docture eval validate
 ```
 
 Drafting extracts proposed answers for pending cases. Inspect each draft against its documents before sign-off. `sign-off` records approval through the dataset adapter. Run `validate` afterward to check the stored truth against the spec. Neither operation establishes that an approved answer is factually correct.

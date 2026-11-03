@@ -2,6 +2,7 @@
 title: Extract from scans and images
 description: Extract from page images with OCR or a vision model.
 type: how-to
+tasks: ["Read a scanned PDF", "OCR text from scanned documents"]
 ---
 
 A scanned PDF has no usable text layer. A text strategy such as `llm()` is not eligible
@@ -10,7 +11,7 @@ until OCR creates text. You can run OCR locally or send rendered pages to a visi
 ## Use a vision model
 
 ```sh
-npm install docture pdfjs-dist @napi-rs/canvas ai @ai-sdk/openai zod
+npm install docture pdfjs-dist@^6.2.108 @napi-rs/canvas@^1.0.10 ai@7 @ai-sdk/openai zod@^4.1.8
 ```
 
 Compose a rasterizer with the PDF loader, then add `vision()`:
@@ -54,7 +55,7 @@ Tesseract accepts PNG, JPEG, and multi-page TIFF files directly. It needs a rast
 canvas-backed PDF setup below:
 
 ```sh
-npm install docture tesseract.js pdfjs-dist @napi-rs/canvas
+npm install docture tesseract.js@7.0.0 pdfjs-dist@^6.2.108 @napi-rs/canvas@^1.0.10
 ```
 
 ```ts check
@@ -75,7 +76,7 @@ local files.
 ## Use PaddleOCR
 
 ```sh
-npm install docture ppu-paddle-ocr onnxruntime-node pdfjs-dist @napi-rs/canvas
+npm install docture ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0 pdfjs-dist@^6.2.108 @napi-rs/canvas@^1.0.10
 ```
 
 PaddleOCR reads TIFF files when `utif2@4.1.0` is also installed.

@@ -6,10 +6,12 @@ type: how-to
 
 Write a template as React components with [`@react-pdf/renderer`](https://react-pdf.org). You get flexbox layout, reusable components, automatic page wrapping, repeating headers, and style sheets. Wrap each printed value in `<Field path>`. The renderer labels it with the box of its laid-out text, so you never compute coordinates. No browser is needed.
 
+For the CLI commands on this page, complete the [CLI quick start](/docs/cli/quick-start) to install the executable in your project.
+
 ## Install
 
 ```sh
-npm install --save-dev @docture/synthetic docture zod react @react-pdf/renderer pdfjs-dist
+npm install --save-dev @docture/synthetic docture zod@^4.2.0 react@19 @react-pdf/renderer@4.9.0 pdfjs-dist@^6.2.108
 npm install --save-dev @types/react tsx
 ```
 
@@ -180,15 +182,15 @@ render: async ({ value, Field }) => {
 
 A React template renders itself, so it works anywhere a PDFKit template does. Pass it to `writeCorpus`, list it in `docture.synth.ts`, or mix both kinds in one corpus. `renderTemplate` from `@docture/synthetic/pdfkit` renders either kind.
 
-Node can strip TypeScript types but cannot compile JSX. When `docture synth` loads a config that imports `.tsx` templates, run it with a JSX loader:
+Node can strip TypeScript types but cannot compile JSX. When `npx docture synth` loads a config that imports `.tsx` templates, run it with a JSX loader:
 
 ```sh
-NODE_OPTIONS="--import tsx" docture synth corpus
+NODE_OPTIONS="--import tsx" npx docture synth corpus
 ```
 
 Templates written with `createElement` instead of JSX load without a loader.
 
-A corpus fingerprints each template's `render` source. It does not see components defined outside `render`, such as `Totals` above. After you change one, change the corpus `createdAt` or rebuild into a new directory. See [corpus reproducibility](/docs/synthetic/corpora#reproduce-a-corpus).
+Declare imported component revisions in `writeCorpus.dependencies`, for example `dependencies: { totalsComponent: "totals-v2" }` for the `Totals` component above. Include the bytes of font and image assets that the template captures. A changed declaration rewrites saved cases while preserving their IDs. The `render` source fingerprint cannot discover those external inputs. Keep `createdAt` for the document date, and use a fresh directory only for previously undeclared inputs. See [declared corpus inputs](/docs/synthetic/corpora#declare-external-inputs).
 
 ## Complete example
 
@@ -236,7 +238,7 @@ A field fails with `invalid-template` when the page would not show what its labe
 const document = await template.renderDocument({ value: statement, seed: 1, scenario: "base", tags: [] });
 ```
 
-Corpora and `docture synth` sample through a model, so define one with `defineModel` to use them.
+Corpora and `npx docture synth` sample through a model, so define one with `defineModel` to use them.
 
 ## Move an existing react-pdf project
 

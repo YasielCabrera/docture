@@ -12,15 +12,20 @@ Pick the source that fits how much context the agent can hold:
 
 | Source | Contents | Use it when |
 | --- | --- | --- |
+| [`/llms-tasks.txt`](/llms-tasks.txt) | A short list of task guides and area indexes | The agent needs a starting point for a goal |
+| `/llms/<area>.txt`, for example [`/llms/extraction.txt`](/llms/extraction.txt) | A page index for one area | The agent can fetch the relevant pages individually |
+| [`/api-symbols.json`](/api-symbols.json) | Symbol names, public imports, descriptions, and canonical reference links | The agent needs an exact API contract |
 | [`/llms.txt`](/llms.txt) | An index of every page, grouped by area, as Markdown links with each page's description | The agent fetches pages as it needs them |
-| [`/llms-full.txt`](/llms-full.txt) | Every page in one file, about 1 MB | The agent can hold the whole documentation in context |
-| `/llms-full/<area>.txt`, for example [`/llms-full/extraction.txt`](/llms-full/extraction.txt) | Every page of one area in one file, 50 to 160 KB | The task stays inside one area, such as extraction or evaluation |
+| [`/llms-full.txt`](/llms-full.txt) | Every page in one large file | The agent needs an optional bulk export |
+| `/llms-full/<area>.txt`, for example [`/llms-full/extraction.txt`](/llms-full/extraction.txt) | Every page of one area in one file | The agent needs a bulk export of that area |
 | Any page URL with `.md` appended | One page as Markdown, for example `/docs/extraction/quick-start.md` | You want the agent to read one guide |
 
 Each documentation page also has two actions at the top:
 
 - **Copy page** copies the page as Markdown, ready to paste into a chat.
 - **View as Markdown** opens the same Markdown in the browser. Its URL is the page URL with `.md` appended.
+
+Each Markdown page includes its documentation type and source revision. HTML pages advertise their Markdown alternative and the documentation index. Prefer the task or scoped index before downloading bulk content. Check the page's release context against the installed package guide.
 
 ## Point the agent at the package guides
 

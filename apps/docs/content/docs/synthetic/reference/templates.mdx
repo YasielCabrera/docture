@@ -92,6 +92,26 @@ Draws a paginated table from measured row heights. Rows never split across pages
 
 ## Template types
 
+### `Template`
+
+The normalized drawing template returned by `defineTemplate`. Unlike `TemplateDefinition`, it always includes aliases, tags, page settings, and the merged font map.
+
+```ts signature
+interface Template<T> {
+  readonly key: string;
+  readonly aliases: readonly string[];
+  readonly family: string;
+  readonly tags: Readonly<Record<string, TagValue>>;
+  readonly page: { readonly size: PageSize; readonly margin: number };
+  readonly locale: Locale;
+  readonly fonts: Readonly<Record<string, FontSource>>;
+  readonly printed: PrintedMask<T>;
+  draw(surface: Surface<T>, value: T, format: Formatter): void;
+}
+```
+
+`defineTemplate` fills omitted aliases with `[]`, tags with `{}`, and page settings with A4 and a 50-point margin. It merges supplied fonts over [`defaultFonts`](#defaultfonts).
+
 ### `TemplateDefinition`
 
 {/* options: TemplateDefinition */}

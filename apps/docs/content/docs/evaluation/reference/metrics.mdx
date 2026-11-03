@@ -14,7 +14,7 @@ Import metric helpers, custom metrics, and assertions from `@docture/eval`. [Def
 prf(counts: StatusCounts): Prf
 ```
 
-Takes [`StatusCounts`](/docs/evaluation/reference/types#statuscounts). Returns [`Prf`](/docs/evaluation/reference/types#prf).
+Takes [`StatusCounts`](/docs/evaluation/reference/data-types/scores#statuscounts). Returns [`Prf`](/docs/evaluation/reference/data-types/scores#prf).
 
 Precision, recall and F1 from counts. F1 is 2·match / (2·match + 2·mismatch + omission + hallucination), so it is 0 when expected fields exist but nothing was predicted, and null when there are neither expected nor predicted fields.
 
@@ -34,7 +34,7 @@ Apply defaults and check the rule. Throws `EvalSpecError` when `iou` is outside 
 isGrounded(field: Pick<FieldResult, "status" | "evidence">, locations: readonly ExpectedLocation[], rule?: GroundingRule): boolean
 ```
 
-Takes [`FieldResult`](/docs/evaluation/reference/types#fieldresult), [`ExpectedLocation`](/docs/evaluation/reference/types#expectedlocation), and [`GroundingRule`](/docs/evaluation/reference/metrics#groundingrule).
+Takes [`FieldResult`](/docs/evaluation/reference/data-types/scores#fieldresult), [`ExpectedLocation`](/docs/evaluation/reference/data-types/cases#expectedlocation), and [`GroundingRule`](/docs/evaluation/reference/metrics#groundingrule).
 
 Whether a field is grounded: it matched and its evidence supports one of its expected locations. The scorer sets `FieldResult.grounded` with the default rule, and `@docture/eval/grounding` uses the rule it was given.
 
@@ -44,7 +44,7 @@ Whether a field is grounded: it matched and its evidence supports one of its exp
 supportsLocation(evidence: readonly EvidenceRef[], locations: readonly ExpectedLocation[], options?: GroundingRule): boolean
 ```
 
-Takes [`EvidenceRef`](/docs/evaluation/reference/types#evidenceref), [`ExpectedLocation`](/docs/evaluation/reference/types#expectedlocation), and [`GroundingRule`](/docs/evaluation/reference/metrics#groundingrule).
+Takes [`EvidenceRef`](/docs/evaluation/reference/data-types/scores#evidenceref), [`ExpectedLocation`](/docs/evaluation/reference/data-types/cases#expectedlocation), and [`GroundingRule`](/docs/evaluation/reference/metrics#groundingrule).
 
 Whether any evidence reference supports any expected location under the rule.
 
@@ -53,10 +53,6 @@ Whether any evidence reference supports any expected location under the rule.
 ```ts
 defineAssertion(assertion: Assertion): Assertion
 ```
-
-Takes and returns [`Assertion`](/docs/evaluation/reference/metrics#assertion).
-
-Takes and returns [`Assertion`](/docs/evaluation/reference/metrics#assertion).
 
 Takes and returns [`Assertion`](/docs/evaluation/reference/metrics#assertion).
 
@@ -80,10 +76,6 @@ defineMetric(metric: MetricDefinition): MetricDefinition
 
 Takes and returns [`MetricDefinition`](/docs/evaluation/reference/metrics#metricdefinition).
 
-Takes and returns [`MetricDefinition`](/docs/evaluation/reference/metrics#metricdefinition).
-
-Takes and returns [`MetricDefinition`](/docs/evaluation/reference/metrics#metricdefinition).
-
 Declare a custom metric. `aggregate` turns an experiment's rows into one value; `perCase`, when given, lets run comparison test the change for significance.
 
 ### `builtinMetrics`
@@ -102,7 +94,7 @@ The metrics every result carries. Custom metrics from `defineMetric` are added a
 omittedOf(score: CaseScore): OmittedLeaves
 ```
 
-Takes [`CaseScore`](/docs/evaluation/reference/types#casescore). Returns [`OmittedLeaves`](/docs/evaluation/reference/types#omittedleaves).
+Takes [`CaseScore`](/docs/evaluation/reference/data-types/scores#casescore). Returns [`OmittedLeaves`](/docs/evaluation/reference/data-types/results#omittedleaves).
 
 What `omitted` an errored case records, computed from a score against an absent output.
 
@@ -112,7 +104,7 @@ What `omitted` an errored case records, computed from a score against an absent 
 runScopeOmissions(row: CaseResult, scope?: string): OmittedLeaves | undefined
 ```
 
-Takes [`CaseResult`](/docs/evaluation/reference/types#caseresult). Returns [`OmittedLeaves`](/docs/evaluation/reference/types#omittedleaves).
+Takes [`CaseResult`](/docs/evaluation/reference/data-types/results#caseresult). Returns [`OmittedLeaves`](/docs/evaluation/reference/data-types/results#omittedleaves).
 
 The omitted leaves an errored row adds to precision, recall and F1. They count only at `run` scope, the default, so the result is `undefined` for a scored or skipped row and for another scope.
 
@@ -130,7 +122,7 @@ Linear interpolation between closest ranks.
 prfMetricId(metric: "precision" | "recall" | "f1", scope?: PrfScope): string
 ```
 
-Takes [`PrfScope`](/docs/evaluation/reference/types#prfscope).
+Takes [`PrfScope`](/docs/evaluation/reference/data-types/scores#prfscope).
 
 The metric id of precision, recall or F1 in a scope: `f1` for run scope, `f1.micro`, `f1.macro`.
 
@@ -140,7 +132,7 @@ The metric id of precision, recall or F1 in a scope: `f1` for run scope, `f1.mic
 prfOf(rows: readonly CaseResult[], scope: PrfScope, segment?: string): Prf
 ```
 
-Takes [`CaseResult`](/docs/evaluation/reference/types#caseresult) and [`PrfScope`](/docs/evaluation/reference/types#prfscope). Returns [`Prf`](/docs/evaluation/reference/types#prf).
+Takes [`CaseResult`](/docs/evaluation/reference/data-types/results#caseresult) and [`PrfScope`](/docs/evaluation/reference/data-types/scores#prfscope). Returns [`Prf`](/docs/evaluation/reference/data-types/scores#prf).
 
 Precision, recall and F1 of rows in one scope, optionally restricted to a segment.
 

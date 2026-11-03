@@ -9,13 +9,13 @@ type: reference
 ## Install
 
 ```sh
-npm install docture ppu-paddle-ocr onnxruntime-node
+npm install docture ppu-paddle-ocr@6.3.0 onnxruntime-node@1.27.0
 ```
 
 `onnxruntime-node` ships prebuilt native binaries for supported platforms. For TIFF inputs, also install the TIFF decoder:
 
 ```sh
-npm install utif2
+npm install utif2@4.1.0
 ```
 
 To read PDFs, also install and configure a rasterizer. [Installation](/docs/getting-started/installation) lists the complete OCR install commands. Engines load on first use. A missing engine fails the load with `MissingEngineError`.

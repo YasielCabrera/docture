@@ -6,6 +6,8 @@ type: reference
 
 Write a labeled corpus that @docture/eval's jsonlDataset reads.
 
+Examples use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Flags
 
 | Flag | Default | Meaning |
@@ -26,8 +28,8 @@ Write a labeled corpus that @docture/eval's jsonlDataset reads.
 ## Examples
 
 ```sh
-docture synth corpus
-docture synth corpus --seeds 1-40 --renditions digital,scan:0.3,photo:0.6 --out corpus
+npx docture synth corpus
+npx docture synth corpus --seeds 1-40 --renditions digital,scan:0.3,photo:0.6 --out corpus
 ```
 
 ## Behavior

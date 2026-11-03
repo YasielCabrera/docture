@@ -6,6 +6,8 @@ type: reference
 
 Keeps configured loaders and clients warm. Binds to localhost by default. Non-loopback binding requires DOCTURE_SERVE_TOKEN.
 
+Examples use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Flags
 
 | Flag | Default | Meaning |
@@ -34,7 +36,7 @@ Keeps configured loaders and clients warm. Binds to localhost by default. Non-lo
 ## Examples
 
 ```sh
-docture serve --port 8787 --schema invoice=./invoice.ts
+npx docture serve --port 8787 --schema invoice=./invoice.ts
 ```
 
 See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).

@@ -8,21 +8,33 @@ Calibration checks whether the confidence a processor reports matches how often 
 
 ## Analyze confidence
 
-Processors may return `confidence`, keyed by concrete actual paths such as `items[0].amount`. Confidence must be in `[0, 1]`. Evaluate it against reviewed expected values:
+Create `evaluation-analysis.mts` from the [custom processor example](/docs/evaluation/processors#run-a-processor-with-confidence-and-evidence), including its install steps. It exports `evaluateBills()`, which scores two recorded pages without credentials or document engines.
+
+Processors may return `confidence`, keyed by concrete actual paths such as `items[0].amount`. Confidence must be in `[0, 1]`. Save this as `calibrate.mts` beside the shared example:
 
 ```ts
 import { calibrate } from "@docture/eval/calibration";
+import { evaluateBills } from "./evaluation-analysis.mjs";
 
+const result = await evaluateBills();
 const report = calibrate(result, {
 	bins: 10,
 	by: "pattern",
 	targetPrecision: 0.99,
 	minSupport: 5,
 });
-console.log(report);
+console.log(JSON.stringify(report.experiments.parser?.overall.scores));
+console.log(report.experiments.parser?.overall.threshold);
 ```
 
-These are the defaults. The report includes coverage and reliability statistics. Missing confidence remains uncovered; the evaluator does not invent it from citation status or extraction success.
+Run `npx tsx calibrate.mts`. It prints:
+
+```txt
+[{"confidence":0.9,"count":2,"correct":1}]
+null
+```
+
+The options shown are the defaults. Both fields report confidence `0.9`, but only one is correct. The report includes coverage and reliability statistics. Missing confidence remains uncovered; the evaluator does not invent it from citation status or extraction success.
 
 Errored-case omissions count toward overall ground truth and pattern, field-type, and segment groups. Path groups contain only scored cases because an errored case has no concrete output paths.
 

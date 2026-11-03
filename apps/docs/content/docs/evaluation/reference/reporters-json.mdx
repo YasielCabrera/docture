@@ -18,7 +18,7 @@ This entry imports Node.js file APIs, so it runs only in Node.js. `jsonReporter`
 renderJson(result: EvalResult): string
 ```
 
-Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult).
+Takes [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult).
 
 The result as one JSON document, indented, ending in a newline.
 
@@ -28,7 +28,7 @@ The result as one JSON document, indented, ending in a newline.
 renderJsonSplit(result: EvalResult): { readonly result: string; readonly cases: string; }
 ```
 
-Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult).
+Takes [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult).
 
 The stored layout: `result.json` holds every member except `cases`; `cases.jsonl` holds one case per line.
 

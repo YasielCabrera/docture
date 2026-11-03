@@ -26,7 +26,7 @@ One RFC 4180 field. Text that a spreadsheet would run as a formula (a leading `=
 renderCsv(result: EvalResult, options?: CsvOptions): string
 ```
 
-Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`CsvOptions`](/docs/evaluation/reference/reporters-csv#csvoptions).
+Takes [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult) and [`CsvOptions`](/docs/evaluation/reference/reporters-csv#csvoptions).
 
 The result as CSV: one line per case with the report's columns, or one line per scored leaf.
 
@@ -45,10 +45,6 @@ Write the result as CSV.
 ```ts
 defineColumn(column: Column): Column
 ```
-
-Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
-
-Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
 
 Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
 

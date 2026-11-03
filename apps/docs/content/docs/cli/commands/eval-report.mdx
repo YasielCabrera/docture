@@ -6,6 +6,8 @@ type: reference
 
 Re-render a stored run in any format, without running anything.
 
+Examples use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Arguments
 
 | Argument | Required | Meaning |
@@ -30,8 +32,8 @@ Re-render a stored run in any format, without running anything.
 ## Examples
 
 ```sh
-docture eval report latest --reporter html,md
-docture eval report .docture/eval/runs/<runId> --format json
+npx docture eval report latest --reporter html,md
+npx docture eval report .docture/eval/runs/<runId> --format json
 ```
 
 See [Evaluate from the CLI](/docs/cli/evaluation) and [input and output behavior](/docs/cli/inputs-and-outputs).

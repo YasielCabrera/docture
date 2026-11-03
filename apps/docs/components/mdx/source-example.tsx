@@ -10,7 +10,7 @@ export async function SourceExample({ file, title }: { file: string; title?: str
       code={code.trimEnd()}
       lang={file.endsWith(".tsx") ? "tsx" : "ts"}
       themes={codeThemes}
-      codeblock={{ title: title ?? file }}
+      codeblock={{ title: title ?? file, viewportProps: { "aria-label": `Source file ${title ?? file}` } }}
     />
   );
 }

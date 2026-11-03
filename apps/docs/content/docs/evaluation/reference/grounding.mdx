@@ -14,7 +14,7 @@ Import source grounding analysis from `@docture/eval/grounding`. [Score evaluati
 grounding(result: EvalResult, options?: GroundingOptions): GroundingReport
 ```
 
-Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`GroundingOptions`](/docs/evaluation/reference/grounding#groundingoptions). Returns [`GroundingReport`](/docs/evaluation/reference/types#groundingreport).
+Takes [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult) and [`GroundingOptions`](/docs/evaluation/reference/grounding#groundingoptions). Returns [`GroundingReport`](/docs/evaluation/reference/data-types/analysis#groundingreport).
 
 Grade correct predictions whose evidence supports a labelled expected page or box.
 
@@ -24,7 +24,7 @@ Grade correct predictions whose evidence supports a labelled expected page or bo
 groundingSection(options?: GroundingOptions): (result: EvalResult) => { grounding: GroundingReport; }
 ```
 
-Takes [`GroundingOptions`](/docs/evaluation/reference/grounding#groundingoptions). Returns a [`ResultSection`](/docs/evaluation/reference/runner#resultsection) that reads an [`EvalResult`](/docs/evaluation/reference/types#evalresult) and sets its `grounding` to a [`GroundingReport`](/docs/evaluation/reference/types#groundingreport).
+Takes [`GroundingOptions`](/docs/evaluation/reference/grounding#groundingoptions). Returns a [`ResultSection`](/docs/evaluation/reference/runner#resultsection) that reads an [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult) and sets its `grounding` to a [`GroundingReport`](/docs/evaluation/reference/data-types/analysis#groundingreport).
 
 Add grounding through the runner's result sections hook.
 

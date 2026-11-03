@@ -16,10 +16,6 @@ defineComparator<E>(comparator: Comparator<E>): Comparator<E>
 
 Takes and returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
 
-Takes and returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
-
-Takes and returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
-
 Declare a custom comparator. Identity at runtime; it pins the type.
 
 ### `describeComparator`
@@ -100,10 +96,6 @@ setOf(element: Comparator, options?: { readonly minSimilarity?: number; }): Comp
 
 Takes and returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
 
-Takes and returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
-
-Takes and returns [`Comparator`](/docs/evaluation/reference/comparators#comparator).
-
 An unordered collection compared as a whole. Elements pair by the best total similarity; the collection matches when every element pairs with a match and neither side has extras. Similarity is the share of matched elements.
 
 ### `boxIoU`
@@ -122,7 +114,7 @@ Boxes that overlap by at least `min` intersection over union. Boxes on different
 intersectionOverUnion(a: Box, b: Box): number
 ```
 
-Takes [`Box`](/docs/evaluation/reference/types#box).
+Takes [`Box`](/docs/evaluation/reference/data-types/cases#box).
 
 Intersection over union of two boxes. 0 when they do not overlap or have no area.
 

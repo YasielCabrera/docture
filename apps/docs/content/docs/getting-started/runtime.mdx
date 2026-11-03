@@ -2,6 +2,7 @@
 title: Check runtime compatibility
 description: Check the Node.js version, the deployment constraints of each component, and browser type-checking before you deploy.
 type: how-to
+tasks: ["Node.js version", "Supported deployment runtimes"]
 ---
 
 Use this page to check that a deployment target can run the Docture components you selected. To choose between the portable `docture` entry and `docture/node` for your sources, see [Select a runtime entry](/docs/getting-started/sources#select-a-runtime-entry).
@@ -9,6 +10,11 @@ Use this page to check that a deployment target can run the Docture components y
 ## Use Node.js 22 or newer
 
 The packages require Node.js 22 or newer. Node 22.18 or newer loads erasable TypeScript CLI configuration directly. Earlier Node 22 releases require `--experimental-strip-types` or compiled JavaScript.
+
+The complete PDF tutorials and installation recipes use Node.js 22.18 or newer.
+Optional engines can require a higher version than the core package; for example,
+the supported PDF.js floor requires Node.js 22.13 or newer. Check the selected engine
+before deploying an application on an earlier Node 22 release.
 
 ## Check each component
 

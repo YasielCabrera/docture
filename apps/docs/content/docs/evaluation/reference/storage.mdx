@@ -16,7 +16,7 @@ Import file-backed datasets, run stores, and result files from `@docture/eval/no
 gitInfo(cwd: string): Promise<RunInfo["git"]>
 ```
 
-Returns [`RunInfo`](/docs/evaluation/reference/types#runinfo).
+Returns [`RunInfo`](/docs/evaluation/reference/data-types/results#runinfo).
 
 Read repository provenance on demand, returning undefined outside a Git repository. A detached HEAD reports the branch `detached@<first 12 hex digits of the sha>`, which never matches another commit's runs.
 
@@ -56,7 +56,7 @@ Load a JSONL manifest with `id`, `documents` (paths relative to `base`, default 
 fileRunStore(dir: string): RunStore
 ```
 
-Returns [`RunStore`](/docs/evaluation/reference/types#runstore).
+Returns [`RunStore`](/docs/evaluation/reference/data-types/stores#runstore).
 
 A run store in a directory. `index.jsonl` is an append-only list of run events, and `runs/<runId>/` holds `run.json`, `cases.jsonl`, `result.json` and `raw/<experiment>/<caseId>.<epoch>.json`. Each id in a raw path is `x-` plus its UTF-8 bytes in lowercase hex, or `h-` plus their SHA-256 when longer than 60 bytes, so ids that differ only in letter case never share a file. A crash can tear the last line of a log; readers ignore it and the next append cuts it.
 
@@ -66,7 +66,7 @@ A run store in a directory. `index.jsonl` is an append-only list of run events, 
 readEvalResult(dir: string): Promise<EvalResult>
 ```
 
-Returns [`EvalResult`](/docs/evaluation/reference/types#evalresult).
+Returns [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult).
 
 Read and validate the small metadata file and separate case rows.
 
@@ -76,7 +76,7 @@ Read and validate the small metadata file and separate case rows.
 runDirectory(dir: string): Pick<RunStore, "readResult" | "readRaw">
 ```
 
-Returns [`RunStore`](/docs/evaluation/reference/types#runstore).
+Returns [`RunStore`](/docs/evaluation/reference/data-types/stores#runstore).
 
 Read one run directory on its own, such as `runs/<runId>/` copied out of a store. It holds the result and the raw outputs. Pass it as `source` to `rescore(store, runId, spec, { source })`. The re-scored run is written to `store`. Reading another run id fails with `RunStoreError` (`not-found`).
 
@@ -86,7 +86,7 @@ Read one run directory on its own, such as `runs/<runId>/` copied out of a store
 writeEvalResult(dir: string, result: EvalResult): Promise<void>
 ```
 
-Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult).
+Takes [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult).
 
 Replace case rows, then atomically write `result.json`, the commit point a reader checks first. Raw files remain available.
 

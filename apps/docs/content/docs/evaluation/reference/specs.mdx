@@ -19,7 +19,7 @@ defineEval<C extends ContractLike>(schema: C, rules?: EvalRules): EvalSpec<Infer
 defineEval<T = unknown>(schema: JsonSchemaObject, rules?: EvalRules): EvalSpec<T>
 ```
 
-Takes a [`SchemaInput`](/docs/evaluation/reference/specs#schemainput) schema and [`EvalRules`](/docs/evaluation/reference/specs#evalrules). Returns [`EvalSpec`](/docs/evaluation/reference/types#evalspec).
+Takes a [`SchemaInput`](/docs/evaluation/reference/specs#schemainput) schema and [`EvalRules`](/docs/evaluation/reference/specs#evalrules). Returns [`EvalSpec`](/docs/evaluation/reference/data-types/specs#evalspec).
 
 Build a spec from a schema and rules. Every leaf gets its comparator from, in order: the most specific `fields` rule, an `x-docture-eval` annotation, an unambiguous type default, or `strings` for strings. Unresolved fields, unused rules and unsegmented leaves throw one `EvalSpecError` listing them all.
 
@@ -29,7 +29,7 @@ Build a spec from a schema and rules. Every leaf gets its comparator from, in or
 looseEval(options?: LooseEvalOptions): EvalSpec<unknown>
 ```
 
-Takes [`LooseEvalOptions`](/docs/evaluation/reference/specs#looseevaloptions). Returns [`EvalSpec`](/docs/evaluation/reference/types#evalspec).
+Takes [`LooseEvalOptions`](/docs/evaluation/reference/specs#looseevaloptions). Returns [`EvalSpec`](/docs/evaluation/reference/data-types/specs#evalspec).
 
 A spec with no schema that reproduces the defaults of Docture's previous `scoreExtraction`: numbers within 0.01, strings at similarity 0.9 once their digits agree, date-like strings by calendar day, arrays by index. It is the one spec that does not fail closed; use it for quick checks.
 

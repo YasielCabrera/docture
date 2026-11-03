@@ -1,0 +1,161 @@
+---
+title: Evaluation score and metric types
+description: Field scores, status counts, precision and recall scopes, and metric descriptors.
+type: reference
+---
+
+Import these names from `@docture/eval`. The [data type index](/docs/evaluation/reference/data-types) links the other type groups and their task guides.
+
+## Scores and metrics
+
+Used in [Define evaluation scoring rules](/docs/evaluation/scoring-rules) and [Run evaluation experiments](/docs/evaluation/experiments).
+
+### `AssertionResult`
+
+An assertion's [`AssertionOutcome`](/docs/evaluation/reference/metrics#assertionoutcome) on one case's output, with the assertion's `id`.
+
+```ts
+type AssertionResult = { readonly id: string } & AssertionOutcome;
+```
+
+### `CaseScore`
+
+Everything `spec.score` knows about one case. Precision, recall and F1 use weighted counts.
+
+```ts
+interface CaseScore {
+	readonly fields: readonly FieldResult[];
+	readonly arrays: readonly AlignmentReport[];
+	readonly assertions: readonly AssertionResult[];
+	readonly counts: StatusCounts;
+	readonly weighted: StatusCounts;
+	readonly metrics: Prf & {
+		/** No mismatch, omission or hallucination. */
+		readonly exact: boolean;
+		/** Mean ANLS over expected leaves, or `null` when nothing was expected. */
+		readonly anls: number | null;
+		/** Every critical field matched. True when there are none. */
+		readonly critical: boolean;
+	};
+	readonly segments: Readonly<Record<string, SegmentScore>>;
+}
+```
+
+### `EvidenceRef`
+
+Where the processor said it found a value.
+
+```ts
+interface EvidenceRef {
+	readonly pageNumber: number;
+	readonly box?: Box;
+	readonly status?: string;
+}
+```
+
+### `FieldResult`
+
+The comparison of one leaf.
+
+```ts
+interface FieldResult {
+	/** Concrete path on the expected side. Unpaired actual rows continue the expected numbering. */
+	readonly path: string;
+	/** Concrete path on the actual side, present only when it differs from `path`. */
+	readonly actualPath?: string;
+	readonly pattern: string;
+	readonly segment: string;
+	readonly status: FieldStatus;
+	readonly expected: JsonValue;
+	readonly actual: JsonValue;
+	/** Comparator id. */
+	readonly comparator: string;
+	readonly similarity: number;
+	readonly weight: number;
+	/** Present and true only for critical fields. */
+	readonly critical?: true;
+	readonly hint?: RepairHint;
+	readonly note?: string;
+	readonly confidence?: number;
+	readonly evidence?: readonly EvidenceRef[];
+	readonly locations?: readonly ExpectedLocation[];
+	/**
+	 * {@link isGrounded} under the default rule: correct and supported by evidence at an expected location.
+	 * `null` when the field has no expected location. Absent when the case supplied neither locations nor evidence.
+	 */
+	readonly grounded?: boolean | null;
+}
+```
+
+### `FieldStatus`
+
+How one leaf fared. Omission: expected but absent. Hallucination: present but not expected.
+
+```ts check
+type FieldStatus = "match" | "mismatch" | "omission" | "hallucination";
+```
+
+### `MetricFormat`
+
+How a metric value is displayed.
+
+```ts check
+type MetricFormat = "ratio" | "usd" | "ms" | "count" | "number";
+```
+
+### `MetricInfo`
+
+The serializable description of a metric, stored in every result.
+
+```ts
+interface MetricInfo {
+	readonly id: string;
+	readonly label: string;
+	readonly direction: "higher" | "lower";
+	readonly format: MetricFormat;
+}
+```
+
+### `Prf`
+
+Precision, recall and F1. `null` means there was nothing to grade, never a perfect score.
+
+```ts check
+interface Prf {
+	readonly precision: number | null;
+	readonly recall: number | null;
+	readonly f1: number | null;
+}
+```
+
+### `PrfScope`
+
+How errored cases count. `micro` pools scored cases; `macro` averages them; `run` also counts an errored case's expected leaves as omissions.
+
+```ts check
+type PrfScope = "micro" | "macro" | "run";
+```
+
+### `SegmentScore`
+
+Precision, recall, and F1 of one schema segment, with its status counts.
+
+```ts
+interface SegmentScore extends Prf {
+	readonly counts: StatusCounts;
+	readonly weighted: StatusCounts;
+}
+```
+
+### `StatusCounts`
+
+Weighted counts of field outcomes.
+
+```ts check
+interface StatusCounts {
+	readonly match: number;
+	readonly mismatch: number;
+	readonly omission: number;
+	readonly hallucination: number;
+}
+```

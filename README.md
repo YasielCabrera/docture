@@ -548,11 +548,15 @@ that the model probably got it right. This one is built around three ideas:
 ```bash
 pnpm install
 pnpm check          # typecheck + test, everything
-pnpm build
+SITE_URL=https://docs.example pnpm build
 pnpm test           # or: pnpm --filter docture test
 ```
 
 Toolchain: pnpm workspaces, Turborepo, TypeScript 7, Vitest 4, Changesets.
+
+The workspace build includes the documentation site. Outside Vercel, set `SITE_URL`
+to its absolute origin so the production sitemap contains canonical URLs. See the
+[documentation app guide](apps/docs/README.md) for local development and build settings.
 
 Adding a loader for another library is three steps:
 

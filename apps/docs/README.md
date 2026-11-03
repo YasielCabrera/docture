@@ -4,7 +4,7 @@ The documentation site. [Fumadocs](https://fumadocs.dev) 16 on Next.js 16.
 
 ```sh
 pnpm docs                      # from the repo root → http://localhost:3100
-pnpm --filter @docture/docs build
+SITE_URL=https://your-docs.example pnpm --filter @docture/docs build
 pnpm --filter @docture/docs typecheck
 ```
 
@@ -37,9 +37,10 @@ full weight range used by the interface; the logo itself requires no font.
 Set `SITE_URL` to the site's absolute deployed origin when building outside
 Vercel, for example through the hosting platform's environment settings. The root
 layout validates it with `new URL` and uses it as `metadataBase`. Vercel can use
-Next's native deployment-origin fallback. Without either setting, Next falls
-back to localhost for absolute social-image URLs. No production domain is assumed
-by this repository. The package-level `turbo.json` passes the origin settings to
+Next's native deployment-origin fallback. Development can fall back to localhost
+for absolute social-image URLs. Production builds reject a missing origin before
+generating the sitemap. No production domain is assumed by this repository.
+The package-level `turbo.json` passes the origin settings to
 Next and includes them in the build cache key. Changes to the canonical kit and
 deployed public assets also invalidate their relevant checks.
 
@@ -89,7 +90,8 @@ engine install recipes when splitting a page. Use short sentences and plain word
 
 The pipeline, bundle-splitting, and architecture pages contain accessible Mermaid
 diagrams. Include `accTitle` and `accDescr`. `components/mdx/mermaid.tsx` provides zoom
-and expansion. Register plugins through the global `mdxOptions` function in
+and expansion. `lib/mermaid-markdown.ts` preserves the original chart text for
+Markdown before MDX attribute escaping. Register plugins through the global `mdxOptions` function in
 `source.config.ts`; replacing collection-level options drops the Fumadocs defaults
 that parse tables and feed search.
 
@@ -98,6 +100,8 @@ that parse tables and feed search.
 ```sh
 pnpm --filter @docture/docs generate:commands
 pnpm --filter @docture/docs generate:api
+pnpm --filter @docture/docs generate:fields
+pnpm --filter @docture/docs generate:installs
 ```
 
 Command pages come from the CLI's command definitions. The API index comes from the
@@ -116,8 +120,16 @@ pnpm --filter @docture/docs build
 `check:docs` verifies public exports and imports, recipes, links, anchors, migration
 destinations, navigation coverage, area order, prose rules, and generated files.
 `typecheck` also checks TypeScript examples and runs the documentation checks.
-`check:examples` executes nine offline recipes using generated PDFs and removes its
+`check:examples` executes offline recipes and application tests using generated PDFs and removes its
 temporary files. Model-backed examples compile; live execution needs credentials.
 
 Keep the [installation recipes](content/docs/getting-started/installation.mdx) and
 [migration guide](content/docs/resources/migration.mdx) consistent with manifests.
+
+## Keep generated documentation current
+
+`generate:api` derives symbol names, import aliases, descriptions, and real reference links from the public inventory. The same records drive the API filter, JSON export, and Markdown. `generate:fields` derives requiredness from TypeScript declarations while preserving authored meanings. `generate:installs` reads supported peer requirements and the synthetic recipe's Zod 4.2 JSON Schema floor. It uses major constraints where they cover the supported versions and keeps necessary lower floors, minor caps, and exact-only engine constraints. Broader support still requires the packed engine matrix.
+
+Declare task phrases in a page's `tasks` frontmatter. Search and `/llms-tasks.txt` use those phrases from the same canonical page. `/llms/<area>.txt` provides scoped page discovery. Markdown contains the page type and source revision. Outside GitHub or Vercel builds, set `DOCS_REVISION` before invoking Turbo so the revision participates in its cache key. Unconfigured builds label the revision unavailable. Production builds need `SITE_URL` or Vercel's production origin so the sitemap cannot be empty.
+
+Mark self-contained TypeScript fences with `check` to compile them. Use `signature` for API syntax and `expect-error` for deliberate failures. Unmarked blocks are labelled code excerpts; they do not promise a complete program. Complete source examples retain their filenames. Code labels are numbered within each page for accessible region navigation.

@@ -298,7 +298,7 @@ The `paperless` field of `DoctureConfig`.
 | --- | --- | --- |
 | `connection` | `PaperlessConnectionOptions` | Required. The Paperless instance and credentials |
 | `schemas` | `Readonly<Record<string, PaperlessSchemaConfig>>` | Required. Named schemas and mappings that actions select with `--schema` or `schemaName` |
-| `enableApply` | `boolean` | Allows `apply`. Without it, MCP does not list `paperless_apply` and the CLI rejects apply |
+| `enableApply` | `boolean` | Exposes and enables the MCP `paperless_apply` tool. Explicit CLI `paperless apply` commands do not check this flag |
 | `maxResults` | `number` | Upper bound on query results, at most 1000. Default: 100 |
 
 `docture paperless apply --dry-run` prints the plan and writes no Paperless metadata.

@@ -24,7 +24,7 @@ JSON for a `<script type="application/json">` element: `<` and line separators a
 renderHtml(result: EvalResult, options?: HtmlOptions): string
 ```
 
-Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`HtmlOptions`](/docs/evaluation/reference/reporters-html#htmloptions).
+Takes [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult) and [`HtmlOptions`](/docs/evaluation/reference/reporters-html#htmloptions).
 
 The result as one offline HTML file: inline CSS, the prebuilt client, and the result embedded as JSON. The page references nothing on the network and the client never parses markup from the data.
 
@@ -63,10 +63,6 @@ Write the result as a single offline HTML report, optionally rewritten live duri
 ```ts
 defineColumn(column: Column): Column
 ```
-
-Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
-
-Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
 
 Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
 

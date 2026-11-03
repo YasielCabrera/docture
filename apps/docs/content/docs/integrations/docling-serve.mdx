@@ -6,14 +6,38 @@ type: how-to
 
 `docture/loaders/docling` connects to a running docling-serve instance over HTTP. It needs no npm peer, Python process, local OCR engine, or model. Use `DoclingServeClient` for direct conversions and jobs, or `DocumentLoaderDoclingServe` inside an extractor or converter.
 
+## Prepare the service
+
+Before running the client:
+
+1. Start a Docling Serve instance using the [official 1.38.2 setup guide](https://github.com/docling-project/docling-serve/blob/v1.38.2/README.md#getting-started), the protocol release covered by the adapter fixtures.
+2. Record its service root and any API key required by your deployment.
+3. Choose a PDF, DOCX, XLSX, PPTX, or EPUB file that the service can read.
+
+The server needs its own engines and model assets. Docture does not install or start them.
+
 ## Convert a document
 
-```ts
+Run this complete client example beside `invoice.pdf`:
+
+```ts check
+import { readFile } from "node:fs/promises";
+import type { RawDocument } from "docture";
 import { DoclingServeClient } from "docture/loaders/docling";
 
 const client = new DoclingServeClient({ baseUrl: "http://127.0.0.1:5001/" });
+const rawDocument: RawDocument = {
+	bytes: await readFile("invoice.pdf"),
+	mimeType: "application/pdf",
+	fileName: "invoice.pdf",
+};
+const health = await client.health();
+console.log(health.status);
 const converted = await client.convert(rawDocument);
+console.log(converted.conversionStatus, converted.document.pages.length);
 ```
+
+A ready server prints `ok` before conversion. The next line reports the conversion status and page count. Service calls need a running instance and are separate from the fixture-backed tests.
 
 `baseUrl` is the service root, including any deployment prefix, without `/v1`. Construction performs no I/O.
 

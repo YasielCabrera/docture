@@ -58,7 +58,7 @@ export interface LlmOcrLoaderOptions {
   /** Provider-specific request settings. Included in the response cache key. */
   readonly providerOptions?: ProviderOptions;
   readonly maxRetries?: number;
-  /** AI SDK telemetry. Inputs and outputs are not recorded unless enabled here. */
+  /** AI SDK telemetry. Recording defaults to false; integration callbacks still receive prompts and answers. */
   readonly telemetry?: LlmTelemetryOptions;
 }
 

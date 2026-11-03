@@ -1,0 +1,42 @@
+---
+title: Evaluation gate types
+description: Gate check rows and the combined pass or fail result.
+type: reference
+---
+
+Import these names from `@docture/eval`. The [data type index](/docs/evaluation/reference/data-types) links the other type groups and their task guides.
+
+## Gates
+
+Used in [Gate evaluation regressions in CI](/docs/evaluation/ci).
+
+### `GateCheck`
+
+One evaluated gate rule. A `run` check fails a run that is not `complete`; it is absent for a complete run.
+
+```ts check
+interface GateCheck {
+	readonly kind: "run" | "threshold" | "regression";
+	readonly experiment: string;
+	readonly metric: string;
+	/** What was measured, such as `f1`, `f1 in segment totals` or `f1 for rendition=scan-lq`. */
+	readonly target: string;
+	readonly value: number | null;
+	readonly min?: number;
+	readonly max?: number;
+	/** `skipped` means there was nothing to check and `onNull` is `pass`, or no comparison exists. */
+	readonly status: "pass" | "fail" | "skipped";
+	readonly message: string;
+}
+```
+
+### `GateResult`
+
+The gate's verdict. It passes when no check failed.
+
+```ts
+interface GateResult {
+	readonly pass: boolean;
+	readonly checks: readonly GateCheck[];
+}
+```

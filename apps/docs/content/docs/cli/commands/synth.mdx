@@ -11,6 +11,8 @@ writes each document with its ground truth and field boxes. Every subcommand use
 Node does not compile JSX: run with NODE_OPTIONS="--import tsx" when the config
 imports .tsx templates.
 
+Examples use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Arguments
 
 | Argument | Required | Meaning |
@@ -27,9 +29,9 @@ imports .tsx templates.
 ## Examples
 
 ```sh
-docture synth list
-docture synth render --seed 7 --out invoice.pdf
-docture synth corpus --seeds 1-40
+npx docture synth list
+npx docture synth render --seed 7 --out invoice.pdf
+npx docture synth corpus --seeds 1-40
 ```
 
 ## Behavior

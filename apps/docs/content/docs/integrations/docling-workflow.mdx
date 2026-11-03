@@ -6,12 +6,14 @@ type: how-to
 
 Use Docling output as an extraction source. Your schema, validation rules, repair, and conflict reports work as with any other loader, and citations point to native Docling elements and table cells.
 
+These commands use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Install
 
 Install `docture` and the engines your extraction strategy uses. The importer and the service adapter need no Docling npm package.
 
 ```sh
-npm install docture ai zod
+npm install docture ai@7 zod@^4.1.8
 ```
 
 ## Extract from an existing Docling export
@@ -35,7 +37,7 @@ Use `DoclingServeClient` instead when you need the normalized JSON, diagnostics,
 Save CLI extractions with `--full --citations`. The result keeps `evidenceSources` beside the line-based `citationSources`. Open the review with the original file:
 
 ```sh
-docture review --extraction result.json --source original.epub
+npx docture review --extraction result.json --source original.epub
 ```
 
 The review shows native text and citation status without page images, and states when physical placement or page images are unavailable.

@@ -6,6 +6,8 @@ type: reference
 
 List the config's templates, scenarios and the rendition profiles.
 
+Examples use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Flags
 
 | Flag | Default | Meaning |
@@ -16,5 +18,71 @@ List the config's templates, scenarios and the rendition profiles.
 | `--quiet`, `-q` | Not set | Only failures and the first hint per error code on stderr |
 | `--no-color` | Not set | Never emit ANSI colour |
 | `--help`, `-h` | Not set | Show this help |
+
+## Output examples
+
+These outputs use a config with one invoice template, its default alias, no custom scenarios, and a digital rendition.
+
+### Successful command
+
+```sh
+npx docture synth list --format json
+```
+
+Exit code: `0`.
+
+`stdout`:
+
+```json
+{
+  "templates": [
+    {
+      "key": "invoice",
+      "aliases": [
+        "default"
+      ],
+      "family": "invoice",
+      "tags": {}
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "base",
+      "tags": []
+    }
+  ],
+  "renditions": {
+    "profiles": [
+      "digital",
+      "scan",
+      "scan-lq",
+      "photo",
+      "fax"
+    ],
+    "configured": [
+      "digital"
+    ]
+  }
+}
+```
+
+`stderr` is empty.
+
+### Failed command
+
+```sh
+npx docture synth list --format xml
+```
+
+Exit code: `2`.
+
+`stdout` is empty.
+
+`stderr`:
+
+```txt
+error [USAGE] --format must be one of text, json, got "xml".
+      Run `docture synth list --help`.
+```
 
 See [synthetic corpora from the command line](/docs/synthetic/corpora#use-the-cli) and [input and output behavior](/docs/cli/inputs-and-outputs).

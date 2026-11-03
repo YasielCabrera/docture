@@ -1,0 +1,175 @@
+---
+title: Evaluation error types
+description: Evaluation errors, ground-truth issues, spec problems, and store failure codes.
+type: reference
+---
+
+Import these names from `@docture/eval`. The [data type index](/docs/evaluation/reference/data-types) links the other type groups and their task guides.
+
+## Errors
+
+Used in [Connect an evaluation processor](/docs/evaluation/processors), [Define evaluation scoring rules](/docs/evaluation/scoring-rules), and [Compare evaluation runs and select baselines](/docs/evaluation/comparisons).
+
+### `DatasetError`
+
+A dataset that cannot produce its cases: a missing document, a missing or draft expected file, or an unknown case id.
+
+```ts
+class DatasetError extends DoctureError {
+	readonly code = "EVAL_DATASET_INVALID" as const;
+	constructor(message: string, readonly caseId?: string, options?: { readonly cause?: unknown });
+}
+```
+
+### `EvalSpecError`
+
+A spec, metric set or rule set that cannot be resolved. Carries every problem found, not just the first.
+
+```ts
+class EvalSpecError extends DoctureError {
+	readonly code = "EVAL_SPEC_INVALID" as const;
+	constructor(readonly problems: readonly SpecProblem[]);
+}
+```
+
+### `GroundTruthError`
+
+Ground truth that does not satisfy its spec. Names every failing case with its own issues.
+
+```ts
+class GroundTruthError extends DoctureError {
+	readonly code = "GROUND_TRUTH_INVALID" as const;
+	readonly caseIds: readonly string[];
+	constructor(readonly cases: readonly InvalidCaseTruth[]);
+}
+```
+
+### `GroundTruthIssue`
+
+One reason ground truth failed strict validation.
+
+```ts
+interface GroundTruthIssue {
+	readonly code: GroundTruthIssueCode;
+	/** Concrete path, such as `lineItems[2].amount`. The root is `""`. */
+	readonly path: string;
+	readonly message: string;
+}
+```
+
+### `GroundTruthIssueCode`
+
+Why a ground-truth value was rejected by `spec.validate`.
+
+```ts check
+type GroundTruthIssueCode = "unknown-key" | "wrong-type" | "invalid-value" | "empty-row" | "assertion";
+```
+
+### `IncomparableRunsError`
+
+Two eval results that cannot be paired for comparison: no shared or an unknown experiment, or a case and epoch recorded twice. Carries every problem found.
+
+```ts
+class IncomparableRunsError extends DoctureError {
+	readonly code = "EVAL_RUNS_INCOMPARABLE" as const;
+	constructor(readonly problems: readonly string[]);
+}
+```
+
+### `InvalidCaseTruth`
+
+The issues of one case whose ground truth failed validation.
+
+```ts
+interface InvalidCaseTruth {
+	readonly caseId: string;
+	readonly issues: readonly GroundTruthIssue[];
+}
+```
+
+### `MigrationGuardError`
+
+A ground-truth migration with invalid targets, or one that changed a path outside its targets or is not idempotent.
+
+```ts
+class MigrationGuardError extends DoctureError {
+	readonly code = "MIGRATION_GUARD_FAILED" as const;
+	readonly caseId?: string;
+	constructor(readonly migration: string, readonly paths: readonly string[], message: string, options: { readonly caseId?: string } = {});
+}
+```
+
+### `OutOfScopeError`
+
+Thrown by a processor for a case it does not handle. The runner records a skip, not a failure.
+
+```ts
+class OutOfScopeError extends DoctureError {
+	readonly code = "OUT_OF_SCOPE" as const;
+	constructor(readonly reason: string, options?: { readonly cause?: unknown });
+}
+```
+
+### `PreflightError`
+
+An experiment's `preflight` check failed, so no case ran. The original failure is the `cause`.
+
+```ts
+class PreflightError extends DoctureError {
+	readonly code = "EVAL_PREFLIGHT_FAILED" as const;
+	constructor(readonly experiment: string, cause: unknown);
+}
+```
+
+### `RunStoreError`
+
+A stored run or result that cannot be read or written, including a result in an unknown format or version.
+
+```ts
+class RunStoreError extends DoctureError {
+	readonly code = "EVAL_RUN_STORE_FAILED" as const;
+	constructor(message: string, readonly reason: RunStoreFailure, options?: { readonly cause?: unknown });
+}
+```
+
+### `RunStoreFailure`
+
+Why a run store operation failed.
+
+```ts check
+type RunStoreFailure = "not-found" | "format" | "version" | "conflict" | "io";
+```
+
+### `SpecProblem`
+
+One reason a spec failed to resolve.
+
+```ts
+interface SpecProblem {
+	readonly code: SpecProblemCode;
+	/** Schema pattern or rule key, such as `lineItems[].amount` or `totals.*`. */
+	readonly path: string;
+	readonly message: string;
+}
+```
+
+### `SpecProblemCode`
+
+Why a spec could not be resolved. Every problem names the schema path or rule it concerns.
+
+```ts check
+type SpecProblemCode =
+	| "unresolved-field"
+	| "unresolved-array"
+	| "unalignable-array"
+	| "open-object"
+	| "unmatched-rule"
+	| "ambiguous-rule"
+	| "invalid-rule"
+	| "invalid-annotation"
+	| "unsegmented-field"
+	| "overlapping-segments"
+	| "unknown-path"
+	| "unsupported-schema"
+	| "duplicate-metric";
+```

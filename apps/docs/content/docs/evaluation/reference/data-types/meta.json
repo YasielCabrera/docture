@@ -1,0 +1,14 @@
+{
+  "title": "Data types",
+  "pages": [
+    "cases",
+    "specs",
+    "scores",
+    "results",
+    "analysis",
+    "gates",
+    "stores",
+    "errors"
+  ],
+  "pagesIndex": "index"
+}

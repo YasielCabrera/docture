@@ -9,7 +9,7 @@ The Canvas rasterizer renders PDF pages to PNG or JPEG with PDF.js and `@napi-rs
 ## Install
 
 ```sh
-npm install docture pdfjs-dist @napi-rs/canvas
+npm install docture pdfjs-dist@^6.2.108 @napi-rs/canvas@^1.0.10
 ```
 
 `@napi-rs/canvas` ships prebuilt native binaries for supported platforms. PDF.js and the canvas binding load on the first render. If either is not installed, the render fails with `MissingEngineError`.

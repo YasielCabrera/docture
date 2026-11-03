@@ -14,7 +14,7 @@ Import JSON, fingerprint, path, and slice helpers from `@docture/eval`. Reporter
 toJsonValue(value: unknown): JsonValue
 ```
 
-Returns [`JsonValue`](/docs/evaluation/reference/types#jsonvalue).
+Returns [`JsonValue`](/docs/evaluation/reference/data-types/specs#jsonvalue).
 
 Convert any value to its JSON form the way `JSON.stringify` would, so a result holds exactly what a saved copy holds. `undefined`, functions, symbols and non-finite numbers become `null`; dates become ISO strings.
 
@@ -66,7 +66,7 @@ Turn a concrete path into its pattern: `lineItems[3].amount` becomes `lineItems[
 sliceValues<C>(slices: Readonly<Record<string, SliceSpec<C>>>, item: C): Record<string, TagValue>
 ```
 
-Takes [`SliceSpec`](/docs/evaluation/reference/utilities#slicespec). Returns [`TagValue`](/docs/evaluation/reference/types#tagvalue).
+Takes [`SliceSpec`](/docs/evaluation/reference/utilities#slicespec). Returns [`TagValue`](/docs/evaluation/reference/data-types/cases#tagvalue).
 
 Evaluate slices for one item. Absent values are left out.
 

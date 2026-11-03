@@ -6,6 +6,7 @@ const withMDX = createMDX();
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
+  env: { DOCS_REVISION: process.env.DOCS_REVISION || process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || "unavailable" },
   allowedDevOrigins: ["127.0.0.1"],
   redirects() {
     return Object.entries(migration).flatMap(([source, entry]) => {

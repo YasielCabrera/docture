@@ -6,6 +6,16 @@ type: how-to
 
 `PaperlessSource` reads documents from a Paperless-ngx instance as extraction sources, pinned to an exact file version. Import it from `docture/sources/paperless`. It uses standard `fetch` and needs no SDK. To write extracted values back, see [Plan and apply Paperless updates](/docs/integrations/paperless-updates).
 
+## Prepare the instance
+
+Before reading a document:
+
+1. Choose a Paperless-ngx 3.x instance with REST API 9 or 10.
+2. Create a token for an account that can read the document. The [official 3.3.4 API guide](https://github.com/paperless-ngx/paperless-ngx/blob/v3.3.4/docs/api.md#authorization) describes token creation for the fixture-backed server release.
+3. Record the service root and a document ID. Choose stored content, an archived PDF, or the original file for your input mode.
+
+The adapter's version checks happen on the first request. No live instance is needed to import the source.
+
 ## Connect to Paperless
 
 ```ts check

@@ -42,7 +42,7 @@ The workflow runs the CLI from your project's dependencies, so install it first:
 npm install --save-dev @docture/cli @docture/eval
 ```
 
-`docture eval run` exits with code `0` when the gate passes, `1` when a gate check fails or the run fails, and `2` on a usage error. Runs are stored in `.docture/eval` beside the config. This GitHub Actions workflow keeps that directory between jobs with the cache, so each pull request compares against the latest `main` run. Save it as `.github/workflows/eval.yml`:
+`npx docture eval run` exits with code `0` when the gate passes, `1` when a gate check fails or the run fails, and `2` on a usage error. Runs are stored in `.docture/eval` beside the config. This GitHub Actions workflow keeps that directory between jobs with the cache, so each pull request compares against the latest `main` run. Save it as `.github/workflows/eval.yml`:
 
 ```yaml
 name: Evaluation
@@ -94,7 +94,7 @@ Only `main` saves the store, and only after the gate passes. A pull request run 
   f1 for experiment llm dropped by 0.25, over the budget 0.01
 ```
 
-The `eval-report` artifact holds `junit.xml` and `report.html`. Test report actions read `junit.xml`; each case is a test case, and each gate check is a test case in a `gate` suite. To apply the gate to a stored run again, run `docture eval gate latest --baseline auto`.
+The `eval-report` artifact holds `junit.xml` and `report.html`. Test report actions read `junit.xml`; each case is a test case, and each gate check is a test case in a `gate` suite. To apply the gate to a stored run again, run `npx docture eval gate latest --baseline auto`.
 
 ## Gate a result
 

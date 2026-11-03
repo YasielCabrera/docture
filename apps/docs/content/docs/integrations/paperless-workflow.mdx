@@ -6,6 +6,8 @@ type: how-to
 
 Extract fields from Paperless-ngx documents with your own schemas, review the planned changes, and write them back from the CLI, MCP, or your own application. [Read and search Paperless documents](/docs/integrations/paperless-read) and [Plan and apply Paperless updates](/docs/integrations/paperless-updates) describe the library behavior for Paperless 3.x with API 9 and 10.
 
+These commands use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Set up the service account
 
 Give a Paperless service account view permission on the documents it reads. Add change permission only for the documents your application may update, and for the targets of any document link fields it writes.
@@ -60,8 +62,8 @@ Add your extractor, strategies, or model to the same config, as described in [CL
 These commands make no model calls. An omitted `--limit` defaults to the smaller of 10 and `paperless.maxResults`. An explicit limit must not exceed `paperless.maxResults`.
 
 ```sh
-docture paperless read 42 --version 42
-docture paperless search --query 'supplier' --limit 10
+npx docture paperless read 42 --version 42
+npx docture paperless search --query 'supplier' --limit 10
 ```
 
 ## Extract with a configured schema
@@ -69,8 +71,8 @@ docture paperless search --query 'supplier' --limit 10
 Pass a schema name. Query extraction is bounded by the configured maximum.
 
 ```sh
-docture paperless extract 42 --schema reference
-docture paperless extract --query 'supplier' --limit 10 --schema reference
+npx docture paperless extract 42 --schema reference
+npx docture paperless extract --query 'supplier' --limit 10 --schema reference
 ```
 
 ## Plan updates without writing
@@ -78,8 +80,8 @@ docture paperless extract --query 'supplier' --limit 10 --schema reference
 `plan` writes nothing to Paperless, and `extract --dry-run` also prints a plan. The plan JSON includes the exact source identity, evidence, validation, conflicts, and skip reasons.
 
 ```sh
-docture paperless plan 42 --schema reference --out plan.json
-docture paperless extract 42 --schema reference --dry-run
+npx docture paperless plan 42 --schema reference --out plan.json
+npx docture paperless extract 42 --schema reference --dry-run
 ```
 
 ## Apply a saved plan
@@ -87,8 +89,8 @@ docture paperless extract 42 --schema reference --dry-run
 Apply one saved single-document plan at a time. The configured schema fingerprint and mapping must still match the plan. Apply checks the source identity and each current field again, and skips a field that another writer filled since planning.
 
 ```sh
-docture paperless apply plan.json --schema reference --dry-run
-docture paperless apply plan.json --schema reference
+npx docture paperless apply plan.json --schema reference --dry-run
+npx docture paperless apply plan.json --schema reference
 ```
 
 A query plan can contain several plans. Pass each selected plan object to `apply` separately. You decide whether to save partial results and when to retry. Docture keeps no receipt store and needs no approval record.

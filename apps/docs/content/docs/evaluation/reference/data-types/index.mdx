@@ -1,0 +1,24 @@
+---
+title: Evaluation data types
+description: Find evaluation types by cases, specs, scores, results, analysis, gates, stores, or errors.
+type: reference
+---
+
+Import these names from `@docture/eval`. These pages describe the shared records and errors that evaluation entries accept or return. Function options stay beside the function that takes them, such as [`EvalRules`](/docs/evaluation/reference/specs#evalrules) and [`GateOptions`](/docs/evaluation/reference/gates#gateoptions).
+
+## Choose a type group
+
+| Group | Types |
+| --- | --- |
+| [case and processor types](/docs/evaluation/reference/data-types/cases) | Document boxes, expected locations, source evidence, tags, and processor usage records. |
+| [spec and alignment types](/docs/evaluation/reference/data-types/specs) | Alignment details, resolved fields, spec metadata, and validation results. |
+| [score and metric types](/docs/evaluation/reference/data-types/scores) | Field scores, status counts, precision and recall scopes, and metric descriptors. |
+| [result types](/docs/evaluation/reference/data-types/results) | Scored, errored, and skipped case rows, run identities, and experiment summaries. |
+| [analysis types](/docs/evaluation/reference/data-types/analysis) | Calibration, comparison, and grounding report structures and summary records. |
+| [gate types](/docs/evaluation/reference/data-types/gates) | Gate check rows and the combined pass or fail result. |
+| [run-store types](/docs/evaluation/reference/data-types/stores) | Run-store contracts, raw-output keys, stored runs, and index records. |
+| [error types](/docs/evaluation/reference/data-types/errors) | Evaluation errors, ground-truth issues, spec problems, and store failure codes. |
+
+## Follow a task
+
+Use [the processor guide](/docs/evaluation/processors) to return confidence and evidence, [the result guide](/docs/evaluation/reports) to inspect a saved run, or [the API index](/docs/api) to find a type by its public import.

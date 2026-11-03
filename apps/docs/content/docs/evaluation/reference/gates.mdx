@@ -14,7 +14,7 @@ Import `gate` and `resolveBaseline` from `@docture/eval` to pass or fail a resul
 resolveBaseline(store: Pick<RunStore, "listRuns">, query?: BaselineQuery): Promise<string | undefined>
 ```
 
-Takes [`RunStore`](/docs/evaluation/reference/types#runstore) and [`BaselineQuery`](/docs/evaluation/reference/gates#baselinequery).
+Takes [`RunStore`](/docs/evaluation/reference/data-types/stores#runstore) and [`BaselineQuery`](/docs/evaluation/reference/gates#baselinequery).
 
 The id of the most recently started `complete` run on `branch`, then on `fallbackBranch`, or `undefined` when none qualifies. Throws `EvalSpecError` when `requireSameDataset` has no `datasetFingerprint` to compare against.
 
@@ -24,7 +24,7 @@ The id of the most recently started `complete` run on `branch`, then on `fallbac
 gate(result: EvalResult, options: GateOptions): GateResult
 ```
 
-Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`GateOptions`](/docs/evaluation/reference/gates#gateoptions). Returns [`GateResult`](/docs/evaluation/reference/types#gateresult).
+Takes [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult) and [`GateOptions`](/docs/evaluation/reference/gates#gateoptions). Returns [`GateResult`](/docs/evaluation/reference/data-types/gates#gateresult).
 
 Check a result against thresholds and regression budgets. Equality passes. A run that is not `complete` fails. A missing value fails unless `onNull` is `pass`. Invalid options throw one `EvalSpecError` listing every problem.
 

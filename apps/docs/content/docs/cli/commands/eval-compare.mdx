@@ -6,6 +6,8 @@ type: reference
 
 Compare two runs with paired significance tests.
 
+Examples use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Arguments
 
 | Argument | Required | Meaning |
@@ -30,8 +32,8 @@ Compare two runs with paired significance tests.
 ## Examples
 
 ```sh
-docture eval compare <baseRunId> latest
-docture eval compare base/ candidate/ --test mcnemar --format json
+npx docture eval compare <baseRunId> latest
+npx docture eval compare base/ candidate/ --test mcnemar --format json
 ```
 
 See [Evaluate from the CLI](/docs/cli/evaluation) and [input and output behavior](/docs/cli/inputs-and-outputs).

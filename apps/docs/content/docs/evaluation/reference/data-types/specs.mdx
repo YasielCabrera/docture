@@ -1,0 +1,208 @@
+---
+title: Evaluation spec and alignment types
+description: Alignment details, resolved fields, spec metadata, and validation results.
+type: reference
+---
+
+Import these names from `@docture/eval`. The [data type index](/docs/evaluation/reference/data-types) links the other type groups and their task guides.
+
+## Specs and comparators
+
+Used in [Define evaluation scoring rules](/docs/evaluation/scoring-rules) and [Match evaluation array items](/docs/evaluation/array-matching).
+
+### `AlignmentAlgorithm`
+
+The algorithm that produced an alignment. `greedy` and `ordered-greedy` mean the cost matrix exceeded its budget: `greedy` replaces `hungarian` and `exact-key`, and `ordered-greedy` replaces `ordered` without crossing pairs.
+
+```ts check
+type AlignmentAlgorithm = "index" | "ordered" | "exact-key" | "hungarian" | "greedy" | "ordered-greedy";
+```
+
+### `AlignmentReport`
+
+How the rows of one array were paired, and what went unpaired.
+
+```ts
+interface AlignmentReport {
+	/** Concrete path of the array, such as `lineItems` or `invoices[0].lineItems`. */
+	readonly path: string;
+	readonly pattern: string;
+	readonly algorithm: AlignmentAlgorithm;
+	readonly expected: number;
+	readonly actual: number;
+	readonly matched: number;
+	/** Expected rows with no partner. A truncated list shows up here. */
+	readonly missing: number;
+	/** Actual rows with no partner. */
+	readonly extra: number;
+	/** Matched rows that would have to move to restore the expected order. */
+	readonly outOfOrder: number;
+	/** Experimental: an expected row that reads as several adjacent unpaired actual rows. */
+	readonly splits: readonly { readonly expected: number; readonly actual: readonly number[] }[];
+	/** Experimental: several adjacent unpaired expected rows that read as one actual row. */
+	readonly merges: readonly { readonly expected: readonly number[]; readonly actual: number }[];
+}
+```
+
+### `EvalSpec`
+
+How to compare values of type `T`. A plain object with methods, so the CLI can call a spec built by another installed copy.
+
+```ts
+interface EvalSpec<T = unknown> {
+	/** Hash of everything that changes validation or scoring: types, enum values, nullability, comparators, alignment, segments, weights, null handling and assertion options. Property order does not count. */
+	readonly fingerprint: string;
+	readonly fields: readonly ResolvedField[];
+	readonly arrays: readonly ResolvedArray[];
+	readonly info: SpecInfo;
+	/** Strict check of ground truth: unknown keys, wrong leaf types, rows with every field absent, invalid values and failed assertions. */
+	validate(expected: unknown): ValidationResult<T>;
+	/** Score one output. Throws when the spec holds an async comparator. */
+	score(expected: T, actual: unknown, extras?: ScoreExtras): CaseScore;
+	scoreAsync(expected: T, actual: unknown, extras?: ScoreExtras): Promise<CaseScore>;
+	/** Why a path is scored the way it is, such as `lineItems[].amount: number(abs 0.01) from rule 'totals.*'`. */
+	explain(path: string): string;
+}
+```
+
+### `FieldSource`
+
+Where a resolved field got its comparator.
+
+```ts check
+type FieldSource =
+	| { readonly kind: "rule"; readonly rule: string }
+	| { readonly kind: "annotation" }
+	| { readonly kind: "type-default" }
+	| { readonly kind: "strings" }
+	| { readonly kind: "loose" };
+```
+
+### `FieldType`
+
+The schema type of a leaf. `object` and `array` are containers a rule compares as a whole.
+
+```ts check
+type FieldType = "string" | "number" | "integer" | "boolean" | "enum" | "date" | "date-time" | "object" | "array" | "unknown";
+```
+
+### `JsonObject`
+
+A JSON object with `JsonValue` members.
+
+```ts
+type JsonObject = { readonly [key: string]: JsonValue };
+```
+
+### `JsonValue`
+
+Any value JSON can represent. Results, options and extensions use it so every artifact survives `JSON.stringify`.
+
+```ts check
+type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
+```
+
+### `RepairHint`
+
+A likely cause of a mismatch, so a reader can tell a format slip from a wrong value.
+
+```ts check
+interface RepairHint {
+	readonly kind:
+		| "date-format"
+		| "minor-unit"
+		| "digit-transposition"
+		| "truncation"
+		| "case-or-spacing"
+		| "sign"
+		| "scale"
+		| "row-split"
+		| "row-merge"
+		| "out-of-order"
+		| (string & {});
+	readonly detail?: string;
+}
+```
+
+### `ResolvedArray`
+
+One array of the spec and its alignment rule.
+
+```ts
+interface ResolvedArray {
+	readonly pattern: string;
+	readonly rule: ArrayRule;
+	readonly source: FieldSource;
+}
+```
+
+### `ResolvedField`
+
+One leaf of the spec with everything that decides how it is scored.
+
+```ts
+interface ResolvedField {
+	readonly pattern: string;
+	readonly type: FieldType;
+	readonly comparator: Comparator;
+	readonly segment: string;
+	readonly weight: number;
+	readonly critical: boolean;
+	readonly source: FieldSource;
+}
+```
+
+### `ResolvedFieldInfo`
+
+A resolved field in serializable form, stored in every result.
+
+```ts
+interface ResolvedFieldInfo {
+	readonly pattern: string;
+	readonly type: FieldType;
+	/** Comparator with options, such as `number(abs 0.01)`. */
+	readonly comparator: string;
+	readonly comparatorId: string;
+	readonly options?: JsonValue;
+	readonly segment: string;
+	readonly weight: number;
+	readonly critical: boolean;
+	/** Such as `rule 'totals.*'`, `annotation` or `type default`. */
+	readonly source: string;
+}
+```
+
+### `ScoreExtras`
+
+Optional signals scored alongside a case's output.
+
+```ts
+interface ScoreExtras {
+	/** Confidence in 0 to 1 keyed by concrete actual path. */
+	readonly confidence?: Readonly<Record<string, number>>;
+	readonly evidence?: readonly FieldEvidence[];
+	readonly locations?: EvalCase["locations"];
+}
+```
+
+### `SpecInfo`
+
+A spec in serializable form.
+
+```ts
+interface SpecInfo {
+	readonly fingerprint: string;
+	readonly fields: readonly ResolvedFieldInfo[];
+	readonly arrays: readonly { readonly pattern: string; readonly rule: string; readonly source: string }[];
+}
+```
+
+### `ValidationResult`
+
+The outcome of strict ground-truth validation.
+
+```ts
+type ValidationResult<T> =
+	| { readonly ok: true; readonly value: T }
+	| { readonly ok: false; readonly issues: readonly GroundTruthIssue[] };
+```

@@ -1,7 +1,7 @@
 ---
 title: Docture concepts
 description: Definitions of the terms used across the Docture documentation, from sources and loaders to specs, gates, and renditions.
-type: explanation
+type: reference
 ---
 
 This glossary defines the terms you meet across the Docture documentation. Each entry links to the page that covers the term in depth. For the extraction pipeline in order, read [How it works](/docs/getting-started/how-it-works).
@@ -86,7 +86,7 @@ A converter turns a document into TXT, Markdown, HTML, or versioned document JSO
 
 ### Evidence
 
-Evidence is the source record behind a piece of text: a positioned line, a native element, or a table cell, each with a stable ID such as `p1-line-3` and a page location. Every element in a conversion result records the evidence it came from, and citations refer to evidence IDs. See [Trace content to source evidence](/docs/conversion/evidence).
+Evidence is the source record behind a piece of text: a positioned line, a native element, or a table cell, each with a stable ID such as `p1-line-3`. Positioned lines have page geometry. Native evidence can identify an element or cell without a physical box. Every element in a conversion result records the evidence it came from, and citations refer to evidence IDs. See [Trace content to source evidence](/docs/conversion/evidence).
 
 ### Chunk
 

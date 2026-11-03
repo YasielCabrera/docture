@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start --port 3100",
     "typecheck": "next typegen && tsc --noEmit && pnpm check:docs && pnpm check:fences && pnpm check:examples",
-    "check:docs": "pnpm check:brand && node ../../scripts/sync-docture-readme.mjs --check && node ../../scripts/generate-error-table.mjs --check && node ../../scripts/generate-document-schema.mjs --check && node ../../scripts/check-public-jsdoc.mjs && tsx scripts/check-docs.ts && tsx scripts/generate-command-reference.ts --check && tsx scripts/generate-api-index.ts --check",
+    "check:docs": "pnpm check:brand && node ../../scripts/sync-docture-readme.mjs --check && node ../../scripts/generate-error-table.mjs --check && node ../../scripts/generate-document-schema.mjs --check && node ../../scripts/check-public-jsdoc.mjs && tsx scripts/check-docs.ts && tsx scripts/generate-command-reference.ts --check && tsx scripts/generate-api-index.ts --check && tsx scripts/generate-reference-fields.ts --check && tsx scripts/generate-installs.ts --check",
     "test": "vitest run",
     "clean": "rm -rf .next .source",
     "asset": "tsx scripts/generate-hero-document.ts",
@@ -20,7 +20,9 @@
     "check:site": "tsx scripts/smoke-site.ts",
     "check:a11y": "tsx scripts/check-a11y.ts",
     "generate:commands": "tsx scripts/generate-command-reference.ts",
-    "generate:api": "tsx scripts/generate-api-index.ts"
+    "generate:api": "tsx scripts/generate-api-index.ts",
+    "generate:fields": "tsx scripts/generate-reference-fields.ts",
+    "generate:installs": "tsx scripts/generate-installs.ts"
   },
   "dependencies": {
     "cnfast": "^0.1.0",
@@ -42,6 +44,7 @@
     "@napi-rs/canvas": "1.0.10",
     "@react-pdf/renderer": "4.9.0",
     "@tailwindcss/postcss": "^4.3.3",
+    "@types/mdast": "4.0.4",
     "@types/mdx": "^2.0.14",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",
@@ -62,6 +65,7 @@
     "tesseract.js": "7.0.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
+    "unified": "11.0.5",
     "vitest": ">=3",
     "zod": "4.4.3"
   }

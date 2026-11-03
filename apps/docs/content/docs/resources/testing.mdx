@@ -4,7 +4,30 @@ description: Use deterministic doubles, PDF fixtures, provider mocks, and confor
 type: how-to
 ---
 
-Test routing, validation, data, and failure behavior with deterministic components before making live model calls.
+Test routing, validation, data, and failure behavior with deterministic components before making live model calls. The application test below needs no PDF engine, provider, or API key.
+
+## Test your application without engines
+
+Install the library and schema peer, plus the script runner for development:
+
+```sh
+npm install docture zod@^4.1.8
+npm install --save-dev tsx
+```
+
+Save the following as `pipeline.test.ts`:
+
+<SourceExample file="application-testing.ts" title="pipeline.test.ts" />
+
+Run it with Node's test API through `tsx`:
+
+```sh
+npx tsx pipeline.test.ts
+```
+
+The runner reports two passing tests. The first checks the returned data and confirms that a failed primary strategy falls back. The second checks the error code for invalid data. A failed assertion exits with code `1`.
+
+## Choose a test tool
 
 | Test | Use |
 | --- | --- |
@@ -17,13 +40,15 @@ Test routing, validation, data, and failure behavior with deterministic componen
 
 Test both successful results and the behavior your application relies on: strategy fallback, cancellation, selected pages, validation failures, and disposal. Compare actual returned data rather than implementation call counts.
 
-Run the complete keyless testing example from the repository:
+## Run repository examples
+
+From a repository clone, run the complete keyless testing example:
 
 ```sh
 pnpm --dir apps/examples exec tsx testing-your-pipeline/index.ts
 pnpm --filter @docture/examples test
 ```
 
-The [testing API](/docs/resources/testing-api) lists the doubles, fixture generators, and conformance suites. Engine-free doubles need no PDF or model peer. PDF fixtures and conformance suites require the exact engines in [installation recipes](/docs/getting-started/installation).
+The [testing API](/docs/resources/testing-api) lists the doubles, fixture generators, and conformance suites. Engine-free doubles need no PDF or model peer. PDF fixtures and conformance suites require the supported engines in [installation recipes](/docs/getting-started/installation).
 
 Live provider, OCR, and remote-service checks need their own credentials or assets. Deterministic mocks cover behavior without establishing live service compatibility.

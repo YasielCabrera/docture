@@ -1,12 +1,22 @@
 ---
 title: API index
-description: Find public APIs by package and import path.
+description: Find public symbols, their import paths, and their canonical reference sections.
 type: reference
 ---
 
-Each entry below links to its canonical reference pages. Import public entries rather than files under `src` or `dist`. Install the engines required by the [package reference](/docs/getting-started/reference/packages).
+Find a symbol by name, import path, or package. Import public entries rather than files under `src` or `dist`. Install the engines required by the [package reference](/docs/getting-started/reference/packages).
 
-## Core
+## Symbols
+
+The [symbol index as JSON](/api-symbols.json) contains the same symbols, imports, descriptions, and reference links.
+
+<ApiIndex />
+
+## Entry points
+
+Each entry below links to its canonical reference pages.
+
+### Core
 
 | Import | Reference |
 | --- | --- |
@@ -44,7 +54,7 @@ Each entry below links to its canonical reference pages. Import public entries r
 | `docture/loaders/docling` | [Connect to Docling Serve](/docs/integrations/docling-serve) |
 | `docture/sinks/paperless` | [Plan and apply Paperless updates](/docs/integrations/paperless-updates) |
 
-## CLI and services
+### CLI and services
 
 | Import | Reference |
 | --- | --- |
@@ -53,11 +63,11 @@ Each entry below links to its canonical reference pages. Import public entries r
 | `@docture/cli/mcp` | [CLI package](/docs/cli/reference/cli) |
 | `@docture/cli/service` | [HTTP service](/docs/cli/reference/service) |
 
-## Evaluation
+### Evaluation
 
 | Import | Reference |
 | --- | --- |
-| `@docture/eval` | [Evaluation core types](/docs/evaluation/reference/types), [Evaluation array alignment API](/docs/evaluation/reference/arrays), [Evaluation gates and baselines API](/docs/evaluation/reference/gates), [Evaluation results API](/docs/evaluation/reference/results), [Evaluation specs API](/docs/evaluation/reference/specs), [Evaluation datasets and reporter contracts API](/docs/evaluation/reference/core), [Evaluation dataset management API](/docs/evaluation/reference/datasets), [Evaluation runner API](/docs/evaluation/reference/runner), [Evaluation utilities API](/docs/evaluation/reference/utilities), [Evaluation comparators API](/docs/evaluation/reference/comparators), [Evaluation metrics and assertions API](/docs/evaluation/reference/metrics) |
+| `@docture/eval` | [Evaluation array alignment API](/docs/evaluation/reference/arrays), [Evaluation gates and baselines API](/docs/evaluation/reference/gates), [Evaluation results API](/docs/evaluation/reference/results), [Evaluation specs API](/docs/evaluation/reference/specs), [Evaluation datasets and reporter contracts API](/docs/evaluation/reference/core), [Evaluation dataset management API](/docs/evaluation/reference/datasets), [Evaluation runner API](/docs/evaluation/reference/runner), [Evaluation utilities API](/docs/evaluation/reference/utilities), [Evaluation comparators API](/docs/evaluation/reference/comparators), [Evaluation metrics and assertions API](/docs/evaluation/reference/metrics), [Evaluation spec and alignment types](/docs/evaluation/reference/data-types/specs), [Evaluation score and metric types](/docs/evaluation/reference/data-types/scores), [Evaluation case and processor types](/docs/evaluation/reference/data-types/cases), [Evaluation analysis types](/docs/evaluation/reference/data-types/analysis), [Evaluation result types](/docs/evaluation/reference/data-types/results), [Evaluation error types](/docs/evaluation/reference/data-types/errors), [Evaluation gate types](/docs/evaluation/reference/data-types/gates), [Evaluation run-store types](/docs/evaluation/reference/data-types/stores) |
 | `@docture/eval/config` | [Evaluation configuration API](/docs/evaluation/reference/config) |
 | `@docture/eval/dataset` | [Evaluation dataset management API](/docs/evaluation/reference/datasets) |
 | `@docture/eval/runner` | [Evaluation runner API](/docs/evaluation/reference/runner) |
@@ -71,7 +81,7 @@ Each entry below links to its canonical reference pages. Import public entries r
 | `@docture/eval/reporters/markdown` | [Evaluation CSV reporter API](/docs/evaluation/reference/reporters-csv), [Evaluation Markdown reporter API](/docs/evaluation/reference/reporters-markdown) |
 | `@docture/eval/reporters/csv` | [Evaluation CSV reporter API](/docs/evaluation/reference/reporters-csv) |
 | `@docture/eval/reporters/junit` | [Evaluation JUnit reporter API](/docs/evaluation/reference/reporters-junit) |
-| `@docture/eval/reporters/html` | [Evaluation HTML reporter API](/docs/evaluation/reference/reporters-html), [Evaluation CSV reporter API](/docs/evaluation/reference/reporters-csv), [Evaluation terminal reporter API](/docs/evaluation/reference/reporters-terminal) |
+| `@docture/eval/reporters/html` | [Evaluation HTML reporter API](/docs/evaluation/reference/reporters-html), [Evaluation CSV reporter API](/docs/evaluation/reference/reporters-csv) |
 | `@docture/eval/reporters/template` | [Evaluation Markdown reporter API](/docs/evaluation/reference/reporters-markdown), [Evaluation template reporter API](/docs/evaluation/reference/reporters-template) |
 | `@docture/eval/judge` | [Evaluation model judge API](/docs/evaluation/reference/judges) |
 | `@docture/eval/vitest` | [Evaluation framework adapters API](/docs/evaluation/reference/frameworks) |
@@ -80,19 +90,19 @@ Each entry below links to its canonical reference pages. Import public entries r
 | `@docture/eval/autoevals` | [Evaluation framework adapters API](/docs/evaluation/reference/frameworks) |
 | `@docture/eval/conversion` | [Conversion checks API](/docs/evaluation/reference/conversion) |
 
-## Synthetic data
+### Synthetic data
 
 | Import | Reference |
 | --- | --- |
-| `@docture/synthetic` | [Synthetic models and generators API](/docs/synthetic/reference/models), [Synthetic templates and formatting API](/docs/synthetic/reference/templates), [Synthetic constraints and paths API](/docs/synthetic/reference/constraints), [Synthetic documents and CLI configuration API](/docs/synthetic/reference/documents), [Synthetic text and record generators API](/docs/synthetic/reference/text-generators), [Synthetic errors API](/docs/synthetic/reference/errors), [Synthetic data API reference](/docs/synthetic/reference), [Synthetic pdfkit API](/docs/synthetic/reference/pdfkit), [Synthetic verify API](/docs/synthetic/reference/verify) |
+| `@docture/synthetic` | [Synthetic models and generators API](/docs/synthetic/reference/models), [Synthetic templates and formatting API](/docs/synthetic/reference/templates), [Synthetic constraints and paths API](/docs/synthetic/reference/constraints), [Synthetic documents and CLI configuration API](/docs/synthetic/reference/documents), [Synthetic text and record generators API](/docs/synthetic/reference/text-generators), [Synthetic errors API](/docs/synthetic/reference/errors), [Synthetic pdfkit API](/docs/synthetic/reference/pdfkit) |
 | `@docture/synthetic/pdfkit` | [Synthetic pdfkit API](/docs/synthetic/reference/pdfkit) |
 | `@docture/synthetic/verify` | [Synthetic verify API](/docs/synthetic/reference/verify) |
 | `@docture/synthetic/measure` | [Synthetic measure API](/docs/synthetic/reference/measure) |
-| `@docture/synthetic/degrade` | [Synthetic degrade API](/docs/synthetic/reference/degrade), [Synthetic pdfkit API](/docs/synthetic/reference/pdfkit) |
-| `@docture/synthetic/faker` | [Synthetic pdfkit API](/docs/synthetic/reference/pdfkit), [Synthetic text and record generators API](/docs/synthetic/reference/text-generators) |
-| `@docture/synthetic/node` | [Synthetic node API](/docs/synthetic/reference/node), [Synthetic verify API](/docs/synthetic/reference/verify), [Synthetic degrade API](/docs/synthetic/reference/degrade) |
-| `@docture/synthetic/llm` | [Synthetic pdfkit API](/docs/synthetic/reference/pdfkit), [Synthetic text and record generators API](/docs/synthetic/reference/text-generators) |
+| `@docture/synthetic/degrade` | [Synthetic degrade API](/docs/synthetic/reference/degrade) |
+| `@docture/synthetic/faker` | [Synthetic text and record generators API](/docs/synthetic/reference/text-generators) |
+| `@docture/synthetic/node` | [Synthetic node API](/docs/synthetic/reference/node) |
+| `@docture/synthetic/llm` | [Synthetic text and record generators API](/docs/synthetic/reference/text-generators) |
 | `@docture/synthetic/react-pdf` | [Synthetic react-pdf API](/docs/synthetic/reference/react-pdf) |
-| `@docture/synthetic/html` | [Synthetic pdfkit API](/docs/synthetic/reference/pdfkit), [Synthetic HTML API](/docs/synthetic/reference/html) |
+| `@docture/synthetic/html` | [Synthetic HTML API](/docs/synthetic/reference/html) |
 
 The evaluation result JSON Schema is also published as `@docture/eval/result-v1.schema.json`. See the [result format](/docs/evaluation/reference/results).

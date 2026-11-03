@@ -39,7 +39,7 @@ export interface LlmClassifierOptions {
   readonly instructions?: string;
   readonly temperature?: number;
   readonly maxRetries?: number;
-  /** AI SDK telemetry. Inputs and outputs are not recorded unless enabled here. */
+  /** AI SDK telemetry. Recording defaults to false; integration callbacks still receive prompts and answers. */
   readonly telemetry?: LlmTelemetryOptions;
 }
 

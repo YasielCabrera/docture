@@ -9,7 +9,7 @@ order. Import it from `docture/llm/layout`, or from `docture/llm`. For a full se
 [Add model-assisted layout](/docs/conversion/model-layout).
 
 ```sh
-npm install docture ai zod
+npm install docture ai@7 zod@^4.1.8
 ```
 
 The application needs AI SDK 7 and Zod 3.25.76 or later 3.x, or 4.1.8 or later. Also
@@ -64,4 +64,4 @@ shared options. `DocumentConverter.loadLlm()` registers it.
 | `pricing` | `PricingTable` | None | Prices used to compute the cost in `usage`. |
 | `temperature` | `number` | `0` | Sampling temperature. |
 | `maxRetries` | `number` | `2` | AI SDK retries for a failed call. |
-| `telemetry` | `LlmTelemetryOptions` | None | AI SDK telemetry. Inputs and outputs are not recorded unless enabled here. |
+| `telemetry` | `LlmTelemetryOptions` | None | AI SDK telemetry. Recording flags default to false, but integration callbacks still receive prompts and answers. See [telemetry data handling](/docs/extraction/telemetry#control-what-gets-recorded). |

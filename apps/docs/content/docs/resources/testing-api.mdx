@@ -11,7 +11,7 @@ These APIs build test documents and check custom components. They come from four
 Import from `docture/testing/fixtures`.
 
 ```sh
-npm install --save-dev docture pdfkit
+npm install --save-dev docture 'pdfkit@>=0.17.2 <0.21.0'
 ```
 
 ### `buildInvoiceData`
@@ -217,7 +217,7 @@ Throws an `Error` with `message`, which defaults to `strategy failed`.
 Import from `docture/testing/llm`. The mocks implement the AI SDK provider interface directly and import nothing at runtime. Install `ai` for the model type and to run the model components they stand in for.
 
 ```sh
-npm install --save-dev docture ai zod
+npm install --save-dev docture ai@7 zod@^4.1.8
 ```
 
 ### `mockLayoutModel`
@@ -283,7 +283,7 @@ What `llmLayout()` sends for each page: `pageNumber` and `elements`. Each elemen
 Import from `docture/testing/conformance`. Add the peer for the adapter under test.
 
 ```sh
-npm install --save-dev docture pdfkit vitest
+npm install --save-dev docture 'pdfkit@>=0.17.2 <0.21.0' vitest
 ```
 
 The suite functions register Vitest suites and return `void`. Vitest reports the failures.

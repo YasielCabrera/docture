@@ -52,13 +52,13 @@ The `docture` export throws `MissingComponentError` when `options.loaders` is em
 Construction options. Asset handling and output format are per-call options.
 
 {/* options: DocumentConverterOptions */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `loaders` | `readonly DocumentLoader[]` | Loaders tried in order. The first eligible loader that succeeds with convertible text wins. |
-| `layoutAnalyzer` | `LayoutAnalyzer` | Optional refinement applied after deterministic layout analysis. |
-| `logger` | `Logger` | Default logger for every call. |
-| `stageTimeoutMs` | `number` | Default per-stage deadline in milliseconds. Omit for none. |
-| `sourceResolver` | `SourceResolver` | How sources are read. The `docture` default rejects local paths and file URLs. `docture/node` supplies file access. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `loaders` | `readonly DocumentLoader[]` | No | Loaders tried in order. The first eligible loader that succeeds with convertible text wins. |
+| `layoutAnalyzer` | `LayoutAnalyzer` | No | Optional refinement applied after deterministic layout analysis. |
+| `logger` | `Logger` | No | Default logger for every call. |
+| `stageTimeoutMs` | `number` | No | Default per-stage deadline in milliseconds. Omit for none. |
+| `sourceResolver` | `SourceResolver` | No | How sources are read. The `docture` default rejects local paths and file URLs. `docture/node` supplies file access. |
 
 ## Conversion calls
 
@@ -137,14 +137,14 @@ Leaving the generator early aborts in-flight jobs and waits for them to settle.
 Per-call options.
 
 {/* options: ConvertOptions */}
-| Field | Type | Default | Meaning |
-| --- | --- | --- | --- |
-| `format` | `ConversionFormat` | `"markdown"` | Output format. |
-| `pages` | `readonly number[]` | Every page | Original one-based page numbers to convert. |
-| `assets` | `ConversionAssetMode` | `"referenced"` | How the output refers to images. |
-| `signal` | `AbortSignal` | None | Cancels the call. |
-| `logger` | `Logger` | Converter logger | Logger for this call. |
-| `stageTimeoutMs` | `number` | Converter value | Per-stage deadline in milliseconds. |
+| Field | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `format` | `ConversionFormat` | No | `"markdown"` | Output format. |
+| `pages` | `readonly number[]` | No | Every page | Original one-based page numbers to convert. |
+| `assets` | `ConversionAssetMode` | No | `"referenced"` | How the output refers to images. |
+| `signal` | `AbortSignal` | No | None | Cancels the call. |
+| `logger` | `Logger` | No | Converter logger | Logger for this call. |
+| `stageTimeoutMs` | `number` | No | Converter value | Per-stage deadline in milliseconds. |
 
 ### `ConversionFormat`
 
@@ -167,26 +167,26 @@ See [Export images and assets](/docs/conversion/assets).
 `ConvertOptions` plus batch concurrency.
 
 {/* options: ConversionBatchOptions */}
-| Field | Type | Default | Meaning |
-| --- | --- | --- | --- |
-| `concurrency` | `number` | `4` | Documents converted at once. |
-| `format` | `ConversionFormat` | `"markdown"` | Output format. |
-| `pages` | `readonly number[]` | Every page | Original one-based page numbers to convert in each document. |
-| `assets` | `ConversionAssetMode` | `"referenced"` | How the output refers to images. |
-| `signal` | `AbortSignal` | None | Cancels the batch. |
-| `logger` | `Logger` | Converter logger | Logger for each call. |
-| `stageTimeoutMs` | `number` | Converter value | Per-stage deadline in milliseconds. |
+| Field | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `concurrency` | `number` | No | `4` | Documents converted at once. |
+| `format` | `ConversionFormat` | No | `"markdown"` | Output format. |
+| `pages` | `readonly number[]` | No | Every page | Original one-based page numbers to convert in each document. |
+| `assets` | `ConversionAssetMode` | No | `"referenced"` | How the output refers to images. |
+| `signal` | `AbortSignal` | No | None | Cancels the batch. |
+| `logger` | `Logger` | No | Converter logger | Logger for each call. |
+| `stageTimeoutMs` | `number` | No | Converter value | Per-stage deadline in milliseconds. |
 
 ### `ConversionBatchItem`
 
 One finished batch job.
 
 {/* options: ConversionBatchItem */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `source` | `DocumentSource` | The source as passed in. |
-| `index` | `number` | The source's position in the input array. |
-| `outcome` | `SafeConversion` | The result or the error. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `source` | `DocumentSource` | Yes | The source as passed in. |
+| `index` | `number` | Yes | The source's position in the input array. |
+| `outcome` | `SafeConversion` | Yes | The result or the error. |
 
 ## Result
 
@@ -195,34 +195,34 @@ One finished batch job.
 What `convert()` returns.
 
 {/* options: ConversionResult */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `content` | `string` | Whole-document output. |
-| `format` | `ConversionFormat` | The selected format. |
-| `mimeType` | `string` | `text/plain`, `text/markdown`, `text/html`, or `application/json`. |
-| `pages` | `readonly ConvertedPage[]` | Per-page fragments and semantic elements. |
-| `assets` | `readonly ConversionAsset[]` | In-memory image assets. Empty in omit mode. |
-| `loader` | `string` | Name of the loader that succeeded. |
-| `method` | `string` | `deterministic`, or `deterministic+<analyzer name>` when a layout analyzer's annotations were applied. |
-| `attempts` | `readonly Attempt[]` | Loader and layout analyzer history. |
-| `warnings` | `readonly ConversionWarning[]` | Degraded layout, asset, link, and analyzer warnings. |
-| `features` | `DocumentFeatures` | Runtime facts about the loaded document. |
-| `usage` | `Usage` | Model tokens, optional cost, and the call's whole wall time. |
-| `ocrFallback` | `OcrFallbackReport` | Present only when the loader was a [`withOcrFallback`](/docs/integrations/selected-page-ocr) composition. Names the pages sent to OCR, the loader that supplied each page, and per-page OCR warnings. JSON output does not include it. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `content` | `string` | Yes | Whole-document output. |
+| `format` | `ConversionFormat` | Yes | The selected format. |
+| `mimeType` | `string` | Yes | `text/plain`, `text/markdown`, `text/html`, or `application/json`. |
+| `pages` | `readonly ConvertedPage[]` | Yes | Per-page fragments and semantic elements. |
+| `assets` | `readonly ConversionAsset[]` | Yes | In-memory image assets. Empty in omit mode. |
+| `loader` | `string` | Yes | Name of the loader that succeeded. |
+| `method` | `string` | Yes | `deterministic`, or `deterministic+<analyzer name>` when a layout analyzer's annotations were applied. |
+| `attempts` | `readonly Attempt[]` | Yes | Loader and layout analyzer history. |
+| `warnings` | `readonly ConversionWarning[]` | Yes | Degraded layout, asset, link, and analyzer warnings. |
+| `features` | `DocumentFeatures` | Yes | Runtime facts about the loaded document. |
+| `usage` | `Usage` | Yes | Model tokens, optional cost, and the call's whole wall time. |
+| `ocrFallback` | `OcrFallbackReport` | No | Present only when the loader was a [`withOcrFallback`](/docs/integrations/selected-page-ocr) composition. Names the pages sent to OCR, the loader that supplied each page, and per-page OCR warnings. JSON output does not include it. |
 
 ### `ConvertedPage`
 
 One page of a conversion result.
 
 {/* options: ConvertedPage */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `pageNumber` | `number` | One-based page number in the original document. |
-| `width` | `number` | Page width in PDF points. |
-| `height` | `number` | Page height in PDF points. |
-| `content` | `string` | A format-specific fragment without the whole-document wrapper. It holds every element that starts on the page, including the rest of an element that continues onto later pages. |
-| `elements` | `readonly DocumentElement[]` | The page's [semantic elements](/docs/conversion/reference/layout#semantic-layout). |
-| `evidence` | `readonly SourceEvidence[]` | Native element and table-cell evidence, in every output format, when the input provides it. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `pageNumber` | `number` | Yes | One-based page number in the original document. |
+| `width` | `number` | Yes | Page width in PDF points. |
+| `height` | `number` | Yes | Page height in PDF points. |
+| `content` | `string` | Yes | A format-specific fragment without the whole-document wrapper. It holds every element that starts on the page, including the rest of an element that continues onto later pages. |
+| `elements` | `readonly DocumentElement[]` | Yes | The page's [semantic elements](/docs/conversion/reference/layout#semantic-layout). |
+| `evidence` | `readonly SourceEvidence[]` | No | Native element and table-cell evidence, in every output format, when the input provides it. |
 
 ### `ConversionAsset`
 
@@ -236,11 +236,11 @@ and HTML link to. It also carries `id`, `pageNumber`, `name`, `mimeType`, `bytes
 A non-fatal problem.
 
 {/* options: ConversionWarning */}
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `code` | `ConversionWarningCode` | What went wrong. |
-| `message` | `string` | A readable description. |
-| `pageNumber` | `number` | The affected page, when one applies. |
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `code` | `ConversionWarningCode` | Yes | What went wrong. |
+| `message` | `string` | Yes | A readable description. |
+| `pageNumber` | `number` | No | The affected page, when one applies. |
 
 ### `ConversionWarningCode`
 

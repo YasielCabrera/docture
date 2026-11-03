@@ -6,6 +6,8 @@ type: reference
 
 Preview or apply a ground-truth migration.
 
+Examples use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Arguments
 
 | Argument | Required | Meaning |
@@ -26,8 +28,8 @@ Preview or apply a ground-truth migration.
 ## Examples
 
 ```sh
-docture eval migrate ./migrations/net-totals.ts
-docture eval migrate ./migrations/net-totals.ts --write
+npx docture eval migrate ./migrations/net-totals.ts
+npx docture eval migrate ./migrations/net-totals.ts --write
 ```
 
 See [Evaluate from the CLI](/docs/cli/evaluation) and [input and output behavior](/docs/cli/inputs-and-outputs).

@@ -2,9 +2,11 @@ import type { MetadataRoute } from "next";
 import { siteOrigin } from "@/lib/site";
 import { source } from "@/lib/source";
 
-// A sitemap must list absolute URLs, so a build without a known origin publishes an empty one.
 export default function sitemap(): MetadataRoute.Sitemap {
   const origin = siteOrigin();
-  if (origin === undefined) return [];
+  if (origin === undefined) {
+    if (process.env.NODE_ENV === "production") throw new Error("Set SITE_URL or VERCEL_PROJECT_PRODUCTION_URL before building the documentation sitemap.");
+    return [];
+  }
   return ["/", ...source.getPages().map((page) => page.url)].map((path) => ({ url: new URL(path, origin).href }));
 }

@@ -16,7 +16,7 @@ This entry imports no Node.js modules. `terminalReporter` writes to `process.std
 renderScoreboard(result: EvalResult, options?: ScoreboardOptions): string
 ```
 
-Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`ScoreboardOptions`](/docs/evaluation/reference/reporters-terminal#scoreboardoptions).
+Takes [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult) and [`ScoreboardOptions`](/docs/evaluation/reference/reporters-terminal#scoreboardoptions).
 
 The final scoreboard as plain text: overall metrics, segments, slices, failures, comparison verdicts, gate and warnings.
 
@@ -35,10 +35,6 @@ Print progress and the final scoreboard. On a TTY a two-line panel is repainted 
 ```ts
 defineColumn(column: Column): Column
 ```
-
-Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
-
-Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
 
 Takes and returns [`Column`](/docs/evaluation/reference/reporters-terminal#column).
 

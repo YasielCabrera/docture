@@ -132,6 +132,20 @@ Runtime validation rejects cycles, non-finite numbers, undefined, functions, sym
 | `sibling` | `(key) => V` | The value of a sibling key in the enclosing object. |
 | `fallback` | `() => unknown` | The value the schema alone would produce here. |
 
+### `Generator`
+
+A `Generator<V>` produces the value at one concrete schema position. The helpers in [`gen`](#gen) return this shape, and custom generators implement it directly.
+
+```ts signature
+interface Generator<V> {
+  readonly kind: "generator";
+  generate(context: GenContext): V;
+  readonly source?: unknown;
+}
+```
+
+`source` records the builder and arguments that created the generator, so corpus provenance can detect generator changes. [`GenContext`](#gencontext) provides the path-specific random stream, schema, and access to related values.
+
 ### `FieldSpec` and `ArrayLength`
 
 ```ts check

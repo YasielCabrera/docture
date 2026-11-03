@@ -15,7 +15,7 @@ mkdir invoice-loop
 cd invoice-loop
 npm init -y
 npm pkg set type=module
-npm install docture @docture/synthetic @docture/eval zod pdfkit pdfjs-dist @napi-rs/canvas sharp
+npm install docture @docture/synthetic @docture/eval zod@^4.2.0 'pdfkit@>=0.17.2 <0.21.0' pdfjs-dist@^6.2.108 @napi-rs/canvas@^1.0.10 sharp@0.35.5
 npm install --save-dev tsx
 ```
 

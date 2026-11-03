@@ -7,7 +7,7 @@ type: reference
 Docture publishes four packages: `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic`. All
 require Node.js 22 or newer. `docture` contains core, model integrations, adapters and testing. `@docture/eval`
 supplies evaluation. `@docture/synthetic` generates labeled synthetic documents for evaluation.
-Its root exports core only. The CLI supplies the `docture` executable.
+The `docture` root exports core only. The CLI supplies the `docture` executable.
 
 ## Public entry points
 
@@ -188,6 +188,8 @@ tree-shaken. Actual bundle contents depend on the bundler, configuration, and im
 
 Only the judge needs an optional engine. Framework adapters import no host framework.
 
+Each reporter entry is Node-only because it also exports a file-writing factory that imports `node/artifacts`. The pure `render*` implementations have no Node imports. Their entry points still require Node.js.
+
 ## Synthetic data entries
 
 `@docture/synthetic` requires the `docture` peer. Its root holds models, generators, constraints, scenarios, printed masks, templates and formatting, and needs no engine. Every engine is an optional peer, loaded on first use.
@@ -204,4 +206,4 @@ Only the judge needs an optional engine. Framework adapters import no host frame
 | `@docture/synthetic/html` | HTML and CSS templates printed by Chromium | `playwright-core@1.64.1` and a Chromium build |
 | `@docture/synthetic/llm` | Model-written text pools | `ai@^7.0.0` |
 
-See the [synthetic data API](/docs/synthetic/reference) and the [synthetic corpus guide](/docs/synthetic/quick-start). Each reporter entry is Node-only because it also exports a file-writing factory that imports `node/artifacts`. The pure `render*` implementations have no Node imports; this does not make their entry points browser-safe.
+See the [synthetic data API](/docs/synthetic/reference) and the [synthetic corpus guide](/docs/synthetic/quick-start).

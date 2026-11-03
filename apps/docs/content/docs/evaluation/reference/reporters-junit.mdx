@@ -16,7 +16,7 @@ This entry imports Node.js file APIs, so it runs only in Node.js. `junitReporter
 renderJunit(result: EvalResult, options?: JunitOptions): string
 ```
 
-Takes [`EvalResult`](/docs/evaluation/reference/types#evalresult) and [`JunitOptions`](/docs/evaluation/reference/reporters-junit#junitoptions).
+Takes [`EvalResult`](/docs/evaluation/reference/data-types/results#evalresult) and [`JunitOptions`](/docs/evaluation/reference/reporters-junit#junitoptions).
 
 The result as JUnit XML: one suite per experiment, one test case per case and epoch, and the gate checks as their own suite. Throws `TypeError` when `threshold` is not a finite number in [0, 1].
 

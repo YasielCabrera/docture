@@ -31,6 +31,10 @@ try {
   assert.equal(await example("sources-and-inputs.ts"), "INV-1");
   assert.equal(await example("measure-accuracy.ts"), "1\n[]");
   assert.equal(await example("check-conversion.ts"), "4/4 conversion checks passed");
+  const applicationTests = await example("application-testing.ts");
+  assert.match(applicationTests, /\bpass 2\b/);
+  assert.match(applicationTests, /\bfail 0\b/);
+  assert.equal(await example("evaluation-analysis.ts"), 'F1 0.5\nConfidence [{"confidence":0.9,"count":2,"correct":1}]\nAuto-accept threshold null\nGrounded F1 0.5\nGate passed false');
   assert.equal(await example("deterministic-invoice.ts"), `${fixture.expected.total} invoice-parser`);
   assert.equal(await example("conversion-sample-pdf.ts"), `Wrote report.pdf for invoice ${fixture.expected.invoiceNumber}`);
   await example("document-conversion.ts");
@@ -86,7 +90,7 @@ try {
     stdout: "FAIL: f1 for experiment read-labels is 0.6667, below the minimum 1\nFAIL: errorRate for experiment read-labels is 0.5, above the maximum 0\nGate failed\n",
   });
 
-  console.log("Documentation examples passed: twelve offline recipes and the extract, generate, and evaluate loop with its failing scan gate.");
+  console.log("Documentation examples passed: application tests, evaluation analysis, twelve offline recipes, and the extract, generate, and evaluate loop with its failing scan gate.");
 } finally {
   await rm(directory, { recursive: true, force: true });
 }

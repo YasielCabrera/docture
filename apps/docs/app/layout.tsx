@@ -39,6 +39,7 @@ export default function Layout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} font-sans`}
       suppressHydrationWarning
     >
+      <head><link rel="describedby" href="/llms.txt" /></head>
       <body className="flex min-h-[100dvh] flex-col">
         <RootProvider>
           {children}

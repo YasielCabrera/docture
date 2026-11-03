@@ -2,15 +2,18 @@
 title: Generate your first labeled PDF
 description: Sample two fields, draw them on a PDF, and verify that each label matches the printed text.
 type: tutorial
+tasks: ["Generate a labeled PDF", "Create synthetic test documents"]
 ---
 
-In this tutorial you create a one-page bill with two fields, render it to `bill.pdf`, and check that each label points to the printed text. You need Node.js 22 or newer. No model credentials are needed.
+In this tutorial you create a one-page bill with two fields, render it to `bill.pdf`, and check that each label points to the printed text. Use Node.js 22.18 or newer for this PDF.js workflow. No model credentials are needed.
 
 ## Install
 
 ```sh
-npm install --save-dev @docture/synthetic docture zod pdfkit pdfjs-dist tsx
+npm install --save-dev @docture/synthetic docture zod@^4.2.0 'pdfkit@>=0.17.2 <0.21.0' pdfjs-dist@^6.2.108 tsx
 ```
+
+This model uses Zod's Standard Schema JSON Schema output, available from Zod 4.2.
 
 ## Define the model and template
 

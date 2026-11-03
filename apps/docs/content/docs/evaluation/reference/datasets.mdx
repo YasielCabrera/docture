@@ -48,10 +48,6 @@ defineMigration<T>(migration: Migration<T>): Migration<T>
 
 Takes and returns [`Migration`](/docs/evaluation/reference/datasets#migration).
 
-Takes and returns [`Migration`](/docs/evaluation/reference/datasets#migration).
-
-Takes and returns [`Migration`](/docs/evaluation/reference/datasets#migration).
-
 Define the paths and transformation of a migration.
 
 ### `runMigration`
@@ -60,7 +56,7 @@ Define the paths and transformation of a migration.
 runMigration<T>(dataset: WritableDataset<T>, migration: Migration<T>, options?: { readonly write?: boolean; readonly spec?: EvalSpec<T>; }): Promise<MigrationReport>
 ```
 
-Takes [`WritableDataset`](/docs/evaluation/reference/datasets#writabledataset), [`Migration`](/docs/evaluation/reference/datasets#migration), and [`EvalSpec`](/docs/evaluation/reference/types#evalspec). Returns [`MigrationReport`](/docs/evaluation/reference/datasets#migrationreport).
+Takes [`WritableDataset`](/docs/evaluation/reference/datasets#writabledataset), [`Migration`](/docs/evaluation/reference/datasets#migration), and [`EvalSpec`](/docs/evaluation/reference/data-types/specs#evalspec). Returns [`MigrationReport`](/docs/evaluation/reference/datasets#migrationreport).
 
 Preview every change and validate guards for every case, then optionally write. A draft case stays a draft.
 

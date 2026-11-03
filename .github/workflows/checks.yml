@@ -16,6 +16,8 @@ jobs:
   checks:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    env:
+      SITE_URL: https://docture.test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

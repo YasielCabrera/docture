@@ -1229,90 +1229,6 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     "importPath": "@docture/eval",
     "entrypoint": "../../packages/eval/src/index.ts",
     "pages": {
-      "content/docs/evaluation/reference/types.mdx": [
-        "AlignmentAlgorithm",
-        "AlignmentReport",
-        "AssertionResult",
-        "Box",
-        "CalibrationBin",
-        "CalibrationReport",
-        "CalibrationStats",
-        "CalibrationSummary",
-        "CaseDelta",
-        "CaseResult",
-        "CaseScore",
-        "ConfidenceCount",
-        "CoveragePoint",
-        "DatasetError",
-        "DeltaVerdict",
-        "EpochSummary",
-        "ErroredCase",
-        "EvalResult",
-        "EvalSpec",
-        "EvalSpecError",
-        "EvidenceRef",
-        "ExpectedLocation",
-        "ExperimentComparison",
-        "FieldEvidence",
-        "FieldGroupSummary",
-        "FieldResult",
-        "FieldSource",
-        "FieldStatus",
-        "FieldType",
-        "GateCheck",
-        "GateResult",
-        "GroundTruthError",
-        "GroundTruthIssue",
-        "GroundTruthIssueCode",
-        "GroundingCounts",
-        "GroundingReport",
-        "GroundingScore",
-        "GroundingSummary",
-        "IncomparableRunsError",
-        "InvalidCaseTruth",
-        "JsonObject",
-        "JsonValue",
-        "MetricDelta",
-        "MetricFormat",
-        "MetricInfo",
-        "MetricValues",
-        "MigrationGuardError",
-        "OmittedCount",
-        "OmittedLeaves",
-        "OutOfScopeError",
-        "OutcomeChange",
-        "PathDelta",
-        "PreflightError",
-        "Prf",
-        "PrfScope",
-        "RESULT_FORMAT",
-        "RESULT_VERSION",
-        "RawKey",
-        "RepairHint",
-        "ResolvedArray",
-        "ResolvedField",
-        "ResolvedFieldInfo",
-        "RunComparison",
-        "RunIndexEntry",
-        "RunInfo",
-        "RunStore",
-        "RunStoreError",
-        "RunStoreFailure",
-        "ScoreExtras",
-        "ScoredCase",
-        "SegmentScore",
-        "SkippedCase",
-        "SpecInfo",
-        "SpecProblem",
-        "SpecProblemCode",
-        "StatusCounts",
-        "StoredRaw",
-        "StoredRun",
-        "Summary",
-        "TagValue",
-        "UsageInfo",
-        "ValidationResult"
-      ],
       "content/docs/evaluation/reference/arrays.mdx": [
         "ArrayRule",
         "DEFAULT_MAX_CELLS",
@@ -1417,6 +1333,104 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "runScopeOmissions",
         "sumOf",
         "supportsLocation"
+      ],
+      "content/docs/evaluation/reference/data-types/specs.mdx": [
+        "AlignmentAlgorithm",
+        "AlignmentReport",
+        "EvalSpec",
+        "FieldSource",
+        "FieldType",
+        "JsonObject",
+        "JsonValue",
+        "RepairHint",
+        "ResolvedArray",
+        "ResolvedField",
+        "ResolvedFieldInfo",
+        "ScoreExtras",
+        "SpecInfo",
+        "ValidationResult"
+      ],
+      "content/docs/evaluation/reference/data-types/scores.mdx": [
+        "AssertionResult",
+        "CaseScore",
+        "EvidenceRef",
+        "FieldResult",
+        "FieldStatus",
+        "MetricFormat",
+        "MetricInfo",
+        "Prf",
+        "PrfScope",
+        "SegmentScore",
+        "StatusCounts"
+      ],
+      "content/docs/evaluation/reference/data-types/cases.mdx": [
+        "Box",
+        "ExpectedLocation",
+        "FieldEvidence",
+        "TagValue",
+        "UsageInfo"
+      ],
+      "content/docs/evaluation/reference/data-types/analysis.mdx": [
+        "CalibrationBin",
+        "CalibrationReport",
+        "CalibrationStats",
+        "CalibrationSummary",
+        "CaseDelta",
+        "ConfidenceCount",
+        "CoveragePoint",
+        "DeltaVerdict",
+        "ExperimentComparison",
+        "GroundingCounts",
+        "GroundingReport",
+        "GroundingScore",
+        "GroundingSummary",
+        "MetricDelta",
+        "OutcomeChange",
+        "PathDelta",
+        "RunComparison"
+      ],
+      "content/docs/evaluation/reference/data-types/results.mdx": [
+        "CaseResult",
+        "EpochSummary",
+        "ErroredCase",
+        "EvalResult",
+        "FieldGroupSummary",
+        "MetricValues",
+        "OmittedCount",
+        "OmittedLeaves",
+        "RESULT_FORMAT",
+        "RESULT_VERSION",
+        "RunInfo",
+        "ScoredCase",
+        "SkippedCase",
+        "Summary"
+      ],
+      "content/docs/evaluation/reference/data-types/errors.mdx": [
+        "DatasetError",
+        "EvalSpecError",
+        "GroundTruthError",
+        "GroundTruthIssue",
+        "GroundTruthIssueCode",
+        "IncomparableRunsError",
+        "InvalidCaseTruth",
+        "MigrationGuardError",
+        "OutOfScopeError",
+        "PreflightError",
+        "RunStoreError",
+        "RunStoreFailure",
+        "SpecProblem",
+        "SpecProblemCode"
+      ],
+      "content/docs/evaluation/reference/data-types/gates.mdx": [
+        "GateCheck",
+        "GateResult"
+      ],
+      "content/docs/evaluation/reference/data-types/stores.mdx": [
+        "RawKey",
+        "RunIndexEntry",
+        "RunStore",
+        "StoredRaw",
+        "StoredRun"
       ]
     }
   },
@@ -1653,16 +1667,14 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "embedJson",
         "htmlReporter",
         "renderHtml",
-        "scoreTone"
+        "scoreTone",
+        "panel"
       ],
       "content/docs/evaluation/reference/reporters-csv.mdx": [
         "CellValue",
         "Column",
         "defaultColumns",
         "defineColumn"
-      ],
-      "content/docs/evaluation/reference/reporters-terminal.mdx": [
-        "panel"
       ]
     }
   },
@@ -1788,7 +1800,12 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "ValueAt",
         "defineModel",
         "readSchema",
-        "typedJsonSchema"
+        "typedJsonSchema",
+        "gen",
+        "Model",
+        "Sample",
+        "scenario",
+        "Generator"
       ],
       "content/docs/synthetic/reference/templates.mdx": [
         "At",
@@ -1815,7 +1832,8 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "pageSizes",
         "prints",
         "project",
-        "selectTemplates"
+        "selectTemplates",
+        "Template"
       ],
       "content/docs/synthetic/reference/constraints.mdx": [
         "Constraint",
@@ -1834,7 +1852,9 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "unique",
         "validIban",
         "validLuhn",
-        "valuesAt"
+        "valuesAt",
+        "before",
+        "constraint"
       ],
       "content/docs/synthetic/reference/documents.mdx": [
         "FieldLabel",
@@ -1850,13 +1870,11 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "toEvalCase"
       ],
       "content/docs/synthetic/reference/text-generators.mdx": [
-        "Generator",
         "IbanOptions",
         "PoolCache",
         "PoolSource",
         "RuntimeSchema",
         "ValuePoolOptions",
-        "gen",
         "valuePool"
       ],
       "content/docs/synthetic/reference/errors.mdx": [
@@ -1867,20 +1885,10 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "SynthesisProblem",
         "TemplateError",
         "TemplateProblem",
-        "TemplateProblemCode",
-        "constraint",
-        "scenario"
-      ],
-      "content/docs/synthetic/reference/index.mdx": [
-        "Model"
+        "TemplateProblemCode"
       ],
       "content/docs/synthetic/reference/pdfkit.mdx": [
-        "Sample",
-        "SyntheticDocument",
-        "Template"
-      ],
-      "content/docs/synthetic/reference/verify.mdx": [
-        "before"
+        "SyntheticDocument"
       ]
     }
   },
@@ -1950,9 +1958,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "Rgb",
         "degrade",
         "profiles",
-        "transformBox"
-      ],
-      "content/docs/synthetic/reference/pdfkit.mdx": [
+        "transformBox",
         "ENGINE_RANGES"
       ]
     }
@@ -1962,11 +1968,9 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     "importPath": "@docture/synthetic/faker",
     "entrypoint": "../../packages/synthetic/src/faker/index.ts",
     "pages": {
-      "content/docs/synthetic/reference/pdfkit.mdx": [
-        "ENGINE_RANGES"
-      ],
       "content/docs/synthetic/reference/text-generators.mdx": [
-        "fakerFor"
+        "fakerFor",
+        "ENGINE_RANGES"
       ]
     }
   },
@@ -1980,12 +1984,8 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "CorpusReport",
         "RenditionSpec",
         "scanLq",
-        "writeCorpus"
-      ],
-      "content/docs/synthetic/reference/verify.mdx": [
-        "digital"
-      ],
-      "content/docs/synthetic/reference/degrade.mdx": [
+        "writeCorpus",
+        "digital",
         "fax",
         "photo",
         "scan"
@@ -1997,15 +1997,13 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     "importPath": "@docture/synthetic/llm",
     "entrypoint": "../../packages/synthetic/src/llm/index.ts",
     "pages": {
-      "content/docs/synthetic/reference/pdfkit.mdx": [
-        "ENGINE_RANGES"
-      ],
       "content/docs/synthetic/reference/text-generators.mdx": [
         "ObjectPoolOptions",
         "TextPoolCache",
         "TextPoolOptions",
         "llmObjectPool",
-        "llmTextPool"
+        "llmTextPool",
+        "ENGINE_RANGES"
       ]
     }
   },
@@ -2035,16 +2033,14 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
     "importPath": "@docture/synthetic/html",
     "entrypoint": "../../packages/synthetic/src/html/index.ts",
     "pages": {
-      "content/docs/synthetic/reference/pdfkit.mdx": [
-        "ENGINE_RANGES"
-      ],
       "content/docs/synthetic/reference/html.mdx": [
         "HtmlTemplate",
         "HtmlTemplateDefinition",
         "RenderHtmlPdfOptions",
         "defineHtmlTemplate",
         "escapeHtml",
-        "renderHtmlPdf"
+        "renderHtmlPdf",
+        "ENGINE_RANGES"
       ]
     }
   }

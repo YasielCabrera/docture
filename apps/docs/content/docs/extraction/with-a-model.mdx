@@ -2,6 +2,7 @@
 title: Extract with a model
 description: Configure text and vision extraction with an AI SDK model.
 type: how-to
+tasks: ["Configure model credentials", "Connect an AI SDK model"]
 ---
 
 Use a model when you need to extract from layouts you have not written a parser for. Docture sends the document text, or page images for vision, to an AI SDK `LanguageModel` and validates the answer against your schema. [Your first extraction](/docs/extraction/quick-start) shows the smallest version of this setup.
@@ -9,10 +10,12 @@ Use a model when you need to extract from layouts you have not written a parser 
 ## Install
 
 ```sh
-npm install docture pdfjs-dist ai @ai-sdk/openai zod
+npm install docture pdfjs-dist@^6.2.108 ai@7 @ai-sdk/openai zod@^4.1.8
 ```
 
 Model integrations need AI SDK 7 and Zod 3.25.76 or later 3.x, or Zod 4.1.8 or later. Install the provider package your application uses; this page uses `@ai-sdk/openai`. See [installation recipes](/docs/getting-started/installation) for other engines and providers.
+
+Set `OPENAI_API_KEY` in the shell that runs this example. The OpenAI provider reads it automatically. Other providers and the AI Gateway use their own credentials; see the [environment and credentials table](/docs/cli/reference/cli#environment-and-credentials).
 
 ## Choose a model
 
@@ -47,8 +50,11 @@ single `loadLlm()` call. A second `loadLlm()` call with the same model throws
 `DUPLICATE_COMPONENT`, because both calls register a text strategy with the same name.
 
 ```sh
-npm install @napi-rs/canvas
+npm install @napi-rs/canvas@^1.0.10
 ```
+
+The prices below are illustrative values, not provider quotes. Replace them with the
+current rates for the provider and model you use.
 
 ```ts check
 import { Extractor, withRasterizer } from "docture/node";

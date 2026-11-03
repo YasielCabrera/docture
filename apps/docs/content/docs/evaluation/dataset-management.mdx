@@ -6,6 +6,8 @@ type: how-to
 
 Use a fixed seed when selecting a subset:
 
+For the CLI commands on this page, complete the [CLI quick start](/docs/cli/quick-start) to install the executable in your project.
+
 ```ts
 import { sample } from "@docture/eval/dataset";
 
@@ -37,4 +39,4 @@ console.log(preview.written, preview.cases);
 
 Preview writes nothing. Pass `write: true` after reviewing the diff. The migration checks all cases before writing, rejects changes outside declared targets, requires idempotence, and optionally validates the transformed truth against the spec. Draft cases remain drafts. A custom adapter's individual writes can still fail after earlier writes succeed.
 
-Use `docture eval sample` and `docture eval migrate` for the same workflows from the [CLI](/docs/cli/commands). See the [dataset management API](/docs/evaluation/reference/datasets).
+Use `npx docture eval sample` and `npx docture eval migrate` for the same workflows from the [CLI](/docs/cli/commands). See the [dataset management API](/docs/evaluation/reference/datasets).

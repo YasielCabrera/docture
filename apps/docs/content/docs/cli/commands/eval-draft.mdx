@@ -6,6 +6,8 @@ type: reference
 
 Draft ground truth for cases without signed-off truth.
 
+Examples use the project-local CLI installed in [Run your first CLI commands](/docs/cli/quick-start).
+
 ## Flags
 
 | Flag | Default | Meaning |
@@ -16,5 +18,54 @@ Draft ground truth for cases without signed-off truth.
 | `--quiet`, `-q` | Not set | Only failures and the first hint per error code on stderr |
 | `--no-color` | Not set | Never emit ANSI colour |
 | `--help`, `-h` | Not set | Show this help |
+
+## Output examples
+
+These outputs use the configured invoices dataset with one case, invoice-001, and a deterministic parser experiment. No model runs. Replace the case ID and experiment names with those in your configuration.
+
+### Successful command
+
+```sh
+npx docture eval draft --experiment parser
+```
+
+Exit code: `0`.
+
+`stdout`:
+
+```txt
+invoice-001
+```
+
+`stderr`:
+
+```txt
+· Drafted 1 case with parser. Review them, then run docture eval sign-off <id>.
+```
+
+Written to `dataset/invoice-001/expected.draft.json`:
+
+```json
+{
+  "invoiceNumber": "INV-42"
+}
+```
+
+### Failed command
+
+```sh
+npx docture eval draft --config ambiguous.eval.mjs
+```
+
+Exit code: `2`.
+
+`stdout` is empty.
+
+`stderr`:
+
+```txt
+error [USAGE] Drafting needs exactly one experiment.
+      Pass --experiment with one of: parser, other.
+```
 
 See [Evaluate from the CLI](/docs/cli/evaluation) and [input and output behavior](/docs/cli/inputs-and-outputs).
