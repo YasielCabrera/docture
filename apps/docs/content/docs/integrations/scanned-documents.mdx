@@ -107,16 +107,23 @@ recognizer models may be selected by name or supplied as local files, URLs, or b
 Test both paths on your own documents. OCR quality depends on language, resolution,
 rotation, contrast, and page layout.
 
-## Loader ordering is not OCR fallback
+## Loader ordering and OCR fallback
 
 Loaders are selected by media type and declaration order. `DocumentLoaderPdfJs` can load a
-scanned PDF successfully and return empty text. An OCR loader listed after it will not run
-unless the first loader throws.
+scanned PDF successfully and return empty text.
 
-Use one of these setups:
+`DocumentConverter` moves on when a loader recovers no text from the selected pages. An OCR
+loader listed after PDF.js therefore reads a PDF that is scanned throughout. The skipped
+loader appears in `result.attempts` with status `"skipped"`. A mixed document still has
+text, so the converter keeps PDF.js and the scanned pages stay empty. Use
+[`withOcrFallback`](/docs/integrations/selected-page-ocr) to OCR only those pages. From the
+CLI, `docture convert --ocr tesseract` does this for you.
+
+`Extractor` runs an OCR loader listed after PDF.js only when PDF.js throws. For extraction,
+use one of these setups:
 
 - Send PDFs to a renderable PDF.js loader and use `vision()` for scans.
-- Use an OCR loader as the PDF loader.
+- Use an OCR loader as the PDF loader, or wrap PDF.js with `withOcrFallback`.
 - Wrap the text-layer loader so it throws when `form` is `scanned`, then list OCR next.
 
 In an extraction result, `result.attempts` starts with the failed loaders, and the

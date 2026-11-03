@@ -48,6 +48,7 @@ const names = [
   "UnclassifiedGroupError",
   "MissingEngineError",
   "MissingComponentError",
+  "DisposedError",
 ] as const;
 type ErrorName = (typeof names)[number];
 
@@ -67,6 +68,7 @@ const samples: Record<ErrorName, (m: ErrorsModule) => DoctureError> = {
   UnclassifiedGroupError: (m: ErrorsModule) => new m.UnclassifiedGroupError([1], "memo", ["invoice"]),
   MissingEngineError: (m: ErrorsModule) => new m.MissingEngineError("mupdf", "~1.28.0", "docture/loaders/mupdf"),
   MissingComponentError: (m: ErrorsModule) => new m.MissingComponentError("missing loader"),
+  DisposedError: (m: ErrorsModule) => new m.DisposedError("DocumentConverter"),
 };
 
 const codes: Record<ErrorName, string> = {
@@ -85,6 +87,7 @@ const codes: Record<ErrorName, string> = {
   UnclassifiedGroupError: "UNCLASSIFIED_GROUP",
   MissingEngineError: "MISSING_ENGINE",
   MissingComponentError: "MISSING_COMPONENT",
+  DisposedError: "DISPOSED",
 };
 
 describe("errors from another installed copy of docture", () => {

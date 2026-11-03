@@ -1,5 +1,5 @@
 import type { LineSourceId } from "../domain/conversion.js";
-import type { LayoutBox, LoadedPage, TextLayoutBlock, TextLine } from "../domain/geometry.js";
+import type { LayoutBox, LoadedPage, TextLayoutBlock, TextLine, TextSpan } from "../domain/geometry.js";
 import { lineIdsOf, lineSourceId } from "./source-lines.js";
 
 export interface Candidate {
@@ -109,9 +109,44 @@ export function fontSizes(candidate: Candidate): number[] {
   );
 }
 
-/** Median font size of a page's candidates, the reference for heading thresholds. */
-export function bodyFontSize(candidates: readonly Candidate[]): number {
-  return median(candidates.flatMap(fontSizes).filter((size) => size > 0)) || 10;
+const MONOSPACE_FAMILY = /(?:mono|courier|consolas|menlo)/iu;
+
+/**
+ * Whether a span is set in a fixed-width font. MuPDF reports subset fonts such
+ * as `HAAAAA+CourierNewPSMT` as proportional, so the family name also counts.
+ */
+export function isMonospace(span: TextSpan): boolean {
+  return span.style?.monospace === true || MONOSPACE_FAMILY.test(span.style?.fontFamily ?? "");
+}
+
+/** The font size of most of the characters in `spans`, or 0 when none has a size. */
+export function characterFontSize(spans: readonly TextSpan[]): number {
+  const weighted = spans
+    .flatMap((span) => {
+      const size = span.style?.fontSize ?? 0;
+      const characters = span.text.replace(/\s/gu, "").length;
+      return size > 0 && characters > 0 ? [{ size, characters }] : [];
+    })
+    .sort((a, b) => a.size - b.size);
+  const total = weighted.reduce((sum, item) => sum + item.characters, 0);
+  let seen = 0;
+  for (const item of weighted) {
+    seen += item.characters;
+    if (seen * 2 >= total) return item.size;
+  }
+  return 0;
+}
+
+/**
+ * The font size of most of a page's characters outside the table rows in
+ * `tableRows`, the reference for heading thresholds. Counting characters rather
+ * than spans keeps many short diagram labels from outweighing the body prose,
+ * and a page that is mostly a small-print table keeps its prose as the reference.
+ */
+export function bodyFontSize(candidates: readonly Candidate[], tableRows: ReadonlySet<string>): number {
+  const prose = candidates.filter((candidate) => !tableRows.has(candidate.id));
+  return characterFontSize((prose.length > 0 ? prose : candidates).flatMap((candidate) =>
+    candidate.lines.flatMap((line) => line.spans))) || 10;
 }
 
 /** A candidate this much larger than the body font size reads as a heading. */

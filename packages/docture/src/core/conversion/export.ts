@@ -119,12 +119,21 @@ function safeHref(
   return undefined;
 }
 
-function markdownText(value: string): string {
+function inlineMarkdownText(value: string): string {
+  return value.replace(/([\\`*_[\]<>])/gu, "\\$1");
+}
+
+/** Escape what would open a heading, list, or rule, or underline the line above, at the start of a line. */
+function escapeLineStarts(value: string): string {
   return value
-    .replace(/([\\`*_[\]<>])/gu, "\\$1")
-    .replace(/^([\t ]{0,3})([#>+-])(?=\s)/gmu, "$1\\$2")
-    .replace(/^([\t ]{0,3})(\d+)([.)])(?=\s)/gmu, "$1$2\\$3")
-    .replace(/^([\t ]{0,3})(-{3,}|~{3,})(\s*)$/gmu, "$1\\$2$3");
+    .replace(/^([\t ]{0,3})#/gmu, "$1\\#")
+    .replace(/^([\t ]{0,3})([+-])(?=\s|$)/gmu, "$1\\$2")
+    .replace(/^([\t ]{0,3})(\d{1,9})([.)])(?=\s|$)/gmu, "$1$2\\$3")
+    .replace(/^([\t ]{0,3})(-+|=+|~{3,})([\t ]*)$/gmu, "$1\\$2$3");
+}
+
+function markdownText(value: string): string {
+  return escapeLineStarts(inlineMarkdownText(value));
 }
 
 function markdownRuns(
@@ -132,14 +141,14 @@ function markdownRuns(
   pageNumber: number,
   warnings: ConversionWarning[],
 ): string {
-  return runs
+  return escapeLineStarts(runs
     .map((run) => {
-      const text = markdownText(run.text);
+      const text = inlineMarkdownText(run.text);
       if (run.href === undefined) return text;
       const href = safeHref(run.href, pageNumber, warnings);
       return href === undefined ? text : `[${text}](${href.replace(/[()\\]/gu, "\\$&")})`;
     })
-    .join("");
+    .join(""));
 }
 
 function htmlText(value: string): string {
@@ -195,7 +204,7 @@ function markdownTable(rows: readonly (readonly string[])[]): string {
   const width = Math.max(...rows.map((row) => row.length));
   const cells = rows.map((row) =>
     Array.from({ length: width }, (_unused, index) =>
-      markdownText(row[index] ?? "").replace(/\|/gu, "\\|").replace(/\n/gu, "<br>"),
+      inlineMarkdownText(row[index] ?? "").replace(/\|/gu, "\\|").replace(/\n/gu, "<br>"),
     ),
   );
   const header = cells[0] ?? [];
@@ -225,11 +234,22 @@ function missingAsset(
   });
 }
 
+/** The item's own number and delimiter, such as `3.` or `10)`, so a list that starts mid-sequence keeps its numbering. */
+function orderedMarker(marker: string | undefined, index: number): string {
+  const original = /^\s*(\d{1,9}[.)])\s*$/u.exec(marker ?? "")?.[1];
+  return original ?? `${index + 1}.`;
+}
+
+function orderedStart(items: readonly { readonly marker?: string }[]): number {
+  const first = /^\s*(\d{1,9})[.)]\s*$/u.exec(items[0]?.marker ?? "")?.[1];
+  return first === undefined ? 1 : Number(first);
+}
+
 function markdownElement(element: DocumentElement, ctx: RenderContext): string {
   const pageNumber = element.provenance.pageNumber;
   switch (element.kind) {
     case "heading":
-      return `${"#".repeat(element.level)} ${markdownRuns(element.runs, pageNumber, ctx.warnings)}`;
+      return `${"#".repeat(element.level)} ${markdownRuns(element.runs.map((run) => ({ ...run, text: run.text.replace(/\s*\n\s*/gu, " ") })), pageNumber, ctx.warnings)}`;
     case "paragraph":
       return markdownRuns(element.runs, pageNumber, ctx.warnings);
     case "code": {
@@ -240,7 +260,7 @@ function markdownElement(element: DocumentElement, ctx: RenderContext): string {
       return element.items
         .map(
           (item, index) =>
-            `${element.ordered ? `${index + 1}.` : "-"} ${markdownRuns(item.runs, pageNumber, ctx.warnings)}`,
+            `${element.ordered ? orderedMarker(item.marker, index) : "-"} ${markdownRuns(item.runs, pageNumber, ctx.warnings)}`,
         )
         .join("\n");
     case "table":
@@ -282,10 +302,11 @@ function htmlElement(element: DocumentElement, ctx: RenderContext): string {
       return `<pre><code>${htmlText(element.text)}</code></pre>`;
     case "list": {
       const tag = element.ordered ? "ol" : "ul";
+      const start = element.ordered ? orderedStart(element.items) : 1;
       const items = element.items
         .map((item) => `<li>${htmlRuns(item.runs, pageNumber, ctx.warnings)}</li>`)
         .join("\n");
-      return `<${tag}>\n${items}\n</${tag}>`;
+      return `<${tag}${start === 1 ? "" : ` start="${start}"`}>\n${items}\n</${tag}>`;
     }
     case "table": {
       const rows = element.rows.map((row, rowIndex) => {

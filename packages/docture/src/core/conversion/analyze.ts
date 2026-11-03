@@ -30,6 +30,7 @@ import {
   candidatesFor,
   fontSizes,
   HEADING_SIZE_RATIO,
+  isMonospace,
   median,
   unionBox,
   type Candidate,
@@ -48,8 +49,9 @@ import {
 } from "./continuation.js";
 import { withElementIds } from "./element-ids.js";
 import { detectFurniture, type Furniture } from "./furniture.js";
+import { mergeCandidates, paragraphLength } from "./paragraphs.js";
 import { provenanceSegments } from "./provenance.js";
-import { looksLikeTableGroup, tableGroupAt, tableGroupIds, tableLabel, unresolvedGroupLabel, type TableGroup } from "./table-grid.js";
+import { looksLikeTableGroup, tableGroupAt, tableGroupIds, tableLabel, tableRowIds, unresolvedGroupLabel, type TableGroup } from "./table-grid.js";
 import { appendTableRows } from "./tables.js";
 
 export interface DeterministicAnalysis {
@@ -210,6 +212,9 @@ function headingLevel(size: number, bodySize: number): 1 | 2 | 3 | 4 | 5 | 6 {
   return 6;
 }
 
+/** Larger than the body by more than the size variation of one paragraph's lines. */
+const NUMBERED_TITLE_RATIO = 1.1;
+
 const UNORDERED = /^\s*[•◦▪●*-]\s+/u;
 const ORDERED = /^\s*\d+[.)]\s+/u;
 
@@ -225,6 +230,22 @@ function stripListMarker(text: string): string {
 
 function originalListMarker(text: string): string | undefined {
   return ORDERED.exec(text)?.[0] ?? UNORDERED.exec(text)?.[0];
+}
+
+/**
+ * A numbered line set larger than the body text, such as `2. Transactions`, is
+ * a section title rather than a one-item list. List items share the body size.
+ */
+function isNumberedSectionTitle(lines: readonly Candidate[], bodySize: number): boolean {
+  const size = median(lines.flatMap(fontSizes));
+  const text = lines.flatMap((candidate) => candidate.lines.map((line) => line.text)).join(" ");
+  return fitsTitle(text, lines.length) && size > 0 && bodySize > 0 && size >= bodySize * NUMBERED_TITLE_RATIO;
+}
+
+/** A title runs to at most two lines: 120 characters on one line, 200 when it wraps. */
+function fitsTitle(text: string, lineCount: number): boolean {
+  const length = text.trim().length;
+  return lineCount === 1 ? length <= 120 : lineCount === 2 && length <= 200;
 }
 
 interface CandidateGap {
@@ -326,6 +347,19 @@ function splitColumnCandidates(
   return output;
 }
 
+/** Code lines with the leading spaces their left edges show, measured in the listing's character width. */
+function indentedCode(lines: readonly TextLine[]): string | undefined {
+  const lefts = lines.flatMap((line) => line.spans.slice(0, 1).map((span) => span.x));
+  const character = median(lines.flatMap((line) => line.spans)
+    .filter((span) => span.text.length > 0 && span.width > 0)
+    .map((span) => span.width / span.text.length));
+  if (lines.length < 2 || lefts.length !== lines.length || character <= 0) return undefined;
+  const margin = Math.min(...lefts);
+  return lines
+    .map((line, index) => " ".repeat(Math.round(((lefts[index] ?? margin) - margin) / character)) + line.text.trimStart())
+    .join("\n");
+}
+
 function elementForCandidate(
   candidate: Candidate,
   bodySize: number,
@@ -336,12 +370,12 @@ function elementForCandidate(
   const sizes = fontSizes(candidate);
   const size = median(sizes);
   const mostlyBold = spans.length > 0 && spans.filter((span) => span.style?.bold === true).length >= spans.length / 2;
-  const mostlyMono = spans.length > 0 && spans.filter((span) => span.style?.monospace === true).length >= spans.length / 2;
-  const short = text.trim().length <= 120 && !text.includes("\n");
+  const mostlyMono = spans.length > 0 && spans.filter(isMonospace).length >= spans.length / 2;
+  const fits = fitsTitle(text, candidate.lines.length);
   const isHeading =
     candidate.role === "heading" ||
-    (size > 0 && bodySize > 0 && size >= bodySize * HEADING_SIZE_RATIO && short) ||
-    (mostlyBold && short && size >= bodySize);
+    (size > 0 && bodySize > 0 && size >= bodySize * HEADING_SIZE_RATIO && fits) ||
+    (mostlyBold && fits && candidate.lines.length === 1 && size >= bodySize);
 
   if (isHeading) {
     const level =
@@ -362,7 +396,7 @@ function elementForCandidate(
     return {
       id: candidate.id,
       kind: "code",
-      text,
+      text: indentedCode(candidate.lines) ?? text,
       provenance: provenance([candidate]),
     };
   }
@@ -384,6 +418,11 @@ function analyzeTextCandidates(
   warnings: ConversionWarning[],
 ): DocumentElement[] {
   const elements: DocumentElement[] = [];
+  const opensBlock = (start: number): boolean => {
+    const next = candidates[start];
+    return next === undefined || listKind(next.lines.map((line) => line.text).join("\n")) !== undefined ||
+      tableGroupAt(candidates, start, acceptTable) !== undefined;
+  };
 
   for (let index = 0; index < candidates.length; ) {
     const candidate = candidates[index];
@@ -391,16 +430,29 @@ function analyzeTextCandidates(
     const rawText = candidate.lines.map((line) => line.text).join("\n");
     const kind = listKind(rawText);
 
+    if (kind === "ordered") {
+      const title = candidates.slice(index, index + paragraphLength(candidates, index, opensBlock));
+      if (isNumberedSectionTitle(title, bodySize)) {
+        elements.push(elementForCandidate({ ...mergeCandidates(title), role: "heading" }, bodySize));
+        index += title.length;
+        continue;
+      }
+    }
+
     if (kind !== undefined || candidate.role === "list-item") {
       const grouped: Candidate[] = [];
       const items: { text: string; runs: readonly InlineText[]; marker?: string }[] = [];
-      for (let cursor = index; cursor < candidates.length; cursor += 1) {
-        const next = candidates[cursor];
-        if (next === undefined) break;
-        const nextText = next.lines.map((line) => line.text).join("\n");
-        const nextKind = listKind(nextText);
-        if (next.role !== "list-item" && (nextKind === undefined || nextKind !== kind)) break;
+      let cursor = index;
+      while (cursor < candidates.length) {
+        const first = candidates[cursor];
+        if (first === undefined) break;
+        const firstKind = listKind(first.lines.map((line) => line.text).join("\n"));
+        if (first.role !== "list-item" && (firstKind === undefined || firstKind !== kind)) break;
+        const length = paragraphLength(candidates, cursor, opensBlock);
+        const next = mergeCandidates(candidates.slice(cursor, cursor + length));
         grouped.push(next);
+        cursor += length;
+        const nextText = next.lines.map((line) => line.text).join("\n");
         const text = stripListMarker(nextText);
         const marker = originalListMarker(nextText);
         items.push({ text, runs: [{ text }], ...(marker === undefined ? {} : { marker }) });
@@ -413,7 +465,7 @@ function analyzeTextCandidates(
         provenance: provenance(grouped),
       };
       elements.push(element);
-      index += grouped.length;
+      index = cursor;
       continue;
     }
 
@@ -448,8 +500,9 @@ function analyzeTextCandidates(
       continue;
     }
 
-    elements.push(elementForCandidate(candidate, bodySize));
-    index += 1;
+    const length = paragraphLength(candidates, index, opensBlock);
+    elements.push(elementForCandidate(mergeCandidates(candidates.slice(index, index + length)), bodySize));
+    index += length;
   }
 
   return elements;
@@ -610,7 +663,7 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
       });
     }
     const ordered = readingOrder(candidates, page.width);
-    const bodySize = bodyFontSize(sourceCandidates.candidates);
+    const bodySize = bodyFontSize(sourceCandidates.candidates, tableRowIds(sourceCandidates.candidates));
     const body = ordered.filter((candidate) =>
       !furnitureIds.has(candidate.id) && !(candidate.sourceIds ?? []).some((id) => furnitureIds.has(id)));
     // `ordered` already carries the inferred column order. Sorting the resulting

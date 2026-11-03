@@ -46,7 +46,15 @@ Headings, ordinary text, lists, code, furniture, merged table cells, and figure 
 
 Multipage text becomes exact page-local slices. Cells in multipage tables list their candidate pages and have no physical boxes. A table that skips an existing page is rejected, because its row placement cannot be inferred. Figure assets are not fetched.
 
-Native text charspans use Python code point offsets. The sidecar also records the converted JavaScript UTF-16 offsets.
+Native text charspans use Python code point offsets. The sidecar keeps each charspan as docling recorded it and also records the slice's JavaScript UTF-16 offsets within the item text. The importer reads charspans the way docling-serve writes them:
+
+- A list item's charspan counts from `orig`, which keeps the list marker. The slice comes from the marker-free `text`.
+- Text that docling joined from two layout boxes has one charspan per box. The joining space between them belongs to no charspan.
+- When docling joined a word hyphenated across boxes, it removed the hyphen. The slice before the join ends without the hyphen.
+
+Any other gap or overlap between charspans rejects the import.
+
+Docling sometimes returns a table cell whose span overlaps an earlier cell. The import adds the later cell's text to the cell at the later cell's first position, drops the later cell's span, and adds an `OVERLAPPING_TABLE_CELLS` diagnostic.
 
 ## Identify sources with digests
 
@@ -58,7 +66,7 @@ JSON v2 pages and retrieval chunks keep native evidence records and their neutra
 
 Rich table cell references and other unsupported variants produce diagnostics. Set `strict: true` to reject them instead. Strict import also rejects nested lists and non-default numbering.
 
-Invalid versions, references, cycles, spans, boxes, or limits throw `DoclingImportError` with code [`UNSUPPORTED_SOURCE`](/docs/resources/errors#error-catalogue).
+Invalid versions, references, cycles, spans, or boxes throw `DoclingImportError` with code [`UNSUPPORTED_SOURCE`](/docs/resources/errors#error-catalogue). Exceeding a limit throws the same error. Its message names the limit, its value, and the option that raises it: `limits` here, or `importOptions.limits` on `DoclingServeClient` and `DocumentLoaderDoclingServe`.
 
 ## Options
 
@@ -75,7 +83,9 @@ Invalid versions, references, cycles, spans, boxes, or limits throw `DoclingImpo
 | Limit | Default | Bounds |
 | --- | --- | --- |
 | `maxBytes` | `20000000` | Canonical JSON size and `physicalSource` size, in bytes. |
-| `maxNodes` | `100000` | JSON values traversed. |
+| `maxNodes` | `2500000` | JSON values traversed, counting object keys. |
 | `maxDepth` | `100` | JSON nesting depth. |
 | `maxPages` | `10000` | Pages. |
 | `maxTableCells` | `100000` | Table cells. |
+
+The `maxNodes` default fits a 19-page, table-heavy docling-serve response, the Federal Reserve G.17 release, with about 584,000 values in 5.7 MB. At the about 9 bytes per value measured in docling-serve output, `maxBytes` and the client's `maxResponseBytes` take effect before `maxNodes`. `maxNodes` still stops unusually dense JSON, such as long arrays of small numbers.

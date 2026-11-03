@@ -55,7 +55,7 @@ docture convert report.pdf \
 ```
 
 Layout assistance can classify and reorder known elements but cannot return text. The
-default PDF.js loader reads digital PDFs. Configure an OCR loader for scanned PDFs.
+default PDF.js loader reads digital PDFs. Add `--ocr tesseract` or `--ocr paddleocr` for scanned PDFs.
 One failed batch input leaves successful outputs in place and returns exit code `1`.
 
 ## Extract

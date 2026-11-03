@@ -31,6 +31,8 @@ The loader reports text and geometry capabilities and no image capability. A loa
 - The inferred document form.
 - Metadata with the total and read page counts.
 
+With `layout` and `assets` requested, images become PNG assets, including JPEG 2000 and JBIG2 images. PDF.js warnings are not written to the console.
+
 Opening, password, page decode, and caller abort failures reject `load()`. In an extractor, the next eligible loader can run. If every eligible loader fails, the extractor throws `LoadFailedError` with each attempt. [Choose a loader and rendering engine](/docs/integrations/loaders) explains loader selection.
 
 ### `DocumentLoaderPdfJsOptions`

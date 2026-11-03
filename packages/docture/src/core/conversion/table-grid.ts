@@ -374,3 +374,11 @@ export function tableGroupIds(
   }
   return ids;
 }
+
+/** Ids of the candidates that are rows of a table, scanning the page top-down. */
+export function tableRowIds(candidates: readonly Candidate[]): ReadonlySet<string> {
+  return tableGroupIds(
+    [...candidates].sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x),
+    (group) => looksLikeTableGroup(group.candidates),
+  );
+}

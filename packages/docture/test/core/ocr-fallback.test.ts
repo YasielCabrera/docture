@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createDisposalScope, silentLogger, type DocumentLoader, type LoadedDocument, type LoadedPage, type RawDocument, type LoadContext } from "docture";
-import { withOcrFallback } from "../../src/core/contracts/ocr-fallback.js";
+import { textLengthQuality, withOcrFallback } from "../../src/core/contracts/ocr-fallback.js";
 import { documentFeatures } from "../../src/core/pipeline/features.js";
 import { sourceLines } from "../../src/core/conversion/source-lines.js";
 
@@ -38,6 +38,21 @@ describe("selected-page OCR composition", () => {
     expect(loader.capabilities.facts).toEqual(["SHARED_FACT"]);
     expect(documentFeatures(loaded, loader, raw.mimeType)).toMatchObject({ hasTextLayer: true, hasGeometry: true, hasRenderablePages: true, extra: { SHARED_FACT: true } });
     expect(loaded.meta?.["ocrFallback"]).toMatchObject({ requestedPages: [2, 4], externalCost: "not-reported", warnings: [{ pageNumber: 4, code: "OCR_FAILED" }], pages: [{ pageNumber: 1, supplier: "primary" }, { pageNumber: 2, supplier: "ocr" }, { pageNumber: 3, supplier: "primary" }, { pageNumber: 4, supplier: "primary" }] });
+  });
+
+  it("sends pages with fewer than 20 characters of trimmed text to OCR when no options are given", async () => {
+    const nineteen = "  nineteen characters  ";
+    const twenty = "twenty characters ok";
+    const primary: DocumentLoader = { name: "primary", capabilities, load: async () => doc([page(1, nineteen), page(2, twenty)], "primary") };
+    const recognize = vi.fn(async (_raw: RawDocument, _context: LoadContext) => doc([page(1, "Recovered text from the first page")], "ocr"));
+    const loaded = await withOcrFallback(primary, { name: "ocr", capabilities, load: recognize }).load(raw, ctx());
+    expect(recognize.mock.calls.map(([, context]) => context.request?.pages)).toEqual([[1]]);
+    expect(loaded.text).toBe(`Recovered text from the first page\f${twenty}`);
+    expect(loaded.meta?.["ocrFallback"]).toMatchObject({ pages: [{ pageNumber: 1, supplier: "ocr", originalQuality: 19, candidateQuality: 34 }, { pageNumber: 2, supplier: "primary", originalQuality: 20 }] });
+  });
+
+  it("scores a page by its trimmed text length", () => {
+    expect(textLengthQuality(page(1, "\n  Total due  \n"))).toEqual({ kind: "text", quality: 9 });
   });
 
   it("intersects noncontiguous selection even when custom loaders ignore page hints", async () => {

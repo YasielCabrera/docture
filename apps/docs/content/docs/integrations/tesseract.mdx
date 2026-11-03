@@ -42,7 +42,7 @@ The load rejects on rasterization, language-data, worker, recognition, image, or
 | `lineTolerance` | core default `0.5` | Word-to-line vertical band. |
 | `autoRotate` | `false` | Run skew detection and correction. |
 | `concurrency` | `max(1, min(4, availableParallelism() - 1))` | Pages recognized at once, one worker each. |
-| `langPath` | jsDelivr CDN | Directory or base URL for trained data. Set it to run offline against vendored models. |
+| `langPath` | jsDelivr CDN | Directory or base URL for trained data. Set it to run offline against vendored models. A directory holds `<lang>.traineddata` files, the form the cache stores, or `<lang>.traineddata.gz` files. |
 | `cachePath` | `$XDG_CACHE_HOME/docture/tesseract` or `~/.cache/docture/tesseract` | Trained-data cache. |
 | `parameters` | none | Raw Tesseract variables. |
 
@@ -67,3 +67,5 @@ The load rejects before recognition when the file is malformed, uses another com
 The engine and its worker pool start on the first load and are reused by later loads. Each worker has its own WASM engine and model. In a four-page, 300 DPI benchmark, each extra worker used about 210 MiB more memory. Lower `concurrency` to reduce memory use.
 
 `dispose()` releases the workers and is safe to call more than once. Disposing while workers start waits for their cleanup.
+
+When `langPath` is a directory, each worker checks it before starting. If any language has neither `<lang>.traineddata` nor `<lang>.traineddata.gz`, or the languages mix the two forms, the load rejects with `MissingComponentError` naming the missing files.

@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
+import { describe, expect, it, vi } from "vitest";
 import { silentLogger, withRasterizer } from "docture";
 import { describeRasterizerConformance } from "docture/testing/conformance";
 import { makeInvoicePdf } from "docture/testing/fixtures";
@@ -11,6 +13,24 @@ describeRasterizerConformance({
 });
 
 const ctx = { signal: new AbortController().signal, logger: silentLogger };
+
+function halfBlackJpx(): Uint8Array {
+  return new Uint8Array(readFileSync(new URL("fixtures/half-black.pdf", import.meta.url)));
+}
+
+/** Points `startxref` past the end of the file, so PDF.js must rebuild the cross-reference table. */
+function withBrokenXref(pdf: Uint8Array): Uint8Array {
+  const text = Buffer.from(pdf).toString("latin1").replace(/startxref\n\d+/, "startxref\n999999");
+  return new Uint8Array(Buffer.from(text, "latin1"));
+}
+
+async function grayAt(png: Uint8Array, x: number, y: number): Promise<number> {
+  const image = await loadImage(Buffer.from(png));
+  const canvas = createCanvas(image.width, image.height);
+  const context = canvas.getContext("2d");
+  context.drawImage(image, 0, 0);
+  return context.getImageData(x, y, 1, 1).data[0]!;
+}
 
 describe("NapiCanvasRasterizer — specifics", () => {
   it("renders at the requested DPI", async () => {
@@ -56,6 +76,35 @@ describe("NapiCanvasRasterizer — specifics", () => {
     expect(jpeg[0]?.format).toBe("jpeg");
     expect([...jpeg[0]!.bytes.subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff]);
     expect(jpeg[0]!.bytes.length).toBeLessThan(png[0]!.bytes.length);
+  });
+
+  it("draws a JPEG 2000 image instead of leaving its area blank", async () => {
+    // See fixtures/make-jpx-fixture.sh: a 32x32 grayscale JPXDecode image, black left half.
+    const pages = await new NapiCanvasRasterizer().rasterize(
+      { bytes: halfBlackJpx(), mimeType: "application/pdf" },
+      { dpi: 72, format: "png", pages: [1] },
+      ctx,
+    );
+
+    expect([pages[0]!.widthPx, pages[0]!.heightPx]).toEqual([32, 32]);
+    expect(await grayAt(pages[0]!.bytes, 8, 16)).toBe(0);
+    expect(await grayAt(pages[0]!.bytes, 24, 16)).toBe(255);
+  });
+
+  it("keeps PDF.js warnings about a damaged file off the console", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const pages = await new NapiCanvasRasterizer().rasterize(
+        { bytes: withBrokenXref(halfBlackJpx()), mimeType: "application/pdf" },
+        { dpi: 72, format: "png", pages: [1] },
+        ctx,
+      );
+
+      expect(await grayAt(pages[0]!.bytes, 8, 16)).toBe(0);
+      expect(warn.mock.calls).toEqual([]);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("rejects a page number the document does not have", async () => {

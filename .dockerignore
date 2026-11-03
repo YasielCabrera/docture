@@ -6,7 +6,6 @@
 **/.turbo
 **/*.tsbuildinfo
 packages/cli/test/.tmp
-apps/examples/documents
 coverage
 .env
 .env.*

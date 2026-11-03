@@ -28,6 +28,8 @@ Per-call `RasterOptions` override the DPI, format, quality, maximum edge, and se
 
 Pages are drawn on canvases from the `@napi-rs/canvas` copy that PDF.js loads. Rendering works when your package manager installs a separate canvas copy for PDF.js.
 
+JPEG 2000 and JBIG2 images, common in scanned PDFs, are decoded with the WebAssembly decoders that ship in `pdfjs-dist`. PDF.js warnings, such as a note that it rebuilt a damaged cross-reference table, are not written to the console.
+
 Opening, password, page decode, out-of-range page, render, encoding, and caller abort failures reject `rasterize()`.
 
 ### `napiCanvasRasterizer`

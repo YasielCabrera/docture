@@ -20,7 +20,7 @@ Read the missing document facts in `NO_ELIGIBLE_STRATEGY`. A loader's advertised
 
 ## A scan or mixed PDF produces incomplete text
 
-Select an OCR loader explicitly. For mixed pages, `withOcrFallback` evaluates only caller-selected low-quality pages and preserves intentional blanks. An OCR failure keeps the original page and records a warning. See [selected-page OCR](/docs/integrations/selected-page-ocr) and [scanned documents](/docs/integrations/scanned-documents).
+Select an OCR loader explicitly. For mixed pages, `withOcrFallback` sends only pages with too little text to OCR. Pass an `assess` callback to preserve intentional blanks. With the CLI, add `--ocr tesseract` to `docture convert`. An OCR failure keeps the original page and records a warning. See [selected-page OCR](/docs/integrations/selected-page-ocr) and [scanned documents](/docs/integrations/scanned-documents).
 
 ## OCR uses memory for pages outside the intended limit
 

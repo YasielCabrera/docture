@@ -22,6 +22,7 @@ referenced images are written beneath the required --out directory.
 | `--to <fmt>` | md | Document format to write. Choices: `md`, `html`, `txt`, `json`. |
 | `--assets <mode>` | referenced | How page images and figures are written. Choices: `referenced`, `embedded`, `omit`. |
 | `--pages <n,n,...>` | Not set | Convert selected one-based pages, keeping original page numbers |
+| `--ocr <engine>` | Not set | Read pages with fewer than 20 characters of text again with this OCR engine. Choices: `tesseract`, `paddleocr`. |
 | `--assist-layout` | Not set | Use --model to refine roles and reading order without changing text |
 | `--timeout <ms>` | Not set | Per-stage deadline. Omit for none |
 | `--concurrency <n>` | 4 | Overlaps model calls and I/O; local PDF work uses one thread |
@@ -45,11 +46,12 @@ referenced images are written beneath the required --out directory.
 docture convert report.pdf --out converted/
 docture convert corpus/*.pdf -o converted/ --to html --assets embedded
 docture convert report.pdf -o converted/ --assist-layout -m openai/gpt-5
+docture convert scan.pdf -o converted/ --ocr tesseract
 ```
 
 ## Behavior
 
-- The default PDF.js loader reads digital PDFs. Configure an OCR loader explicitly for scans.
+- The default PDF.js loader reads digital PDFs. For scans, add --ocr and install its engine beside docture: tesseract.js for tesseract, or ppu-paddle-ocr and onnxruntime-node for paddleocr. --ocr is ignored when docture.config.ts supplies loaders.
 - Model assistance can classify and reorder known elements, but its schema contains no text field.
 
 See [CLI configuration](/docs/cli/configuration) and [input and output behavior](/docs/cli/inputs-and-outputs).

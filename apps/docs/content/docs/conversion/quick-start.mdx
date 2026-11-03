@@ -112,9 +112,11 @@ its kind or rows.
 ## Convert a scanned PDF
 
 PDF.js reads the text layer. A scan without convertible text raises
-`NoConvertibleContentError`. Configure [OCR](/docs/integrations/scanned-documents) or
-[selected-page OCR fallback](/docs/integrations/selected-page-ocr) when you expect scans.
-Conversion does not switch to OCR after a loader succeeds.
+`NoConvertibleContentError`. List an [OCR loader](/docs/integrations/scanned-documents)
+after PDF.js, and the converter uses it when PDF.js recovers no text. For documents that
+mix digital and scanned pages, wrap PDF.js with the
+[selected-page OCR fallback](/docs/integrations/selected-page-ocr). From the command line,
+add `--ocr tesseract` to `docture convert`.
 
 ## Next steps
 

@@ -77,14 +77,16 @@ export class DocumentLoaderPdfJs implements DocumentLoader<LoaderCapabilities<tr
 
   async load(document: RawDocument, ctx: LoadContext): Promise<LoadedDocument> {
     ctx.signal.throwIfAborted();
-    const { pdfjs, standardFontDataUrl } = await importPdfJs();
+    const { pdfjs, assets } = await importPdfJs();
 
     const task = pdfjs.getDocument({
       // pdf.js takes ownership of the buffer it is given, so hand it a copy —
       // otherwise the caller's bytes come back detached and a second loader in the
       // fallback chain receives an empty array.
       data: new Uint8Array(document.bytes),
-      standardFontDataUrl,
+      ...assets,
+      // pdf.js writes warnings to the console, which a library must not do.
+      verbosity: pdfjs.VerbosityLevel.ERRORS,
       isEvalSupported: false,
       // Fonts installed on the host would make extraction machine-dependent.
       useSystemFonts: false,

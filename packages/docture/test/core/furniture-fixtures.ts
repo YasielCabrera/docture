@@ -69,6 +69,6 @@ export function bookSpread(): LoadedDocument {
 export function threePages(top: (pageNumber: number) => Row): LoadedDocument {
   return documentOf([1, 2, 3].map((pageNumber) => pdfPage(pageNumber, [
     top(pageNumber),
-    { text: `Body ${pageNumber}.`, y: 200 },
+    { text: `Body text of page ${pageNumber}.`, y: 200 },
   ])));
 }

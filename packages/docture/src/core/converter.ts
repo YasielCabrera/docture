@@ -1,5 +1,6 @@
 import { failedAttempt } from "./pipeline/attempt.js";
 import { createDisposalScope, type DisposalScope } from "./contracts/disposal.js";
+import { ocrFallbackReport } from "./contracts/ocr-fallback.js";
 import { batchConcurrency } from "./pipeline/batch.js";
 /** Document conversion composition root. */
 
@@ -23,6 +24,7 @@ import { silentLogger, type Logger } from "./domain/logger.js";
 import { sumUsage, type Attempt, type Usage } from "./domain/result.js";
 import { withDeadline } from "./pipeline/deadline.js";
 import {
+  DisposedError,
   DuplicateComponentError,
   NoConvertibleContentError,
   ModelOutputError,
@@ -34,14 +36,17 @@ import {
 } from "./pipeline/errors.js";
 import { documentFeatures, preloadedFeatures } from "./pipeline/features.js";
 import { selectPages } from "./pipeline/pages.js";
-import { readDocument } from "./pipeline/read.js";
+import { readFirstUsable } from "./pipeline/read.js";
 import { exportJsonDocument } from "./conversion/json.js";
 import { resolveSource, type SourceResolver } from "./pipeline/source.js";
 
 export interface DocumentConverterOptions {
   /** Local file access is explicit through docture/node or a caller-supplied resolver. */
   readonly sourceResolver?: SourceResolver;
-  /** Tried in order; the first eligible loader that succeeds wins. */
+  /**
+   * Tried in order. The first eligible loader that succeeds with convertible text wins, so an
+   * OCR loader listed after a text-layer loader reads scans. Use `withOcrFallback` for mixed documents.
+   */
   readonly loaders?: readonly DocumentLoader[];
   /** Optional refinement applied after deterministic layout analysis. */
   readonly layoutAnalyzer?: LayoutAnalyzer;
@@ -98,7 +103,7 @@ function snapshotConvertOptions(options: ConvertOptions): ConvertOptions {
  * Convert loaded text and layout into grounded text, Markdown, HTML or versioned JSON.
  *
  * @remarks DocumentConverterOptions configures loaders, an optional layout analyzer, logging and stage deadlines. Asset handling and output format are per-call options.
- * @throws MISSING_COMPONENT for missing wiring; NO_CONVERTIBLE_CONTENT for unreadable scans; loader errors retain their typed codes.
+ * @throws MISSING_COMPONENT for missing wiring; NO_CONVERTIBLE_CONTENT when no loader recovers text; DISPOSED after dispose(); loader errors retain their typed codes.
  * @example
  * ```ts
  * import { DocumentConverter, DocumentLoaderData } from "docture";
@@ -112,6 +117,8 @@ export class DocumentConverter {
   #logger: Logger;
   #stageTimeoutMs: number | undefined;
   #disposed: Promise<void> | undefined;
+  /** Aborted by dispose(), so no conversion starts loader work on released components. */
+  #lifetime = new AbortController();
 
   constructor(options: DocumentConverterOptions = {}) {
     this.#sourceResolver = options.sourceResolver ?? resolveSource;
@@ -171,7 +178,8 @@ export class DocumentConverter {
     options: ConvertOptions = {},
   ): Promise<ConversionResult> {
     const started = Date.now();
-    const signal = options.signal ?? new AbortController().signal;
+    const lifetime = this.#lifetime.signal;
+    const signal = options.signal === undefined ? lifetime : AbortSignal.any([lifetime, options.signal]);
     signal.throwIfAborted();
     const logger = options.logger ?? this.#logger;
     const stageTimeoutMs = options.stageTimeoutMs ?? this.#stageTimeoutMs;
@@ -259,6 +267,7 @@ export class DocumentConverter {
       }
     }
 
+    const ocrFallback = ocrFallbackReport(loaded.document);
     const stem = safeStem(loaded.fileName);
     const normalizedAssets = conversionAssets(loaded.document, `${stem}.assets`, assetMode);
     warnings.push(...normalizedAssets.warnings);
@@ -282,6 +291,7 @@ export class DocumentConverter {
       warnings,
       features: loaded.features,
       usage: { ...modelUsage, wallMs: Date.now() - started },
+      ...(ocrFallback === undefined ? {} : { ocrFallback }),
     };
   }
 
@@ -306,6 +316,7 @@ export class DocumentConverter {
     sources: readonly DocumentSource[],
     options?: ConversionBatchOptions,
   ): AsyncGenerator<ConversionBatchItem, void, undefined> {
+    this.#lifetime.signal.throwIfAborted();
     const limit = batchConcurrency(options?.concurrency);
     const controller = new AbortController();
     const snapshot = snapshotConvertOptions(options ?? {});
@@ -340,12 +351,13 @@ export class DocumentConverter {
     }
   }
 
-  /** Release every loader and analyzer. Idempotent. */
+  /** Release every loader and analyzer, and reject conversions with DISPOSED from then on. Idempotent. */
   [Symbol.asyncDispose](): Promise<void> {
     return this.dispose();
   }
 
   dispose(scope: DisposalScope = createDisposalScope()): Promise<void> {
+    this.#lifetime.abort(new DisposedError("DocumentConverter"));
     this.#disposed ??= scope.dispose(
       ...this.#loaders,
       ...(this.#layoutAnalyzer === undefined ? [] : [this.#layoutAnalyzer]),
@@ -378,7 +390,10 @@ export class DocumentConverter {
       );
     }
     const raw = await this.#sourceResolver(source, signal);
-    const read = await readDocument(this.#loaders, raw, logger, signal, stageTimeoutMs, request);
+    const read = await readFirstUsable(
+      this.#loaders, raw, logger, signal, stageTimeoutMs, request,
+      (document) => selected(document).text.trim().length > 0,
+    );
     const document = selected(read.document);
     return {
       document,

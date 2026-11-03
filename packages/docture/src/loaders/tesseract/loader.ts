@@ -104,8 +104,10 @@ export interface DocumentLoaderTesseractOptions {
    */
   readonly concurrency?: number;
   /**
-   * Where to find `<lang>.traineddata` — a directory or a base URL. Set it to run
-   * fully offline against vendored models. Default: the jsdelivr CDN.
+   * Where to find trained data — a directory or a base URL. Set it to run fully
+   * offline against vendored models. A directory holds plain `<lang>.traineddata`
+   * files, as the cache does, or `<lang>.traineddata.gz` files. Default: the
+   * jsdelivr CDN.
    */
   readonly langPath?: string;
   /**
@@ -126,7 +128,7 @@ export interface DocumentLoaderTesseractOptions {
  * Recognize image or rasterized PDF text with a reusable Tesseract worker pool.
  *
  * @remarks DocumentLoaderTesseractOptions configures languages, DPI, concurrency and an optional PDF rasterizer. Default concurrency leaves one available CPU free and caps the pool at four workers. Dispose or await using releases workers.
- * @throws MISSING_ENGINE when tesseract.js is absent; PAGE_OUT_OF_RANGE for unavailable selected pages. Recognition and rendering failures reject load.
+ * @throws MISSING_ENGINE when tesseract.js is absent; MISSING_COMPONENT when a local langPath lacks a language's trained data; PAGE_OUT_OF_RANGE for unavailable selected pages. Recognition and rendering failures reject load.
  * @example
  * ```ts
  * import { DocumentLoaderTesseract } from "docture/loaders/tesseract";

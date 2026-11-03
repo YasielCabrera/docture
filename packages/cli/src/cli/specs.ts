@@ -12,6 +12,7 @@ import type { ChoiceFlagSpec, CommandSpec, FlagSpec, PositionalSpec } from "./ar
 
 const OUTPUT_FORMATS = ["json", "ndjson", "text"] as const;
 export const CONVERSION_TARGETS = ["md", "html", "txt", "json"] as const;
+export const OCR_ENGINES = ["tesseract", "paddleocr"] as const;
 const ASSET_MODES = ["referenced", "embedded", "omit"] as const satisfies readonly ConversionAssetMode[];
 const COMPLETIONS = ["forbidden", "paginate", "concatenate"] as const satisfies readonly CompletionStrategy[];
 
@@ -79,6 +80,14 @@ export const ASSETS: ChoiceFlagSpec<(typeof ASSET_MODES)[number]> = {
   choices: ASSET_MODES,
   describe: "How page images and figures are written",
   defaultLabel: "referenced",
+};
+
+export const OCR: ChoiceFlagSpec<(typeof OCR_ENGINES)[number]> = {
+  name: "ocr",
+  type: "string",
+  placeholder: "<engine>",
+  choices: OCR_ENGINES,
+  describe: "Read pages with fewer than 20 characters of text again with this OCR engine",
 };
 
 /** Choosing and paying for a model. */
@@ -246,6 +255,7 @@ export const CONVERT: CommandSpec = {
     CONVERSION_TARGET,
     ASSETS,
     { name: "pages", type: "string", placeholder: "<n,n,...>", describe: "Convert selected one-based pages, keeping original page numbers" },
+    OCR,
     {
       name: "assist-layout",
       type: "boolean",
@@ -261,9 +271,11 @@ export const CONVERT: CommandSpec = {
     "docture convert report.pdf --out converted/",
     "docture convert corpus/*.pdf -o converted/ --to html --assets embedded",
     "docture convert report.pdf -o converted/ --assist-layout -m openai/gpt-5",
+    "docture convert scan.pdf -o converted/ --ocr tesseract",
   ],
   notes: [
-    "The default PDF.js loader reads digital PDFs. Configure an OCR loader explicitly for scans.",
+    "The default PDF.js loader reads digital PDFs. For scans, add --ocr and install its engine beside docture: " +
+      "tesseract.js for tesseract, or ppu-paddle-ocr and onnxruntime-node for paddleocr. --ocr is ignored when docture.config.ts supplies loaders.",
     "Model assistance can classify and reorder known elements, but its schema contains no text field.",
   ],
 };

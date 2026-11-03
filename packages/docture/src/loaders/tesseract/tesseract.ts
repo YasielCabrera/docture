@@ -28,10 +28,11 @@
  *    We default it to a real cache directory instead.
  */
 
-import { mkdir } from "node:fs/promises";
+import { access, mkdir } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { importEngine, lazyEngine } from "../../core/engines.js";
+import { MissingComponentError } from "../../core/pipeline/errors.js";
 
 /** One word as Tesseract reports it: text, a pixel box, and 0–1 confidence. */
 export interface RecognizedWord {
@@ -293,9 +294,13 @@ export class TesseractPool {
     // missing directory is a slow success rather than an error. Make it anyway.
     await mkdir(cachePath, { recursive: true }).catch(() => {});
 
-    const worker = await createWorker(this.options.languages.join("+"), OEM_LSTM_ONLY, {
+    const { langPath, languages } = this.options;
+    const gzip = langPath === undefined || isUrl(langPath) ? undefined : await localModelsGzipped(langPath, languages);
+
+    const worker = await createWorker(languages.join("+"), OEM_LSTM_ONLY, {
       cachePath,
-      ...(this.options.langPath === undefined ? {} : { langPath: this.options.langPath }),
+      ...(langPath === undefined ? {} : { langPath }),
+      ...(gzip === false ? { gzip } : {}),
       // Present so tesseract.js does not throw from inside its own message handler;
       // the rejected job promise is what actually reports the failure.
       errorHandler: () => {},
@@ -314,6 +319,34 @@ export class TesseractPool {
 
     return worker;
   }
+}
+
+function isUrl(path: string): boolean {
+  return /^[a-z][a-z\d+.-]*:\/\//i.test(path);
+}
+
+/**
+ * Whether a local `langPath` holds `<lang>.traineddata.gz` (tesseract.js's default) or
+ * plain `<lang>.traineddata` files, as docture's own cache does.
+ *
+ * tesseract.js never settles `createWorker` when a model file is missing, so a load
+ * would wait forever. Checking first turns that into an error naming the files.
+ */
+async function localModelsGzipped(langPath: string, languages: readonly string[]): Promise<boolean> {
+  const exists = (file: string): Promise<boolean> => access(file).then(() => true, () => false);
+  const models = await Promise.all(
+    languages.map(async (language) => {
+      const file = join(langPath, `${language}.traineddata`);
+      return { file, gzipped: await exists(`${file}.gz`), plain: await exists(file) };
+    }),
+  );
+  if (models.every((model) => model.gzipped)) return true;
+  if (models.every((model) => model.plain)) return false;
+  const missing = models.filter((model) => !model.plain).map((model) => model.file);
+  throw new MissingComponentError(
+    `Tesseract langPath "${langPath}" is missing ${missing.join(", ")}. ` +
+      "Every language needs a <lang>.traineddata file, or every language needs a <lang>.traineddata.gz file.",
+  );
 }
 
 /** Flatten Tesseract's block → paragraph → line → word tree into words. */

@@ -41,12 +41,13 @@ const llmRoles = {
   "llm/vision": "llm/vision",
   "llm/classifier": "llm/classifier",
   "llm/layout": "llm/layout",
+  "llm/ocr": "llm/ocr",
   "llm/split": "llm/split",
   "llm/extractor": "llm/extractor",
   "llm/llm": "llm/convenience",
   "llm/index": "llm/convenience",
 };
-const capabilities = ["llm/tool","llm/text", "llm/vision", "llm/classifier", "llm/layout", "llm/split"];
+const capabilities = ["llm/tool","llm/text", "llm/vision", "llm/classifier", "llm/layout", "llm/ocr", "llm/split"];
 const reach = {
   "sources/paperless": ["paperless"],
   "sinks/paperless": ["paperless"],
@@ -56,6 +57,7 @@ const reach = {
   "llm/extractor": ["llm/helpers", "llm/shared", "llm/text", "llm/classifier", "llm/vision"],
   "llm/convenience": ["llm/helpers", "llm/shared", "llm/extractor", ...capabilities],
   "testing/conformance": ["testing/fixtures"],
+  "testing/llm": ["llm/ocr"],
 };
 
 function area(path) {
@@ -71,6 +73,7 @@ const engines = {
   "llm/vision": ["ai"],
   "llm/classifier": ["ai", "zod"],
   "llm/layout": ["ai", "zod"],
+  "llm/ocr": ["ai", "zod"],
   "llm/split": ["ai", "zod"],
   "llm/extractor": ["ai"],
   "llm/convenience": ["ai"],
@@ -83,6 +86,7 @@ const engines = {
   "raster/canvas": ["pdfjs-dist", "@napi-rs/canvas"],
   "testing/fixtures": ["pdfkit"],
   "testing/conformance": ["vitest"],
+  "testing/llm": ["ai"],
 };
 
 for (const path of await files(source)) {

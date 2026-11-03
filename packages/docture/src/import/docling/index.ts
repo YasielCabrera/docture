@@ -4,7 +4,7 @@ import type { LayoutBox, LoadedPage, LoadedSource } from "../../core/domain/geom
 import { sha256Bytes, sha256Hex } from "../../core/conversion/sha256.js";
 import { tableIssues } from "../../core/conversion/tables.js";
 import { inferForm } from "../../core/pipeline/features.js";
-import { canonicalJson, checkedLimits, DoclingImportError, finite, integer, list, record, text, type DoclingImportLimits, type JsonRecord } from "./boundary.js";
+import { canonicalJson, checkedLimits, DoclingImportError, finite, integer, limitExceeded, list, record, text, type DoclingImportLimits, type JsonRecord } from "./boundary.js";
 
 export { DoclingImportError } from "./boundary.js";
 export type { DoclingImportLimits } from "./boundary.js";
@@ -72,6 +72,34 @@ const ZERO_BOX: LayoutBox = { x: 0, y: 0, width: 0, height: 0 };
 const SUPPORTED_TEXT = new Set(["text", "paragraph", "title", "section_header", "list_item", "code", "page_header", "page_footer", "caption", "footnote", "reference", "formula"]);
 const COLLECTIONS = ["groups", "texts", "tables", "pictures", "key_value_items", "form_items", "field_regions", "field_items"];
 
+/**
+ * Place each provenance charspan within the item's text, as docling-serve records them. The first span counts from
+ * `orig`, which keeps a list item's marker. Each merged continuation counts from the text before it plus one joining
+ * space; when the merge instead dropped a trailing hyphen, its recorded span sits two codepoints late.
+ */
+function textSpans(declared: readonly (readonly [number, number])[], markerLength: number, points: readonly string[], pointer: string): [number, number][] {
+  const placed = declared.map((): [number, number] => [0, 0]);
+  const order = declared.map((_, index) => index).sort((a, b) => (declared[a]?.[0] ?? 0) - (declared[b]?.[0] ?? 0));
+  let previous: [number, number] | undefined;
+  for (const index of order) {
+    const [start, end] = declared[index] ?? [0, 0];
+    const cursor = previous?.[1] ?? 0;
+    if (previous !== undefined && start === end && start <= cursor) { placed[index] = [start, start]; continue; }
+    let span: [number, number];
+    if (previous === undefined && start === 0) span = [0, Math.max(0, end - markerLength)];
+    else if (previous !== undefined && start === cursor) span = [start, end];
+    else if (previous !== undefined && start < cursor && end > start) throw new DoclingImportError(`${pointer}.prov`, "overlapping charspans are unsupported");
+    else if (previous !== undefined && cursor > 0 && start === cursor + 1) {
+      if (/^\s$/u.test(points[cursor] ?? "")) span = [start, end];
+      else { span = [start - 2, end - 2]; previous[1] = start - 2; }
+    } else throw new DoclingImportError(`${pointer}.prov`, "charspans do not cover the complete native text");
+    if (span[1] > points.length) throw new DoclingImportError(`${pointer}.prov.${index}.charspan`, "outside the native text's codepoint range");
+    placed[index] = span; previous = span;
+  }
+  if ((previous?.[1] ?? 0) !== points.length) throw new DoclingImportError(`${pointer}.prov`, "charspans do not cover the complete native text");
+  return placed;
+}
+
 /** Import the bounded DoclingDocument 1.10.0 subset without engines, I/O or fabricated lines. */
 export function importDoclingDocument(raw: unknown, options: DoclingImportOptions = {}): ImportedDoclingDocument {
   const limits = checkedLimits(options.limits);
@@ -101,7 +129,7 @@ export function importDoclingDocument(raw: unknown, options: DoclingImportOption
     const height = finite(size.height, `pages.${key}.size.height`);
     if (width <= 0 || height <= 0) throw new DoclingImportError(`pages.${key}.size`, "page dimensions must be positive");
     pages.set(number, { number, width, height, rotation: finite(item.rotation ?? 0, `pages.${key}.rotation`) });
-    if (pages.size > limits.maxPages) throw new DoclingImportError("pages", "page limit exceeded");
+    if (pages.size > limits.maxPages) throw limitExceeded(limits, "maxPages", "pages", "The page count");
   }
   const logical = pages.size === 0;
   if (logical) {
@@ -133,29 +161,27 @@ export function importDoclingDocument(raw: unknown, options: DoclingImportOption
     return { native: box, location: { kind: "physical", pageNumber, sourceDigest: physicalSourceDigest, box: { x: l / scale, y: (box.coord_origin === "TOPLEFT" ? t : page.height - t) / scale, width: (r - l) / scale, height: (bottom - top) / scale } } };
   };
   const segmentsOf = (item: JsonRecord, pointer: string, content: string): Segment[] => {
-    const points = Array.from(content);
     const native = list(item.prov ?? [], `${pointer}.prov`);
     if (native.length === 0) return [{ pageNumber: firstPage, text: content, location: { kind: "logical", pageNumber: firstPage } }];
-    const segments: Segment[] = native.map((value, index) => {
+    const points = Array.from(content);
+    const orig = item.orig === undefined ? content : text(item.orig, `${pointer}.orig`);
+    const markerLength = orig.endsWith(content) ? Array.from(orig).length - points.length : 0;
+    const entries = native.map((value, index) => {
       const path = `${pointer}.prov.${index}`; const entry = record(value, path);
       const pageNumber = integer(entry.page_no, `${path}.page_no`, 1);
       if (!pages.has(pageNumber) || logical) throw new DoclingImportError(path, "provenance must name an actual exported page");
       const span = list(entry.charspan, `${path}.charspan`);
       if (span.length !== 2) throw new DoclingImportError(`${path}.charspan`, "expected [start,end] codepoint offsets");
       const start = integer(span[0], `${path}.charspan.0`); const end = integer(span[1], `${path}.charspan.1`);
-      if (end < start || end > points.length) throw new DoclingImportError(`${path}.charspan`, "outside the native text's codepoint range");
-      const box = boxOf(entry.bbox, pageNumber, `${path}.bbox`);
-      return { pageNumber, native: entry, bbox: box.native, charspan: [start, end], utf16Charspan: [points.slice(0, start).join("").length, points.slice(0, end).join("").length], text: points.slice(start, end).join(""), location: box.location };
+      if (end < start) throw new DoclingImportError(`${path}.charspan`, "outside the native text's codepoint range");
+      return { path, entry, pageNumber, charspan: [start, end] as const };
     });
-    let covered = 0;
-    for (const segment of [...segments].sort((a, b) => (a.charspan?.[0] ?? 0) - (b.charspan?.[0] ?? 0))) {
-      if (segment.charspan === undefined) continue;
-      if (segment.charspan[0] < covered && segment.charspan[1] > segment.charspan[0]) throw new DoclingImportError(`${pointer}.prov`, "overlapping charspans are unsupported");
-      if (segment.charspan[0] > covered) break;
-      covered = Math.max(covered, segment.charspan[1]);
-    }
-    if (covered !== points.length) throw new DoclingImportError(`${pointer}.prov`, "charspans do not cover the complete native text");
-    return segments;
+    const placed = textSpans(entries.map((entry) => entry.charspan), markerLength, points, pointer);
+    return entries.map(({ path, entry, pageNumber, charspan }, index) => {
+      const [start, end] = placed[index] ?? [0, 0];
+      const box = boxOf(entry.bbox, pageNumber, `${path}.bbox`);
+      return { pageNumber, native: entry, bbox: box.native, charspan, utf16Charspan: [points.slice(0, start).join("").length, points.slice(0, end).join("").length], text: points.slice(start, end).join(""), location: box.location };
+    });
   };
   const index = new Map<string, JsonRecord>();
   for (const root of ["body", "furniture"]) if (data[root] !== undefined) index.set(`#/${root}`, record(data[root], root));
@@ -203,9 +229,9 @@ export function importDoclingDocument(raw: unknown, options: DoclingImportOption
       const tableData = record(item.data, `${pointer}.data`);
       if (tableData.orientation !== undefined && tableData.orientation !== "rot_0") diagnostic("UNSUPPORTED_TABLE_ORIENTATION", pointer, "Rotated table orientation is retained only in native source metadata; normalized rows keep native logical order.", true);
       const rows = integer(tableData.num_rows, `${pointer}.data.num_rows`); const cols = integer(tableData.num_cols, `${pointer}.data.num_cols`);
-      if (rows > limits.maxTableCells || cols > limits.maxTableCells || rows * cols > limits.maxTableCells) throw new DoclingImportError(pointer, "table grid limit exceeded");
+      if (rows > limits.maxTableCells || cols > limits.maxTableCells || rows * cols > limits.maxTableCells) throw limitExceeded(limits, "maxTableCells", pointer, `The ${rows}x${cols} table grid`);
       const grid = Array.from({ length: rows }, () => Array.from({ length: cols }, () => ""));
-      const occupied = new Set<string>();
+      const owners = new Map<string, { readonly row: number; readonly col: number }>();
       const spans: { row: number; col: number; rowSpan: number; colSpan: number }[] = [];
       const cells = list(tableData.table_cells ?? [], `${pointer}.data.table_cells`).map((rawCell, position) => {
         const cellPath = `${pointer}/data/table_cells/${position}`; const cell = record(rawCell, cellPath);
@@ -214,9 +240,16 @@ export function importDoclingDocument(raw: unknown, options: DoclingImportOption
         if (rowEnd > rows || colEnd > cols || integer(cell.row_span ?? 1, `${cellPath}.row_span`, 1) !== rowEnd - row || integer(cell.col_span ?? 1, `${cellPath}.col_span`, 1) !== colEnd - col) throw new DoclingImportError(cellPath, "cell span is outside the grid or contradicts offsets");
         if (cell.ref !== undefined) { resolve(cell.ref, `${cellPath}.ref`); diagnostic("UNSUPPORTED_RICH_CELL", cellPath, "Rich cell content requires native serialization; its plain text is not treated as authoritative evidence.", true); }
         const content = text(cell.text, `${cellPath}.text`);
-        for (let r = row; r < rowEnd; r++) for (let c = col; c < colEnd; c++) {
-          const key = `${r},${c}`; if (occupied.has(key)) throw new DoclingImportError(cellPath, "overlapping cell spans"); occupied.add(key);
+        const keys = Array.from({ length: rowEnd - row }, (_, r) => Array.from({ length: colEnd - col }, (_, c) => `${row + r},${col + c}`)).flat();
+        if (keys.some((key) => owners.has(key))) {
+          diagnostic("OVERLAPPING_TABLE_CELLS", cellPath, "Docling emitted a cell that overlaps an earlier cell; its text joins the cell at its first position and its span is dropped.", true);
+          const owner = owners.get(`${row},${col}`) ?? { row, col };
+          owners.set(`${row},${col}`, owner);
+          const target = grid[owner.row];
+          if (target !== undefined) target[owner.col] = [target[owner.col], content].filter((part) => part !== "").join(" ");
+          return { cell, cellPath, content, row: owner.row, col: owner.col, rowSpan: 1, colSpan: 1, rich: cell.ref !== undefined };
         }
+        for (const key of keys) owners.set(key, { row, col });
         const target = grid[row]; if (target !== undefined) target[col] = content;
         if (rowEnd - row > 1 || colEnd - col > 1) spans.push({ row, col, rowSpan: rowEnd - row, colSpan: colEnd - col });
         return { cell, cellPath, content, row, col, rowSpan: rowEnd - row, colSpan: colEnd - col, rich: cell.ref !== undefined };
@@ -279,7 +312,8 @@ export function importDoclingDocument(raw: unknown, options: DoclingImportOption
   };
   const visiting = new Set<string>(); const visited = new Set<string>();
   const visit = (pointer: string, depth: number, enclosingList?: string): void => {
-    if (depth > limits.maxDepth || visiting.has(pointer)) throw new DoclingImportError(pointer, "cyclic reference or hierarchy depth limit exceeded");
+    if (visiting.has(pointer)) throw new DoclingImportError(pointer, "cyclic reference");
+    if (depth > limits.maxDepth) throw limitExceeded(limits, "maxDepth", pointer, "The item hierarchy depth");
     if (visited.has(pointer)) return;
     const item = index.get(pointer); if (item === undefined) throw new DoclingImportError(pointer, "missing hierarchy root");
     visiting.add(pointer);

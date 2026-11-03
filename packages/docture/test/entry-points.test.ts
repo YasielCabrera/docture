@@ -2,6 +2,9 @@ import { expect, it } from "vitest";
 import * as core from "docture";
 import * as cache from "docture/llm/cache";
 import * as text from "docture/llm/text";
+import * as ocr from "docture/llm/ocr";
+import * as doubles from "docture/testing/doubles";
+import * as testingModels from "docture/testing/llm";
 import { llm, LlmStrategy } from "docture/llm";
 
 it("keeps model implementations outside the core entry", () => {
@@ -20,4 +23,10 @@ it("exports cache utilities without the internal usage-storage helper", async ()
   const responses = cache.memoryCache();
   await responses.set("invoice", { data: { total: 17 }, usage: {} });
   expect(await responses.get("invoice")).toEqual({ data: { total: 17 }, usage: {} });
+});
+
+it("keeps model OCR and mock models in their own entries", () => {
+  expect(Object.keys(ocr).sort()).toEqual(["LlmOcrLoader", "llmOcr"]);
+  expect(Object.keys(testingModels).sort()).toEqual(["mockLayoutModel", "mockOcrModel"]);
+  expect(Object.keys(doubles).sort()).toEqual(["failingStrategy", "fixedStrategy", "inMemoryLoader", "loadedDocument"]);
 });

@@ -32,6 +32,9 @@
       "docture/llm/layout": [
         "./src/llm/layout.ts"
       ],
+      "docture/llm/ocr": [
+        "./src/llm/ocr.ts"
+      ],
       "docture/llm/split": [
         "./src/llm/split.ts"
       ],
@@ -76,6 +79,9 @@
       ],
       "docture/testing/fixtures": [
         "./src/testing/fixtures/index.ts"
+      ],
+      "docture/testing/llm": [
+        "./src/testing/llm/index.ts"
       ],
       "docture/node": [
         "./src/node/index.ts"

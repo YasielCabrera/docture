@@ -4,7 +4,7 @@ description: Test doubles, generated PDF fixtures, and conformance suites.
 type: reference
 ---
 
-These APIs build test documents and check custom components. They come from three entries: `docture/testing/doubles` needs no peer, `docture/testing/fixtures` needs PDFKit, and `docture/testing/conformance` needs PDFKit and Vitest 3 or newer because it generates PDFs and registers tests. [Test extraction code](/docs/resources/testing) shows them in use.
+These APIs build test documents and check custom components. They come from four entries: `docture/testing/doubles` needs no peer, `docture/testing/llm` needs `ai` for its types only, `docture/testing/fixtures` needs PDFKit, and `docture/testing/conformance` needs PDFKit and Vitest 3 or newer because it generates PDFs and registers tests. [Test extraction code](/docs/resources/testing) shows them in use.
 
 ## Generated invoices
 
@@ -211,6 +211,72 @@ failingStrategy(name: string, message?: string): ExtractionStrategy
 ```
 
 Throws an `Error` with `message`, which defaults to `strategy failed`.
+
+## Mock models
+
+Import from `docture/testing/llm`. The mocks implement the AI SDK provider interface directly and import nothing at runtime. Install `ai` for the model type and to run the model components they stand in for.
+
+```sh
+npm install --save-dev docture ai zod
+```
+
+### `mockLayoutModel`
+
+A model for `llmLayout()` that answers with layout annotations.
+
+```ts
+mockLayoutModel(
+  annotations: readonly LayoutAnnotation[] | ((pages: readonly LayoutModelPage[]) => readonly LayoutAnnotation[]),
+  options?: MockModelOptions,
+): MockLanguageModel
+```
+
+Converted element IDs are content digests. Pass a function to choose annotations from the elements the analyzer describes instead of hard-coding IDs:
+
+```ts check
+import { createDocumentConverter } from "docture";
+import { llmLayout } from "docture/llm/layout";
+import { inMemoryLoader, loadedDocument } from "docture/testing/doubles";
+import { mockLayoutModel } from "docture/testing/llm";
+
+const converter = createDocumentConverter({
+  loaders: [inMemoryLoader(loadedDocument(["Results\nRevenue grew."]))],
+  layoutAnalyzer: llmLayout({
+    model: mockLayoutModel((pages) => pages.flatMap((page) => page.elements
+      .filter((element) => element.content === "Results")
+      .map((element) => ({ id: element.id, role: "heading" as const, level: 2 as const })))),
+  }),
+});
+```
+
+### `mockOcrModel`
+
+A model for `llmOcr()` that answers each page with the listed elements, and with no elements for a page it does not list.
+
+```ts
+mockOcrModel(
+  pages: Readonly<Record<number, readonly LlmOcrElement[]>>,
+  options?: MockModelOptions,
+): MockLanguageModel
+```
+
+`LlmOcrElement` is described on the [vision model OCR](/docs/integrations/model-ocr#llmocrelement) page.
+
+### `MockModelOptions`
+
+{/* options: MockModelOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `modelId` | `"mock-model"` | The model ID, used to look up `pricing`. |
+| `usage` | 0 input and 0 output tokens | Tokens each call reports, as `{ inputTokens, outputTokens }`. |
+
+### `MockLanguageModel`
+
+The AI SDK provider model both mocks return. Pass it as `model` to `llmLayout()` or `llmOcr()`. It does not stream.
+
+### `LayoutModelPage` and `LayoutModelElement`
+
+What `llmLayout()` sends for each page: `pageNumber` and `elements`. Each element has its `id`, its current `role`, its `box`, and its `content`: text, list item texts, or table rows.
 
 ## Conformance suites
 

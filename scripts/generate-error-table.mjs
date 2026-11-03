@@ -23,6 +23,7 @@ const descriptions = {
   UNCLASSIFIED_GROUP: "A split group matched none of the allowed kinds.",
   MISSING_ENGINE: "A selected integration's optional engine is not installed.",
   MISSING_COMPONENT: "Required wiring or call state is missing.",
+  DISPOSED: "A component was used after `dispose()` released it.",
   EVAL_SPEC_INVALID: "An eval spec, rule set or metric set cannot be resolved. Raised by `@docture/eval`.",
   GROUND_TRUTH_INVALID: "Expected values do not satisfy their eval spec. Raised by `@docture/eval`.",
   EVAL_DATASET_INVALID: "An eval dataset cannot produce its cases. Raised by `@docture/eval`.",

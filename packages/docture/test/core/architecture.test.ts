@@ -208,6 +208,8 @@ describe("the public API is an exact list", () => {
     // rasterizers + composition
     "withRasterizer",
     "withOcrFallback",
+    "textLengthQuality",
+    "DEFAULT_OCR_THRESHOLD",
     "defineRasterizer",
     "DEFAULT_RASTER_OPTIONS",
     // strategies
@@ -239,6 +241,7 @@ describe("the public API is an exact list", () => {
     "declarationOrder",
     // errors
     "ContractViolationError",
+    "DisposedError",
     "DuplicateComponentError",
     "ExtractionFailedError",
     "LoadFailedError",

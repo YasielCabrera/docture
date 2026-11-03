@@ -6,6 +6,19 @@ type: how-to
 
 The converter uses source text, tagged hints, geometry, and typography to infer reading order and structure. It keeps uncertain content as paragraphs. It does not paraphrase, dehyphenate, or generate captions.
 
+## Paragraphs, headings, and lists
+
+PDF.js and MuPDF return each visual line as its own block. The converter joins consecutive lines into one paragraph, list item, title, or code block when all of these hold:
+
+- The lines share font size, weight, and fixed-width style, and sit in the same column.
+- The line spacing matches the block's own spacing and is less than 1.6 times the font size.
+- Each line except the last fills the column, so the next line's first word would not have fitted on it.
+- Every line after the second starts where the second line starts. The second line can sit left of a first-line indent or right of it under a hanging indent.
+
+A line with a gap wide enough to separate cells or columns stays on its own. Lines that a loader already grouped, such as OCR paragraphs or tagged blocks, are not joined. A joined element keeps its line breaks in `text` and the ID of every source line in its provenance. Code keeps its indentation, measured in the listing's character width.
+
+A line or a two-line title is a heading when its font is at least 18% larger than the page's body text. The body size is the size of most of the page's characters outside table rows. A numbered line at least 10% larger than the body, such as `2. Transactions`, is a heading rather than a one-item list. Markdown writes a two-line heading on one line.
+
 ## Inspect a table
 
 ```ts

@@ -215,8 +215,11 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "defineStrategy"
       ],
       "content/docs/extraction/reference/pipeline.mdx": [
+        "DEFAULT_OCR_THRESHOLD",
         "DisposalScope",
         "OcrFallbackOptions",
+        "OcrFallbackPage",
+        "OcrFallbackReport",
         "OcrFallbackWarning",
         "PageOcrQuality",
         "ReadDocument",
@@ -224,6 +227,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "createDisposalScope",
         "readDocument",
         "runPipeline",
+        "textLengthQuality",
         "withOcrFallback"
       ],
       "content/docs/extraction/reference/classification.mdx": [
@@ -269,6 +273,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       ],
       "content/docs/resources/errors.mdx": [
         "ContractViolationError",
+        "DisposedError",
         "DoctureError",
         "DoctureErrorCode",
         "DuplicateComponentError",
@@ -436,6 +441,22 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "LlmLayoutAnalyzer",
         "LlmLayoutAnalyzerOptions",
         "llmLayout"
+      ],
+      "content/docs/extraction/reference/telemetry.mdx": [
+        "LlmTelemetryOptions"
+      ]
+    }
+  },
+  {
+    "packageName": "docture",
+    "importPath": "docture/llm/ocr",
+    "entrypoint": "../../packages/docture/src/llm/ocr.ts",
+    "pages": {
+      "content/docs/integrations/model-ocr.mdx": [
+        "LlmOcrElement",
+        "LlmOcrLoader",
+        "LlmOcrLoaderOptions",
+        "llmOcr"
       ],
       "content/docs/extraction/reference/telemetry.mdx": [
         "LlmTelemetryOptions"
@@ -637,6 +658,21 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "fixedStrategy",
         "inMemoryLoader",
         "loadedDocument"
+      ]
+    }
+  },
+  {
+    "packageName": "docture",
+    "importPath": "docture/testing/llm",
+    "entrypoint": "../../packages/docture/src/testing/llm/index.ts",
+    "pages": {
+      "content/docs/resources/testing-api.mdx": [
+        "LayoutModelElement",
+        "LayoutModelPage",
+        "MockLanguageModel",
+        "MockModelOptions",
+        "mockLayoutModel",
+        "mockOcrModel"
       ]
     }
   },
@@ -942,8 +978,11 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "defineStrategy"
       ],
       "content/docs/extraction/reference/pipeline.mdx": [
+        "DEFAULT_OCR_THRESHOLD",
         "DisposalScope",
         "OcrFallbackOptions",
+        "OcrFallbackPage",
+        "OcrFallbackReport",
         "OcrFallbackWarning",
         "PageOcrQuality",
         "ReadDocument",
@@ -951,6 +990,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "createDisposalScope",
         "readDocument",
         "runPipeline",
+        "textLengthQuality",
         "withOcrFallback"
       ],
       "content/docs/extraction/reference/classification.mdx": [
@@ -996,6 +1036,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       ],
       "content/docs/resources/errors.mdx": [
         "ContractViolationError",
+        "DisposedError",
         "DoctureError",
         "DoctureErrorCode",
         "DuplicateComponentError",
@@ -1129,6 +1170,7 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
       "content/docs/integrations/docling-serve.mdx": [
         "DoclingConversion",
         "DoclingConversionOptions",
+        "DoclingHealth",
         "DoclingJob",
         "DoclingJobReference",
         "DoclingServeClient",

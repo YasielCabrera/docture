@@ -11,9 +11,10 @@
  *
  *  - In Node you must use the **legacy** build. The default build reaches for
  *    `DOMMatrix` at module scope and throws `ReferenceError` outside a browser.
- *  - Standard fonts (Helvetica, Times, …) need `standardFontDataUrl`, or every
- *    document logs "Ensure that the `standardFontDataUrl` API parameter is
- *    provided" and metrics fall back to guesses.
+ *  - Standard fonts (Helvetica, Times, …) need `standardFontDataUrl`, or metrics
+ *    fall back to guesses.
+ *  - JPEG 2000 and JBIG2 images decode in WASM and need `wasmUrl`, or the image
+ *    is skipped.
  */
 
 import { createRequire } from "node:module";
@@ -31,6 +32,7 @@ export interface PdfJsModule {
   };
   OPS: Readonly<Record<string, number>>;
   ImageKind: Readonly<Record<string, number>>;
+  VerbosityLevel: { readonly ERRORS: number };
 }
 
 export interface PdfJsDocument {
@@ -96,25 +98,33 @@ export interface PdfJsTextItem {
   readonly fontName?: string;
 }
 
+interface PdfJsAssets {
+  readonly standardFontDataUrl: string;
+  readonly wasmUrl: string;
+}
+
 /**
  * Resolve pdf.js's own asset directories from wherever it was installed.
  *
- * A plain filesystem path with a trailing slash — NOT a `file://` URL. Despite the
- * option being called `standardFontDataUrl`, the Node build reads these through the
- * filesystem, and Node's `fetch` cannot open `file://`; passing a URL makes every
- * document log "Unable to load font data" and fall back to guessed metrics.
+ * Plain filesystem paths with a trailing slash — NOT `file://` URLs. Despite the
+ * options being called `...Url`, the Node build reads these through the
+ * filesystem, and Node's `fetch` cannot open `file://`; with a URL the fonts fail
+ * to load and metrics fall back to guesses.
  */
-function resolveAssets(): { standardFontDataUrl: string } {
+function resolveAssets(): PdfJsAssets {
   const require = createRequire(import.meta.url);
   // The legacy entry point is what we import; its directory anchors the assets.
   const entry = require.resolve("pdfjs-dist/legacy/build/pdf.mjs");
   const root = dirname(dirname(dirname(entry)));
-  return { standardFontDataUrl: `${join(root, "standard_fonts")}/` };
+  return {
+    standardFontDataUrl: `${join(root, "standard_fonts")}/`,
+    wasmUrl: `${join(root, "wasm")}/`,
+  };
 }
 
-export const importPdfJs = lazyEngine(async (): Promise<{ pdfjs: PdfJsModule; standardFontDataUrl: string }> => {
+export const importPdfJs = lazyEngine(async (): Promise<{ pdfjs: PdfJsModule; assets: PdfJsAssets }> => {
   const module = (await importEngine("docture/loaders/pdfjs", ["pdfjs-dist"], () =>
     import("pdfjs-dist/legacy/build/pdf.mjs"),
   )) as unknown as PdfJsModule;
-  return { pdfjs: module, ...resolveAssets() };
+  return { pdfjs: module, assets: resolveAssets() };
 });

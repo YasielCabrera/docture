@@ -58,3 +58,8 @@ To configure the model analyzer on its own, pass `llmLayout()` from `docture/llm
 to `loadLayoutAnalyzer()`. To write your own, implement the contract with
 `defineLayoutAnalyzer()`. See the [model layout API](/docs/conversion/reference/model-layout)
 and the [analyzer contract](/docs/conversion/reference/analyzers).
+
+To test a pipeline that uses `llmLayout()` without a provider, pass it
+`mockLayoutModel()` from `docture/testing/llm`. It answers with the annotations you give,
+or with annotations a function chooses from the elements the analyzer sent. See the
+[mock models](/docs/resources/testing-api#mock-models).

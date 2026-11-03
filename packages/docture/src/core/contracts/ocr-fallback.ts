@@ -1,33 +1,45 @@
-import type { LoadedPage } from "../domain/geometry.js";
+import type { LoadedDocument, LoadedPage } from "../domain/geometry.js";
+import type { OcrFallbackPage, OcrFallbackReport, OcrFallbackWarning } from "../domain/ocr-fallback.js";
 import { inferForm } from "../pipeline/features.js";
 import { errorCodeOf } from "../pipeline/errors.js";
 import { selectPages } from "../pipeline/pages.js";
 import { createDisposalScope, type DisposalScope } from "./disposal.js";
 import { loaderAccepts, type DocumentLoader } from "./loader.js";
 
+export type { OcrFallbackPage, OcrFallbackReport, OcrFallbackWarning } from "../domain/ocr-fallback.js";
+
 export type PageOcrQuality = { readonly kind: "intentional-blank" } | { readonly kind: "text"; readonly quality: number };
 
 export interface OcrFallbackOptions {
-  /** Caller-defined quality. Explicitly identify intentional blanks to leave them untouched. */
-  readonly assess: (page: LoadedPage) => PageOcrQuality;
-  /** A candidate must reach this quality and improve on the original. */
-  readonly threshold: number;
+  /**
+   * Caller-defined quality. Explicitly identify intentional blanks to leave them untouched.
+   * Default {@link textLengthQuality}, which cannot tell an intentional blank from a scan.
+   */
+  readonly assess?: (page: LoadedPage) => PageOcrQuality;
+  /** Pages below this quality go to OCR, and a candidate must reach it and improve on the original. Default {@link DEFAULT_OCR_THRESHOLD}. */
+  readonly threshold?: number;
   /** Required strict improvement beyond the original score. Default 0. */
   readonly minimumImprovement?: number;
 }
 
-export interface OcrFallbackWarning {
-  readonly pageNumber: number;
-  readonly code: "OCR_FAILED" | "OCR_PAGE_MISSING" | "NO_IMPROVEMENT" | "GEOMETRY_MISMATCH" | "OCR_NOT_ELIGIBLE";
-  readonly message: string;
-  readonly errorCode?: string;
+/** Scores a page by its trimmed text length, so a page with an empty or near-empty text layer goes to OCR. */
+export function textLengthQuality(page: LoadedPage): PageOcrQuality {
+  return { kind: "text", quality: page.text.trim().length };
 }
 
-interface PageSupplier {
-  readonly pageNumber: number;
-  supplier: "primary" | "ocr";
-  readonly originalQuality?: number;
-  candidateQuality?: number;
+/** Pages with fewer than 20 characters of trimmed text go to OCR under {@link textLengthQuality}. */
+export const DEFAULT_OCR_THRESHOLD = 20;
+
+type PageSupplier = { -readonly [K in keyof OcrFallbackPage]: OcrFallbackPage[K] };
+
+/** The report `withOcrFallback` stores in `meta.ocrFallback`, when the document has one. */
+export function ocrFallbackReport(document: LoadedDocument): OcrFallbackReport | undefined {
+  const report = document.meta?.["ocrFallback"];
+  if (typeof report !== "object" || report === null) return undefined;
+  const candidate = report as Partial<OcrFallbackReport>;
+  return Array.isArray(candidate.pages) && Array.isArray(candidate.warnings) && Array.isArray(candidate.requestedPages)
+    ? report as OcrFallbackReport
+    : undefined;
 }
 
 function quality(value: PageOcrQuality): PageOcrQuality {
@@ -43,21 +55,23 @@ function physicalMismatch(original: LoadedPage, candidate: LoadedPage): boolean 
 /**
  * Explicitly reread low-quality pages with a caller-selected OCR loader.
  *
- * @remarks One OCR request is made per selected low-quality page. Custom loaders may ignore page hints and read the full document. Failures and insufficient improvements retain original pages with diagnostics. Quality is caller-defined, independently of inferForm. The composition owns both loaders through a shared disposal scope.
+ * @remarks One OCR request is made per selected low-quality page. Custom loaders may ignore page hints and read the full document. Failures and insufficient improvements retain original pages with diagnostics. Quality defaults to trimmed text length against a threshold of 20, independently of inferForm; pass `assess` to keep intentional blanks. The composition owns both loaders through a shared disposal scope.
+ * The loaded document's `meta.ocrFallback` holds an {@link OcrFallbackReport}, which `DocumentConverter` exposes as `ConversionResult.ocrFallback`.
  * @example
  * ```ts
- * import { withOcrFallback } from "docture";
- * const loader = withOcrFallback(primary, ocr, {
- *   threshold: 20,
- *   assess: page => ({ kind: "text", quality: page.text.trim().length }),
+ * import { textLengthQuality, withOcrFallback } from "docture";
+ * const loader = withOcrFallback(primary, ocr);
+ * const strict = withOcrFallback(primary, ocr, {
+ *   threshold: 40,
+ *   assess: page => page.pageNumber === 2 ? { kind: "intentional-blank" } : textLengthQuality(page),
  * });
  * ```
  */
-export function withOcrFallback(primary: DocumentLoader, ocr: DocumentLoader, options: OcrFallbackOptions): DocumentLoader & { dispose(scope?: DisposalScope): Promise<void> } {
+export function withOcrFallback(primary: DocumentLoader, ocr: DocumentLoader, options: OcrFallbackOptions = {}): DocumentLoader & { dispose(scope?: DisposalScope): Promise<void> } {
   const improvement = options.minimumImprovement ?? 0;
-  if (!Number.isFinite(options.threshold) || options.threshold < 0 || !Number.isFinite(improvement) || improvement < 0) throw new TypeError("OCR thresholds must be finite and nonnegative.");
-  const assess = options.assess;
-  const threshold = options.threshold;
+  const threshold = options.threshold ?? DEFAULT_OCR_THRESHOLD;
+  if (!Number.isFinite(threshold) || threshold < 0 || !Number.isFinite(improvement) || improvement < 0) throw new TypeError("OCR thresholds must be finite and nonnegative.");
+  const assess = options.assess ?? textLengthQuality;
   let disposed: Promise<void> | undefined;
   const name = `${primary.name}+ocr:${ocr.name}`;
   return {
@@ -126,7 +140,7 @@ export function withOcrFallback(primary: DocumentLoader, ocr: DocumentLoader, op
       for (const warning of warnings) ctx.logger.warn("OCR fallback retained original page", { pageNumber: warning.pageNumber, code: warning.code, ...(warning.errorCode === undefined ? {} : { errorCode: warning.errorCode }) });
       return {
         ...loaded, pages, text: pages.map((page) => page.text).join("\f"), form: inferForm(pages.map((page) => page.text.trim().length)), loader: name,
-        meta: { ...loaded.meta, ocrFallback: { primary: primary.name, ocr: ocr.name, requestedPages, pages: suppliers, warnings, primaryMs, ocrMs, totalMs: Date.now() - started, externalCost: "not-reported" } },
+        meta: { ...loaded.meta, ocrFallback: { primary: primary.name, ocr: ocr.name, requestedPages, pages: suppliers, warnings, primaryMs, ocrMs, totalMs: Date.now() - started, externalCost: "not-reported" } satisfies OcrFallbackReport },
       };
     },
     dispose(scope = createDisposalScope()) { disposed ??= scope.dispose(primary, ocr); return disposed; },

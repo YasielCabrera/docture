@@ -1,0 +1,119 @@
+---
+title: Vision model OCR
+description: Read scanned PDF pages into headings, paragraphs, lists, and tables with a vision-capable AI SDK model from docture/llm/ocr.
+type: reference
+---
+
+`LlmOcrLoader` renders each PDF page with a rasterizer and asks a vision-capable model for the page's layout: headings with their level, paragraphs, lists with their printed markers, tables as rows, code, and running headers and footers. Import it from `docture/llm/ocr`. Conversion exports the model's elements as they are, so a scan becomes Markdown, HTML, or text without local OCR.
+
+## Install
+
+```sh
+npm install docture pdfjs-dist @napi-rs/canvas ai @ai-sdk/openai zod
+```
+
+Any AI SDK provider with image input works in place of `@ai-sdk/openai`. The loader needs a [rasterizer](/docs/integrations/rasterizers) to render the pages, here `NapiCanvasRasterizer`.
+
+## Convert scans to Markdown
+
+Use the loader on its own when every page is a scan:
+
+```ts check
+import { DocumentConverter } from "docture/node";
+import { llmOcr } from "docture/llm/ocr";
+import { NapiCanvasRasterizer } from "docture/raster/canvas";
+import { openai } from "@ai-sdk/openai";
+
+const converter = new DocumentConverter({
+  loaders: [llmOcr({ model: openai("gpt-5"), rasterizer: new NapiCanvasRasterizer() })],
+});
+const result = await converter.convert("scan.pdf");
+console.log(result.content);
+```
+
+For a document that mixes digital and scanned pages, make it the OCR loader of [`withOcrFallback`](/docs/integrations/selected-page-ocr). Only the pages the text loader read poorly go to the model, one request per page:
+
+```ts check
+import { withOcrFallback } from "docture";
+import { DocumentConverter } from "docture/node";
+import { llmOcr } from "docture/llm/ocr";
+import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
+import { NapiCanvasRasterizer } from "docture/raster/canvas";
+import { openai } from "@ai-sdk/openai";
+
+const loader = withOcrFallback(
+  new DocumentLoaderPdfJs(),
+  llmOcr({ model: openai("gpt-5"), rasterizer: new NapiCanvasRasterizer() }),
+  { threshold: 20, assess: (page) => ({ kind: "text", quality: page.text.trim().length }) },
+);
+const converter = new DocumentConverter({ loaders: [loader] });
+```
+
+## Loader
+
+### `LlmOcrLoader`
+
+Creates a loader named `llm-ocr` that accepts PDF and reports text and image capabilities. It reports no geometry, because the model returns elements without positions.
+
+```ts
+import { LlmOcrLoader } from "docture/llm/ocr";
+
+new LlmOcrLoader(options: LlmOcrLoaderOptions)
+```
+
+Each page is rendered and sent alone, with up to `concurrency` requests in flight. The loader honors requested pages, so `convert(source, { pages: [3] })` renders and sends page 3 only. Each page keeps a lazy image function for vision strategies. A caller abort stops pages that have not been sent.
+
+The model's answer is validated against a strict schema before use. An answer that does not fit, such as an unknown element kind or a table whose `headerRows` exceeds its rows, rejects the load with a `ModelOutputError` whose message starts with the page number and that carries the call's usage and issues. Inside `withOcrFallback`, that failure keeps the original page and adds an `OCR_FAILED` warning. Other provider failures reject with the AI SDK error.
+
+The loaded document reports the summed token usage in `meta.usage`. `ConversionResult.usage` does not include it.
+
+### `llmOcr`
+
+Creates an `LlmOcrLoader`.
+
+```ts
+import { llmOcr } from "docture/llm/ocr";
+
+llmOcr(options: LlmOcrLoaderOptions): LlmOcrLoader
+```
+
+### `LlmOcrLoaderOptions`
+
+{/* options: LlmOcrLoaderOptions */}
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `model` | Required | An AI SDK model that accepts images, such as a provider instance or a gateway model string. |
+| `rasterizer` | Required | Renders the PDF pages the model reads. |
+| `name` | `"llm-ocr"` | The loader name in `result.loader` and attempt records. |
+| `instructions` | None | Text appended to the built-in system prompt. |
+| `dpi` | `200` | Render resolution. |
+| `maxEdge` | `1568` | Cap on the long edge of each page image, in pixels. |
+| `format` | `"png"` | Page image format, `png` or `jpeg`. |
+| `maxPages` | All | Maximum pages to read. |
+| `concurrency` | `4` | Page requests in flight at once. A positive integer. |
+| `cache` | None | Response cache. A hit skips the model call. |
+| `pricing` | None | Prices used to compute the cost in `meta.usage`. |
+| `temperature` | `0` | Sampling temperature. |
+| `providerOptions` | None | Provider-specific request settings. Part of the cache key. |
+| `maxRetries` | `2` | AI SDK retries for a failed call. |
+| `telemetry` | None | AI SDK telemetry. Calls use the function ID `docture.vision.llm-ocr`. Inputs and outputs are not recorded unless enabled here. |
+
+### `LlmOcrElement`
+
+One element as the model returns it. Docture adds element IDs and page provenance with a zero box.
+
+```ts check
+type LlmOcrElement =
+  | { kind: "heading"; level: 1 | 2 | 3 | 4 | 5 | 6; text: string }
+  | { kind: "paragraph" | "code" | "page-header" | "page-footer"; text: string }
+  | { kind: "list"; ordered: boolean; items: { marker: string; text: string }[] }
+  | { kind: "table"; headerRows: number; rows: string[][] };
+```
+
+List markers keep their printed form for text output, such as `a)` or `•`. Short table rows are padded with empty cells. Pictures are left out, and their captions become paragraphs.
+
+## Test without a provider
+
+`mockOcrModel()` from [`docture/testing/llm`](/docs/resources/testing-api#mock-models) answers each page with the elements you list, so a test can assert the exact Markdown without credentials.
+
+The model transcribes text, so it can misread or omit words. Check a sample of its output against the source before you rely on it, or use [evaluation](/docs/evaluation) on your own documents.

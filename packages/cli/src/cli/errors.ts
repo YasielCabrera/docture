@@ -59,7 +59,8 @@ const HINTS: Readonly<Record<DoctureErrorCode, string>> = {
   LOAD_FAILED:
     "The file could not be read — it may be corrupt, truncated, or password-protected.",
   NO_CONVERTIBLE_CONTENT:
-    "The selected loader found no indexable text. Configure an OCR loader in docture.config.ts for scanned PDFs.",
+    "No loader found indexable text. For a scanned PDF, add --ocr tesseract or --ocr paddleocr, " +
+    "or configure an OCR loader in docture.config.ts.",
   NO_ELIGIBLE_STRATEGY:
     "The document loaded but nothing wired can read it. A scan has no text layer: " +
     "add --vision to render the pages and send them to a vision model.",
@@ -82,6 +83,8 @@ const HINTS: Readonly<Record<DoctureErrorCode, string>> = {
     "or remove that component from docture.config.ts.",
   MISSING_COMPONENT:
     "Supply the missing component in docture.config.ts before running this command.",
+  DISPOSED:
+    "A converter or loader from docture.config.ts was used after it was disposed. Build a new one per run.",
   EVAL_SPEC_INVALID:
     "The eval spec cannot be resolved. Fix every listed path: add a fields rule, an arrays rule or a segment, " +
     "or remove the rule that matches nothing.",

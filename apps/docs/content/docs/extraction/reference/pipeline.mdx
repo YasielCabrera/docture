@@ -93,7 +93,7 @@ Wraps a primary loader and rereads low-quality pages with a caller-selected OCR 
 function withOcrFallback(
   primary: DocumentLoader,
   ocr: DocumentLoader,
-  options: OcrFallbackOptions,
+  options?: OcrFallbackOptions,
 ): DocumentLoader & { dispose(scope?: DisposalScope): Promise<void> }
 ```
 
@@ -104,9 +104,23 @@ The [selected-page OCR guide](/docs/integrations/selected-page-ocr) defines repl
 {/* options: OcrFallbackOptions */}
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `assess` | required | `(page: LoadedPage) => PageOcrQuality`. Scores a page; identify intentional blanks to leave them untouched. |
-| `threshold` | required | Quality an OCR candidate must reach, while also improving on the original. |
+| `assess` | `textLengthQuality` | `(page: LoadedPage) => PageOcrQuality`. Scores a page; identify intentional blanks to leave them untouched. |
+| `threshold` | `DEFAULT_OCR_THRESHOLD` (20) | Pages below this quality go to OCR. An OCR candidate must reach it while also improving on the original. |
 | `minimumImprovement` | `0` | Required strict improvement beyond the original score. |
+
+### `textLengthQuality`
+
+The default `assess`. Scores a page by the length of its trimmed text.
+
+```ts
+function textLengthQuality(page: LoadedPage): PageOcrQuality
+```
+
+It returns `{ kind: "text", quality: page.text.trim().length }` for every page, so it cannot tell an intentionally blank page from a scan. A blank page is sent to OCR and keeps its original when OCR finds no text.
+
+### `DEFAULT_OCR_THRESHOLD`
+
+The default `threshold`, `20`. With `textLengthQuality`, a page with fewer than 20 characters of trimmed text goes to OCR.
 
 ### `PageOcrQuality`
 
@@ -130,6 +144,37 @@ interface OcrFallbackWarning {
   readonly errorCode?: string;
 }
 ```
+
+### `OcrFallbackReport`
+
+What one load did, page by page. The composition stores it in the loaded document's `meta.ocrFallback`, and `DocumentConverter` returns it as [`ConversionResult.ocrFallback`](/docs/conversion/reference/converter).
+
+```ts check
+import type { OcrFallbackWarning } from "docture";
+
+interface OcrFallbackPage {
+  readonly pageNumber: number;
+  readonly supplier: "primary" | "ocr";
+  /** Absent for an intentional blank. */
+  readonly originalQuality?: number;
+  /** Present when the OCR page replaced the original. */
+  readonly candidateQuality?: number;
+}
+
+interface OcrFallbackReport {
+  readonly primary: string;
+  readonly ocr: string;
+  readonly requestedPages: readonly number[];
+  readonly pages: readonly OcrFallbackPage[];
+  readonly warnings: readonly OcrFallbackWarning[];
+  readonly primaryMs: number;
+  readonly ocrMs: number;
+  readonly totalMs: number;
+  readonly externalCost: "not-reported";
+}
+```
+
+`requestedPages` lists the pages sent to OCR. `pages` has one entry per loaded page, naming the loader that supplied it. `externalCost` is always `"not-reported"`, because OCR engines report no billed cost.
 
 ### Raster page caps
 

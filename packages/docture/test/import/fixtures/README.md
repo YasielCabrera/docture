@@ -21,7 +21,13 @@ The additional Python exports exercise list and table fidelity:
 - `nested-list-python.json` preserves nested source groups and tests explicit degradation.
 - `continued-list-python.json` starts numbering above one and tests its retained markers and diagnostic.
 
-Regenerate all fixtures with the bounded generator:
+`larkspur-invoice-service.json` and `larkfield-tax-invoice-service.json` are real
+docling-serve 1.38.2 responses (`quay.io/docling-project/docling-serve-cpu:v1.38.2`,
+default options, `to_formats=json`) for the CC0 Larkspur and Larkfield sample invoices
+listed in `apps/examples/SOURCES.md`. Larkfield has text that docling joined from two layout boxes.
+They are recorded service output, so the generator does not rebuild them.
+
+Regenerate the Python exports with the bounded generator:
 
 ```sh
 uv run --with 'docling-core==2.104.0' python packages/docture/test/import/fixtures/generate.py

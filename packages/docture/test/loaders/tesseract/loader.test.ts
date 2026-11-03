@@ -14,6 +14,9 @@
  * ```
  */
 
+import { copyFile, mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   imageSize,
@@ -26,6 +29,7 @@ import { describeLoaderConformance } from "docture/testing/conformance";
 import { makeInvoicePdf } from "docture/testing/fixtures";
 import { NapiCanvasRasterizer } from "docture/raster/canvas";
 import { DocumentLoaderTesseract, type DocumentLoaderTesseractOptions } from "../../../src/loaders/tesseract/index.js";
+import { defaultCachePath } from "../../../src/loaders/tesseract/tesseract.js";
 
 const ctx = { signal: new AbortController().signal, logger: silentLogger };
 const RUN_OCR = process.env["RUN_OCR"] === "1" || process.env["RUN_OCR"] === "true";
@@ -331,6 +335,22 @@ if (RUN_OCR) {
       // Nothing clears 99.9%, so the floor removes the page's text entirely.
       expect(none.text.length).toBeLessThan(all.text.length);
       await Promise.all([kept.dispose(), filtered.dispose()]);
+    });
+
+    it("reads the plain traineddata file docture caches from a local langPath", async () => {
+      const pdf = await makeInvoicePdf({ seed: 412 });
+      const source = { bytes: pdf.bytes, mimeType: "application/pdf" };
+      const warm = ocrLoader();
+      await warm.load(source, ctx);
+      await warm.dispose();
+      const langPath = await mkdtemp(join(tmpdir(), "docture-lang-"));
+      await copyFile(join(defaultCachePath(), "eng.traineddata"), join(langPath, "eng.traineddata"));
+
+      const loader = ocrLoader({ langPath, cachePath: await mkdtemp(join(tmpdir(), "docture-cache-")) });
+      const document = await loader.load(source, ctx);
+
+      expect(document.text).toContain(pdf.expected.invoiceNumber);
+      await loader.dispose();
     });
 
     it("renders a page image on demand, and memoizes it per page", async () => {

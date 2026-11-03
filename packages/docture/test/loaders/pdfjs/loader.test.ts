@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
 import { silentLogger } from "docture";
 import { describeLoaderConformance } from "docture/testing/conformance";
 import { makeInvoicePdf } from "docture/testing/fixtures";
@@ -12,6 +13,10 @@ describeLoaderConformance({
 });
 
 const ctx = { signal: new AbortController().signal, logger: silentLogger };
+
+function halfBlackJpx(): Uint8Array {
+  return new Uint8Array(readFileSync(new URL("../../raster/canvas/fixtures/half-black.pdf", import.meta.url)));
+}
 
 describe("DocumentLoaderPdfJs — specifics", () => {
   it("recovers the invoice fields a schema would ask for", async () => {
@@ -105,6 +110,38 @@ describe("DocumentLoaderPdfJs — specifics", () => {
     );
     expect(document.text).toContain("\f");
     expect(document.text.split("\f")).toHaveLength(document.pages.length);
+  });
+
+  it("returns a JPEG 2000 image as a PNG asset", async () => {
+    const document = await new DocumentLoaderPdfJs().load(
+      { bytes: halfBlackJpx(), mimeType: "application/pdf" },
+      { ...ctx, request: { layout: true, assets: true } },
+    );
+
+    const asset = document.pages[0]!.assets![0]!;
+    expect({ id: asset.id, mimeType: asset.mimeType, widthPx: asset.widthPx, heightPx: asset.heightPx }).toEqual({
+      id: "p1-image-1",
+      mimeType: "image/png",
+      widthPx: 32,
+      heightPx: 32,
+    });
+    expect([...asset.bytes.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  });
+
+  it("keeps PDF.js warnings about a damaged file off the console", async () => {
+    const pdf = Buffer.from(halfBlackJpx()).toString("latin1").replace(/startxref\n\d+/, "startxref\n999999");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const document = await new DocumentLoaderPdfJs().load(
+        { bytes: new Uint8Array(Buffer.from(pdf, "latin1")), mimeType: "application/pdf" },
+        ctx,
+      );
+
+      expect(document.meta).toEqual({ pageCount: 1, pagesRead: 1 });
+      expect(warn.mock.calls).toEqual([]);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("fails with a useful message on bytes that are not a PDF", async () => {

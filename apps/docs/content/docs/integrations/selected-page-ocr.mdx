@@ -1,14 +1,16 @@
 ---
 title: Recover selected pages with OCR
-description: Compose a primary loader and an explicit OCR fallback with caller-defined page quality.
+description: Compose a primary loader and an explicit OCR fallback that rereads only the pages with too little text.
 type: how-to
 ---
 
 `withOcrFallback` runs OCR only on the pages your text loader read poorly, and keeps every other page as the text loader returned it. Import it from `docture`.
 
+Use it for mixed documents, where some pages have a text layer and others are scans. For a document that is scanned throughout, listing the OCR loader after the text loader in `DocumentConverter`'s `loaders` also works. The converter moves to the next loader when one recovers no text at all. From the command line, `docture convert --ocr tesseract` builds this composition around PDF.js.
+
 ## Compose the loaders
 
-Pass the text loader, the OCR loader, and an `assess` callback with a `threshold` in the same units:
+Pass the text loader and the OCR loader:
 
 ```ts check
 import { withOcrFallback } from "docture";
@@ -19,10 +21,6 @@ import { NapiCanvasRasterizer } from "docture/raster/canvas";
 const loader = withOcrFallback(
   new DocumentLoaderPdfJs(),
   new DocumentLoaderTesseract({ rasterizer: new NapiCanvasRasterizer() }),
-  {
-    threshold: 20,
-    assess: (page) => ({ kind: "text", quality: page.text.trim().length }),
-  },
 );
 ```
 
@@ -31,24 +29,52 @@ Install the engines of the OCR loader you choose, as listed on the [Tesseract](/
 {/* options: OcrFallbackOptions */}
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `assess` | required | Returns a `PageOcrQuality` for each page from the text loader. |
-| `threshold` | required | Pages with a quality below this value go to OCR. |
+| `assess` | `textLengthQuality` | Returns a `PageOcrQuality` for each page from the text loader. |
+| `threshold` | `DEFAULT_OCR_THRESHOLD` (20) | Pages with a quality below this value go to OCR. |
 | `minimumImprovement` | `0` | How much an OCR page must exceed the original quality to replace it. |
 
 ## Score page quality
 
-`assess` returns `{ kind: "text", quality }` or `{ kind: "intentional-blank" }`. Return `intentional-blank` for pages that are meant to be empty, so OCR leaves them alone. Character count is a starting signal. Calibrate the callback on your own documents. `inferForm` labels the final document and does not select pages for OCR.
+By default a page's quality is the length of its trimmed text, and a page with fewer than 20 characters goes to OCR. The default cannot tell a page that is blank on purpose from a scan, so a blank page is sent to OCR and keeps its original when OCR finds no text.
+
+To change this, pass an `assess` callback that returns `{ kind: "text", quality }` or `{ kind: "intentional-blank" }`, and a `threshold` in the same units. Return `intentional-blank` for pages that are meant to be empty, so OCR leaves them alone:
+
+```ts check
+import { textLengthQuality, withOcrFallback, type DocumentLoader } from "docture";
+
+declare const primary: DocumentLoader;
+declare const ocr: DocumentLoader;
+
+const loader = withOcrFallback(primary, ocr, {
+  threshold: 40,
+  assess: (page) => (page.pageNumber === 2 ? { kind: "intentional-blank" } : textLengthQuality(page)),
+});
+```
+
+Character count is a starting signal. Calibrate the callback on your own documents. `inferForm` labels the final document and does not select pages for OCR.
 
 ## Understand which pages are replaced
 
 Only pages below the threshold reach OCR, and each OCR request names one original page. The built-in OCR loaders read only the requested page. A custom loader can ignore the page hint and read the whole document, so the composition cannot guarantee less work with such a loader.
 
-An OCR page replaces the original when it reaches the threshold and improves the original quality by more than `minimumImprovement`. Otherwise the composition keeps the original page and adds an `OcrFallbackWarning`. That happens when OCR fails, returns no matching page, returns different page dimensions, does not improve enough, or the OCR loader does not accept the source's media type. Warnings are in the loaded document's `meta.ocrFallback.warnings` and are also logged. One page's failure leaves the other pages unaffected. A caller abort still cancels the whole document.
+An OCR page replaces the original when it reaches the threshold and improves the original quality by more than `minimumImprovement`. Otherwise the composition keeps the original page and adds an `OcrFallbackWarning`. That happens when OCR fails, returns no matching page, returns different page dimensions, does not improve enough, or the OCR loader does not accept the source's media type. Warnings are in the loaded document's `meta.ocrFallback.warnings`, in `ConversionResult.ocrFallback.warnings` after a conversion, and are also logged. One page's failure leaves the other pages unaffected. A caller abort still cancels the whole document.
 
 ## Read the combined document
 
 Replaced pages keep their original page numbers and known physical dimensions. Their lines, blocks, and source IDs come from OCR. When OCR supplies no page image, the text loader's lazy image function stays available. Document text and form are rebuilt from the selected pages. The composition accepts the text loader's MIME types and reports only the capability facts that both loaders report.
 
-Per-page metadata names the loader that supplied the page, the quality scores, and the requested pages. It reports elapsed OCR time and unknown external cost separately from model token usage.
+Per-page metadata names the loader that supplied the page, the quality scores, and the requested pages. It reports elapsed OCR time and unknown external cost separately from model token usage. `DocumentConverter` returns this [`OcrFallbackReport`](/docs/extraction/reference/pipeline) as `ocrFallback` on its result:
+
+```ts check
+import { DocumentConverter, withOcrFallback, type DocumentLoader } from "docture";
+
+declare const primary: DocumentLoader;
+declare const ocr: DocumentLoader;
+declare const bytes: Uint8Array;
+
+const converter = new DocumentConverter({ loaders: [withOcrFallback(primary, ocr)] });
+const result = await converter.convert({ bytes, mimeType: "application/pdf" });
+const ocrPages = result.ocrFallback?.pages.filter((page) => page.supplier === "ocr").map((page) => page.pageNumber);
+```
 
 The repository example in [`apps/examples/input-loaders`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/input-loaders), `ocr.ts`, composes PDF.js with OCR for a local PDF. It uses the configured OCR engine and may download model files on its first run.

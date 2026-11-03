@@ -203,6 +203,86 @@ describe("Docling native JSON import", () => {
     expect(parseDoctureDocument(saved).ok).toBe(false);
   });
 
+  it("imports real docling-serve 1.38.2 invoice responses and splits continued text at its joining space", async () => {
+    const read = async (name: string) => JSON.parse(await readFile(new URL(`./fixtures/${name}`, import.meta.url), "utf8")).document.json_content;
+    const larkspur = importDoclingDocument(await read("larkspur-invoice-service.json"));
+    expect(larkspur.document.pages[0]?.elements[0]).toMatchObject({ kind: "heading", text: "Larkspur Sample Supply Co." });
+    const larkfield = importDoclingDocument(await read("larkfield-tax-invoice-service.json"));
+    const continued = larkfield.source.loaded.pages[0]?.evidence?.filter((entry) => larkfield.provenance.sources[entry.id]?.pointer === "#/texts/9");
+    expect(continued?.map((entry) => entry.text)).toEqual(["Invoice date", "INV-2026-0142"]);
+  });
+
+  it("places a list item's charspan, which counts its marker, on the marker-free item text", () => {
+    const raw = nativeDocument();
+    const base = raw.texts[1];
+    if (base?.prov[0] === undefined) throw new Error("fixture");
+    const item = { ...base, label: "list_item", text: "Collect samples", orig: "1. Collect samples", marker: "1.", enumerated: true, prov: [{ ...base.prov[0], charspan: [0, 18] }] };
+    raw.texts[1] = item;
+    const imported = importDoclingDocument(raw);
+    expect(imported.document.pages[0]?.elements[1]).toMatchObject({ kind: "list", ordered: true, items: [{ text: "Collect samples", marker: "1." }] });
+    expect(imported.source.loaded.pages[0]?.evidence?.map((entry) => entry.text)).toContain("Collect samples");
+    raw.texts[1] = { ...item, prov: [{ ...base.prov[0], charspan: [0, 15] }] };
+    expect(() => importDoclingDocument(raw)).toThrow("do not cover the complete native text");
+  });
+
+  it("splits a hyphenated word that docling merged across pages without the removed hyphen", () => {
+    const raw = nativeDocument();
+    const text = raw.texts[1];
+    if (text === undefined) throw new Error("fixture");
+    text.text = "The measurements continue";
+    text.prov = [
+      { page_no: 2, bbox: { l: 1, t: 1, r: 20, b: 10, coord_origin: "TOPLEFT" }, charspan: [0, 12] },
+      { page_no: 5, bbox: { l: 1, t: 1, r: 20, b: 10, coord_origin: "TOPLEFT" }, charspan: [13, 27] },
+    ];
+    const imported = importDoclingDocument(raw);
+    const pieces = imported.source.loaded.pages.flatMap((page) => page.evidence ?? []).filter((entry) => imported.provenance.sources[entry.id]?.pointer === "#/texts/1");
+    expect(pieces.map((entry) => [entry.pageNumber, entry.text])).toEqual([[2, "The measure"], [5, "ments continue"]]);
+  });
+
+  it("rejects provenance whose one-codepoint gap leaves text that no span covers", () => {
+    const raw = nativeDocument();
+    const text = raw.texts[1];
+    if (text === undefined) throw new Error("fixture");
+    text.text = "AlphaXBeta";
+    text.prov = [
+      { page_no: 2, bbox: { l: 1, t: 1, r: 20, b: 10, coord_origin: "TOPLEFT" }, charspan: [0, 5] },
+      { page_no: 5, bbox: { l: 1, t: 1, r: 20, b: 10, coord_origin: "TOPLEFT" }, charspan: [6, 10] },
+    ];
+    expect(() => importDoclingDocument(raw)).toThrow("do not cover the complete native text");
+  });
+
+  it("imports a table-heavy export as large as a 19-page statistical release under the default limits", () => {
+    const raw = nativeDocument();
+    const rows = 230; const cols = 150;
+    const cells = Array.from({ length: rows * cols }, (_, index) => {
+      const row = Math.floor(index / cols); const col = index % cols;
+      return { text: String(index), start_row_offset_idx: row, end_row_offset_idx: row + 1, start_col_offset_idx: col, end_col_offset_idx: col + 1, row_span: 1, col_span: 1 };
+    });
+    const table = raw.tables[0];
+    if (table === undefined) throw new Error("fixture");
+    table.data = { num_rows: rows, num_cols: cols, table_cells: cells };
+    const imported = importDoclingDocument(raw);
+    const element = imported.document.pages[0]?.elements.find((entry) => entry.kind === "table");
+    expect(element?.kind === "table" ? [element.rows.length, element.rows[229]?.[149]] : undefined).toEqual([230, "34499"]);
+  });
+
+  it("joins the text of a docling cell that overlaps an earlier cell into the cell at its first position", () => {
+    const raw = nativeDocument();
+    const cells = raw.tables[0]?.data.table_cells;
+    if (cells === undefined) throw new Error("fixture");
+    cells.push({ text: "(kPa)", start_row_offset_idx: 0, end_row_offset_idx: 1, start_col_offset_idx: 1, end_col_offset_idx: 2, row_span: 1, col_span: 1 });
+    const imported = importDoclingDocument(raw);
+    expect(imported.document.pages[0]?.elements.find((entry) => entry.kind === "table")).toMatchObject({ rows: [["Measurements (kPa)", ""], ["Pressure", "100"]], spans: [{ row: 0, col: 0, rowSpan: 1, colSpan: 2 }] });
+    expect(imported.diagnostics.map((entry) => entry.code)).toContain("OVERLAPPING_TABLE_CELLS");
+    expect(() => importDoclingDocument(raw, { strict: true })).toThrow("overlaps an earlier cell");
+  });
+
+  it("names the node limit, its value and the options that raise it", () => {
+    expect(() => importDoclingDocument(nativeDocument(), { limits: { maxNodes: 50 } })).toThrow(
+      "Invalid Docling export at $: The JSON value count exceeds limits.maxNodes (50). Raise it with the limits.maxNodes option of importDoclingDocument, or importOptions.limits.maxNodes on DoclingServeClient and DocumentLoaderDoclingServe.",
+    );
+  });
+
   it.each(["version", "broken", "cycle", "span", "box", "limit"])("rejects invalid %s input with stable typed diagnostics", (kind) => {
     const raw = nativeDocument();
     if (kind === "version") raw.version = "2.0.0";

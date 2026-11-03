@@ -17,7 +17,8 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
   for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   calls.push({ path: request.url ?? "", headers: request.headers, body: Buffer.concat(chunks) });
   response.setHeader("content-type", "application/json");
-  if (request.url?.endsWith("/async")) response.end(JSON.stringify({ task_id: "job-1", task_status: "pending" }));
+  if (request.url?.endsWith("/health")) response.end(JSON.stringify({ status: "ok" }));
+  else if (request.url?.endsWith("/async")) response.end(JSON.stringify({ task_id: "job-1", task_status: "pending" }));
   else if (request.url?.includes("/status/poll/")) response.end(JSON.stringify({ task_id: "job-1", task_status: ++polls === 1 ? "started" : "success" }));
   else {
     const epub = Buffer.concat(chunks).includes(Buffer.from("application/epub+zip"));
@@ -195,4 +196,54 @@ it("honors request and job deadlines while preserving the caller's abort reason"
   await expect(pending).rejects.toBe(reason);
   const waiting = vi.fn<typeof fetch>().mockImplementation(async () => Response.json({ task_id: "job-1", task_status: "started" }));
   await expect(new DoclingServeClient({ baseUrl, fetch: waiting, jobTimeoutMs: 10, pollIntervalMs: 1000 }).resume({ taskId: "job-1", service: baseUrl }).wait()).rejects.toMatchObject({ reason: "timeout", taskId: "job-1", outcome: "unknown" });
+});
+
+it("reports docling-serve health beneath the configured prefix with the configured credentials", async () => {
+  await expect(new DoclingServeClient({ baseUrl, apiKey: "secret" }).health()).resolves.toEqual({ status: "ok" });
+  expect(calls.at(-1)?.path).toBe("/prefix/health");
+  expect(calls.at(-1)?.headers["x-api-key"]).toBe("secret");
+  const unhealthy = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ status: "starting" }));
+  await expect(new DoclingServeClient({ baseUrl, fetch: unhealthy }).health()).rejects.toMatchObject({ reason: "response", message: "Docling health check reported status starting, not ok." });
+  await expect(new DoclingServeClient({ baseUrl: "http://127.0.0.1:1/", getRetries: 0 }).health()).rejects.toMatchObject({ reason: "transport", outcome: "failed" });
+});
+
+it("names the loader's importOptions path when a response exceeds an import limit", async () => {
+  await expect(new DoclingServeClient({ baseUrl, importOptions: { limits: { maxNodes: 50 } } }).convert(input)).rejects.toThrow("exceeds limits.maxNodes (50). Raise it with the limits.maxNodes option of importDoclingDocument, or importOptions.limits.maxNodes on DoclingServeClient and DocumentLoaderDoclingServe.");
+});
+
+function scriptedJob(states: (poll: number) => string) {
+  let polls = 0;
+  const fetcher = vi.fn<typeof fetch>().mockImplementation(async (url) => String(url).includes("/status/poll/")
+    ? Response.json({ task_id: "job-1", task_status: states(++polls) })
+    : Response.json({ status: "success", document: { json_content: nativeDocument() }, errors: [] }));
+  return { fetcher, polls: () => polls };
+}
+
+async function settleWithFakeTimers(options: ConstructorParameters<typeof DoclingServeClient>[0], advanceMs: number) {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    let outcome: { value?: unknown; error?: unknown } | undefined;
+    void new DoclingServeClient(options).resume({ taskId: "job-1", service: baseUrl }).wait().then((value) => { outcome = { value }; }, (error: unknown) => { outcome = { error }; });
+    await vi.advanceTimersByTimeAsync(advanceMs);
+    return outcome;
+  } finally { vi.useRealTimers(); }
+}
+
+it("keeps polling a long job when only jobTimeoutMs is raised", async () => {
+  const job = scriptedJob((poll) => poll > 1500 ? "success" : "started");
+  const outcome = await settleWithFakeTimers({ baseUrl, fetch: job.fetcher, jobTimeoutMs: 600_000 }, 400_000);
+  expect(outcome?.value).toMatchObject({ conversionStatus: "success", taskId: "job-1" });
+  expect(job.polls()).toBe(1501);
+});
+
+it("starts the job deadline when docling-serve reports that the queued job started", async () => {
+  const job = scriptedJob((poll) => poll <= 40 ? "pending" : poll <= 80 ? "started" : "success");
+  const outcome = await settleWithFakeTimers({ baseUrl, fetch: job.fetcher, jobTimeoutMs: 15_000 }, 30_000);
+  expect(outcome?.value).toMatchObject({ conversionStatus: "success", taskId: "job-1" });
+});
+
+it("stops waiting for a job that stays queued past queueTimeoutMs", async () => {
+  const job = scriptedJob(() => "pending");
+  const outcome = await settleWithFakeTimers({ baseUrl, fetch: job.fetcher, jobTimeoutMs: 600_000, queueTimeoutMs: 5_000 }, 6_000);
+  expect(outcome?.error).toMatchObject({ reason: "timeout", taskId: "job-1", outcome: "unknown", message: "Docling job stayed queued past queueTimeoutMs; server cancellation is not implied." });
 });

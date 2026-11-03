@@ -235,7 +235,7 @@
       "use-tesseract-ocr": "/docs/integrations/scanned-documents#use-tesseract-ocr",
       "use-paddleocr": "/docs/integrations/scanned-documents#use-paddleocr",
       "choose-between-ocr-and-vision": "/docs/integrations/scanned-documents#choose-between-ocr-and-vision",
-      "loader-ordering-is-not-ocr-fallback": "/docs/integrations/scanned-documents#loader-ordering-is-not-ocr-fallback",
+      "loader-ordering-is-not-ocr-fallback": "/docs/integrations/scanned-documents#loader-ordering-and-ocr-fallback",
       "mixed-documents": "/docs/integrations/scanned-documents#mixed-documents",
       "rendering-details": "/docs/integrations/scanned-documents#rendering-details"
     }

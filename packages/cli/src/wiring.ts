@@ -16,7 +16,9 @@ import { createDocumentConverter, createExtractor } from "docture/node";
 
 import {
   createDisposalScope,
+  MissingEngineError,
   type DisposalScope,
+  withOcrFallback,
   withRasterizer,
   type Classification,
   type CompletionStrategy,
@@ -25,6 +27,7 @@ import {
   type ExtractionStrategy,
   type Rasterizer,
   type LayoutAnalyzer,
+  type OcrFallbackReport,
 } from "docture";
 import {
   fileCache,
@@ -39,6 +42,7 @@ import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import type { LanguageModel } from "ai";
 import { validateFactoryResult } from "./config-validation.js";
 import { CliError, UsageError } from "./cli/errors.js";
+import type { OCR_ENGINES } from "./cli/specs.js";
 import type { Io } from "./cli/io.js";
 import { relativeToConfig, type LoadedConfig } from "./config.js";
 import type { CliConverter, CliExtractor } from "./define-config.js";
@@ -64,6 +68,8 @@ export interface WiringFlags {
   readonly classificationsPath?: string;
   /** Cite and verify each extracted value. Only the text strategy the CLI builds can. */
   readonly citations?: boolean;
+  /** `convert` only: reread pages with too little text with this OCR engine. */
+  readonly ocr?: (typeof OCR_ENGINES)[number];
 }
 
 export interface WiringInput {
@@ -182,6 +188,60 @@ async function loadRasterizer(dpi: number | undefined): Promise<Rasterizer> {
       { cause: error },
     );
   }
+}
+
+type TesseractEntry = typeof import("docture/loaders/tesseract");
+type PaddleOcrEntry = typeof import("docture/loaders/paddleocr");
+
+/**
+ * Non-literal specifiers, so a bundler of the CLI does not follow them into OCR engines
+ * the CLI does not depend on. Node resolves them at runtime from docture.
+ */
+const OCR_LOADER_ENTRIES: Readonly<Record<(typeof OCR_ENGINES)[number], string>> = {
+  tesseract: "docture/loaders/tesseract",
+  paddleocr: "docture/loaders/paddleocr",
+};
+
+/** PDF.js, with each page under the default OCR threshold read again by the chosen engine. */
+async function ocrFallbackLoader(engine: (typeof OCR_ENGINES)[number], dpi: number | undefined): Promise<DocumentLoader> {
+  const rasterizer = await loadRasterizer(dpi);
+  const ocr = engine === "tesseract"
+    ? new ((await import(OCR_LOADER_ENTRIES.tesseract)) as TesseractEntry).DocumentLoaderTesseract({ rasterizer })
+    : new ((await import(OCR_LOADER_ENTRIES.paddleocr)) as PaddleOcrEntry).DocumentLoaderPaddleOcr({ rasterizer });
+  return withRequiredOcrEngine(new DocumentLoaderPdfJs(), ocr);
+}
+
+/**
+ * `withOcrFallback(primary, ocr)` that rejects with the OCR loader's `MissingEngineError`.
+ * `withOcrFallback` keeps the original page when OCR throws, which would turn an engine
+ * the user asked for by flag, but has not installed, into a scan with no text.
+ */
+export function withRequiredOcrEngine(primary: DocumentLoader, ocr: DocumentLoader): DocumentLoader {
+  let missing: MissingEngineError | undefined;
+  const fallback = withOcrFallback(primary, {
+    name: ocr.name,
+    capabilities: ocr.capabilities,
+    async load(raw, ctx) {
+      try {
+        return await ocr.load(raw, ctx);
+      } catch (error) {
+        if (error instanceof MissingEngineError) missing = error;
+        throw error;
+      }
+    },
+    dispose: (scope) => (scope ?? createDisposalScope()).dispose(ocr),
+  });
+  return {
+    name: fallback.name,
+    capabilities: fallback.capabilities,
+    async load(raw, ctx) {
+      const document = await fallback.load(raw, ctx);
+      const report = document.meta?.["ocrFallback"] as OcrFallbackReport;
+      if (missing !== undefined && report.warnings.some((warning) => warning.errorCode === "MISSING_ENGINE")) throw missing;
+      return document;
+    },
+    dispose: (scope) => fallback.dispose(scope),
+  };
 }
 
 async function loadPricing(
@@ -414,9 +474,9 @@ export async function buildConversionWiring(
     const converter = typeof supplied === "function" ? await supplied() : supplied;
     validateFactoryResult(converter, "converter", config?.path ?? "<config>");
     notes.push("converter from config");
-    if (flags.model !== undefined || flags.assistLayout === true) {
+    if (flags.model !== undefined || flags.assistLayout === true || flags.ocr !== undefined) {
       warnings.push(
-        "--model and --assist-layout are ignored because the config supplies a built converter.",
+        "--model, --assist-layout and --ocr are ignored because the config supplies a built converter.",
       );
     }
     return {
@@ -429,12 +489,18 @@ export async function buildConversionWiring(
     };
   }
 
-  const loaders = baseLoaders(config);
-  notes.push(
-    config?.config.loaders === undefined
-      ? "loaders [pdfjs] (default)"
-      : `loaders [${loaders.map((loader) => loader.name).join(", ")}] from config`,
-  );
+  let loaders = baseLoaders(config);
+  if (config?.config.loaders !== undefined) {
+    notes.push(`loaders [${loaders.map((loader) => loader.name).join(", ")}] from config`);
+    if (flags.ocr !== undefined) {
+      warnings.push("--ocr is ignored because the config supplies loaders. Wrap a loader with withOcrFallback in the config instead.");
+    }
+  } else if (flags.ocr !== undefined) {
+    loaders = [await ocrFallbackLoader(flags.ocr, flags.dpi)];
+    notes.push(`loaders [${loaders.map((loader) => loader.name).join(", ")}] (--ocr ${flags.ocr})`);
+  } else {
+    notes.push("loaders [pdfjs] (default)");
+  }
 
   let layoutAnalyzer: LayoutAnalyzer | undefined = config?.config.layoutAnalyzer;
   let modelId: string | null = null;

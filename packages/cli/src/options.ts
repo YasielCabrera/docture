@@ -7,7 +7,7 @@
  */
 
 import { boolFlag, choiceFlag, numberFlag, stringFlag, type Parsed } from "./cli/args.js";
-import { COMPLETION } from "./cli/specs.js";
+import { COMPLETION, OCR } from "./cli/specs.js";
 import type { WiringFlags } from "./wiring.js";
 
 export interface CommonOptions {
@@ -42,6 +42,7 @@ export function wiringFlags(parsed: Parsed): WiringFlags {
   const maxChars = numberFlag(parsed, "max-chars", { min: 256, integer: true });
   const timeoutMs = numberFlag(parsed, "timeout", { min: 1, integer: true });
   const completion = choiceFlag(parsed, COMPLETION);
+  const ocr = choiceFlag(parsed, OCR);
 
   return {
     ...(model === undefined ? {} : { model }),
@@ -60,5 +61,6 @@ export function wiringFlags(parsed: Parsed): WiringFlags {
     ...(boolFlag(parsed, "assist-layout") ? { assistLayout: true } : {}),
     ...(classificationsPath === undefined ? {} : { classificationsPath }),
     ...(boolFlag(parsed, "citations") ? { citations: true } : {}),
+    ...(ocr === undefined ? {} : { ocr }),
   };
 }

@@ -41,6 +41,7 @@ interface CanvasSurface {
 }
 
 interface PdfJsRenderModule {
+  readonly VerbosityLevel: { readonly ERRORS: number };
   getDocument(options: Record<string, unknown>): {
     promise: Promise<{
       readonly numPages: number;
@@ -65,25 +66,34 @@ interface RenderTask {
   cancel(): void;
 }
 
+interface PdfJsAssets {
+  readonly standardFontDataUrl: string;
+  readonly wasmUrl: string;
+}
+
 interface LoadedDeps {
   readonly pdfjs: PdfJsRenderModule;
-  readonly standardFontDataUrl: string;
+  readonly assets: PdfJsAssets;
 }
 
 /**
- * Locate pdf.js's bundled standard fonts.
+ * Locate pdf.js's bundled standard fonts and its JPEG 2000 and JBIG2 WASM decoders.
+ * Without `wasmUrl`, an image in either format renders as a blank area.
  *
- * A plain filesystem path with a trailing slash — NOT a `file://` URL. The option is
- * named `standardFontDataUrl`, but the Node build reads it through the filesystem and
- * Node's `fetch` cannot open `file://`; a URL makes every page log "Unable to load
- * font data" and render with guessed metrics.
+ * Plain filesystem paths with a trailing slash — NOT `file://` URLs. The options are
+ * named `...Url`, but the Node build reads them through the filesystem and Node's
+ * `fetch` cannot open `file://`; with a URL the fonts fail to load and every page
+ * renders with guessed metrics.
  *
  */
-function resolveStandardFonts(): string {
+function resolveAssets(): PdfJsAssets {
   const require = createRequire(import.meta.url);
   const entry = require.resolve("pdfjs-dist/legacy/build/pdf.mjs");
   const root = dirname(dirname(dirname(entry)));
-  return `${join(root, "standard_fonts")}/`;
+  return {
+    standardFontDataUrl: `${join(root, "standard_fonts")}/`,
+    wasmUrl: `${join(root, "wasm")}/`,
+  };
 }
 
 /** Both heavy dependencies, loaded on first render and cached thereafter. */
@@ -99,7 +109,7 @@ const loadDeps = lazyEngine(async (): Promise<LoadedDeps> => {
   );
   return {
     pdfjs: pdfjs as PdfJsRenderModule,
-    standardFontDataUrl: resolveStandardFonts(),
+    assets: resolveAssets(),
   };
 });
 
@@ -135,7 +145,7 @@ export class NapiCanvasRasterizer implements Rasterizer {
     ctx: RasterizeContext,
   ): Promise<readonly RasterPage[]> {
     ctx.signal.throwIfAborted();
-    const { pdfjs, standardFontDataUrl } = await loadDeps();
+    const { pdfjs, assets } = await loadDeps();
 
     const dpi = options.dpi ?? this.options.dpi ?? DEFAULT_RASTER_OPTIONS.dpi;
     const format = options.format ?? this.options.format ?? DEFAULT_RASTER_OPTIONS.format;
@@ -146,7 +156,9 @@ export class NapiCanvasRasterizer implements Rasterizer {
       // A copy: pdf.js detaches the buffer it is handed, and the caller may still
       // need theirs (a loader in the same chain, or a second render pass).
       data: new Uint8Array(document.bytes),
-      standardFontDataUrl,
+      ...assets,
+      // pdf.js writes warnings to the console, which a library must not do.
+      verbosity: pdfjs.VerbosityLevel.ERRORS,
       isEvalSupported: false,
       useSystemFonts: false,
       ...(this.options.password === undefined ? {} : { password: this.options.password }),

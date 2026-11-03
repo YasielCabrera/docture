@@ -53,9 +53,9 @@ const expectedPublications = ["@docture/cli", "@docture/eval", "@docture/synthet
 const scopedPublications = expectedPublications.filter(name => name.startsWith("@docture/"));
 const packLabels = { docture: "library", "@docture/cli": "cli", "@docture/eval": "eval", "@docture/synthetic": "synthetic" };
 const expectedExports = [".", "./node", "./loaders/mammoth", "./inputs/email", "./sources/paperless", "./sinks/paperless", "./import/docling", "./loaders/docling", "./loaders/azure-di", "./llm", "./chunk", ...[
-  "tool", "text", "vision", "classifier", "layout", "split", "cache", "pricing", "prompt", "merge", "relax", "extractor",
+  "tool", "text", "vision", "classifier", "layout", "ocr", "split", "cache", "pricing", "prompt", "merge", "relax", "extractor",
 ].map(name => `./llm/${name}`), ...["pdfjs", "mupdf", "tesseract", "paddleocr"].map(name => `./loaders/${name}`),
-"./raster/canvas", ...["doubles", "conformance", "fixtures"].map(name => `./testing/${name}`)];
+"./raster/canvas", ...["doubles", "conformance", "fixtures", "llm"].map(name => `./testing/${name}`)];
 const optionalPeers = ["mammoth", "postal-mime", "ai", "zod", "pdfjs-dist", "mupdf", "tesseract.js", "ppu-paddle-ocr", "onnxruntime-node", "@napi-rs/canvas", "utif2", "pdfkit", "vitest"];
 const engineNames = [...optionalPeers.filter(name => name !== "zod"), "tesseract.js-core", "onnxruntime-common"];
 const toolNames = ["esbuild", "rollup", "@rollup/plugin-node-resolve", "@rollup/plugin-commonjs", "@rollup/plugin-terser"];
@@ -311,7 +311,7 @@ async function checkPackedPackage(directory, manifest, ts, sourceDirectory) {
 const helperModules = ["cache", "pricing", "prompt", "merge", "relax"];
 const internalHelpers = ["citations", "evidence", "fold"];
 const helperCoreModules = ["core/domain/field-path"];
-const capabilityModules = { text: ["text", "strategy"], vision: ["vision"], classifier: ["classifier"], layout: ["layout"], split: ["split"] };
+const capabilityModules = { text: ["text", "strategy"], vision: ["vision"], classifier: ["classifier"], layout: ["layout"], ocr: ["ocr"], split: ["split"] };
 const capabilityBase = [...helperModules, ...internalHelpers, "entries/cache", "failure", "model-id", "repair", "request", "telemetry"];
 const llmAllowed = {
   core: [],
@@ -324,6 +324,7 @@ const requiredContributions = {
   vision: ["llm/vision", "ai"],
   classifier: ["llm/classifier", "ai", "zod"],
   layout: ["llm/layout", "ai", "zod"],
+  ocr: ["llm/ocr", "ai", "zod"],
   split: ["llm/split", "ai", "zod"],
   extractor: ["llm/extractor", "llm/strategy", "llm/classifier", "llm/vision", "ai"],
   helpers: helperModules.map(name => `llm/${name}`),
@@ -610,7 +611,7 @@ const email=await expandEmail({bytes:new TextEncoder().encode("From: a@example.t
   });
   const entryOutcomes = Object.fromEntries(expectedExports.map(key => {
     const specifier = key === "." ? "docture" : `docture/${key.slice(2)}`;
-    if (/^\.\/llm(?:\/(?:text|vision|classifier|layout|split|extractor))?$/.test(key)) return [specifier, "needs ai"];
+    if (/^\.\/llm(?:\/(?:text|vision|classifier|layout|ocr|split|extractor))?$/.test(key)) return [specifier, "needs ai"];
     if (key === "./testing/fixtures") return [specifier, "needs pdfkit"];
     if (key === "./testing/conformance") return [specifier, "needs vitest"];
     return [specifier, "loads"];

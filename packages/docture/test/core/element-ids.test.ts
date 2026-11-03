@@ -59,7 +59,7 @@ describe("converted element ids", () => {
   it("keeps a paragraph's id when an inserted smaller block makes it read as a heading", async () => {
     const before = await elements(documentOf([pdfPage(1, [{ text: "Revenue grew 12%.", y: 100, size: 12 }])]));
     const after = await elements(documentOf([pdfPage(1, [
-      { text: "Draft", y: 60, size: 8 },
+      { text: "Draft for internal review only", y: 60, size: 8 },
       { text: "Revenue grew 12%.", y: 100, size: 12 },
     ])]));
     expect(withText(before, "Revenue grew 12%.")).toMatchObject({ kind: "paragraph", id: "p1-781fe8d7e13c" });

@@ -296,7 +296,10 @@ describe("paragraphs cut by a page break", () => {
 
   it("reads top-band text that runs on into the body as the page's first paragraph", async () => {
     const result = await convert(fixtureDocument([unfinishedParagraph], denseFormStart));
-    expect(result.pages.map((page) => paragraphs(page.elements).length)).toEqual([1, 3]);
+    expect(result.pages.map((page) => paragraphs(page.elements).map((paragraph) => paragraph.text))).toEqual([
+      ["Revenue grew in every region, and the board expects that"],
+      ["Reconciliation form\nbalance as shown on your\nstatement and register."],
+    ]);
     expect(paragraphs(result.pages[0]?.elements ?? [])[0]?.provenance.continuations).toBeUndefined();
   });
 

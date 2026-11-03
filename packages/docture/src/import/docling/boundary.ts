@@ -49,9 +49,11 @@ export interface DoclingImportLimits {
   readonly maxTableCells?: number;
 }
 
-export function checkedLimits(input: DoclingImportLimits = {}) {
+export type CheckedDoclingImportLimits = Readonly<Required<DoclingImportLimits>>;
+
+export function checkedLimits(input: DoclingImportLimits = {}): CheckedDoclingImportLimits {
   return {
-    maxNodes: integer(input.maxNodes ?? 100_000, "limits.maxNodes", 1),
+    maxNodes: integer(input.maxNodes ?? 2_500_000, "limits.maxNodes", 1),
     maxDepth: integer(input.maxDepth ?? 100, "limits.maxDepth", 1),
     maxBytes: integer(input.maxBytes ?? 20_000_000, "limits.maxBytes", 1),
     maxPages: integer(input.maxPages ?? 10_000, "limits.maxPages", 1),
@@ -59,16 +61,21 @@ export function checkedLimits(input: DoclingImportLimits = {}) {
   };
 }
 
-export function canonicalJson(raw: unknown, limits: ReturnType<typeof checkedLimits>): string {
+export function limitExceeded(limits: CheckedDoclingImportLimits, name: keyof DoclingImportLimits, path: string, subject: string): DoclingImportError {
+  return new DoclingImportError(path, `${subject} exceeds limits.${name} (${limits[name]}). Raise it with the limits.${name} option of importDoclingDocument, or importOptions.limits.${name} on DoclingServeClient and DocumentLoaderDoclingServe.`);
+}
+
+export function canonicalJson(raw: unknown, limits: CheckedDoclingImportLimits): string {
   const active = new Set<object>();
   let nodes = 0;
   let characters = 0;
   const walk = (value: unknown, depth: number): string => {
-    if (++nodes > limits.maxNodes || depth > limits.maxDepth) throw new DoclingImportError("$", "traversal limit exceeded");
+    if (++nodes > limits.maxNodes) throw limitExceeded(limits, "maxNodes", "$", "The JSON value count");
+    if (depth > limits.maxDepth) throw limitExceeded(limits, "maxDepth", "$", "The JSON nesting depth");
     if (value === null || typeof value === "boolean" || typeof value === "number" && Number.isFinite(value)) return JSON.stringify(value);
     if (typeof value === "string") {
       characters += value.length;
-      if (characters > limits.maxBytes) throw new DoclingImportError("$", "input size limit exceeded");
+      if (characters > limits.maxBytes) throw limitExceeded(limits, "maxBytes", "$", "The JSON text size");
       return JSON.stringify(value);
     }
     if (typeof value !== "object" || value === null) throw new DoclingImportError("$", "expected JSON data");
@@ -85,6 +92,6 @@ export function canonicalJson(raw: unknown, limits: ReturnType<typeof checkedLim
     return output;
   };
   const json = walk(raw, 0);
-  if (new TextEncoder().encode(json).length > limits.maxBytes) throw new DoclingImportError("$", "input size limit exceeded");
+  if (new TextEncoder().encode(json).length > limits.maxBytes) throw limitExceeded(limits, "maxBytes", "$", "The JSON byte size");
   return json;
 }

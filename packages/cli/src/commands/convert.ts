@@ -71,9 +71,10 @@ function within(root: string, reference: string): string {
 
 function successLine(label: string, result: ConversionResult): string {
   const failures = result.attempts.filter((attempt) => attempt.status === "failed").length;
+  const ocrPages = result.ocrFallback?.pages.filter((page) => page.supplier === "ocr").map((page) => page.pageNumber) ?? [];
   return `✓ ${label} → ${result.format} via ${result.loader}${
     failures === 0 ? "" : ` after ${failures} failed attempt${failures === 1 ? "" : "s"}`
-  } · ${formatMs(result.usage.wallMs)}\n`;
+  }${ocrPages.length === 0 ? "" : ` · OCR page${ocrPages.length === 1 ? "" : "s"} ${ocrPages.join(", ")}`} · ${formatMs(result.usage.wallMs)}\n`;
 }
 
 export async function convertCommand(
@@ -132,6 +133,7 @@ export async function convertCommand(
     output: string;
     assets: readonly string[];
     warnings: ConversionResult["warnings"];
+    ocrFallback?: ConversionResult["ocrFallback"];
   }> | undefined>(inputs.length);
   const hintsShown = new Set<string>();
   let failed = 0;
@@ -172,6 +174,7 @@ export async function convertCommand(
         file: label, ok: true as const, output: target,
         assets: assets === "referenced" ? result.assets.map((asset) => within(root, asset.reference)) : [],
         warnings: result.warnings,
+        ...(result.ocrFallback === undefined ? {} : { ocrFallback: result.ocrFallback }),
       };
       records[item.index] = record;
       if (outputFormat === "ndjson") io.write(toNdjson(record));
@@ -180,6 +183,9 @@ export async function convertCommand(
         io.diagnostic(successLine(label, result));
         for (const warning of result.warnings) {
           io.diagnostic(`${style.yellow("!")} ${label}: ${warning.message}\n`);
+        }
+        for (const warning of result.ocrFallback?.warnings ?? []) {
+          io.diagnostic(`${style.yellow("!")} ${label}: page ${warning.pageNumber}: ${warning.message}\n`);
         }
         if (common.verbose) io.diagnostic(attemptLines(result.attempts, style));
       }

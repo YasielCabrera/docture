@@ -17,8 +17,8 @@ await converter.convert(source, { format: "json" });
 ```
 
 - TXT joins pages with form feeds and adds no image placeholders.
-- Markdown, the default, uses CommonMark, GFM tables, and `<!-- page: N -->` markers.
-- HTML is a complete escaped HTML5 document. Each page is a numbered `section`.
+- Markdown, the default, uses CommonMark, GFM tables, and `<!-- page: N -->` markers. Ordered list items keep their original number and delimiter, such as `3.` or `2)`. A `#`, `+`, `-`, number, or underline that would start a heading, list, or rule at the start of any line of paragraph text is escaped.
+- HTML is a complete escaped HTML5 document. Each page is a numbered `section`. An ordered list that does not begin at 1 has a `start` attribute.
 - JSON exports the versioned `DoctureDocument` with semantic elements, provenance, and assets.
 
 All four formats read the same semantic elements, and `result.pages[].elements` holds

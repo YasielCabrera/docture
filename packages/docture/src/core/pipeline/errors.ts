@@ -26,6 +26,7 @@ export type DoctureErrorCode =
   | "UNCLASSIFIED_GROUP"
   | "MISSING_ENGINE"
   | "MISSING_COMPONENT"
+  | "DISPOSED"
   | "EVAL_SPEC_INVALID"
   | "GROUND_TRUTH_INVALID"
   | "EVAL_DATASET_INVALID"
@@ -93,6 +94,15 @@ export class MissingComponentError extends DoctureError {
   override readonly code = "MISSING_COMPONENT" as const;
   constructor(message: string) {
     super(message);
+  }
+}
+
+/** A component was used after `dispose()` released its loaders and workers. */
+export class DisposedError extends DoctureError {
+  protected static override readonly doctureErrorIdentity = "DisposedError";
+  override readonly code = "DISPOSED" as const;
+  constructor(readonly component: string) {
+    super(`This ${component} was disposed. Create a new ${component} to convert more documents.`);
   }
 }
 
@@ -174,7 +184,7 @@ export class LoadFailedError extends DoctureError {
   }
 }
 
-/** The selected loader succeeded, but recovered no text that can be indexed. */
+/** A loader read the document, but no eligible loader recovered text that can be indexed. */
 export class NoConvertibleContentError extends DoctureError {
   protected static override readonly doctureErrorIdentity = "NoConvertibleContentError";
   override readonly code = "NO_CONVERTIBLE_CONTENT" as const;
@@ -182,7 +192,8 @@ export class NoConvertibleContentError extends DoctureError {
     super(
       `The loader recovered no convertible text ` +
         `(textLength=${features.textLength}, form=${features.form}). ` +
-        `Configure an OCR loader explicitly for scanned documents.`,
+        `For a scan, list an OCR loader after the text-layer loader. ` +
+        `To OCR only the empty pages of a mixed document, wrap the text-layer loader with withOcrFallback(primary, ocr).`,
     );
   }
 }

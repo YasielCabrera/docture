@@ -242,6 +242,7 @@ export type { RoutingPolicy } from "./pipeline/eligibility.js";
 // ── The typed failure contract ──────────────────────────────────────────────────
 export {
   ContractViolationError,
+  DisposedError,
   DuplicateComponentError,
   ExtractionFailedError,
   LoadFailedError,
@@ -272,7 +273,16 @@ export type { Logger } from "./domain/logger.js";
 export { resolveSource, sniffMimeType, type SourceResolver } from "./pipeline/source.js";
 export { createDisposalScope, type DisposalScope, type ScopedDisposable } from "./contracts/disposal.js";
 export { createCheckedExtractor } from "./checked.js";
-export { withOcrFallback, type OcrFallbackOptions, type PageOcrQuality, type OcrFallbackWarning } from "./contracts/ocr-fallback.js";
+export {
+  DEFAULT_OCR_THRESHOLD,
+  textLengthQuality,
+  withOcrFallback,
+  type OcrFallbackOptions,
+  type OcrFallbackPage,
+  type OcrFallbackReport,
+  type OcrFallbackWarning,
+  type PageOcrQuality,
+} from "./contracts/ocr-fallback.js";
 
 // ── Advanced: drive the pipeline without an Extractor ───────────────────────────
 export { runPipeline } from "./pipeline/run.js";

@@ -1,7 +1,7 @@
 import type { FurnitureEvidence } from "../domain/conversion.js";
 import type { LayoutBox } from "../domain/geometry.js";
 import { bodyFontSize, fontSizes, HEADING_SIZE_RATIO, median, type Candidate } from "./candidates.js";
-import { continuedTableLabel, looksLikeTableGroup, tableGroupIds } from "./table-grid.js";
+import { continuedTableLabel, tableRowIds } from "./table-grid.js";
 
 export interface FurniturePage {
   readonly pageNumber: number;
@@ -80,13 +80,6 @@ function textOf(candidate: Candidate): string {
   return candidate.lines.map((line) => line.text).join(" ").trim().replace(/\s+/gu, " ");
 }
 
-function tableRowIds(candidates: readonly Candidate[]): ReadonlySet<string> {
-  return tableGroupIds(
-    [...candidates].sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x),
-    (group) => looksLikeTableGroup(group.candidates),
-  );
-}
-
 function headingSized(candidate: Candidate, bodySize: number): boolean {
   if (candidate.role === "heading") return true;
   const size = median(fontSizes(candidate));
@@ -156,8 +149,8 @@ export function detectFurniture(pages: readonly FurniturePage[]): FurnitureFindi
   const outer: Occurrence[] = [];
   for (const page of pages) {
     if (page.width <= 0 || page.height <= 0) continue;
-    const bodySize = bodyFontSize(page.candidates);
     const tableRows = tableRowIds(page.candidates);
+    const bodySize = bodyFontSize(page.candidates, tableRows);
     for (const candidate of page.candidates) {
       if (!candidate.lines.some((line) => line.spans.length > 0)) continue;
       const band = bandOf(candidate.box, page.height);

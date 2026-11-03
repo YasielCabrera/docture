@@ -35,7 +35,7 @@ export interface ReadDocument {
 
 
 /** Try each eligible loader in order; the first that does not throw wins. */
-export async function readDocument(
+export function readDocument(
   loaders: readonly DocumentLoader[],
   raw: RawDocument,
   logger: Logger,
@@ -43,12 +43,30 @@ export async function readDocument(
   stageTimeoutMs: number | undefined,
   request?: LoadRequest,
 ): Promise<ReadDocument> {
+  return readFirstUsable(loaders, raw, logger, signal, stageTimeoutMs, request, () => true);
+}
+
+/**
+ * {@link readDocument}, but a loaded document that `usable` rejects passes to the next
+ * eligible loader as a skipped attempt. When no loader yields a usable document, the
+ * first rejected one is returned unless every loader that threw lacks its engine.
+ */
+export async function readFirstUsable(
+  loaders: readonly DocumentLoader[],
+  raw: RawDocument,
+  logger: Logger,
+  signal: AbortSignal,
+  stageTimeoutMs: number | undefined,
+  request: LoadRequest | undefined,
+  usable: (document: LoadedDocument) => boolean,
+): Promise<ReadDocument> {
   const mimeType = raw.mimeType ?? "application/octet-stream";
   const { eligible, gaps } = eligibleLoaders(loaders, mimeType);
   if (eligible.length === 0) throw new NoEligibleLoaderError(mimeType, gaps);
 
   const attempts: Attempt[] = [];
   const failures: unknown[] = [];
+  let rejected: { readonly document: LoadedDocument; readonly loader: DocumentLoader } | undefined;
 
   for (const loader of eligible) {
     // Never begin work the caller has already cancelled. Checking here rather than
@@ -64,6 +82,14 @@ export async function readDocument(
         ...(request === undefined ? {} : { request }),
       });
       deadline.signal.throwIfAborted();
+      if (!usable(document)) {
+        attempts.push({
+          stage: "load", strategy: loader.name, status: "skipped", ms: Date.now() - started,
+          error: "recovered no convertible text", errorCode: "NO_CONVERTIBLE_CONTENT",
+        });
+        rejected ??= { document, loader };
+        continue;
+      }
       attempts.push({ stage: "load", strategy: loader.name, status: "ok", ms: Date.now() - started });
       return { document, loader, attempts };
     } catch (error) {
@@ -85,5 +111,6 @@ export async function readDocument(
   if (first instanceof MissingEngineError && failures.every((failure) => failure instanceof MissingEngineError)) {
     throw first;
   }
+  if (rejected !== undefined) return { ...rejected, attempts };
   throw new LoadFailedError(attempts);
 }

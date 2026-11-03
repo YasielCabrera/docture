@@ -20,6 +20,7 @@ Its root exports core only. The CLI supplies the `docture` executable.
 | `docture/llm/vision` | `VisionStrategy`, `VisionStrategyOptions`, and `vision` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
 | `docture/llm/classifier` | `LlmClassifier`, its options, and `llmClassifier` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
 | `docture/llm/layout` | `LlmLayoutAnalyzer`, its options, and `llmLayout` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
+| `docture/llm/ocr` | `LlmOcrLoader`, its options, and `llmOcr`, a loader that reads page images with a vision model | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
 | `docture/llm/split` | Text and image splitters and their options | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
 | `docture/llm/extractor` | `createLlmExtractor` and `LlmExtractorOptions` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
 | `docture/llm/tool` | `extractTool`, an AI SDK tool that runs an extractor | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
@@ -44,6 +45,7 @@ Its root exports core only. The CLI supplies the `docture` executable.
 | `docture/testing/doubles` | In-memory documents, loaders, and fixed or failing strategies | None |
 | `docture/testing/conformance` | Loader and rasterizer conformance suites | `vitest@>=3`, `pdfkit@>=0.17.2 <0.21.0` |
 | `docture/testing/fixtures` | Generated invoice and rich-document PDFs | `pdfkit@>=0.17.2 <0.21.0` |
+| `docture/testing/llm` | Mock language models for `llmLayout` and `llmOcr` | None at runtime; types from `ai@^7` |
 | `@docture/cli` | CLI configuration, IO, errors, and `run` | See CLI dependencies below |
 | `@docture/cli/mcp` | The `convert` and `inspect` MCP server | `@modelcontextprotocol/sdk@1.32.2` |
 

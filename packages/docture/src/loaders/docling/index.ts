@@ -3,7 +3,7 @@ import type { RawDocument } from "../../core/domain/document.js";
 import type { LoadedDocument } from "../../core/domain/geometry.js";
 import type { DoctureDocument } from "../../core/domain/conversion.js";
 import { selectPages } from "../../core/pipeline/pages.js";
-import { withDeadline } from "../../core/pipeline/deadline.js";
+import { withDeadline, type Deadline } from "../../core/pipeline/deadline.js";
 import { sha256Hex } from "../../core/conversion/sha256.js";
 import { importDoclingDocument, type DoclingImportOptions, type ImportedDoclingDocument } from "../../import/docling/index.js";
 import { canonicalJson, checkedLimits } from "../../import/docling/boundary.js";
@@ -24,8 +24,12 @@ export interface DoclingConversionOptions {
 }
 
 export interface DoclingServeOptions extends DoclingTransportOptions {
+  /** Bounds an async job from the first status that reports it started. Defaults to 300000. */
   readonly jobTimeoutMs?: number;
+  /** Bounds how long an async job may stay pending in docling-serve's queue. Defaults to `jobTimeoutMs`. */
+  readonly queueTimeoutMs?: number;
   readonly pollIntervalMs?: number;
+  /** Defaults to enough polls to reach both deadlines at `pollIntervalMs`. */
   readonly maxPolls?: number;
   readonly importOptions?: DoclingImportOptions;
 }
@@ -38,6 +42,10 @@ export interface DoclingConversion extends ImportedDoclingDocument {
 export interface DoclingJobReference {
   readonly service: string;
   readonly taskId: string;
+}
+
+export interface DoclingHealth {
+  readonly status: "ok";
 }
 
 export interface DoclingTaskStatus {
@@ -77,14 +85,16 @@ export class DoclingServeClient {
   readonly #transport: DoclingTransport;
   readonly #options: DoclingServeOptions;
   readonly #jobTimeout: number;
+  readonly #queueTimeout: number;
   readonly #pollInterval: number;
   readonly #maxPolls: number;
   constructor(options: DoclingServeOptions) {
     this.#transport = new DoclingTransport(options);
     this.#options = options;
     this.#jobTimeout = positiveInteger(options.jobTimeoutMs ?? 300_000, "jobTimeoutMs");
+    this.#queueTimeout = positiveInteger(options.queueTimeoutMs ?? this.#jobTimeout, "queueTimeoutMs");
     this.#pollInterval = positiveInteger(options.pollIntervalMs ?? 250, "pollIntervalMs", 0);
-    this.#maxPolls = positiveInteger(options.maxPolls ?? 1200, "maxPolls");
+    this.#maxPolls = positiveInteger(options.maxPolls ?? Math.ceil((this.#queueTimeout + this.#jobTimeout) / Math.max(this.#pollInterval, 1)), "maxPolls");
   }
 
   #multipart(document: RawDocument, options: DoclingConversionOptions): FormData {
@@ -139,6 +149,13 @@ export class DoclingServeClient {
     return new DoclingJob(this, { service: reference.service, taskId: checkedTaskId(reference.taskId) }, options.allowPartial ?? false);
   }
 
+  /** Calls docling-serve's `/health`; rejects with `DoclingServeError` when the service is unreachable or unhealthy. */
+  async health(signal?: AbortSignal): Promise<DoclingHealth> {
+    const raw = await this.#transport.request("health", signal === undefined ? {} : { signal });
+    if (!object(raw) || raw.status !== "ok") throw new DoclingServeError("response", `Docling health check reported ${object(raw) && typeof raw.status === "string" ? `status ${raw.status.slice(0, 100)}` : "an unexpected response"}, not ok.`);
+    return { status: "ok" };
+  }
+
   async taskStatus(taskId: string, signal?: AbortSignal): Promise<DoclingTaskStatus> {
     const checked = checkedTaskId(taskId);
     return taskStatus(await this.#transport.request(`v1/status/poll/${encodeURIComponent(checked)}`, { taskId: checked, ...(signal === undefined ? {} : { signal }) }), checked);
@@ -151,10 +168,13 @@ export class DoclingServeClient {
 
   async waitFor(reference: DoclingJobReference, allowPartial: boolean, initial?: DoclingTaskStatus, signal?: AbortSignal): Promise<DoclingConversion> {
     const caller = signal ?? new AbortController().signal;
-    const deadline = withDeadline("Docling job", this.#jobTimeout, caller);
+    const queued = withDeadline("Docling queue", this.#queueTimeout, caller);
+    let running: Deadline | undefined;
     try {
       let task = initial;
       for (let poll = 0; poll <= this.#maxPolls; poll++) {
+        if (running === undefined && task !== undefined && task.status !== "pending") { queued.release(); running = withDeadline("Docling job", this.#jobTimeout, caller); }
+        const deadline = running ?? queued;
         deadline.signal.throwIfAborted();
         if (task?.status === "failure") throw new DoclingServeError("task", `Docling task ${reference.taskId} failed.`, { taskId: reference.taskId });
         if (task?.status === "success") return await this.taskResult(reference.taskId, { allowPartial, signal: deadline.signal });
@@ -169,9 +189,10 @@ export class DoclingServeClient {
       throw new DoclingServeError("timeout", "Docling polling limit reached; the server job may still be running. Resume with the task reference.", { taskId: reference.taskId, outcome: "unknown" });
     } catch (error) {
       caller.throwIfAborted();
-      if (deadline.expired()) throw new DoclingServeError("timeout", "Docling job deadline elapsed; server cancellation is not implied.", { taskId: reference.taskId, outcome: "unknown", cause: error });
+      if (running?.expired() === true) throw new DoclingServeError("timeout", "Docling job deadline (jobTimeoutMs) elapsed after the job started; server cancellation is not implied.", { taskId: reference.taskId, outcome: "unknown", cause: error });
+      if (queued.expired()) throw new DoclingServeError("timeout", "Docling job stayed queued past queueTimeoutMs; server cancellation is not implied.", { taskId: reference.taskId, outcome: "unknown", cause: error });
       throw error;
-    } finally { deadline.release(); }
+    } finally { queued.release(); running?.release(); }
   }
 }
 

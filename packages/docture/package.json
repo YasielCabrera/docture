@@ -69,6 +69,12 @@
       "import": "./dist/llm/layout.js",
       "default": "./dist/llm/layout.js"
     },
+    "./llm/ocr": {
+      "source": "./src/llm/ocr.ts",
+      "types": "./dist/llm/ocr.d.ts",
+      "import": "./dist/llm/ocr.js",
+      "default": "./dist/llm/ocr.js"
+    },
     "./llm/split": {
       "source": "./src/llm/split.ts",
       "types": "./dist/llm/split.d.ts",
@@ -158,6 +164,12 @@
       "types": "./dist/testing/fixtures/index.d.ts",
       "import": "./dist/testing/fixtures/index.js",
       "default": "./dist/testing/fixtures/index.js"
+    },
+    "./testing/llm": {
+      "source": "./src/testing/llm/index.ts",
+      "types": "./dist/testing/llm/index.d.ts",
+      "import": "./dist/testing/llm/index.js",
+      "default": "./dist/testing/llm/index.js"
     },
     "./node": {
       "source": "./src/node/index.ts",

@@ -10,6 +10,7 @@ import type { DocumentFeatures } from "./document.js";
 import type { DocumentMetadata, LayoutBox, LoadedAsset } from "./geometry.js";
 import type { Attempt, Usage } from "./result.js";
 import type { SourceEvidence } from "./evidence.js";
+import type { OcrFallbackReport } from "./ocr-fallback.js";
 
 export type ConversionFormat = "text" | "markdown" | "html" | "json";
 export type ConversionAssetMode = "referenced" | "embedded" | "omit";
@@ -287,6 +288,8 @@ export interface ConversionResult {
   readonly warnings: readonly ConversionWarning[];
   readonly features: DocumentFeatures;
   readonly usage: Usage;
+  /** Which pages `withOcrFallback` sent to OCR and which loader supplied each page. Present only when the loader was one. */
+  readonly ocrFallback?: OcrFallbackReport;
 }
 
 export type SafeConversion =
