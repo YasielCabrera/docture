@@ -30,7 +30,7 @@ An engine is a third-party package that does the parsing, rendering, or recognit
 
 ### Adapter
 
-An adapter is the Docture module that wraps one engine or external service behind a Docture contract, imported from its own subpath such as `docture/loaders/pdfjs` or `docture/raster/canvas`. Service adapters, such as Azure Read and Docling Serve, call the service over HTTP and need no npm SDK. One PDF.js setup shows all three terms: `pdfjs-dist` is the engine, `docture/loaders/pdfjs` is the adapter, and `DocumentLoaderPdfJs` is the loader it exports.
+An adapter is the Docture module that wraps one engine or external service behind a Docture contract, imported from its own subpath such as `docture/loaders/pdfjs` or `docture/raster/canvas`. Service adapters, such as Docling Serve, call the service over HTTP and need no npm SDK. One PDF.js setup shows all three terms: `pdfjs-dist` is the engine, `docture/loaders/pdfjs` is the adapter, and `DocumentLoaderPdfJs` is the loader it exports.
 
 ### Integration
 
@@ -42,7 +42,7 @@ A rasterizer turns document bytes into page images. It is separate from a loader
 
 ### OCR loader
 
-An OCR loader recognizes text from page pixels. `DocumentLoaderTesseract` and `DocumentLoaderPaddleOcr` run locally and need a rasterizer for PDF input, and `DocumentLoaderAzureRead` sends the document to Azure Read. No OCR runs unless you configure an OCR loader. `withOcrFallback` applies one to selected weak pages only. See [Extract from scans and images](/docs/integrations/scanned-documents).
+An OCR loader recognizes text from page pixels. `DocumentLoaderTesseract` and `DocumentLoaderPaddleOcr` run locally and need a rasterizer for PDF input. No OCR runs unless you configure an OCR loader. `withOcrFallback` applies one to selected weak pages only. See [Extract from scans and images](/docs/integrations/scanned-documents).
 
 ## Extraction
 

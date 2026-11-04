@@ -59,4 +59,4 @@ is fixed at startup; restart to refresh it. Shutdown drains or aborts requests a
 disposes warm resources. Do not share the service as an unrestricted file reader.
 
 Use the symptom-based troubleshooting guide and error reference for recovery.
-Report live model, Docling, Paperless and Azure checks separately from mock tests.
+Report live model, Docling and Paperless checks separately from mock tests.

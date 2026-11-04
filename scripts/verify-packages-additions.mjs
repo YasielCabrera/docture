@@ -12,7 +12,6 @@ import * as core from "docture";
 import * as node from "docture/node";
 import { importDoclingDocument, DoclingImportError } from "docture/import/docling";
 import { DoclingServeClient, DoclingServeError } from "docture/loaders/docling";
-import { DocumentLoaderAzureRead, AzureReadError } from "docture/loaders/azure-di";
 import { DocumentLoaderMammoth, MammothDocumentError } from "docture/loaders/mammoth";
 import { expandEmail, EmailInputError } from "docture/inputs/email";
 import { PaperlessSource, PaperlessError } from "docture/sources/paperless";
@@ -33,7 +32,6 @@ let network = 0;
 const noNetwork = async () => { network++; throw new Error("unexpected startup I/O"); };
 new DoclingServeClient({baseUrl:"https://example.test",fetch:noNetwork});
 new PaperlessSource({baseUrl:"https://example.test",apiVersion:10,fetch:noNetwork});
-new DocumentLoaderAzureRead({endpoint:"https://example.test",auth:{kind:"key",key:"test"},fetch:noNetwork});
 new DocumentLoaderMammoth();
 assert.equal(network,0);
 const fixture={schema_name:"DoclingDocument",version:"1.10.0",name:"packed",body:{self_ref:"#/body",children:[{$ref:"#/texts/0"}]},furniture:{self_ref:"#/furniture",children:[]},texts:[{self_ref:"#/texts/0",label:"text",text:"Exact native evidence",prov:[]}],tables:[],pictures:[],groups:[],pages:{}};
@@ -52,7 +50,6 @@ assert.equal(typeof extractTool({extractor:new core.Extractor(),contract:z.objec
 const errors=[
   ["docture/import/docling","DoclingImportError",["$","invalid"]],
   ["docture/loaders/docling","DoclingServeError",["protocol","invalid"]],
-  ["docture/loaders/azure-di","AzureReadError",["invalid"]],
   ["docture/loaders/mammoth","MammothDocumentError",["invalid"]],
   ["docture/inputs/email","EmailInputError",["invalid"]],
   ["docture/sources/paperless","PaperlessError",["invalid"]],
@@ -162,7 +159,6 @@ export async function verifyPortableBundles({ consumer, tools, run, save, tsc })
     ["paperless-read", "docture/sources/paperless", /^(core|paperless|sources\/paperless)\//],
     ["docling-import", "docture/import/docling", /^(core|import\/docling)\//],
     ["docling-service", "docture/loaders/docling", /^(core|import\/docling|loaders\/docling)\//],
-    ["azure-read", "docture/loaders/azure-di", /^(core|loaders\/azure-di)\//],
     ["extraction-tool", "docture/llm/tool", /^(core|llm\/tool)/],
   ];
   for (const [label, specifier, allowed] of portableEntries) {

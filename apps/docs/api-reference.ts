@@ -1104,19 +1104,6 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
   },
   {
     "packageName": "docture",
-    "importPath": "docture/loaders/azure-di",
-    "entrypoint": "../../packages/docture/src/loaders/azure-di/index.ts",
-    "pages": {
-      "content/docs/integrations/azure-read.mdx": [
-        "AzureReadAuthentication",
-        "AzureReadError",
-        "DocumentLoaderAzureRead",
-        "DocumentLoaderAzureReadOptions"
-      ]
-    }
-  },
-  {
-    "packageName": "docture",
     "importPath": "docture/sources/paperless",
     "entrypoint": "../../packages/docture/src/sources/paperless/index.ts",
     "pages": {

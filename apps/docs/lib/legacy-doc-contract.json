@@ -577,7 +577,6 @@
   ],
   "/docs/reference/api/raster-canvas": [],
   "/docs/reference/api/llm-tool": [],
-  "/docs/reference/api/loader-azure-di": [],
   "/docs/reference/api/core-conversion": [
     "documentconverter",
     "conversion-calls",

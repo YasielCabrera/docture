@@ -199,12 +199,6 @@
       "import": "./dist/inputs/email/index.js",
       "default": "./dist/inputs/email/index.js"
     },
-    "./loaders/azure-di": {
-      "source": "./src/loaders/azure-di/index.ts",
-      "types": "./dist/loaders/azure-di/index.d.ts",
-      "import": "./dist/loaders/azure-di/index.js",
-      "default": "./dist/loaders/azure-di/index.js"
-    },
     "./sources/paperless": {
       "source": "./src/sources/paperless/index.ts",
       "types": "./dist/sources/paperless/index.d.ts",
@@ -281,8 +275,7 @@
     "ocr",
     "extraction",
     "structured-data",
-    "llm",
-    "document-intelligence"
+    "llm"
   ],
   "sideEffects": false,
   "peerDependenciesMeta": {

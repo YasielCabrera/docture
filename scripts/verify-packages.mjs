@@ -52,7 +52,7 @@ Consumer installs use real registry dependencies. No publishing or Git writes.`)
 const expectedPublications = ["@docture/cli", "@docture/eval", "@docture/synthetic", "docture"];
 const scopedPublications = expectedPublications.filter(name => name.startsWith("@docture/"));
 const packLabels = { docture: "library", "@docture/cli": "cli", "@docture/eval": "eval", "@docture/synthetic": "synthetic" };
-const expectedExports = [".", "./node", "./loaders/mammoth", "./inputs/email", "./sources/paperless", "./sinks/paperless", "./import/docling", "./loaders/docling", "./loaders/azure-di", "./llm", "./chunk", ...[
+const expectedExports = [".", "./node", "./loaders/mammoth", "./inputs/email", "./sources/paperless", "./sinks/paperless", "./import/docling", "./loaders/docling", "./llm", "./chunk", ...[
   "tool", "text", "vision", "classifier", "layout", "ocr", "split", "cache", "pricing", "prompt", "merge", "relax", "extractor",
 ].map(name => `./llm/${name}`), ...["pdfjs", "mupdf", "tesseract", "paddleocr"].map(name => `./loaders/${name}`),
 "./raster/canvas", ...["doubles", "conformance", "fixtures", "llm"].map(name => `./testing/${name}`)];

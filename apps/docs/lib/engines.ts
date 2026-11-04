@@ -20,7 +20,6 @@ export const engineGroups: readonly EngineGroup[] = [
       { name: "Tesseract", specifier: "docture/loaders/tesseract", note: "OCR" },
       { name: "PaddleOCR", specifier: "docture/loaders/paddleocr", note: "OCR" },
       { name: "Vision model", specifier: "docture/llm/ocr", note: "OCR" },
-      { name: "Azure Document Intelligence", specifier: "docture/loaders/azure-di", note: "cloud OCR" },
       { name: "Docling", specifier: "docture/loaders/docling", note: "layout" },
       { name: "Mammoth", specifier: "docture/loaders/mammoth", note: "Word files" },
     ],

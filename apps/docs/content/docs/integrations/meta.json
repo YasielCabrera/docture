@@ -19,7 +19,6 @@
     "mammoth",
     "email",
     "---Services and imports---",
-    "azure-read",
     "docling-import",
     "docling-serve",
     "paperless-read",

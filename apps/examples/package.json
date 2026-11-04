@@ -36,7 +36,6 @@
     "evaluate": "tsx evaluate-a-schema/index.ts",
     "synthetic": "tsx synthetic-corpus/index.ts",
     "testing": "tsx testing-your-pipeline/index.ts",
-    "azure": "tsx input-loaders/azure.ts",
     "ocr-fallback": "tsx input-loaders/ocr.ts",
     "docling-service": "tsx docling/service.ts",
     "model-tool": "tsx checked-tools-eval/tool.ts",

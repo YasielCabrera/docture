@@ -95,9 +95,6 @@
       "docture/inputs/email": [
         "./src/inputs/email/index.ts"
       ],
-      "docture/loaders/azure-di": [
-        "./src/loaders/azure-di/index.ts"
-      ],
       "docture/sources/paperless": [
         "./src/sources/paperless/index.ts"
       ],

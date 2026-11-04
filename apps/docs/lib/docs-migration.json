@@ -610,10 +610,6 @@
       "schema-relaxation": "/docs/extraction/reference/partials#schema-relaxation"
     }
   },
-  "/docs/reference/api/loader-azure-di": {
-    "to": "/docs/integrations/azure-read",
-    "anchors": {}
-  },
   "/docs/reference/api/loader-docling": {
     "to": "/docs/integrations/docling-serve",
     "anchors": {}

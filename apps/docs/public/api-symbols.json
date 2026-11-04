@@ -4459,24 +4459,6 @@
   },
   {
     "packageName": "docture",
-    "symbol": "AzureReadAuthentication",
-    "importPaths": [
-      "docture/loaders/azure-di"
-    ],
-    "url": "/docs/integrations/azure-read#configure-the-loader",
-    "description": "Pass your resource endpoint and a credential. Use { kind: \"key\", key } for an API key or { kind: \"bearer\", token } for a bearer token."
-  },
-  {
-    "packageName": "docture",
-    "symbol": "AzureReadError",
-    "importPaths": [
-      "docture/loaders/azure-di"
-    ],
-    "url": "/docs/integrations/azure-read#handle-errors",
-    "description": "HTTP, service-state, and result-format failures throw AzureReadError with code LOAD_FAILED. Exceeding timeoutMs fails with code TIMEOUT. A caller abort keeps the abort reason."
-  },
-  {
-    "packageName": "docture",
     "symbol": "BatchItem",
     "importPaths": [
       "docture",
@@ -5604,24 +5586,6 @@
     ],
     "url": "/docs/getting-started/reference/documents#documentloader",
     "description": "The interface every loader implements. A loader is a plain object; custom components shows one."
-  },
-  {
-    "packageName": "docture",
-    "symbol": "DocumentLoaderAzureRead",
-    "importPaths": [
-      "docture/loaders/azure-di"
-    ],
-    "url": "/docs/integrations/azure-read",
-    "description": "Read text and line positions from PDF and image files with the Azure Document Intelligence Read model."
-  },
-  {
-    "packageName": "docture",
-    "symbol": "DocumentLoaderAzureReadOptions",
-    "importPaths": [
-      "docture/loaders/azure-di"
-    ],
-    "url": "/docs/integrations/azure-read#configure-the-loader",
-    "description": "Pass your resource endpoint and a credential. Use { kind: \"key\", key } for an API key or { kind: \"bearer\", token } for a bearer token."
   },
   {
     "packageName": "docture",

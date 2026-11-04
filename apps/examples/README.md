@@ -84,7 +84,7 @@ Each folder's README includes its expected result and any additional setup.
 | [document-conversion](document-conversion) | `convert` | Convert a statement to Markdown and retrieval chunks. | None |
 | [docling](docling) | `docling`, `docling-service` | Import native Docling JSON or convert a PDF through Docling Serve. | Docling service for `docling-service` |
 | [checked-tools-eval](checked-tools-eval) | `checked-tools-eval`, `model-tool` | Use checked construction and expose extraction as a model tool. | API key for `model-tool` |
-| [input-loaders](input-loaders) | `input-loaders`, `azure`, `ocr-fallback` | Read DOCX and email, call Azure Read, or OCR scanned pages selectively. | Azure account or OCR models for the variants |
+| [input-loaders](input-loaders) | `input-loaders`, `ocr-fallback` | Read DOCX and email, or OCR scanned pages selectively. | OCR models for `ocr-fallback` |
 | [paperless](paperless) | `paperless` | Read an original PDF from Paperless and extract its invoice fields. | Paperless instance and token |
 | [http-service](http-service) | `service`, `service-client` | Start a warm extraction service and send a local PDF from a client. | Two terminals |
 | [evaluate-a-schema](evaluate-a-schema) | `evaluate` | Evaluate invoice extraction against a spec, dataset, and quality gate. | None |

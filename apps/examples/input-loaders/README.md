@@ -10,18 +10,6 @@ pnpm --filter @docture/examples input-loaders
 
 The output contains the quarterly report and the supply invoice text. The DOCX and EML are persisted native files. `invoice.pdf` is the exact attachment in the email.
 
-## Read with Azure Document Intelligence
-
-`azure.ts` sends that invoice PDF to your Azure Read endpoint.
-
-```sh
-AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://your-resource.cognitiveservices.azure.com \
-AZURE_DOCUMENT_INTELLIGENCE_KEY=... \
-pnpm --filter @docture/examples azure
-```
-
-This command requires an Azure resource and makes a service request.
-
 ## Reread scanned pages with OCR
 
 `mixed.pdf` contains the Larkfield tax invoice's digital page followed by the Impact statement's two scanned pages. `ocr.ts` preserves the digital text and uses Tesseract on the low-text pages.
