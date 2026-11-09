@@ -32,6 +32,7 @@ import { cacheKey, fingerprint, type ContentPart, type LlmCache } from "./cache.
 import { modelIdOf, providerOf } from "./model-id.js";
 import type { PricingTable } from "./pricing.js";
 import { callTelemetry, type LlmTelemetryOptions } from "./telemetry.js";
+import { positiveInteger } from "../core/pipeline/options.js";
 
 export type { LlmTelemetryOptions } from "./telemetry.js";
 
@@ -184,7 +185,7 @@ interface ReadPage {
  * Read scanned or image-only PDF pages with a vision-capable model.
  *
  * @remarks LlmOcrLoaderOptions requires a model and a rasterizer. Each page is rendered and sent alone. The model returns headings, paragraphs, lists, tables, code and running headers, which become the page's native layout, so conversion exports them without line analysis. Defaults are dpi 200, maxEdge 1568 and concurrency 4. Token usage is reported in `meta.usage` of the loaded document.
- * @throws MODEL_OUTPUT_FAILED when a page's answer does not fit the layout schema; the message names the page. PAGE_OUT_OF_RANGE for unavailable selected pages. Invalid concurrency throws RangeError.
+ * @throws MODEL_OUTPUT_FAILED when a page's answer does not fit the layout schema; the message names the page. PAGE_OUT_OF_RANGE for unavailable selected pages. INVALID_OPTION when concurrency is not a positive integer.
  * @example
  * ```ts
  * import { llmOcr } from "docture/llm/ocr";
@@ -202,9 +203,7 @@ export class LlmOcrLoader implements DocumentLoader<LoaderCapabilities<true, fal
   };
 
   constructor(private readonly options: LlmOcrLoaderOptions) {
-    if (options.concurrency !== undefined && (!Number.isInteger(options.concurrency) || options.concurrency < 1)) {
-      throw new RangeError("concurrency must be a positive integer");
-    }
+    if (options.concurrency !== undefined) positiveInteger("concurrency", options.concurrency);
     this.name = options.name ?? "llm-ocr";
   }
 

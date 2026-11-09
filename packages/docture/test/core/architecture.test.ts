@@ -244,6 +244,7 @@ describe("the public API is an exact list", () => {
     "DisposedError",
     "DuplicateComponentError",
     "ExtractionFailedError",
+    "InvalidOptionError",
     "LoadFailedError",
     "MissingEngineError",
     "NoConvertibleContentError",
@@ -258,6 +259,7 @@ describe("the public API is an exact list", () => {
     "UnsupportedSourceError",
     "errorCodeOf",
     "isAbortError",
+    "isCallerAbort",
     "messageOf",
     // logging
     "consoleLogger",

@@ -166,9 +166,9 @@ describe("chunkDocument", () => {
 
   it("rejects a budget or overlap it cannot honour", async () => {
     const result = await convert(threeParagraphs());
-    expect(() => chunkDocument(result, characters(0))).toThrow(new RangeError("budget.max must be a positive finite number"));
+    expect(() => chunkDocument(result, characters(0))).toThrow(expect.objectContaining({ code: "INVALID_OPTION", message: "budget.max must be a finite positive number; received 0." }));
     expect(() => chunkDocument(result, characters(10, { overlapElements: -1 }))).toThrow(
-      new RangeError("overlapElements must be a non-negative integer"),
+      expect.objectContaining({ code: "INVALID_OPTION", message: "overlapElements must be a non-negative integer; received -1." }),
     );
   });
 });

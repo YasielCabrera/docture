@@ -14,6 +14,7 @@ import type {
 import { markdownBlock } from "../core/conversion/export.js";
 import { mergeSegments, provenanceSegments } from "../core/conversion/provenance.js";
 import { appendTableRows, sliceTableRows } from "../core/conversion/tables.js";
+import { nonNegativeInteger, oneOf, positiveNumber } from "../core/pipeline/options.js";
 
 export interface ChunkBudget {
   /** `estimatedTokens` counts `ceil(characters / 4)`, an estimate rather than a tokenizer's count. */
@@ -132,13 +133,9 @@ function units(document: ChunkableDocument, fitsAfter: (path: readonly HeadingEl
 
 function checkOptions(options: ChunkOptions): void {
   const { budget, overlapElements = 0 } = options;
-  if (budget.unit !== "characters" && budget.unit !== "estimatedTokens") {
-    throw new RangeError('budget.unit must be "characters" or "estimatedTokens"');
-  }
-  if (!Number.isFinite(budget.max) || budget.max <= 0) throw new RangeError("budget.max must be a positive finite number");
-  if (!Number.isInteger(overlapElements) || overlapElements < 0) {
-    throw new RangeError("overlapElements must be a non-negative integer");
-  }
+  oneOf("budget.unit", budget.unit, ["characters", "estimatedTokens"]);
+  positiveNumber("budget.max", budget.max);
+  nonNegativeInteger("overlapElements", overlapElements);
 }
 
 /**

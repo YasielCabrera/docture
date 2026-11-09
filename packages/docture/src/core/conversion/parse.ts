@@ -181,14 +181,55 @@ function rowProvenanceIssues(table: TableElement, path: string): ValidationIssue
   });
 }
 
+function negativeSizeIssues(size: { readonly width: number; readonly height: number }, path: string): ValidationIssue[] {
+  return (["width", "height"] as const).flatMap((key) =>
+    size[key] < 0 ? [{ path: at(path, key), message: "must not be negative" }] : []);
+}
+
+function segmentBoxIssues(element: DocumentElement, path: string): ValidationIssue[] {
+  const { continuations, ...first } = element.provenance;
+  return [
+    ...negativeSizeIssues(first.box, `${path}.provenance.box`),
+    ...(continuations ?? []).flatMap((segment, index) => negativeSizeIssues(segment.box, `${path}.provenance.continuations.${index}.box`)),
+    ...(element.kind === "table" ? element.rowProvenance ?? [] : []).flatMap((segment, index) =>
+      negativeSizeIssues(segment.box, `${path}.rowProvenance.${index}.box`)),
+  ];
+}
+
+function runText(runs: readonly { readonly text: string }[]): string {
+  return runs.map((run) => run.text).join("");
+}
+
+function runIssues(element: DocumentElement, path: string): ValidationIssue[] {
+  const message = "must equal the text of its runs";
+  switch (element.kind) {
+    case "heading":
+    case "paragraph":
+    case "page-header":
+    case "page-footer":
+      return element.text === runText(element.runs) ? [] : [{ path: `${path}.text`, message }];
+    case "list":
+      return element.items.flatMap((item, index) =>
+        item.text === runText(item.runs) ? [] : [{ path: `${path}.items.${index}.text`, message }]);
+    default:
+      return [];
+  }
+}
+
 function crossFieldIssues(document: DoctureDocument): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const seen = new Set<string>();
   document.pages.forEach((page, pageIndex) => {
+    const before = document.pages[pageIndex - 1]?.pageNumber;
+    issues.push(...negativeSizeIssues(page, `pages.${pageIndex}`));
+    if (before !== undefined && page.pageNumber <= before) {
+      issues.push({ path: `pages.${pageIndex}.pageNumber`, message: `must be greater than ${before}, the page before it` });
+    }
     page.elements.forEach((element, elementIndex) => {
       const path = `pages.${pageIndex}.elements.${elementIndex}`;
       if (seen.has(element.id)) issues.push({ path: `${path}.id`, message: `duplicates element id "${element.id}"` });
       seen.add(element.id);
+      issues.push(...segmentBoxIssues(element, path), ...runIssues(element, path));
       const segment = element.provenance;
       if (segment.pageNumber !== page.pageNumber) {
         issues.push({

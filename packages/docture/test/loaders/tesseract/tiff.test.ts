@@ -82,6 +82,22 @@ describe("Tesseract TIFF input", () => {
     expect([...await document.pages[1]!.image!()]).toEqual([...PNG, 3792 & 0xff, 3792 >> 8]);
   });
 
+  it("leaves a caller's Buffer untouched and points each page at its own IFD", async () => {
+    const original = fixture("pages-lzw.tif");
+    const unpooled = Buffer.from(original);
+    const pool = Buffer.alloc(original.length + 64, 0xee);
+    pool.set(original, 37);
+    const pooled = pool.subarray(37, 37 + original.length);
+    for (const bytes of [unpooled, pooled]) {
+      const calls = engineCalls();
+      await using loader = new DocumentLoaderTesseract({ concurrency: 1 });
+      await loader.load({ bytes, mimeType: "image/tiff" }, ctx);
+      expect(calls.map((call) => call.ifd)).toEqual([1682, 3792]);
+      expect(Buffer.compare(bytes, original)).toBe(0);
+    }
+    expect([...pool.subarray(0, 37)]).toEqual(new Array(37).fill(0xee));
+  });
+
   it("reads big-endian TIFF the same way", async () => {
     const calls = engineCalls();
     await using loader = new DocumentLoaderTesseract({ concurrency: 1 });

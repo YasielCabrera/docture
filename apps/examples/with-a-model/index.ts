@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import { gateway, type LanguageModel } from "ai";
 import { contract } from "docture";
 import { Extractor } from "docture/node";
-import { llm } from "docture/llm/text";
+import { LLM } from "docture/llm";
 import { DocumentLoaderPdfJs } from "docture/loaders/pdfjs";
 import { z } from "zod";
 
@@ -19,7 +19,7 @@ export const Invoice = contract({
 export async function runExample(model: LanguageModel) {
   await using extractor = new Extractor()
     .loadDocumentLoader(new DocumentLoaderPdfJs())
-    .loadStrategy(llm({ model, temperature: 0 }));
+    .loadLlm(new LLM(model));
   const result = await extractor.extract(fileURLToPath(new URL("./invoice.pdf", import.meta.url)), Invoice);
   return { data: result.data, usage: result.usage, method: result.method };
 }

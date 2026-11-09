@@ -8,14 +8,14 @@ const loadMammoth = lazyEngine(() => importEngine("docture/loaders/mammoth", ["m
 
 export class MammothDocumentError extends DoctureError {
   protected static override readonly doctureErrorIdentity = "MammothDocumentError";
-  override readonly code = "LOAD_FAILED" as const;
+  override readonly code = "DOCX_FAILED" as const;
 }
 
 /**
  * Read DOCX text into one logical page using Mammoth, without generated HTML.
  *
  * @remarks Install mammoth explicitly. Node-only. Headings and table cells retain source order but lose formatting, geometry and physical pagination. Cancellation is checked before and after Mammoth work; it cannot interrupt a running parse.
- * @throws MISSING_ENGINE when mammoth is absent; LOAD_FAILED for invalid DOCX; PAGE_OUT_OF_RANGE for a page other than 1.
+ * @throws MISSING_ENGINE when mammoth is absent; DOCX_FAILED for invalid DOCX; PAGE_OUT_OF_RANGE for a page other than 1.
  * @example
  * ```ts
  * import { DocumentLoaderMammoth } from "docture/loaders/mammoth";

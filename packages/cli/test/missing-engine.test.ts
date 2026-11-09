@@ -50,7 +50,7 @@ export default {
 
     expect(run.code).toBe(1);
     expect(run.stderr).toContain("Every loader failed: pdfjs (");
-    expect(run.stderr).toContain("The file could not be read — it may be corrupt, truncated, or password-protected.");
+    expect(run.stderr).toContain("Read each attempt's error. A corrupt, truncated or password-protected file fails every loader");
     expect(run.stderr).not.toContain("Install the engine");
   });
 });

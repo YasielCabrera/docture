@@ -1,13 +1,14 @@
 import { importEngine, lazyEngine } from "../../core/engines.js";
-import { DoctureError, type RawDocument } from "../../core/index.js";
+import { DoctureError, InvalidOptionError, type RawDocument } from "../../core/index.js";
 import { base64 } from "../../core/conversion/base64.js";
 import { sha256Hex } from "../../core/conversion/sha256.js";
+import { portableBasename } from "../../core/domain/filename.js";
 
 const loadParser = lazyEngine(async () => (await importEngine("docture/inputs/email", ["postal-mime"], () => import("postal-mime"))).default);
 
 export class EmailInputError extends DoctureError {
   protected static override readonly doctureErrorIdentity = "EmailInputError";
-  override readonly code = "LOAD_FAILED" as const;
+  override readonly code = "EMAIL_INVALID" as const;
 }
 
 interface PartIdentity {
@@ -52,7 +53,7 @@ export interface ExpandEmailOptions {
 
 function limit(value: number | undefined, fallback: number, name: string, minimum = 0): number {
   const resolved = value ?? fallback;
-  if (!Number.isSafeInteger(resolved) || resolved < minimum) throw new EmailInputError(`${name} must be a safe integer of at least ${minimum}.`);
+  if (!Number.isSafeInteger(resolved) || resolved < minimum) throw new InvalidOptionError(name, `a safe integer of at least ${minimum}`, resolved);
   return resolved;
 }
 
@@ -62,11 +63,16 @@ const EXTENSIONS: Readonly<Record<string, string>> = {
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
 };
 
+function attachmentExtension(fileName: string | null, mimeType: string): string {
+  const own = /\.([a-z0-9]{1,10})$/iu.exec(portableBasename(fileName ?? ""))?.[1];
+  return own?.toLowerCase() ?? EXTENSIONS[mimeType.toLowerCase()] ?? "bin";
+}
+
 /**
  * Expand an RFC email into one selected body and byte-preserving attachments.
  *
  * @remarks Install postal-mime explicitly. HTML is decoded but not sanitized here; DocumentLoaderData cleans it. Attachment names are metadata, never paths. Cancellation is cooperative around parsing. A malformed MIME body follows the pinned parser's recovery behavior; missing message headers are rejected.
- * @throws MISSING_ENGINE for an absent parser; LOAD_FAILED for malformed input or exceeded limits.
+ * @throws MISSING_ENGINE for an absent parser; EMAIL_INVALID for malformed input or exceeded limits; INVALID_OPTION for a limit that is not a nonnegative safe integer, or a maxParts below 1.
  * @example
  * ```ts
  * import { expandEmail } from "docture/inputs/email";
@@ -123,7 +129,7 @@ export async function expandEmail(raw: RawDocument, options: ExpandEmailOptions 
       ...identity, id: `${id}/attachment-${index + 1}`, kind: "attachment", disposition: attachment.disposition,
       originalFileName: attachment.filename, related: attachment.related === true,
       ...(attachment.contentId === undefined ? {} : { contentId: attachment.contentId }),
-      document: { bytes, mimeType: attachment.mimeType, fileName: `attachment-${index + 1}.${EXTENSIONS[attachment.mimeType] ?? "bin"}` },
+      document: { bytes, mimeType: attachment.mimeType, fileName: `attachment-${index + 1}.${attachmentExtension(attachment.filename, attachment.mimeType)}` },
     });
   }
   if (decodedBytes > maxDecoded) throw new EmailInputError("Email exceeds maxDecodedBytes.");

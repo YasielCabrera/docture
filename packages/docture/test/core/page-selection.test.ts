@@ -1,7 +1,8 @@
 import { expect, it, vi } from "vitest";
 import { z } from "zod";
 import * as core from "../../src/core/index.js";
-import { PDF_BYTES, fakeLoader, fakeSplitter, fakeStrategy, page } from "./fakes.js";
+import { requestedPageNumbers } from "../../src/core/pipeline/pages.js";
+import { PDF_BYTES, fakeLoader, fakeSplitter, fakeStrategy, multiPageDoc, page } from "./fakes.js";
 
 const Simple = z.object({ value: z.string() });
 const digital = { ...page(1, "A digital invoice with more than sixty characters of text in its text layer."), image: async () => new Uint8Array([1]) };
@@ -60,4 +61,42 @@ it("gives a scanned Process group its own features", async () => {
     .loadFile(PDF_BYTES).split([kind], core.SplittingStrategy.EAGER).extract();
   expect(results[0]?.result.features).toMatchObject({ hasTextLayer: true, hasGeometry: true, hasRenderablePages: true, form: "digital" });
   expect(results[1]?.result.features).toMatchObject(projected);
+});
+
+it("blames maxPages, not the document, for a page past the limit", () => {
+  const failure = (requested: number[]) => {
+    try {
+      requestedPageNumbers(10, requested, 3);
+      return undefined;
+    } catch (error) {
+      return core.isDoctureError(error, "PAGE_OUT_OF_RANGE")
+        ? { message: error.message, hint: error.hint, missingPages: error.missingPages, pageCount: error.pageCount, maxPages: error.maxPages }
+        : error;
+    }
+  };
+  expect(failure([5])).toEqual({
+    message: "Page 5 is outside the first 3 pages that maxPages allows. The document has 10 pages.",
+    hint: "Select pages within the first maxPages pages, or raise maxPages.",
+    missingPages: [5],
+    pageCount: 10,
+    maxPages: 3,
+  });
+  expect(failure([0, 2, 11])).toMatchObject({ message: "Pages 0, 11 are outside the first 3 pages that maxPages allows. The document has 10 pages." });
+  expect(() => requestedPageNumbers(10, [11], 20)).toThrow("Page 11 does not exist. The document has 10 pages.");
+  expect(requestedPageNumbers(10, [3, 1], 3)).toEqual([1, 3]);
+});
+
+it("names the loaded pages rather than a document length when a loader returned fewer pages", async () => {
+  const firstThree = multiPageDoc(["one", "two", "three"]);
+  const outcome = await core.createExtractor({ loaders: [fakeLoader({ document: firstThree })], strategies: [fakeStrategy()] })
+    .safeExtract(PDF_BYTES, Simple, { pages: [2, 5, 7] });
+  if (outcome.ok) throw new Error("Expected failed selection");
+  expect(core.isDoctureError(outcome.error, "PAGE_OUT_OF_RANGE")
+    ? { message: outcome.error.message, hint: outcome.error.hint, missingPages: outcome.error.missingPages, loadedPages: outcome.error.loadedPages }
+    : outcome.error).toEqual({
+    message: "Pages 5, 7 were not loaded. The loaded pages are 1-3.",
+    hint: "Select pages among loadedPages. A loader can return fewer pages than the document has, for example under its own page limit.",
+    missingPages: [5, 7],
+    loadedPages: [1, 2, 3],
+  });
 });

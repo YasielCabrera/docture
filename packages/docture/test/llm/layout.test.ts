@@ -112,6 +112,19 @@ describe("LlmLayoutAnalyzer", () => {
     expect(second.usage?.totalTokens).toBe(first.usage?.totalTokens);
   });
 
+  it("calls the model again when a cached analysis fails the analysis schema", async () => {
+    const handle = mockModel([{ annotations: [{ id: "title", role: "heading", level: 2 }] }]);
+    const written: unknown[] = [];
+    const cache = {
+      async get() { return { data: { annotations: [{ id: "title", role: "heading", level: 9 }] }, usage: {} }; },
+      async set(_key: string, value: { data: unknown }) { written.push(value.data); },
+    };
+    const result = await llmLayout({ model: handle.model, cache }).analyze(context());
+    expect(handle.calls).toHaveLength(1);
+    expect(result.annotations).toEqual([{ id: "title", role: "heading", level: 2 }]);
+    expect(written).toEqual([{ annotations: [{ id: "title", role: "heading", level: 2 }] }]);
+  });
+
   it("surfaces provider failures for core to fall back from", async () => {
     await expect(llmLayout({ model: failingModel(), maxRetries: 0 }).analyze(context()))
       .rejects.toThrow("provider exploded");

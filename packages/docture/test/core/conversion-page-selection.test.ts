@@ -90,10 +90,11 @@ describe("converting selected pages", () => {
   });
 
   it.each([
-    { pages: [], message: "Page selection is empty. The document has 3 pages." },
-    { pages: [0], message: "Pages 0 do not exist. The document has 3 pages." },
-    { pages: [1.5], message: "Pages 1.5 do not exist. The document has 3 pages." },
-    { pages: [2, 4], message: "Pages 4 do not exist. The document has 3 pages." },
+    { pages: [], message: "Page selection is empty. The loaded pages are 1-3." },
+    { pages: [0], message: "Page 0 was not loaded. The loaded pages are 1-3." },
+    { pages: [1.5], message: "Page 1.5 was not loaded. The loaded pages are 1-3." },
+    { pages: [2, 4], message: "Page 4 was not loaded. The loaded pages are 1-3." },
+    { pages: [4, 5], message: "Pages 4, 5 were not loaded. The loaded pages are 1-3." },
   ])("rejects the selection $pages with PAGE_OUT_OF_RANGE", async ({ pages, message }) => {
     for (const run of [
       () => new DocumentConverter({ loaders: [spyLoader(threePages)] }).convert(PDF, { pages }),
@@ -103,6 +104,11 @@ describe("converting selected pages", () => {
       expect(error).toBeInstanceOf(PageSelectionError);
       expect(error).toMatchObject({ code: "PAGE_OUT_OF_RANGE", message });
     }
+  });
+
+  it("counts a one-page document in the singular", () => {
+    expect(new PageSelectionError([2], 1).message).toBe("Page 2 does not exist. The document has 1 page.");
+    expect(new PageSelectionError([], 1).message).toBe("Page selection is empty. The document has 1 page.");
   });
 
   it("keeps the selection a caller passed even if the caller changes the array afterwards", async () => {

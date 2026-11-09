@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { makeInvoicePdf } from "docture/testing/fixtures";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { cleanup, cli, tempDir, writeFixture } from "./harness.js";
+import { cleanup, cli, tempDir, textLoaderConfig, writeFixture } from "./harness.js";
 
 let cwd: string;
 
@@ -36,7 +36,7 @@ interface Report {
     readonly hasRenderablePages: boolean;
     readonly form: string;
   };
-  readonly pages: readonly { readonly chars: number; readonly lines: number }[];
+  readonly pages: readonly { readonly pageNumber: number; readonly chars: number; readonly lines: number }[];
   readonly text?: string;
 }
 
@@ -169,5 +169,39 @@ export default {
     const report = JSON.parse(run.stdout).results[0] as Report;
     expect(report.loader).toBe("stub");
     expect(report.features.hasGeometry).toBe(false);
+  });
+});
+
+describe("inspect page selection", () => {
+  const reported = async (...flags: string[]) => {
+    const dir = await tempDir("inspect-pages");
+    await writeFixture(dir, "input.pdf", "%PDF-1.7 test");
+    await writeFixture(dir, "docture.config.mjs", textLoaderConfig(["ONE", "TWO", "THREE", "FOUR"], ""));
+    const run = await cli(["inspect", "input.pdf", "--format", "json", ...flags], { cwd: dir });
+    expect(run.code, run.stderr).toBe(0);
+    const report = JSON.parse(run.stdout).results[0] as Report;
+    return [report.features.pageCount, report.pages.map((page) => page.pageNumber)];
+  };
+
+  it("loads only a listed page set or range", async () => {
+    expect(await reported("--pages", "2,4")).toEqual([2, [2, 4]]);
+    expect(await reported("--pages", "2-3")).toEqual([2, [2, 3]]);
+    expect(await reported("--pages", "3-3")).toEqual([1, [3]]);
+  });
+
+  it("keeps a bare --pages n as the first n pages, which --max-pages also selects", async () => {
+    expect(await reported("--pages", "2")).toEqual([4, [1, 2]]);
+    expect(await reported("--max-pages", "2")).toEqual([4, [1, 2]]);
+    expect(await reported("--pages", "2-4", "--max-pages", "1")).toEqual([3, [2]]);
+  });
+
+  it("refuses a bare --pages n together with --max-pages", async () => {
+    const run = await cli(["inspect", "input.pdf", "--pages", "2", "--max-pages", "1"], { cwd: await tempDir("inspect-pages-conflict") });
+    expect([run.code, run.stdout, run.stderr]).toEqual([
+      2,
+      "",
+      "error [USAGE] --pages 2 and --max-pages both limit how many pages are reported.\n" +
+        "      Pass --max-pages alone, or a page list such as --pages 2-2 to load that page.\n",
+    ]);
   });
 });

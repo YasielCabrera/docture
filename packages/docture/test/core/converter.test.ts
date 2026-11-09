@@ -165,6 +165,25 @@ describe("DocumentConverter orchestration", () => {
     ).rejects.toBeInstanceOf(NoConvertibleContentError);
   });
 
+  it("ignores an analyzer heading level outside 1 to 6", async () => {
+    let target = "";
+    const analyzer: LayoutAnalyzer = {
+      name: "deep",
+      async analyze({ document }) {
+        const annotations = bySourceId(document, [{ id: "paragraph", role: "heading", level: 9 as 6 }]);
+        target = annotations[0]?.id ?? "";
+        return { annotations };
+      },
+    };
+    const result = await new DocumentConverter({ layoutAnalyzer: analyzer }).convert(source(), { format: "html" });
+    expect(result.method).toBe("deterministic");
+    expect(result.content).not.toContain("<h9>");
+    expect(result.warnings.filter((warning) => warning.code === "INVALID_LAYOUT_ANALYSIS")).toEqual([{
+      code: "INVALID_LAYOUT_ANALYSIS",
+      message: `Layout analyzer "deep" was ignored: heading level 9 for ${target} must be an integer from 1 to 6.`,
+    }]);
+  });
+
   it("applies valid model roles but ignores unknown ids and failures", async () => {
     const valid: LayoutAnalyzer = {
       name: "helper",

@@ -104,11 +104,9 @@ describe("DocumentLoaderTesseract — refusing work it cannot do", () => {
     ).rejects.toThrow();
   });
 
-  it("refuses an empty language list", async () => {
-    const png = await invoicePng(303);
-    await expect(
-      new DocumentLoaderTesseract({ languages: [] }).load({ bytes: png, mimeType: "image/png" }, ctx),
-    ).rejects.toThrow(/languages/i);
+  it("refuses an empty language list when the loader is built", () => {
+    expect(() => new DocumentLoaderTesseract({ languages: [] }))
+      .toThrow(expect.objectContaining({ code: "INVALID_OPTION", option: "languages" }));
   });
 
   it("can be disposed, twice, without complaint — even having never loaded", async () => {

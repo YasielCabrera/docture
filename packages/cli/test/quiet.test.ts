@@ -40,7 +40,8 @@ describe("quiet diagnostics", () => {
       ], { cwd });
       expect(run.code).toBe(1);
       expect(run.stderr).toBe("✗ bad-one.pdf → Every loader failed: fake (broken document).\n" +
-        "  The file could not be read — it may be corrupt, truncated, or password-protected.\n" +
+        "  Read each attempt's error. A corrupt, truncated or password-protected file fails every loader: " +
+        "repair or decrypt it, or register another loader as a fallback.\n" +
         "✗ bad-two.pdf → Every loader failed: fake (broken document).\n",
       );
     },

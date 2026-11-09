@@ -36,6 +36,7 @@ interface RawDocument {
 | `bytes` | The document bytes. |
 | `mimeType` | Declared media type. Byte signatures override generic or conflicting declarations. |
 | `fileName` | File name, used for extension-based media types and telemetry labels. |
+| `charset` | Declared text encoding, such as `windows-1252`. Text loaders decode with it; UTF-8 when absent. `resolveSource()` keeps a charset from the caller or from a `charset=` parameter. |
 
 ### `LoadedSource`
 
@@ -149,8 +150,9 @@ interface LoaderCapabilities<Text extends boolean = boolean, Geometry extends bo
 | `text` | Produces page text. |
 | `geometry` | Produces positioned lines. Also required for the runtime `GEOMETRY` fact. |
 | `images` | Can render pages. Satisfies the runtime `RENDERABLE_PAGES` fact. |
-| `mimeTypes` | Accepted media types. Supports exact types, wildcards such as `image/*`, and `*/*`. |
+| `mimeTypes` | Accepted media types, compared without case. Supports exact types, wildcards such as `image/*`, and `*/*`. |
 | `facts` | Custom facts the loader publishes for strategies to require. |
+| `declines` | Why this instance declines a media type it reads when configured differently, keyed by media type. `NoEligibleLoaderError` reports the reason in place of the accepted types. |
 
 ### `LoadContext`
 
@@ -288,6 +290,7 @@ One run of positioned text.
 | `height` | Height in points. |
 | `confidence` | 0 to 1 when the producer reports one. OCR does; a text layer does not. |
 | `direction` | `"ltr"`, `"rtl"`, or `"ttb"`. |
+| `rotation` | Degrees the baseline turns counterclockwise from horizontal, such as `90` for a margin stamp that reads bottom to top. Absent for horizontal text. Conversion keeps rotated lines out of headings and body paragraphs. |
 | `style` | `TextStyle` facts. |
 | `href` | Authored link target that intersects this span. |
 
@@ -442,6 +445,7 @@ One OCR or engine word, the input to `linesFromWords()`.
 | `box` | `[xMin, yMin, xMax, yMax]` in the engine's units. |
 | `confidence` | 0 to 1 confidence. |
 | `direction` | `"ltr"`, `"rtl"`, or `"ttb"`. |
+| `rotation` | Baseline angle in degrees, as on `TextSpan`. Rotated words form their own lines. |
 | `style` | `TextStyle` facts. |
 | `href` | Link target. |
 

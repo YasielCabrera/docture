@@ -37,8 +37,14 @@ it("MCP extraction uses allowlisted caller schemas and returns full native evide
       expect(serialized).toContain("#/texts/0");
       expect(response.structuredContent).toMatchObject({ version: 1, command: "extract", ok: true, results: [{ data: { [key ?? ""]: value }, citations: [{ path: key, status: "verified" }], citationSources: [], evidenceSources: [{ text: value, granularity: "element", location: { kind: "logical" } }] }] });
     }
-    await expect(client.callTool({ name: "extract", arguments: { source: "report.json", schemaName: "constructor" } })).rejects.toThrow("configured schema");
-    await expect(client.callTool({ name: "extract", arguments: { source: "report.json", schemaName: "report", model: "untrusted/model" } })).rejects.toThrow("Unknown argument");
+    expect(await client.callTool({ name: "extract", arguments: { source: "report.json", schemaName: "constructor" } })).toMatchObject({
+      isError: true,
+      structuredContent: { ok: false, results: [{ file: "report.json", ok: false, error: { code: "USAGE", message: 'No configured schema is named "constructor".', hint: 'Pass schemaName as one of "report", "letter". list_schemas describes each.' } }] },
+    });
+    expect(await client.callTool({ name: "extract", arguments: { source: "report.json", schemaName: "report", model: "untrusted/model" } })).toMatchObject({
+      isError: true,
+      structuredContent: { ok: false, results: [{ file: "report.json", ok: false, error: { code: "USAGE", message: 'Unknown argument "model".' } }] },
+    });
     expect(io.stdout).toBe("");
     await expect(readFile(join(cwd,"disposed.log"),"utf8")).rejects.toThrow();
   } finally {
@@ -74,7 +80,74 @@ it("MCP rejects an unconfigured schema before constructing the extraction pipeli
   const client = new Client({ name: "schema-boundary-test", version: "1" });
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   try {
-    await expect(client.callTool({ name: "extract", arguments: { source: "note.txt", schemaName: "missing" } })).rejects.toThrow("configured schema");
+    expect((await client.callTool({ name: "extract", arguments: { source: "note.txt", schemaName: "missing" } })).structuredContent).toEqual({
+      version: 1, command: "extract", ok: false,
+      results: [{ file: "note.txt", ok: false, error: { code: "USAGE", message: 'No configured schema is named "missing".', hint: 'Pass schemaName as one of "note". list_schemas describes each.' } }],
+    });
+    expect((await client.callTool({ name: "extract", arguments: { source: "note.txt" } })).structuredContent).toMatchObject({
+      results: [{ error: { code: "USAGE", message: "This server has no default schema.", hint: 'Pass schemaName as one of "note". list_schemas describes each.' } }],
+    });
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+
+it("MCP lists the configured schema names for extract and describes each with list_schemas", async () => {
+  const cwd = await tempDir("mcp-list-schemas");
+  await writeFixture(cwd, "docture.config.mjs", `import { z } from "zod";
+    import { contract } from "docture";
+    export default {
+      schema: z.object({ text: z.string() }),
+      schemas: {
+        invoice: contract({ name: "invoice", description: "A supplier invoice with a total.", schema: z.object({ total: z.number() }) }),
+        memo: z.object({ subject: z.string() }).describe("An internal memo."),
+        note: z.object({ text: z.string() }),
+      },
+    };`);
+  const server = await createMcpServer({ io: captureIo({ cwd }) });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: "list-schemas-test", version: "1" });
+  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  try {
+    const { tools } = await client.listTools();
+    expect(tools.map((tool) => tool.name)).toEqual(["convert", "inspect", "extract", "list_schemas"]);
+    expect(tools[2]?.inputSchema.properties?.["schemaName"]).toEqual({
+      type: "string",
+      description: "A name from config.schemas; list_schemas describes each. Omit to use config.schema.",
+      enum: ["invoice", "memo", "note"],
+    });
+    expect(tools[3]?.annotations).toEqual({ title: "List configured schemas", readOnlyHint: true, openWorldHint: false });
+
+    const listed = await client.callTool({ name: "list_schemas", arguments: {} });
+    expect(listed.isError).toBe(false);
+    expect(listed.structuredContent).toEqual({
+      version: 1, command: "list_schemas", ok: true, defaultSchema: true,
+      schemas: [
+        { name: "invoice", description: "A supplier invoice with a total." },
+        { name: "memo", description: "An internal memo." },
+        { name: "note" },
+      ],
+    });
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+
+it("MCP tells a client of a server with only a default schema to omit schemaName", async () => {
+  const cwd = await tempDir("mcp-default-schema-only");
+  await writeFixture(cwd, "docture.config.mjs", `import { z } from "zod";
+    export default { schema: z.object({ text: z.string() }), extractor() { throw new Error("Unselected pipeline must not be constructed"); } };`);
+  const server = await createMcpServer({ io: captureIo({ cwd }) });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: "default-schema-test", version: "1" });
+  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  try {
+    expect((await client.callTool({ name: "extract", arguments: { source: "note.txt", schemaName: "invoice" } })).structuredContent).toEqual({
+      version: 1, command: "extract", ok: false,
+      results: [{ file: "note.txt", ok: false, error: { code: "USAGE", message: 'No configured schema is named "invoice".', hint: "This server has one default schema and no named schemas. Omit schemaName to use it." } }],
+    });
   } finally {
     await client.close();
     await server.close();

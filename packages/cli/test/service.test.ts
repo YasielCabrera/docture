@@ -232,3 +232,22 @@ it("bounds incomplete request bodies without cancelling normal completed bodies"
     expect((await post(address.url, "convert", { ...body(), format: "text" })).status).toBe(200);
   } finally { await service.close(); }
 });
+
+it("bounds each request with flags.timeoutMs, including a converter the config supplies built", async () => {
+  const { createDocumentConverter } = await import("docture/node");
+  const never: DocumentLoader = { name: "never", capabilities: { text: true, geometry: false, images: false, mimeTypes: ["*/*"] }, load: () => new Promise(() => {}) };
+  const config = { path: "/tmp/docture-service.config.mjs", config: { converter: createDocumentConverter({ loaders: [never] }), loaders: [never], strategies: [{ name: "text", extract: async () => ({ data: { text: "x" } }) }] } };
+  const service = createHttpService({ io: captureIo(), config, flags: { timeoutMs: 50 }, schemas: { note: schema } });
+  const address = await service.start();
+  try {
+    for (const [route, input] of [["convert", { ...body(), format: "text" }], ["inspect", body()], ["extract", { ...body(), schema: "note" }]] as const) {
+      expect((await reply(await post(address.url, route, input))).results[0]?.["error"]).toMatchObject({
+        code: "TIMEOUT",
+        message: '"call" exceeded its 50ms deadline.',
+        hint: "A deadline set by this server elapsed. Send fewer pages, or ask the server's operator to raise the deadline.",
+      });
+    }
+  } finally {
+    await service.close();
+  }
+});

@@ -5,6 +5,7 @@ import { errorCodeOf } from "../pipeline/errors.js";
 import { selectPages } from "../pipeline/pages.js";
 import { createDisposalScope, type DisposalScope } from "./disposal.js";
 import { loaderAccepts, type DocumentLoader } from "./loader.js";
+import { nonNegativeNumber } from "../pipeline/options.js";
 
 export type { OcrFallbackPage, OcrFallbackReport, OcrFallbackWarning } from "../domain/ocr-fallback.js";
 
@@ -68,9 +69,8 @@ function physicalMismatch(original: LoadedPage, candidate: LoadedPage): boolean 
  * ```
  */
 export function withOcrFallback(primary: DocumentLoader, ocr: DocumentLoader, options: OcrFallbackOptions = {}): DocumentLoader & { dispose(scope?: DisposalScope): Promise<void> } {
-  const improvement = options.minimumImprovement ?? 0;
-  const threshold = options.threshold ?? DEFAULT_OCR_THRESHOLD;
-  if (!Number.isFinite(threshold) || threshold < 0 || !Number.isFinite(improvement) || improvement < 0) throw new TypeError("OCR thresholds must be finite and nonnegative.");
+  const improvement = nonNegativeNumber("minimumImprovement", options.minimumImprovement ?? 0);
+  const threshold = nonNegativeNumber("threshold", options.threshold ?? DEFAULT_OCR_THRESHOLD);
   const assess = options.assess ?? textLengthQuality;
   let disposed: Promise<void> | undefined;
   const name = `${primary.name}+ocr:${ocr.name}`;
@@ -103,7 +103,7 @@ export function withOcrFallback(primary: DocumentLoader, ocr: DocumentLoader, op
         suppliers.push(supplier);
         let kept = original;
         if (originalQuality.kind === "text" && originalQuality.quality < threshold) {
-          const warn = (code: OcrFallbackWarning["code"], message: string, errorCode?: string) => warnings.push({ pageNumber: original.pageNumber, code, message, ...(errorCode === undefined ? {} : { errorCode }) });
+          const warn = (code: OcrFallbackWarning["code"], message: string, errorCode?: OcrFallbackWarning["errorCode"]) => warnings.push({ pageNumber: original.pageNumber, code, message, ...(errorCode === undefined ? {} : { errorCode }) });
           if (!loaderAccepts(ocr, document.mimeType ?? "application/octet-stream")) {
             warn("OCR_NOT_ELIGIBLE", "OCR loader does not accept the source media type; original page retained.");
           } else {

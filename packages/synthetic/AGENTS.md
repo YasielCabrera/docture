@@ -3,7 +3,9 @@
 Read this file explicitly before writing models, templates or corpus scripts with
 `@docture/synthetic`. A coding agent can read
 `node_modules/@docture/synthetic/AGENTS.md`; automatic discovery inside dependencies
-is not assumed. The documentation site's `/llms.txt` lists every guide as Markdown.
+is not assumed. The guides are Markdown files at
+[apps/docs/content/docs/synthetic](https://github.com/YasielCabrera/docture/tree/main/apps/docs/content/docs/synthetic),
+and a documentation site built from them indexes every page at `/llms.txt`.
 
 ```sh
 npm install @docture/synthetic docture zod pdfkit

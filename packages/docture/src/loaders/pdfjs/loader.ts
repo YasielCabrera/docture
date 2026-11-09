@@ -15,10 +15,13 @@ import {
   type PositionedWord,
   type RawDocument,
   type TextLine,
+  type TextStyle,
 } from "../../core/index.js";
 import {
   importPdfJs,
+  type PdfJsFont,
   type PdfJsImageData,
+  type PdfJsOperatorList,
   type PdfJsMarkedContent,
   type PdfJsPage,
   type PdfJsTextItem,
@@ -160,6 +163,9 @@ export class DocumentLoaderPdfJs implements DocumentLoader<LoaderCapabilities<tr
       ctx.request?.layout === true
         ? await page.getAnnotations().then((annotations) => linksFrom(annotations, viewport))
         : [];
+    // Text content names fonts only by a generic family ("sans-serif"). Building the
+    // operator list is what sends each font, with its real name, to `commonObjs`.
+    const operators = ctx.request?.layout === true ? await page.getOperatorList() : undefined;
 
     const words: PositionedWord[] = [];
     const taggedAreas: TaggedArea[] = [];
@@ -179,19 +185,20 @@ export class DocumentLoaderPdfJs implements DocumentLoader<LoaderCapabilities<tr
       // on. Composing it with the item's own matrix is the only correct way to get
       // there — reading `transform[4]`/`[5]` raw ignores page rotation.
       const tx = pdfjs.Util.transform(viewport.transform, item.transform);
-      const x = tx[4] ?? 0;
-      const baseline = tx[5] ?? 0;
       // Scaled font size, from the matrix's vertical component.
       const fontHeight = Math.hypot(tx[2] ?? 0, tx[3] ?? 0) || (item.height ?? 0);
-      const width = item.width ?? 0;
-      const box = [x, baseline - fontHeight, x + width, baseline] as const;
-      const family =
-        item.fontName === undefined ? undefined : content.styles[item.fontName]?.fontFamily;
+      const box = textBox(tx, item.width ?? 0, fontHeight);
+      const font =
+        item.fontName === undefined
+          ? {}
+          : fontStyle(page, item.fontName, content.styles[item.fontName]?.fontFamily);
       const href = links.find((link) => intersects(box, link.box))?.href;
       const tagged = [...activeTags].reverse().find((value) => value !== undefined);
       if (tagged !== undefined) taggedAreas.push({ box, ...tagged });
       const direction =
         item.dir === "ltr" || item.dir === "rtl" || item.dir === "ttb" ? item.dir : undefined;
+      // Device space points y down, so a baseline that climbs the page has negative b.
+      const rotation = Math.round((Math.atan2(-(tx[1] ?? 0), tx[0] ?? 1) * 180) / Math.PI);
 
       words.push({
         text: item.str,
@@ -199,17 +206,8 @@ export class DocumentLoaderPdfJs implements DocumentLoader<LoaderCapabilities<tr
         // and exact relative ordering is all line grouping needs.
         box,
         ...(direction === undefined ? {} : { direction }),
-        style: {
-          ...(family === undefined ? {} : { fontFamily: family }),
-          fontSize: fontHeight,
-          ...(family === undefined
-            ? {}
-            : {
-                bold: /(?:bold|black|heavy|semibold)/iu.test(family),
-                italic: /(?:italic|oblique)/iu.test(family),
-                monospace: /(?:mono|courier|consolas|menlo)/iu.test(family),
-              }),
-        },
+        ...(rotation === 0 ? {} : { rotation: rotation === -180 ? 180 : rotation }),
+        style: { ...font, fontSize: fontHeight },
         ...(href === undefined ? {} : { href }),
       });
     }
@@ -221,9 +219,9 @@ export class DocumentLoaderPdfJs implements DocumentLoader<LoaderCapabilities<tr
     });
 
     const richImages =
-      ctx.request?.layout === true
-        ? await imagesFrom(pdfjs, page, viewport, pageNumber, ctx.request?.assets === true)
-        : { blocks: [], assets: [] };
+      operators === undefined
+        ? { blocks: [], assets: [] }
+        : await imagesFrom(pdfjs, page, operators, viewport, pageNumber, ctx.request?.assets === true);
     const blocks: LayoutBlock[] = [
       ...lines.map((line, index) => {
         const tagged = tagForLine(line, taggedAreas);
@@ -338,6 +336,64 @@ function linksFrom(
   });
 }
 
+type FontStyle = Pick<TextStyle, "fontFamily" | "bold" | "italic" | "monospace">;
+
+const SUBSET_PREFIX = /^[A-Z]{6}\+/u;
+const BOLD_NAME = /(?:bold|black|heavy)/iu;
+const ITALIC_NAME = /(?:italic|oblique)/iu;
+const MONOSPACE_NAME = /(?:mono|courier|consolas|menlo)/iu;
+// Embedded fonts abbreviate the style after the family: "NimbusRomNo9L-Medi",
+// "HelveticaNeueLTStd-BdIt", "ITCFranklinGothicStd-Demi".
+const BOLD_TOKENS = new Set(["bd", "blk", "hv", "demi", "medi"]);
+const ITALIC_TOKENS = new Set(["it", "ital", "obl", "kursiv"]);
+
+function styleTokens(name: string): readonly string[] {
+  const style = name.slice(Math.max(name.lastIndexOf("-"), name.lastIndexOf(",")) + 1);
+  return (style.match(/[A-Z][a-z]*|[a-z]+/gu) ?? []).map((token) => token.toLowerCase());
+}
+
+/**
+ * Weight and slant come from the font itself. Without an operator list the font is
+ * not loaded, so only the generic family is known and bold and italic stay unset
+ * rather than reported false.
+ */
+function fontStyle(page: PdfJsPage, fontName: string, generic: string | undefined): FontStyle {
+  const loaded = page.commonObjs.has(fontName) ? page.commonObjs.get(fontName) : undefined;
+  const font = typeof loaded === "object" && loaded !== null ? (loaded as PdfJsFont) : undefined;
+  const name = typeof font?.name === "string" && font.name !== "" ? font.name.replace(SUBSET_PREFIX, "") : undefined;
+  const family = name ?? generic;
+  if (family === undefined) return {};
+  const monospace = generic === "monospace" || MONOSPACE_NAME.test(family);
+  if (font === undefined) return { fontFamily: family, monospace };
+  const tokens = styleTokens(family);
+  return {
+    fontFamily: family,
+    bold: font.bold === true || font.black === true || BOLD_NAME.test(family) || tokens.some((token) => BOLD_TOKENS.has(token)),
+    italic: font.italic === true || ITALIC_NAME.test(family) || tokens.some((token) => ITALIC_TOKENS.has(token)),
+    monospace,
+  };
+}
+
+/**
+ * The axis-aligned hull of a run's em box, from the full device-space text matrix:
+ * the advance runs along the matrix's x axis and the em height along its y axis, so
+ * a run rotated 90 degrees gets a tall, narrow box.
+ */
+function textBox(
+  tx: readonly number[],
+  advance: number,
+  fontHeight: number,
+): readonly [number, number, number, number] {
+  const [a = 1, b = 0, c = 0, d = -1, x = 0, y = 0] = tx;
+  const along = Math.hypot(a, b);
+  const up = Math.hypot(c, d);
+  const [dx, dy] = along === 0 ? [1, 0] : [a / along, b / along];
+  const [ux, uy] = up === 0 ? [0, -1] : [c / up, d / up];
+  const xs = [x, x + dx * advance, x + ux * fontHeight, x + dx * advance + ux * fontHeight];
+  const ys = [y, y + dy * advance, y + uy * fontHeight, y + dy * advance + uy * fontHeight];
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
+
 function intersects(
   a: readonly [number, number, number, number],
   b: readonly [number, number, number, number],
@@ -399,14 +455,22 @@ function unitBox(
   return { x, y, width: right - x, height: bottom - y };
 }
 
+function isMatrix(value: unknown): value is ArrayLike<number> {
+  return (
+    (Array.isArray(value) || ArrayBuffer.isView(value)) &&
+    (value as ArrayLike<unknown>).length >= 6 &&
+    Array.from(value as ArrayLike<unknown>).every((entry) => typeof entry === "number")
+  );
+}
+
 async function imagesFrom(
   pdfjs: Awaited<ReturnType<typeof importPdfJs>>["pdfjs"],
   page: PdfJsPage,
+  operators: PdfJsOperatorList,
   viewport: PdfJsViewport,
   pageNumber: number,
   includeAssets: boolean,
 ): Promise<PageImages> {
-  const operators = await page.getOperatorList();
   const blocks: ImageLayoutBlock[] = [];
   const assets: LoadedAsset[] = [];
   const stack: number[][] = [];
@@ -418,8 +482,14 @@ async function imagesFrom(
       stack.push([...transform]);
       continue;
     }
-    if (operation === pdfjs.OPS.restore) {
+    if (operation === pdfjs.OPS.restore || operation === pdfjs.OPS.paintFormXObjectEnd) {
       transform = stack.pop() ?? [1, 0, 0, 1, 0, 0];
+      continue;
+    }
+    if (operation === pdfjs.OPS.paintFormXObjectBegin) {
+      stack.push([...transform]);
+      const matrix = args[0];
+      if (isMatrix(matrix)) transform = pdfjs.Util.transform(transform, Array.from(matrix));
       continue;
     }
     if (operation === pdfjs.OPS.transform) {

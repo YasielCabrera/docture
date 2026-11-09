@@ -26,6 +26,11 @@ export interface DoclingConversionOptions {
 export interface DoclingServeOptions extends DoclingTransportOptions {
   /** Bounds an async job from the first status that reports it started. Defaults to 300000. */
   readonly jobTimeoutMs?: number;
+  /**
+   * Bounds the synchronous `convert()` POST, which waits for the whole conversion
+   * rather than `requestTimeoutMs`. Defaults to `jobTimeoutMs`.
+   */
+  readonly convertTimeoutMs?: number;
   /** Bounds how long an async job may stay pending in docling-serve's queue. Defaults to `jobTimeoutMs`. */
   readonly queueTimeoutMs?: number;
   readonly pollIntervalMs?: number;
@@ -85,6 +90,7 @@ export class DoclingServeClient {
   readonly #transport: DoclingTransport;
   readonly #options: DoclingServeOptions;
   readonly #jobTimeout: number;
+  readonly #convertTimeout: number;
   readonly #queueTimeout: number;
   readonly #pollInterval: number;
   readonly #maxPolls: number;
@@ -92,6 +98,7 @@ export class DoclingServeClient {
     this.#transport = new DoclingTransport(options);
     this.#options = options;
     this.#jobTimeout = positiveInteger(options.jobTimeoutMs ?? 300_000, "jobTimeoutMs");
+    this.#convertTimeout = positiveInteger(options.convertTimeoutMs ?? this.#jobTimeout, "convertTimeoutMs");
     this.#queueTimeout = positiveInteger(options.queueTimeoutMs ?? this.#jobTimeout, "queueTimeoutMs");
     this.#pollInterval = positiveInteger(options.pollIntervalMs ?? 250, "pollIntervalMs", 0);
     this.#maxPolls = positiveInteger(options.maxPolls ?? Math.ceil((this.#queueTimeout + this.#jobTimeout) / Math.max(this.#pollInterval, 1)), "maxPolls");
@@ -132,7 +139,7 @@ export class DoclingServeClient {
   }
 
   async convert(document: RawDocument, options: DoclingConversionOptions = {}): Promise<DoclingConversion> {
-    const raw = await this.#transport.request("v1/convert/file", { body: this.#multipart(document, options), ...(options.signal === undefined ? {} : { signal: options.signal }) });
+    const raw = await this.#transport.request("v1/convert/file", { body: this.#multipart(document, options), timeoutMs: this.#convertTimeout, ...(options.signal === undefined ? {} : { signal: options.signal }) });
     return this.#conversion(raw, options);
   }
 

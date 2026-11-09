@@ -1,8 +1,7 @@
-import { DoctureError } from "../../core/pipeline/errors.js";
+import { UnsupportedSourceError } from "../../core/pipeline/errors.js";
 
-export class DoclingImportError extends DoctureError {
+export class DoclingImportError extends UnsupportedSourceError {
   protected static override readonly doctureErrorIdentity = "DoclingImportError";
-  override readonly code = "UNSUPPORTED_SOURCE" as const;
   constructor(readonly path: string, message: string) {
     super(`Invalid Docling export at ${path}: ${message}`);
   }

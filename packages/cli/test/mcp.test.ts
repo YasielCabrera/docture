@@ -65,12 +65,24 @@ describe("the MCP server", () => {
           minItems: 1,
           description: "One-based page numbers to convert, keeping their original numbers. Default: every page",
         },
+        offset: { type: "integer", minimum: 0, default: 0, description: "Character offset into the converted content. Pass a previous result's nextOffset" },
+        maxChars: { type: "integer", minimum: 1, default: 20000, description: "Most characters of content to return per document" },
       },
       required: ["source"],
       additionalProperties: false,
     });
     expect(tools[1]?.inputSchema.required).toEqual(["source"]);
     expect(Object.keys(tools[1]?.inputSchema.properties ?? {})).toEqual(["source", "pages"]);
+    expect(tools.map((tool) => [tool.name, tool.annotations])).toEqual([
+      ["convert", { title: "Convert a document", readOnlyHint: true, openWorldHint: true }],
+      ["inspect", { title: "Inspect a document", readOnlyHint: true, openWorldHint: true }],
+      ["extract", { title: "Extract with a configured schema", readOnlyHint: true, openWorldHint: true }],
+    ]);
+    expect(tools.map((tool) => [tool.outputSchema?.required, tool.outputSchema?.properties?.["command"]])).toEqual([
+      [["version", "command", "ok", "results"], { type: "string", const: "convert" }],
+      [["version", "command", "ok", "results"], { type: "string", const: "inspect" }],
+      [["version", "command", "ok", "results"], { type: "string", const: "extract" }],
+    ]);
     await server.close();
   });
 
@@ -131,13 +143,20 @@ describe("the MCP server", () => {
     expect(envelopeOf(returned).results[0]).toMatchObject({ file: "invoice.pdf", ok: false, error: { code: "USAGE" } });
   });
 
-  it("rejects stdin and malformed arguments as invalid parameters", async () => {
+  it("returns stdin and malformed arguments as USAGE tool errors the model can read", async () => {
     const { client, server } = await connect(await documents());
+    const failure = async (name: string, args: Record<string, unknown>) => {
+      const result = await client.callTool({ name, arguments: args });
+      expect(result.isError).toBe(true);
+      return envelopeOf(result).results;
+    };
 
-    await expect(client.callTool({ name: "convert", arguments: { source: "-" } })).rejects.toThrow("stdin");
-    await expect(client.callTool({ name: "inspect", arguments: {} })).rejects.toThrow("source");
-    await expect(client.callTool({ name: "inspect", arguments: { source: "invoice.pdf", pages: [0] } })).rejects.toThrow("pages");
-    await expect(client.callTool({ name: "convert", arguments: { source: "invoice.pdf", format: "docx" } })).rejects.toThrow("format");
+    expect(await failure("convert", { source: "-" })).toEqual([{ file: "-", ok: false, error: { code: "USAGE", message: "source cannot be - : stdin carries the MCP transport." } }]);
+    expect(await failure("inspect", {})).toEqual([{ file: "arguments", ok: false, error: { code: "USAGE", message: "source must be a non-empty path or URL." } }]);
+    expect(await failure("inspect", { source: "invoice.pdf", pages: [0] })).toEqual([{ file: "invoice.pdf", ok: false, error: { code: "USAGE", message: "pages must be a non-empty array of one-based page numbers." } }]);
+    expect(await failure("convert", { source: "invoice.pdf", format: "docx" })).toEqual([{ file: "invoice.pdf", ok: false, error: { code: "USAGE", message: "format must be one of markdown, html, text, json." } }]);
+    expect(await failure("convert", { source: "invoice.pdf", maxChars: 0 })).toEqual([{ file: "invoice.pdf", ok: false, error: { code: "USAGE", message: "maxChars must be a whole number of at least 1." } }]);
+    await expect(client.callTool({ name: "summarize", arguments: { source: "invoice.pdf" } })).rejects.toThrow('Unknown tool "summarize".');
     await server.close();
   });
 

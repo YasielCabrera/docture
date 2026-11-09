@@ -12,13 +12,13 @@
  */
 
 import { hasFact, type KnownDocumentFact } from "docture";
-import { boolFlag, choiceFlag, numberFlag, type Parsed } from "../cli/args.js";
-import { type ExitCode } from "../cli/errors.js";
+import { boolFlag, choiceFlag, numberFlag, parsePageList, stringFlag, type Parsed } from "../cli/args.js";
+import { UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io, type Style } from "../cli/io.js";
 import { OUTPUT_FORMAT } from "../cli/specs.js";
 import { resolveConfig } from "../config.js";
 import { expandInputs } from "../inputs.js";
-import { commonOptions } from "../options.js";
+import { callTimeout, commonOptions } from "../options.js";
 import { inspectInputs, inspectProbe, type InspectOptions, type InspectReport } from "../operations.js";
 import { envelope, formatCount, reportFailure, reportWiring, toJson, toNdjson, type Item } from "../output.js";
 import { buildWiring } from "../wiring.js";
@@ -88,6 +88,25 @@ function renderReport(report: Item<InspectReport> & { ok: true }, style: Style, 
   return `${lines.join("\n")}\n`;
 }
 
+function pageSelection(parsed: Parsed): { readonly pages?: readonly number[]; readonly maxPages?: number } {
+  const listed = stringFlag(parsed, "pages");
+  const maxPages = numberFlag(parsed, "max-pages", { min: 1, integer: true });
+  if (listed === undefined || /[,-]/.test(listed)) {
+    return {
+      ...(listed === undefined ? {} : { pages: parsePageList("pages", listed) }),
+      ...(maxPages === undefined ? {} : { maxPages }),
+    };
+  }
+  if (maxPages !== undefined) {
+    throw new UsageError(
+      `--pages ${listed} and --max-pages both limit how many pages are reported.`,
+      `Pass --max-pages alone, or a page list such as --pages ${listed}-${listed} to load that page.`,
+    );
+  }
+  const legacyMaxPages = numberFlag(parsed, "pages", { min: 1, integer: true });
+  return legacyMaxPages === undefined ? {} : { maxPages: legacyMaxPages };
+}
+
 export async function inspectCommand(
   parsed: Parsed,
   io: Io,
@@ -96,7 +115,8 @@ export async function inspectCommand(
   const common = commonOptions(parsed, io.color);
   const style = styleFor(common.color);
   const format = choiceFlag(parsed, OUTPUT_FORMAT) ?? "text";
-  const maxPages = numberFlag(parsed, "pages", { min: 1, integer: true });
+  const { pages, maxPages } = pageSelection(parsed);
+  const timeout = callTimeout(parsed);
 
   const options: InspectOptions = {
     ...(maxPages === undefined ? {} : { maxPages }),
@@ -112,15 +132,11 @@ export async function inspectCommand(
   });
 
   const inputs = await expandInputs(parsed.positionals, io.cwd);
-  const timeoutMs = numberFlag(parsed, "timeout", { min: 1, integer: true });
   const wiring = await buildWiring({
     io,
     ...(config === undefined ? {} : { config }),
     // No model and no strategies from flags — just the loaders and the probe.
-    flags: {
-      ...(options.render ? { vision: true } : {}),
-      ...(timeoutMs === undefined ? {} : { timeoutMs }),
-    },
+    flags: options.render ? { vision: true } : {},
     needsModel: false,
     before: [inspectProbe(options)],
     ignoreSuppliedExtractor: true,
@@ -132,7 +148,7 @@ export async function inspectCommand(
   let failed = 0;
 
   try {
-    for await (const record of inspectInputs(wiring.extractor, inputs, io, {}, signal)) {
+    for await (const record of inspectInputs(wiring.extractor, inputs, io, { ...(pages === undefined ? {} : { pages }), ...timeout }, signal)) {
       reports.push(record);
       if (!record.ok) {
         failed += 1;

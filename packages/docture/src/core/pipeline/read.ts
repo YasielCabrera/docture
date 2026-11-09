@@ -12,6 +12,7 @@ import type { LoadedDocument } from "../domain/geometry.js";
 import type { Logger } from "../domain/logger.js";
 import type { Attempt } from "../domain/result.js";
 import type { DocumentLoader, LoadRequest } from "../contracts/loader.js";
+import { abandonAfterDeadline } from "./abandon.js";
 import { withDeadline } from "./deadline.js";
 import { eligibleLoaders } from "./eligibility.js";
 import {
@@ -21,7 +22,7 @@ import {
   PageSelectionError,
   TimeoutError,
   errorCodeOf,
-  isAbortError,
+  isCallerAbort,
   messageOf,
 } from "./errors.js";
 
@@ -42,8 +43,9 @@ export function readDocument(
   signal: AbortSignal,
   stageTimeoutMs: number | undefined,
   request?: LoadRequest,
+  onAttempt?: (attempt: Attempt) => void,
 ): Promise<ReadDocument> {
-  return readFirstUsable(loaders, raw, logger, signal, stageTimeoutMs, request, () => true);
+  return readFirstUsable(loaders, raw, logger, signal, stageTimeoutMs, request, () => true, onAttempt);
 }
 
 /**
@@ -59,12 +61,17 @@ export async function readFirstUsable(
   stageTimeoutMs: number | undefined,
   request: LoadRequest | undefined,
   usable: (document: LoadedDocument) => boolean,
+  onAttempt: (attempt: Attempt) => void = () => {},
 ): Promise<ReadDocument> {
   const mimeType = raw.mimeType ?? "application/octet-stream";
   const { eligible, gaps } = eligibleLoaders(loaders, mimeType);
   if (eligible.length === 0) throw new NoEligibleLoaderError(mimeType, gaps);
 
   const attempts: Attempt[] = [];
+  const record = (attempt: Attempt): void => {
+    attempts.push(attempt);
+    onAttempt(attempt);
+  };
   const failures: unknown[] = [];
   let rejected: { readonly document: LoadedDocument; readonly loader: DocumentLoader } | undefined;
 
@@ -76,21 +83,21 @@ export async function readFirstUsable(
     const started = Date.now();
     const deadline = withDeadline(`load:${loader.name}`, stageTimeoutMs, signal);
     try {
-      const document = await loader.load(raw, {
+      const document = await abandonAfterDeadline(loader.load(raw, {
         signal: deadline.signal,
         logger: logger.child({ loader: loader.name }),
         ...(request === undefined ? {} : { request }),
-      });
+      }), deadline);
       deadline.signal.throwIfAborted();
       if (!usable(document)) {
-        attempts.push({
+        record({
           stage: "load", strategy: loader.name, status: "skipped", ms: Date.now() - started,
           error: "recovered no convertible text", errorCode: "NO_CONVERTIBLE_CONTENT",
         });
         rejected ??= { document, loader };
         continue;
       }
-      attempts.push({ stage: "load", strategy: loader.name, status: "ok", ms: Date.now() - started });
+      record({ stage: "load", strategy: loader.name, status: "ok", ms: Date.now() - started });
       return { document, loader, attempts };
     } catch (error) {
       signal.throwIfAborted();
@@ -98,10 +105,10 @@ export async function readFirstUsable(
       const failure = deadline.expired()
         ? new TimeoutError(`load:${loader.name}`, stageTimeoutMs ?? 0)
         : error;
-      if (isAbortError(failure)) throw failure;
+      if (isCallerAbort(failure, signal)) throw failure;
       logger.warn("loader failed", { loader: loader.name, errorCode: errorCodeOf(failure) });
       failures.push(failure);
-      attempts.push(failedAttempt("load", loader.name, Date.now() - started, failure));
+      record(failedAttempt("load", loader.name, Date.now() - started, failure));
     } finally {
       deadline.release();
     }

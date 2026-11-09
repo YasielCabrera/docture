@@ -22,9 +22,10 @@ Examples use the project-local CLI installed in [Run your first CLI commands](/d
 | `--text` | Not set | Print the extracted text as well |
 | `--lines` | Not set | Print positioned lines with their coordinates |
 | `--format <fmt>` | text | JSON is a versioned envelope; NDJSON streams result items. Choices: `json`, `ndjson`, `text`. |
-| `--pages <n>` | Not set | Only report on the first n pages |
+| `--pages <list>` | Not set | Load only these one-based pages and ranges, such as 2,4-6. A single number n reports the first n pages, as --max-pages n does; write 3-3 for page 3 alone |
+| `--max-pages <n>` | Not set | Only report on the first n loaded pages |
 | `--vision` | Not set | Also check that pages can be rendered |
-| `--timeout <ms>` | Not set | Per-stage deadline. Omit for none |
+| `--timeout <ms>` | Not set | Deadline for each document, across every stage. Omit for none |
 | `--config <path>` | Not set | Config file. Default: the nearest docture.config.&#123;ts,mts,js,mjs&#125; |
 | `--no-config` | Not set | Ignore any config file that is found |
 | `--verbose`, `-v` | Not set | Report the wiring, the routing, and every attempt |

@@ -32,23 +32,26 @@ import type { ClassifiedExtraction } from "./contracts/classifier.js";
 import { createDisposalScope, type DisposalScope } from "./contracts/disposal.js";
 import { extractionContractOf, type Classification } from "./contracts/classifier.js";
 import type { DocumentLoader } from "./contracts/loader.js";
-import { runSplitter, type SplitContext, type Splitter } from "./contracts/splitter.js";
+import { mapWithConcurrency, runSplitter, type SplitContext, type Splitter } from "./contracts/splitter.js";
 import type { DocumentSource } from "./domain/document.js";
 import { isLoadedSource } from "./domain/document.js";
 import { SplittingStrategy } from "./domain/enums.js";
 import { isContract } from "./domain/contract.js";
-import type { LoadedDocument, LoadedSource } from "./domain/geometry.js";
+import type { LoadedSource } from "./domain/geometry.js";
 import type { Logger } from "./domain/logger.js";
-import { EMPTY_USAGE, sumUsage, type Usage } from "./domain/result.js";
+import { EMPTY_USAGE, sumUsage, type ClassificationResult, type Usage } from "./domain/result.js";
 import { silentLogger } from "./domain/logger.js";
 import { hasFact } from "./domain/document.js";
 import { UNCLASSIFIED, type DocGroups } from "./domain/split.js";
 import { Extractor } from "./extractor.js";
 import { MissingComponentError, SplitFailedError, UnclassifiedGroupError } from "./pipeline/errors.js";
+import { batchConcurrency } from "./pipeline/batch.js";
 import { preloadedFeatures } from "./pipeline/features.js";
 import { readDocument } from "./pipeline/read.js";
 import { checkedRuleFailureMode, withProcessHints, type RunOptions } from "./pipeline/run.js";
 import { resolveSource, type SourceResolver } from "./pipeline/source.js";
+import { withCallDeadline } from "./pipeline/abandon.js";
+import { isolatedListener } from "./domain/events.js";
 
 export interface ProcessExtractOptions extends RunOptions {
   /**
@@ -58,7 +61,10 @@ export interface ProcessExtractOptions extends RunOptions {
    * exactly the ones nobody notices are missing.
    */
   readonly onUnclassified?: "throw" | "skip";
-  /** How many documents from the bundle to extract at once. Default 4. */
+  /**
+   * How many documents from the bundle to extract at once. A positive integer,
+   * default 4. The first failure cancels the documents still running.
+   */
   readonly concurrency?: number;
 }
 
@@ -69,6 +75,8 @@ export interface SplitReport {
   /** What deciding the cut cost. Zero when the splitter used no model. */
   readonly usage: Usage;
 }
+
+type Bundle = LoadedSource & { readonly mimeType: string };
 
 export class Process<C extends readonly Classification[] = readonly Classification[]> {
   #loaders: DocumentLoader[] = [];
@@ -104,7 +112,12 @@ export class Process<C extends readonly Classification[] = readonly Classificati
     return this;
   }
 
-  /** The extractor used for any classification that does not carry its own. */
+  /**
+   * The extractor used for any classification that does not carry its own.
+   *
+   * Borrowed: {@link Process.dispose} leaves it to its owner, so one extractor can
+   * serve several processes. Loaders and the splitter loaded here are owned.
+   */
   loadExtractor(extractor: Extractor): this {
     this.#extractor = extractor;
     return this;
@@ -115,7 +128,7 @@ export class Process<C extends readonly Classification[] = readonly Classificati
     return this;
   }
 
-  /** The bundle to work on. */
+  /** The bundle to work on when `extract()` or `splitOnly()` is called without one. */
   loadFile(source: DocumentSource): this {
     this.#source = source;
     return this;
@@ -145,7 +158,10 @@ export class Process<C extends readonly Classification[] = readonly Classificati
     return this as unknown as Process<NC>;
   }
 
-  /** How the last {@link Process.extract} cut the bundle. `undefined` before one. */
+  /**
+   * How the last completed {@link Process.extract} or {@link Process.splitOnly} cut
+   * its bundle. `undefined` before one. With concurrent runs, the last to finish.
+   */
   get lastSplit(): SplitReport | undefined {
     return this.#lastSplit;
   }
@@ -158,19 +174,33 @@ export class Process<C extends readonly Classification[] = readonly Classificati
    * Without a planned split this extracts the whole file as one document against the
    * single classification given — which is what makes `Process` usable for the
    * one-document case too, rather than a separate code path.
+   *
+   * A `source` here overrides {@link Process.loadFile} for this call only, so one
+   * configured process can work through several files at once.
    */
-  async extract(options: ProcessExtractOptions = {}): Promise<ClassifiedExtraction<C>[]> {
-    const source = this.#source;
-    if (source === undefined) {
-      throw new MissingComponentError("Process has no file. Call loadFile(...) before extract().");
-    }
+  extract(source: DocumentSource, options?: ProcessExtractOptions): Promise<ClassifiedExtraction<C>[]>;
+  extract(options?: ProcessExtractOptions): Promise<ClassifiedExtraction<C>[]>;
+  async extract(
+    first?: DocumentSource | ProcessExtractOptions,
+    second?: ProcessExtractOptions,
+  ): Promise<ClassifiedExtraction<C>[]> {
+    const { source, options } = this.#call(first, second, "extract");
+    const limit = batchConcurrency(options.concurrency);
     if (options.onRuleFailure !== undefined) checkedRuleFailureMode(options.onRuleFailure);
+    return withCallDeadline(options.timeoutMs, options.signal, (signal) => this.#extract(source, options, limit, signal));
+  }
 
-    const signal = options.signal ?? new AbortController().signal;
+  async #extract(
+    source: DocumentSource,
+    options: ProcessExtractOptions,
+    limit: number,
+    bounded: AbortSignal | undefined,
+  ): Promise<ClassifiedExtraction<C>[]> {
+    const signal = bounded ?? new AbortController().signal;
     const logger = options.logger ?? this.#logger;
 
     const preloaded = await this.#read(source, signal, logger, options);
-    const groups = await this.#cut(preloaded, signal, logger, options);
+    const { groups } = await this.#cut(preloaded, signal, logger, options);
 
     const names = this.#classifications.map((c) => c.name);
 
@@ -190,73 +220,65 @@ export class Process<C extends readonly Classification[] = readonly Classificati
       jobs.push({ group, classification });
     }
 
-    const limit = Math.max(1, options.concurrency ?? 4);
-    const results = new Array<ClassifiedExtraction<C>>(jobs.length);
-    let next = 0;
-
-    const worker = async (): Promise<void> => {
-      while (next < jobs.length) {
-        const index = next;
-        next += 1;
-        const job = jobs[index];
-        if (job === undefined) continue;
-        signal.throwIfAborted();
-
-        const extractor = job.classification.extractor ?? this.#extractor;
-        if (extractor === undefined) {
-          throw new MissingComponentError(
-            `No extractor for "${job.classification.name}". Call loadExtractor(...) on the ` +
-              "Process, or give the classification its own `extractor`.",
-          );
-        }
-
-        const contract = extractionContractOf(job.classification);
-        const hints = job.classification.hints ?? (isContract(contract) ? contract.hints : undefined);
-        const examples = job.classification.examples ?? (isContract(contract) ? contract.examples : undefined);
-        const result = await extractor.extractResult(preloaded, contract, withProcessHints({
-          ...options,
-          pages: job.group.pages,
-          signal,
-          logger,
-        }, hints, { owner: `classification "${job.classification.name}"`, examples }));
-
-        results[index] = {
-          name: job.classification.name,
-          data: result.data,
-          result,
-          pages: job.group.pages,
-        } as ClassifiedExtraction<C>;
+    return mapWithConcurrency(jobs, limit, async ({ group, classification }, _index, jobSignal) => {
+      const extractor = classification.extractor ?? this.#extractor;
+      if (extractor === undefined) {
+        throw new MissingComponentError(
+          `No extractor for "${classification.name}". Call loadExtractor(...) on the ` +
+            "Process, or give the classification its own `extractor`.",
+        );
       }
-    };
 
-    await Promise.all(Array.from({ length: Math.min(limit, jobs.length) }, worker));
-    return results;
+      const contract = extractionContractOf(classification);
+      const hints = classification.hints ?? (isContract(contract) ? contract.hints : undefined);
+      const examples = classification.examples ?? (isContract(contract) ? contract.examples : undefined);
+      const decided: ClassificationResult = {
+        name: classification.name,
+        confidence: group.confidence ?? 1,
+        signals: [],
+      };
+      const result = await extractor.extractResult(preloaded, contract, withProcessHints({
+        ...withoutCallDeadline(options),
+        pages: group.pages,
+        signal: jobSignal,
+        logger,
+      }, hints, { owner: `classification "${classification.name}"`, examples, classification: decided }));
+
+      return {
+        name: classification.name,
+        data: result.data,
+        result,
+        pages: group.pages,
+      } as ClassifiedExtraction<C>;
+    }, signal);
   }
 
   /**
    * Cut the bundle and report the groups, without extracting anything.
    *
    * Useful on its own: "which pages are the invoice?" is a question worth being able
-   * to answer before paying to extract forty of them.
+   * to answer before paying to extract forty of them. A `source` here overrides
+   * {@link Process.loadFile} for this call only.
    */
-  async splitOnly(options: RunOptions = {}): Promise<SplitReport> {
-    const source = this.#source;
-    if (source === undefined) {
-      throw new MissingComponentError("Process has no file. Call loadFile(...) before splitting.");
-    }
-    const signal = options.signal ?? new AbortController().signal;
-    const logger = options.logger ?? this.#logger;
-    await this.#cut(await this.#read(source, signal, logger, options), signal, logger, options);
-    const report = this.#lastSplit;
-    if (report === undefined) throw new SplitFailedError("no split was planned");
-    return report;
+  splitOnly(source: DocumentSource, options?: RunOptions): Promise<SplitReport>;
+  splitOnly(options?: RunOptions): Promise<SplitReport>;
+  async splitOnly(first?: DocumentSource | RunOptions, second?: RunOptions): Promise<SplitReport> {
+    const { source, options } = this.#call(first, second, "splitOnly");
+    return withCallDeadline(options.timeoutMs, options.signal, async (bounded) => {
+      const signal = bounded ?? new AbortController().signal;
+      const logger = options.logger ?? this.#logger;
+      return this.#cut(await this.#read(source, signal, logger, options), signal, logger, options);
+    });
   }
 
-  /** Release the splitter and the default extractor. Idempotent per component. */
+  /** Release the splitter and the loaders loaded here. The extractor is borrowed. Idempotent. */
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.dispose();
+  }
+
   dispose(scope: DisposalScope = createDisposalScope()): Promise<void> {
     this.#disposed ??= scope.dispose(
       ...(this.#splitter === undefined ? [] : [this.#splitter]),
-      ...(this.#extractor === undefined ? [] : [this.#extractor]),
       ...this.#loaders,
     );
     return this.#disposed;
@@ -264,18 +286,29 @@ export class Process<C extends readonly Classification[] = readonly Classificati
 
   // ── Internals ─────────────────────────────────────────────────────────────────
 
+  #call<O extends RunOptions>(
+    first: DocumentSource | O | undefined,
+    second: O | undefined,
+    method: "extract" | "splitOnly",
+  ): { source: DocumentSource; options: O } {
+    const passed = second !== undefined || (first !== undefined && !isOptionsBag(first));
+    const source = passed && first !== undefined ? (first as DocumentSource) : this.#source;
+    if (source === undefined) {
+      throw new MissingComponentError(
+        `Process has no file. Pass one to ${method}(source), or call loadFile(...) before ${method}().`,
+      );
+    }
+    return { source, options: (passed ? second : first as O | undefined) ?? ({} as O) };
+  }
+
   async #read(
     source: DocumentSource,
     signal: AbortSignal,
     logger: Logger,
     options: RunOptions,
-  ): Promise<LoadedSource & { readonly mimeType: string }> {
+  ): Promise<Bundle> {
     if (isLoadedSource(source)) {
-      return {
-        loaded: source.loaded,
-        mimeType: source.mimeType ?? "application/octet-stream",
-        ...(source.fileName === undefined ? {} : { fileName: source.fileName }),
-      };
+      return { ...source, mimeType: source.mimeType ?? "application/octet-stream" };
     }
 
     const loaders = this.#loaders.length > 0 ? this.#loaders : this.#extractor?.components.loaders;
@@ -286,11 +319,17 @@ export class Process<C extends readonly Classification[] = readonly Classificati
     }
 
     const raw = await this.#sourceResolver(source, signal);
+    const started = Date.now();
     const read = await readDocument(loaders, raw, logger, signal, options.stageTimeoutMs);
+    isolatedListener(options.onEvent, logger)({
+      type: "load", loader: read.loader.name, pages: read.document.pages.length, ms: Date.now() - started,
+    });
+    const facts = read.loader.capabilities.facts;
     return {
       loaded: read.document,
       mimeType: raw.mimeType ?? "application/octet-stream",
       ...(raw.fileName === undefined ? {} : { fileName: raw.fileName }),
+      ...(facts === undefined ? {} : { facts }),
     };
   }
 
@@ -306,29 +345,30 @@ export class Process<C extends readonly Classification[] = readonly Classificati
     signal: AbortSignal,
     logger: Logger,
     options: RunOptions,
-  ): Promise<string> {
+  ): Promise<{ readonly classification: string; readonly confidence?: number }> {
     const only = this.#classifications[0];
-    if (only !== undefined && this.#classifications.length === 1) return only.name;
+    if (only !== undefined && this.#classifications.length === 1) return { classification: only.name };
 
     const extractor = this.#extractor;
     if (extractor === undefined || extractor.components.classifiers.length === 0) {
-      return UNCLASSIFIED;
+      return { classification: UNCLASSIFIED };
     }
 
     const verdict = await extractor.classify(bundle, this.#classifications, {
-      ...options,
+      ...withoutCallDeadline(options),
       signal,
       logger,
     });
-    return verdict.name;
+    return { classification: verdict.name, confidence: verdict.confidence };
   }
 
   async #cut(
-    bundle: LoadedSource & { readonly mimeType: string },
+    bundle: Bundle,
     signal: AbortSignal,
     logger: Logger,
     options: RunOptions,
-  ): Promise<DocGroups> {
+  ): Promise<SplitReport> {
+    signal.throwIfAborted();
     const document = bundle.loaded;
     if (!this.#splitPlanned) {
       throw new SplitFailedError(
@@ -343,16 +383,12 @@ export class Process<C extends readonly Classification[] = readonly Classificati
       const groups: DocGroups = [
         {
           pages: document.pages.map((page) => page.pageNumber),
-          classification: await this.#nameSinglePage(bundle, signal, logger, options),
+          ...await this.#nameSinglePage(bundle, signal, logger, options),
         },
       ];
-      this.#lastSplit = {
-        splitter: "none",
-        strategy: this.#strategy,
-        groups,
-        usage: EMPTY_USAGE,
-      };
-      return groups;
+      signal.throwIfAborted();
+      this.#lastSplit = { splitter: "none", strategy: this.#strategy, groups, usage: EMPTY_USAGE };
+      return this.#lastSplit;
     }
 
     const splitter = this.#splitter;
@@ -384,13 +420,34 @@ export class Process<C extends readonly Classification[] = readonly Classificati
     };
 
     const groups = await runSplitter(splitter, document.pages, this.#strategy, ctx);
-    this.#lastSplit = {
+    signal.throwIfAborted();
+    const report: SplitReport = {
       splitter: splitter.name,
       strategy: this.#strategy,
       groups,
       usage: { ...usage, wallMs: Date.now() - started },
     };
+    this.#lastSplit = report;
     logger.info("split", { splitter: splitter.name, groups: String(groups.length) });
-    return groups;
+    return report;
   }
 }
+
+function withoutCallDeadline<O extends RunOptions>(options: O): O {
+  if (options.timeoutMs === undefined) return options;
+  const copy: { -readonly [K in keyof O]: O[K] } = { ...options };
+  delete copy.timeoutMs;
+  return copy;
+}
+
+/**
+ * Every object `DocumentSource` is binary data, a URL, a `RawDocument` (`bytes`) or a
+ * `LoadedSource` (`loaded`). Tags rather than `instanceof` also recognise them from another realm.
+ */
+function isOptionsBag(value: DocumentSource | RunOptions): value is RunOptions {
+  if (typeof value !== "object" || value === null || ArrayBuffer.isView(value)) return false;
+  if (SOURCE_TAGS.has(Object.prototype.toString.call(value))) return false;
+  return !("bytes" in value) && !("loaded" in value);
+}
+
+const SOURCE_TAGS = new Set(["[object ArrayBuffer]", "[object SharedArrayBuffer]", "[object URL]"]);

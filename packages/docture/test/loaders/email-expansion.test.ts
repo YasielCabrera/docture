@@ -67,6 +67,14 @@ describe("email input expansion", () => {
     expect((await expandEmail(message, { inlineAttachments: "omit" })).parts).toHaveLength(3);
   });
 
+  it("keeps the sender's extension so a DOCX sent as octet-stream still resolves", async () => {
+    const docx = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 0]).toString("base64");
+    const result = await expandEmail(source(`Subject: Report\nContent-Type: multipart/mixed; boundary=m\n\n--m\nContent-Type: text/plain\n\nSee attached\n--m\nContent-Type: application/octet-stream\nContent-Disposition: attachment; filename="../Q3 Report.DOCX"\nContent-Transfer-Encoding: base64\n\n${docx}\n--m--\n`));
+    const attachment = result.parts[1]!.document;
+    expect(attachment.fileName).toBe("attachment-1.docx");
+    expect((await resolveSource(attachment)).mimeType).toBe("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+  });
+
   it("keeps attached emails opaque instead of recursively expanding them", async () => {
     const result = await expandEmail(source("Subject: Forward\nContent-Type: multipart/mixed; boundary=m\n\n--m\nContent-Type: text/plain\n\nBody\n--m\nContent-Type: message/rfc822\nContent-Disposition: inline\n\nSubject: Inner\n\nInner body\n--m--\n"));
     expect(result.parts).toHaveLength(2);
@@ -78,11 +86,14 @@ describe("email input expansion", () => {
     ["maxInputBytes", 8], ["maxDecodedBytes", 8], ["maxAttachments", 0], ["maxParts", 1], ["maxHeadersBytes", 8], ["maxNestingDepth", 0],
   ] as const)("enforces the %s bound", async (key, value) => {
     const failure: unknown = await expandEmail(source(mixed), { [key]: value }).catch((error: unknown) => error);
-    expect(errorCodeOf(failure)).toBe("LOAD_FAILED");
+    expect(errorCodeOf(failure)).toBe("EMAIL_INVALID");
   });
 
   it("rejects a headerless malformed message and preserves caller cancellation", async () => {
-    await expect(expandEmail(source("not an RFC message"))).rejects.toMatchObject({ code: "LOAD_FAILED" });
+    await expect(expandEmail(source("not an RFC message"))).rejects.toMatchObject({
+      code: "EMAIL_INVALID",
+      hint: "Pass the raw RFC 822 message bytes, such as an .eml file. If the message is valid but large, raise maxInputBytes, maxAttachments or maxDecodedBytes.",
+    });
     const controller = new AbortController();
     const reason = new Error("cancel email");
     controller.abort(reason);

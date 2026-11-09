@@ -99,19 +99,19 @@ describe("validation repair", () => {
   it("rejects a repair budget that is not a non-negative integer", async () => {
     const run = createExtractor({ loaders: [loader()], strategies: [fixedStrategy("f", { value: "x" })] })
       .extract(bytes, Value, { maxRepairs: -1 });
-    await expect(run).rejects.toThrow(RangeError);
+    await expect(run).rejects.toMatchObject({ code: "INVALID_OPTION", option: "maxRepairs" });
   });
 
   it("rejects a null per-call repair budget instead of using the extractor's budget", async () => {
     const run = createExtractor({ loaders: [loader()], strategies: [fixedStrategy("f", { value: "x" })] })
       .extract(bytes, Value, { maxRepairs: null as never });
-    await expect(run).rejects.toThrow(new RangeError("maxRepairs must be a non-negative integer"));
+    await expect(run).rejects.toMatchObject({ code: "INVALID_OPTION", message: "maxRepairs must be a non-negative integer; received null." });
   });
 
   it("rejects an extractor-level repair budget when the extractor is built", () => {
     for (const maxRepairs of [1.5, -1, Number.NaN]) {
       expect(() => createExtractor({ loaders: [loader()], strategies: [fixedStrategy("f", { value: "x" })], maxRepairs }))
-        .toThrow(new RangeError("maxRepairs must be a non-negative integer"));
+        .toThrow(expect.objectContaining({ code: "INVALID_OPTION", message: `maxRepairs must be a non-negative integer; received ${maxRepairs}.` }));
     }
   });
 

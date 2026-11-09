@@ -41,6 +41,8 @@ class GetterRunOptions {
   get rules() { return this.#values.rules; }
   get onRuleFailure() { return this.#values.onRuleFailure; }
   get maxRepairs() { return this.#values.maxRepairs; }
+  get timeoutMs() { return this.#values.timeoutMs; }
+  get onEvent() { return this.#values.onEvent; }
 }
 
 class GetterConvertOptions {
@@ -52,6 +54,8 @@ class GetterConvertOptions {
   get signal() { return this.#values.signal; }
   get logger() { return this.#values.logger; }
   get stageTimeoutMs() { return this.#values.stageTimeoutMs; }
+  get timeoutMs() { return this.#values.timeoutMs; }
+  get onEvent() { return this.#values.onEvent; }
 }
 
 function nonEnumerable<T extends object>(values: T): T {
@@ -89,14 +93,14 @@ function runValues(overrides: RunOptions = {}): Required<RunOptions> {
   return {
     signal: new AbortController().signal, pages: [2], stageTimeoutMs: 10_000,
     only: ["recorder"], classifications: [invoice], classify: { threshold: 0.5 },
-    logger: silentLogger, rules: [], onRuleFailure: "report", maxRepairs: 1, ...overrides,
+    logger: silentLogger, rules: [], onRuleFailure: "report", maxRepairs: 1, timeoutMs: 10_000, onEvent: () => {}, ...overrides,
   };
 }
 
 function convertValues(overrides: ConvertOptions = {}): Required<ConvertOptions> {
   return {
     format: "html", pages: [1], assets: "embedded", signal: new AbortController().signal,
-    logger: silentLogger, stageTimeoutMs: 10_000, ...overrides,
+    logger: silentLogger, stageTimeoutMs: 10_000, timeoutMs: 10_000, onEvent: () => {}, ...overrides,
   };
 }
 

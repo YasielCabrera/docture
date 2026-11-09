@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import type { DocumentFeatures } from "docture";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { explain } from "../src/cli/errors.js";
+import { exitCodeOf, explain } from "../src/cli/errors.js";
 import { INVOICE_JSON_SCHEMA, cleanup, cli, tempDir, textLoaderConfig, writeFixture } from "./harness.js";
 
 type ErrorsModule = typeof import("../../docture/src/core/pipeline/errors.js");
@@ -31,6 +31,17 @@ const features: DocumentFeatures = {
 };
 
 describe("errors raised by another installed copy of docture", () => {
+  it("exit 2 for an invalid option, since the invocation is what needs changing", () => {
+    const error = new copy.InvalidOptionError("concurrency", "a positive integer", 0);
+    expect(explain(error)).toEqual({
+      code: "INVALID_OPTION",
+      message: "concurrency must be a positive integer; received 0.",
+      hint: "Set concurrency to a positive integer.",
+    });
+    expect(exitCodeOf(error)).toBe(2);
+    expect(exitCodeOf(new copy.LoadFailedError([]))).toBe(1);
+  });
+
   it("are explained with their code and hint", () => {
     const explained = explain(new copy.NoEligibleStrategyError(features, []));
 

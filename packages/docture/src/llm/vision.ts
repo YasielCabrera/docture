@@ -23,6 +23,7 @@ import { withCompletedUsage } from "./failure.js";
 import { repairFingerprint, repairMessages } from "./repair.js";
 import { EXTRACTION_CACHE_VERSION, requestObject, untransformed, type ObjectRequest, type ObjectResponse } from "./request.js";
 import { callTelemetry, type LlmTelemetryOptions, type TelemetryScope } from "./telemetry.js";
+import { positiveInteger } from "../core/pipeline/options.js";
 
 export type { LlmTelemetryOptions } from "./telemetry.js";
 
@@ -68,7 +69,7 @@ const MEDIA_TYPES: Readonly<Record<RasterFormat, string>> = {
  * Extract structured values from renderable page images.
  *
  * @remarks VisionStrategyOptions requires a model. Defaults are maxEdge 1568, pagesPerRequest 20 and concurrency 4. Provider options and render settings are part of cache identity.
- * @throws MODEL_OUTPUT_FAILED for schema-invalid model responses. Invalid concurrency or image-group limits throw RangeError.
+ * @throws MODEL_OUTPUT_FAILED for schema-invalid model responses. INVALID_OPTION when concurrency or pagesPerRequest is not a positive integer.
  * @example
  * ```ts
  * import { VisionStrategy } from "docture/llm/vision";
@@ -81,13 +82,8 @@ export class VisionStrategy implements ExtractionStrategy {
   readonly needsClassification: ClassificationNeed;
 
   constructor(private readonly options: VisionStrategyOptions) {
-    if (options.pagesPerRequest !== undefined &&
-        (!Number.isInteger(options.pagesPerRequest) || options.pagesPerRequest < 1)) {
-      throw new RangeError("pagesPerRequest must be a positive integer");
-    }
-    if (options.concurrency !== undefined && (!Number.isInteger(options.concurrency) || options.concurrency < 1)) {
-      throw new RangeError("concurrency must be a positive integer");
-    }
+    if (options.pagesPerRequest !== undefined) positiveInteger("pagesPerRequest", options.pagesPerRequest);
+    if (options.concurrency !== undefined) positiveInteger("concurrency", options.concurrency);
     this.name = options.name ?? "vision";
     this.needsClassification = options.needsClassification ?? "hint";
   }

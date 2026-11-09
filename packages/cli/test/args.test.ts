@@ -6,6 +6,7 @@ import {
   nearest,
   numberFlag,
   parseCommand,
+  parsePageList,
   stringFlag,
   type CommandSpec,
 } from "../src/cli/args.js";
@@ -131,5 +132,13 @@ describe("the specs themselves", () => {
       expect(command.flags.some((f) => f.name === "help"), command.name).toBe(true);
     }
     expect(EXTRACT.examples?.length ?? 0).toBeGreaterThan(0);
+  });
+});
+
+describe("parsePageList", () => {
+  it("names the page cap when a list selects more than 100,000 pages", () => {
+    expect(() => parsePageList("pages", "1-100001")).toThrow("--pages can select at most 100,000 pages.");
+    expect(() => parsePageList("pages", "1-60000,70001-130000")).toThrow("--pages can select at most 100,000 pages.");
+    expect(parsePageList("pages", "99999-100000,3")).toEqual([3, 99999, 100000]);
   });
 });

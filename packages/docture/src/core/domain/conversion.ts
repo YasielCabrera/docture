@@ -273,6 +273,16 @@ export interface ConvertOptions {
   readonly logger?: import("./logger.js").Logger;
   /** Per-stage deadline in ms. Omit for none. */
   readonly stageTimeoutMs?: number;
+  /**
+   * Deadline in ms for the whole call. When it passes, every component's signal aborts and
+   * the call rejects with `TIMEOUT` at stage `"call"`. Overrides the converter's default when set.
+   */
+  readonly timeoutMs?: number;
+  /**
+   * Progress as it happens: `load`, each finished `attempt`, and a `page` event as layout
+   * analysis finishes each page. Called synchronously; a listener that throws is logged and ignored.
+   */
+  readonly onEvent?: import("./events.js").PipelineEventListener;
 }
 
 export interface ConversionResult {
@@ -292,17 +302,7 @@ export interface ConversionResult {
   readonly ocrFallback?: OcrFallbackReport;
 }
 
-export type SafeConversion =
-  | { readonly ok: true; readonly result: ConversionResult }
-  | { readonly ok: false; readonly error: Error };
-
 export interface ConversionBatchOptions extends ConvertOptions {
   /** Documents processed at once. Default 4. */
   readonly concurrency?: number;
-}
-
-export interface ConversionBatchItem {
-  readonly source: import("./document.js").DocumentSource;
-  readonly index: number;
-  readonly outcome: SafeConversion;
 }

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const rootFlag = process.argv.indexOf("--root");
 const root = rootFlag < 0 ? resolve(dirname(fileURLToPath(import.meta.url)), "..") : resolve(process.argv[rootFlag + 1]);
-const source = readFileSync(resolve(root, "packages/docture/src/core/pipeline/errors.ts"), "utf8");
+const source = readFileSync(resolve(root, "packages/docture/src/core/domain/error-codes.ts"), "utf8");
 const union = /export type DoctureErrorCode =([\s\S]*?);/.exec(source)?.[1];
 if (union === undefined) throw Error("DoctureErrorCode union is missing");
 const descriptions = {
@@ -17,13 +17,17 @@ const descriptions = {
   MODEL_OUTPUT_FAILED: "A billed model response failed structured-output validation.",
   CONTRACT_VIOLATION: "Extracted data failed the requested schema or a fail-mode validation rule.",
   UNSUPPORTED_SOURCE: "The source cannot be read.",
-  TIMEOUT: "A library-owned stage deadline elapsed.",
+  TIMEOUT: "A library-owned deadline elapsed: a stage's `stageTimeoutMs` or the whole call's `timeoutMs`.",
   DUPLICATE_COMPONENT: "Two components use the same registered name.",
   SPLIT_FAILED: "Splitting is unavailable or failed.",
   UNCLASSIFIED_GROUP: "A split group matched none of the allowed kinds.",
   MISSING_ENGINE: "A selected integration's optional engine is not installed.",
   MISSING_COMPONENT: "Required wiring or call state is missing.",
   DISPOSED: "A component was used after `dispose()` released it.",
+  INVALID_OPTION: "An option or argument is outside the values it accepts.",
+  DOCLING_FAILED: "Docling Serve rejected the request or returned no usable conversion. Raised by `docture/loaders/docling`.",
+  DOCX_FAILED: "Mammoth could not read the DOCX file. Raised by `docture/loaders/mammoth`.",
+  EMAIL_INVALID: "The input is not a readable RFC email or exceeds a configured limit. Raised by `docture/inputs/email`.",
   EVAL_SPEC_INVALID: "An eval spec, rule set or metric set cannot be resolved. Raised by `@docture/eval`.",
   GROUND_TRUTH_INVALID: "Expected values do not satisfy their eval spec. Raised by `@docture/eval`.",
   EVAL_DATASET_INVALID: "An eval dataset cannot produce its cases. Raised by `@docture/eval`.",

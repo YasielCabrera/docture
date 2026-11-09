@@ -31,11 +31,17 @@ export function eligibleLoaders(
     else {
       gaps.push({
         name: loader.name,
-        reason: `accepts ${loader.capabilities.mimeTypes.join(", ")}, not "${mimeType}"`,
+        reason: declinedReason(loader, mimeType) ??
+          `accepts ${loader.capabilities.mimeTypes.join(", ")}, not "${mimeType}"`,
       });
     }
   }
   return { eligible, gaps };
+}
+
+function declinedReason(loader: DocumentLoader, mimeType: string): string | undefined {
+  const wanted = mimeType.toLowerCase();
+  return Object.entries(loader.capabilities.declines ?? {}).find(([type]) => type.toLowerCase() === wanted)?.[1];
 }
 
 function missingFacts(

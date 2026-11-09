@@ -13,7 +13,7 @@ import { fixedStrategy, inMemoryLoader, loadedDocument } from "docture/testing/d
 const Totals = z.object({ total: z.number() });
 const bytes = new Uint8Array([1]);
 const loader = () => inMemoryLoader(loadedDocument(["Invoice total 60.00 with a complete text layer."]));
-const MODE_MESSAGE = 'onRuleFailure must be "report" or "fail"; received "typo"';
+const MODE_ERROR = { code: "INVALID_OPTION", option: "onRuleFailure", message: 'onRuleFailure must be "report" or "fail"; received "typo".' };
 
 function countingStrategy(): ExtractionStrategy & { readonly runs: number } {
   let runs = 0;
@@ -33,14 +33,14 @@ const extractWith = (rules: readonly unknown[], strategies: ExtractionStrategy[]
 
 describe("rule settings at the public boundary", () => {
   it("rejects an unknown extractor rule mode when the extractor is created", () => {
-    expect(() => createExtractor({ loaders: [loader()], onRuleFailure: "typo" as never })).toThrow(new RangeError(MODE_MESSAGE));
+    expect(() => createExtractor({ loaders: [loader()], onRuleFailure: "typo" as never })).toThrow(expect.objectContaining(MODE_ERROR));
   });
 
   it("rejects an unknown per-call rule mode before any strategy runs", async () => {
     const strategy = countingStrategy();
     const run = createExtractor({ loaders: [loader()], strategies: [strategy] })
       .extract(bytes, Totals, { onRuleFailure: "typo" as never });
-    await expect(run).rejects.toThrow(new RangeError(MODE_MESSAGE));
+    await expect(run).rejects.toMatchObject(MODE_ERROR);
     expect(strategy.runs).toBe(0);
   });
 
@@ -48,7 +48,7 @@ describe("rule settings at the public boundary", () => {
     const strategy = countingStrategy();
     const run = createExtractor({ loaders: [loader()], strategies: [strategy] })
       .extract(bytes, Totals, { onRuleFailure: null as never });
-    await expect(run).rejects.toThrow(new RangeError('onRuleFailure must be "report" or "fail"; received null'));
+    await expect(run).rejects.toMatchObject({ code: "INVALID_OPTION", message: 'onRuleFailure must be "report" or "fail"; received null.' });
     expect(strategy.runs).toBe(0);
   });
 
@@ -60,7 +60,7 @@ describe("rule settings at the public boundary", () => {
       .loadFile(bytes)
       .split([invoice], SplittingStrategy.EAGER)
       .extract({ onRuleFailure: "typo" as never });
-    await expect(run).rejects.toThrow(new RangeError(MODE_MESSAGE));
+    await expect(run).rejects.toMatchObject(MODE_ERROR);
     expect(strategy.runs).toBe(0);
   });
 

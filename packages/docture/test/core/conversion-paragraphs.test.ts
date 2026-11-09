@@ -140,7 +140,7 @@ describe("wrapped text-layer lines", () => {
     ]));
 
     expect(result.content).toBe(
-      "<!-- page: 1 -->\n\n## Assessment of Undiscovered Oil and Gas Resources in the Norphlet Formation, 2023\n\n" +
+      "<!-- page: 1 -->\n\n# Assessment of Undiscovered Oil and Gas Resources in the Norphlet Formation, 2023\n\n" +
         "Using a geology-based assessment methodology, the survey estimated\nundiscovered resources.",
     );
   });
@@ -175,7 +175,7 @@ describe("heading size reference", () => {
     ]));
 
     expect(result.content).toBe(
-      "<!-- page: 1 -->\n\n###### 2\\. Transactions\n\n" +
+      "<!-- page: 1 -->\n\n# 2\\. Transactions\n\n" +
         "We define an electronic coin as a chain of digital signatures. Each\nowner transfers the coin to the next by signing a hash.\n\n" +
         "Owner 1's\n\nOwner 2's\n\nPublic Key\n\nHash\n\nHash\n\nVerify\n\nSignature\n\nSign\n\nSign\n\nPrivate Key\n\n" +
         "The problem of course is the payee cannot verify that one of the\nowners did not double-spend the coin.",

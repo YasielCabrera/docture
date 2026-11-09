@@ -28,11 +28,17 @@ import {
   bodyFontSize,
   boxOfLines,
   candidatesFor,
+  characterFontSize,
   fontSizes,
   HEADING_SIZE_RATIO,
+  isBold,
   isMonospace,
+  isRotated,
   median,
+  mostCharacters,
+  ORDERED_MARKER,
   unionBox,
+  UNORDERED_MARKER,
   type Candidate,
 } from "./candidates.js";
 import {
@@ -47,6 +53,7 @@ import {
   type TableContinuation,
   type TableTraits,
 } from "./continuation.js";
+import { joinSpans, spanSeparator } from "../domain/lines.js";
 import { withElementIds } from "./element-ids.js";
 import { detectFurniture, type Furniture } from "./furniture.js";
 import { mergeCandidates, paragraphLength } from "./paragraphs.js";
@@ -63,10 +70,14 @@ export interface DeterministicAnalysis {
  * Sort blocks by columns when the geometry clearly separates them. Blocks that
  * span most of the page remain in vertical order and naturally split columns.
  */
-function readingOrder(candidates: readonly Candidate[], pageWidth: number): Candidate[] {
-  const narrow = candidates.filter((candidate) => candidate.box.width < pageWidth * 0.6);
-  const left = narrow.filter((candidate) => candidate.box.x + candidate.box.width <= pageWidth * 0.56);
-  const right = narrow.filter((candidate) => candidate.box.x >= pageWidth * 0.44);
+function readingOrder(candidates: readonly Candidate[], pageWidth: number, gutter: number | undefined): Candidate[] {
+  const leftEdge = gutter ?? pageWidth * 0.56;
+  const rightEdge = gutter ?? pageWidth * 0.44;
+  const narrow = gutter === undefined
+    ? candidates.filter((candidate) => candidate.box.width < pageWidth * 0.6)
+    : candidates;
+  const left = narrow.filter((candidate) => candidate.box.x + candidate.box.width <= leftEdge);
+  const right = narrow.filter((candidate) => candidate.box.x >= rightEdge);
   const aligned = (first: Candidate, second: Candidate): boolean => {
     const overlap =
       Math.min(first.box.y + first.box.height, second.box.y + second.box.height) -
@@ -82,11 +93,7 @@ function readingOrder(candidates: readonly Candidate[], pageWidth: number): Cand
   }
 
   const columnTop = Math.min(...[...matchedLeft, ...matchedRight].map((candidate) => candidate.box.y));
-  const columnBottom = Math.max(
-    ...[...matchedLeft, ...matchedRight].map(
-      (candidate) => candidate.box.y + candidate.box.height,
-    ),
-  );
+  const columnBottom = Math.max(continuedBottom(left, matchedLeft), continuedBottom(right, matchedRight));
   const before = candidates
     .filter((candidate) => candidate.box.y + candidate.box.height <= columnTop)
     .sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
@@ -101,15 +108,16 @@ function readingOrder(candidates: readonly Candidate[], pageWidth: number): Cand
   const spanning = middle
     .filter(
       (candidate) =>
-        candidate.box.x < pageWidth * 0.44 &&
-        candidate.box.x + candidate.box.width > pageWidth * 0.56,
+        candidate.box.x < rightEdge &&
+        candidate.box.x + candidate.box.width > leftEdge,
     )
     .sort((a, b) => a.box.y - b.box.y);
   let top = columnTop;
 
+  const column = (box: LayoutBox): number => (box.x + box.width / 2 < (gutter ?? pageWidth / 2) ? 0 : 1);
   const appendBand = (include: (box: LayoutBox) => boolean): void => {
     const band = middle.filter((candidate) => remaining.has(candidate) && candidate.box.y >= top && include(candidate.box));
-    for (const candidate of band.sort((a, b) => a.box.x - b.box.x || a.box.y - b.box.y)) {
+    for (const candidate of band.sort((a, b) => column(a.box) - column(b.box) || a.box.y - b.box.y || a.box.x - b.box.x)) {
       ordered.push(candidate);
       remaining.delete(candidate);
     }
@@ -129,9 +137,22 @@ function readingOrder(candidates: readonly Candidate[], pageWidth: number): Cand
   return [...ordered, ...after];
 }
 
+function continuedBottom(column: readonly Candidate[], matched: readonly Candidate[]): number {
+  let bottom = Math.max(...matched.map((candidate) => candidate.box.y + candidate.box.height));
+  for (const candidate of [...column].sort((a, b) => a.box.y - b.box.y)) {
+    if (candidate.box.y < bottom) continue;
+    if (candidate.box.y - bottom > candidate.box.height * 2) break;
+    bottom = candidate.box.y + candidate.box.height;
+  }
+  return bottom;
+}
+
 function hasAmbiguousReadingOrder(candidates: readonly Candidate[]): boolean {
-  for (const [index, candidate] of candidates.entries()) {
-    for (const other of candidates.slice(index + 1)) {
+  const byTop = [...candidates].sort((a, b) => a.box.y - b.box.y);
+  for (const [index, candidate] of byTop.entries()) {
+    for (let next = index + 1; next < byTop.length; next += 1) {
+      const other = byTop[next];
+      if (other === undefined || other.box.y >= candidate.box.y + candidate.box.height) break;
       const verticalOverlap =
         Math.min(candidate.box.y + candidate.box.height, other.box.y + other.box.height) -
         Math.max(candidate.box.y, other.box.y);
@@ -157,7 +178,9 @@ function inlineFromLines(lines: readonly TextLine[]): InlineText[] {
   const runs: InlineText[] = [];
   for (const [lineIndex, line] of lines.entries()) {
     for (const [spanIndex, span] of line.spans.entries()) {
-      if (spanIndex > 0) runs.push({ text: " " });
+      const previous = line.spans[spanIndex - 1];
+      const separator = previous === undefined ? "" : spanSeparator(previous, span);
+      if (separator !== "") runs.push({ text: separator });
       runs.push({ text: span.text, ...(span.href === undefined ? {} : { href: span.href }) });
     }
     if (lineIndex + 1 < lines.length) runs.push({ text: "\n" });
@@ -212,24 +235,44 @@ function headingLevel(size: number, bodySize: number): 1 | 2 | 3 | 4 | 5 | 6 {
   return 6;
 }
 
+const HEADING_TIER_TOLERANCE = 0.05;
+
+function documentHeadingLevels(sizes: ReadonlyMap<DocumentElement, number>): Map<DocumentElement, HeadingElement["level"]> {
+  const tiers: number[] = [];
+  for (const size of [...new Set(sizes.values())].sort((a, b) => b - a)) {
+    const smallest = tiers.at(-1);
+    if (smallest === undefined || size < smallest * (1 - HEADING_TIER_TOLERANCE)) tiers.push(size);
+  }
+  const levels = new Map<DocumentElement, HeadingElement["level"]>();
+  for (const [element, size] of sizes) {
+    const tier = tiers.findIndex((top) => size >= top * (1 - HEADING_TIER_TOLERANCE));
+    levels.set(element, Math.min(6, tier + 1) as HeadingElement["level"]);
+  }
+  return levels;
+}
+
 /** Larger than the body by more than the size variation of one paragraph's lines. */
 const NUMBERED_TITLE_RATIO = 1.1;
 
-const UNORDERED = /^\s*[•◦▪●*-]\s+/u;
-const ORDERED = /^\s*\d+[.)]\s+/u;
 
 function listKind(text: string): "ordered" | "unordered" | undefined {
-  if (ORDERED.test(text)) return "ordered";
-  if (UNORDERED.test(text)) return "unordered";
+  if (ORDERED_MARKER.test(text)) return "ordered";
+  if (UNORDERED_MARKER.test(text)) return "unordered";
   return undefined;
 }
 
-function stripListMarker(text: string): string {
-  return text.replace(ORDERED, "").replace(UNORDERED, "");
+function withoutPrefix(runs: readonly InlineText[], length: number): InlineText[] {
+  let remaining = length;
+  return runs.flatMap((run) => {
+    if (remaining <= 0) return [run];
+    const cut = Math.min(remaining, run.text.length);
+    remaining -= cut;
+    return cut === run.text.length ? [] : [{ ...run, text: run.text.slice(cut) }];
+  });
 }
 
 function originalListMarker(text: string): string | undefined {
-  return ORDERED.exec(text)?.[0] ?? UNORDERED.exec(text)?.[0];
+  return ORDERED_MARKER.exec(text)?.[0] ?? UNORDERED_MARKER.exec(text)?.[0];
 }
 
 /**
@@ -242,6 +285,18 @@ function isNumberedSectionTitle(lines: readonly Candidate[], bodySize: number): 
   return fitsTitle(text, lines.length) && size > 0 && bodySize > 0 && size >= bodySize * NUMBERED_TITLE_RATIO;
 }
 
+function setInBold(candidates: readonly Candidate[]): boolean {
+  const inked = candidates.flatMap(allSpans).filter((span) => span.text.trim() !== "");
+  return inked.length > 0 && inked.every(isBold);
+}
+
+function isBoldNumberedTitle(title: readonly Candidate[], next: Candidate | undefined): boolean {
+  const line = title.length === 1 ? title[0]?.lines : undefined;
+  if (line?.length !== 1 || next === undefined || !setInBold(title) || setInBold([next])) return false;
+  const text = line[0]?.text ?? "";
+  return fitsTitle(text, 1) && listKind(next.lines.map((value) => value.text).join("\n")) === undefined;
+}
+
 /** A title runs to at most two lines: 120 characters on one line, 200 when it wraps. */
 function fitsTitle(text: string, lineCount: number): boolean {
   const length = text.trim().length;
@@ -249,11 +304,62 @@ function fitsTitle(text: string, lineCount: number): boolean {
 }
 
 interface CandidateGap {
-  readonly index: number;
+  readonly spanBefore: number;
   readonly boundary: number;
+  readonly atClearGutter?: true;
 }
 
-function columnGap(candidate: Candidate, pageWidth: number): CandidateGap | undefined {
+interface Gutter {
+  readonly boundary: number;
+  readonly minWidth: number;
+}
+
+const GUTTER_HEIGHTS = 1.2;
+
+interface SpanGap {
+  readonly spanBefore: number;
+  readonly start: number;
+  readonly end: number;
+}
+
+function gapsAtLeast(spans: readonly TextSpan[], width: number): SpanGap[] {
+  return spans.slice(1).flatMap((next, index) => {
+    const previous = spans[index];
+    if (previous === undefined) return [];
+    const start = previous.x + previous.width;
+    return next.x - start >= width ? [{ spanBefore: index, start, end: next.x }] : [];
+  });
+}
+
+function clearGutter(candidates: readonly Candidate[], pageWidth: number): Gutter | undefined {
+  const lines = candidates.filter((candidate) => candidate.lines.length === 1).flatMap((candidate) => candidate.lines);
+  const height = median(lines.flatMap((line) => line.spans.map((span) => span.height)).filter((value) => value > 0));
+  if (height <= 0) return undefined;
+  const minWidth = height * GUTTER_HEIGHTS;
+  const gaps = lines.flatMap((line) => {
+    const wide = gapsAtLeast(line.spans, minWidth);
+    const gap = wide[0];
+    if (gap === undefined || wide.length !== 1) return [];
+    const left = line.spans[0]?.x ?? 0;
+    const right = Math.max(...line.spans.map((span) => span.x + span.width));
+    const middle = (gap.start + gap.end) / 2;
+    const prose = gap.start - left >= pageWidth * 0.25 && right - gap.end >= pageWidth * 0.25;
+    return prose && middle > pageWidth * 0.3 && middle < pageWidth * 0.7 ? [{ ...gap, middle, y: line.y }] : [];
+  });
+  let best: { boundary: number; count: number } | undefined;
+  for (const boundary of new Set(gaps.map((gap) => Math.round(gap.middle)))) {
+    const splitting = gaps.filter((gap) => gap.start <= boundary && gap.end >= boundary);
+    if (splitting.length < 3 || (best !== undefined && splitting.length <= best.count)) continue;
+    const top = Math.min(...splitting.map((gap) => gap.y));
+    const bottom = Math.max(...splitting.map((gap) => gap.y));
+    const crossing = lines.filter((line) => line.y >= top && line.y <= bottom &&
+      line.spans.some((span) => span.x < boundary && span.x + span.width > boundary)).length;
+    if (crossing * 4 <= splitting.length) best = { boundary, count: splitting.length };
+  }
+  return best === undefined ? undefined : { boundary: best.boundary, minWidth };
+}
+
+function columnGap(candidate: Candidate, pageWidth: number, gutter: Gutter | undefined): CandidateGap | undefined {
   if (candidate.lines.length !== 1) return undefined;
   const spans = candidate.lines[0]?.spans ?? [];
   let best: { index: number; size: number; boundary: number } | undefined;
@@ -267,24 +373,41 @@ function columnGap(candidate: Candidate, pageWidth: number): CandidateGap | unde
       best = { index, size, boundary: start + size / 2 };
     }
   }
-  if (best === undefined || best.size < Math.max(24, pageWidth * 0.08)) return undefined;
-  return { index: best.index, boundary: best.boundary };
+  if (best !== undefined && best.size >= Math.max(24, pageWidth * 0.08)) {
+    const start = best.boundary - best.size / 2;
+    return gutter !== undefined && start <= gutter.boundary && start + best.size >= gutter.boundary
+      ? { spanBefore: best.index, boundary: gutter.boundary, atClearGutter: true }
+      : { spanBefore: best.index, boundary: best.boundary };
+  }
+  if (gutter === undefined) return undefined;
+  const wide = gapsAtLeast(spans, gutter.minWidth);
+  const gap = wide[0];
+  return wide.length === 1 && gap !== undefined && gap.start <= gutter.boundary && gap.end >= gutter.boundary
+    ? { spanBefore: gap.spanBefore, boundary: gutter.boundary, atClearGutter: true }
+    : undefined;
 }
 
 function splitCandidate(candidate: Candidate, gap: CandidateGap): Candidate[] {
   const line = candidate.lines[0];
   if (line === undefined) return [candidate];
-  return [line.spans.slice(0, gap.index + 1), line.spans.slice(gap.index + 1)].flatMap(
+  const halves = [line.spans.slice(0, gap.spanBefore + 1), line.spans.slice(gap.spanBefore + 1)];
+  const sizes = halves.map(characterFontSize);
+  const largest = Math.max(...sizes);
+  return halves.flatMap(
     (spans, index) => {
       if (spans.length === 0) return [];
+      const { role, level, ...rest } = candidate;
+      const keepsRole = role !== "heading" || (sizes[index] ?? 0) >= largest;
       const splitLine: TextLine = {
         y: line.y,
         height: line.height,
-        text: spans.map((span) => span.text).join(" "),
+        text: joinSpans(spans),
         spans,
       };
       return [{
-        ...candidate,
+        ...rest,
+        ...(keepsRole && role !== undefined ? { role } : {}),
+        ...(keepsRole && level !== undefined ? { level } : {}),
         id: `${candidate.id}-column-${index + 1}`,
         sourceIds: candidate.sourceIds ?? [candidate.id],
         box: boxOfLines([splitLine]),
@@ -296,20 +419,22 @@ function splitCandidate(candidate: Candidate, gap: CandidateGap): Candidate[] {
 
 /**
  * Text-layer loaders often return one visual line containing both columns. A
- * repeated wide gutter is column evidence unless typography marks the same rows
- * as a table. Splitting here gives the reading-order pass real column blocks.
+ * repeated wide gutter, or a narrow one that no text crosses, is column evidence
+ * unless typography marks the same rows as a table. Splitting here gives the
+ * reading-order pass real column blocks.
  */
 function splitColumnCandidates(
   candidates: readonly Candidate[],
   pageWidth: number,
   acceptTable: (group: TableGroup) => boolean,
+  gutter: Gutter | undefined,
 ): Candidate[] {
   const bandTables = tableGroupIds(candidates, (group) => group.rule === "bands" && acceptTable(group));
   const output: Candidate[] = [];
   for (let index = 0; index < candidates.length; ) {
     const candidate = candidates[index];
     if (candidate === undefined) break;
-    const firstGap = columnGap(candidate, pageWidth);
+    const firstGap = columnGap(candidate, pageWidth, gutter);
     if (firstGap === undefined) {
       output.push(candidate);
       index += 1;
@@ -320,7 +445,7 @@ function splitColumnCandidates(
     for (let cursor = index + 1; cursor < candidates.length; cursor += 1) {
       const next = candidates[cursor];
       if (next === undefined) break;
-      const gap = columnGap(next, pageWidth);
+      const gap = columnGap(next, pageWidth, gutter);
       if (
         gap === undefined ||
         Math.abs(gap.boundary - firstGap.boundary) > pageWidth * 0.08
@@ -330,9 +455,10 @@ function splitColumnCandidates(
       group.push({ candidate: next, gap });
     }
 
-    if (group.length >= 2) {
+    const minimum = group.every((item) => item.gap.atClearGutter === true) ? 1 : 2;
+    if (group.length >= minimum) {
       const splittableLines = group.filter((item) => !bandTables.has(item.candidate.id));
-      if (looksLikeTableGroup(group.map((item) => item.candidate)) || splittableLines.length < 2) {
+      if (looksLikeTableGroup(group.map((item) => item.candidate)) || splittableLines.length < minimum) {
         output.push(...group.map((item) => item.candidate));
       } else {
         output.push(...group.flatMap((item) =>
@@ -360,36 +486,50 @@ function indentedCode(lines: readonly TextLine[]): string | undefined {
     .join("\n");
 }
 
+const TRAILING_AMOUNT = /(?:\p{Sc}\s?-?[\d.,]+|:\s*-?[\d,]*\d\.\d{2}|\d{1,3}(?:,\d{3})+(?:\.\d+)?)$/u;
+
+function readsAsTitle(text: string, spans: readonly TextSpan[]): boolean {
+  if (TRAILING_AMOUNT.test(text.trim())) return false;
+  return !spans.some((span, index) => {
+    const previous = spans[index - 1];
+    return previous !== undefined &&
+      span.x - (previous.x + previous.width) > 2 * Math.max(span.height, previous.height);
+  });
+}
+
+type HeadingSizes = Map<DocumentElement, number>;
+
 function elementForCandidate(
   candidate: Candidate,
   bodySize: number,
+  headingSizes: HeadingSizes,
 ): HeadingElement | ParagraphElement | CodeElement {
   const runs = inlineFromLines(candidate.lines);
   const text = textOf(runs);
   const spans = allSpans(candidate);
   const sizes = fontSizes(candidate);
   const size = median(sizes);
-  const mostlyBold = spans.length > 0 && spans.filter((span) => span.style?.bold === true).length >= spans.length / 2;
-  const mostlyMono = spans.length > 0 && spans.filter(isMonospace).length >= spans.length / 2;
-  const fits = fitsTitle(text, candidate.lines.length);
+  const inked = spans.filter((span) => span.text.trim() !== "");
+  const allBold = inked.length > 0 && inked.every(isBold);
+  const mostlyMono = mostCharacters(spans, isMonospace);
+  const fits = fitsTitle(text, candidate.lines.length) && /\p{L}/u.test(text);
   const isHeading =
     candidate.role === "heading" ||
     (size > 0 && bodySize > 0 && size >= bodySize * HEADING_SIZE_RATIO && fits) ||
-    (mostlyBold && fits && candidate.lines.length === 1 && size >= bodySize);
+    (allBold && fits && candidate.lines.length === 1 && size >= bodySize && readsAsTitle(text, inked));
 
   if (isHeading) {
-    const level =
-      candidate.level !== undefined && candidate.level >= 1 && candidate.level <= 6
-        ? (candidate.level as HeadingElement["level"])
-        : headingLevel(size, bodySize);
-    return {
+    const tagged = candidate.level !== undefined && candidate.level >= 1 && candidate.level <= 6;
+    const heading: HeadingElement = {
       id: candidate.id,
       kind: "heading",
-      level,
+      level: tagged ? (candidate.level as HeadingElement["level"]) : headingLevel(size, bodySize),
       text,
       runs,
       provenance: provenance([candidate]),
     };
+    if (!tagged && size > 0) headingSizes.set(heading, size);
+    return heading;
   }
 
   if (candidate.role === "code" || mostlyMono) {
@@ -416,6 +556,8 @@ function analyzeTextCandidates(
   acceptTable: (group: TableGroup) => boolean,
   traits: Map<DocumentElement, TableTraits>,
   warnings: ConversionWarning[],
+  gutter: number | undefined,
+  headingSizes: HeadingSizes,
 ): DocumentElement[] {
   const elements: DocumentElement[] = [];
   const opensBlock = (start: number): boolean => {
@@ -431,32 +573,40 @@ function analyzeTextCandidates(
     const kind = listKind(rawText);
 
     if (kind === "ordered") {
-      const title = candidates.slice(index, index + paragraphLength(candidates, index, opensBlock));
-      if (isNumberedSectionTitle(title, bodySize)) {
-        elements.push(elementForCandidate({ ...mergeCandidates(title), role: "heading" }, bodySize));
+      const title = candidates.slice(index, index + paragraphLength(candidates, index, opensBlock, gutter));
+      if (isNumberedSectionTitle(title, bodySize) || isBoldNumberedTitle(title, candidates[index + title.length])) {
+        elements.push(elementForCandidate({ ...mergeCandidates(title), role: "heading" }, bodySize, headingSizes));
         index += title.length;
         continue;
       }
     }
 
     if (kind !== undefined || candidate.role === "list-item") {
-      const grouped: Candidate[] = [];
-      const items: { text: string; runs: readonly InlineText[]; marker?: string }[] = [];
+      const members: Candidate[][] = [];
       let cursor = index;
       while (cursor < candidates.length) {
         const first = candidates[cursor];
         if (first === undefined) break;
         const firstKind = listKind(first.lines.map((line) => line.text).join("\n"));
         if (first.role !== "list-item" && (firstKind === undefined || firstKind !== kind)) break;
-        const length = paragraphLength(candidates, cursor, opensBlock);
-        const next = mergeCandidates(candidates.slice(cursor, cursor + length));
-        grouped.push(next);
+        if (firstKind !== undefined && kind !== undefined && firstKind !== kind) break;
+        const length = paragraphLength(candidates, cursor, opensBlock, gutter);
+        const lines = candidates.slice(cursor, cursor + length);
+        if (cursor > index && firstKind === "ordered" && isNumberedSectionTitle(lines, bodySize)) break;
         cursor += length;
-        const nextText = next.lines.map((line) => line.text).join("\n");
-        const text = stripListMarker(nextText);
-        const marker = originalListMarker(nextText);
-        items.push({ text, runs: [{ text }], ...(marker === undefined ? {} : { marker }) });
+        const previous = members.at(-1);
+        const opener = previous?.[0];
+        if (firstKind === undefined && previous !== undefined && opener !== undefined && listKind(opener.lines[0]?.text ?? "") !== undefined) {
+          previous.push(...lines);
+        } else members.push([...lines]);
       }
+      const grouped = members.map(mergeCandidates);
+      const items = grouped.map((next) => {
+        const markedRuns = inlineFromLines(next.lines);
+        const marker = originalListMarker(textOf(markedRuns));
+        const runs = withoutPrefix(markedRuns, marker?.length ?? 0);
+        return { text: textOf(runs), runs, ...(marker === undefined ? {} : { marker }) };
+      });
       const element: ListElement = {
         id: grouped[0]?.id ?? candidate.id,
         kind: "list",
@@ -500,8 +650,8 @@ function analyzeTextCandidates(
       continue;
     }
 
-    const length = paragraphLength(candidates, index, opensBlock);
-    elements.push(elementForCandidate(mergeCandidates(candidates.slice(index, index + length)), bodySize));
+    const length = paragraphLength(candidates, index, opensBlock, gutter);
+    elements.push(elementForCandidate(mergeCandidates(candidates.slice(index, index + length)), bodySize, headingSizes));
     index += length;
   }
 
@@ -534,6 +684,11 @@ function furnitureElement(candidate: Candidate, furniture: Furniture): PageHeade
     evidence: furniture.evidence,
     provenance: provenance([candidate]),
   };
+}
+
+function marginElement(candidate: Candidate): ParagraphElement {
+  const runs = inlineFromLines(candidate.lines);
+  return { id: candidate.id, kind: "paragraph", text: textOf(runs), runs, provenance: provenance([candidate]) };
 }
 
 function isFurniture(element: DocumentElement): element is PageHeaderElement | PageFooterElement {
@@ -572,8 +727,9 @@ function continuationRows(table: TableElement, continuation: TableContinuation):
   }, provenance(continuation.consumed));
 }
 
-export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis {
+export function analyzeDocument(document: LoadedDocument, onPage: (pageNumber: number) => void = () => {}): DeterministicAnalysis {
   if (document.pages.every((page) => page.layout !== undefined)) {
+    for (const page of document.pages) onPage(page.pageNumber);
     return {
       document: {
         pages: document.pages.map((page) => ({ pageNumber: page.pageNumber, width: page.width, height: page.height, elements: page.layout ?? [], ...(page.evidence === undefined ? {} : { evidence: page.evidence }) })),
@@ -585,7 +741,15 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
     };
   }
   const warnings: ConversionWarning[] = [...(document.conversionWarnings ?? [])];
-  const sources = document.pages.map((page) => ({ page, ...candidatesFor(page) }));
+  const sources = document.pages.map((page) => {
+    const found = candidatesFor(page);
+    return {
+      page,
+      source: found.source,
+      candidates: found.candidates.filter((candidate) => !isRotated(candidate)),
+      margin: found.candidates.filter(isRotated),
+    };
+  });
   const { confirmed: furniture, suspected } = detectFurniture(sources.filter(({ page }) => page.layout === undefined).map(({ page, candidates, source }) => ({
     pageNumber: page.pageNumber,
     width: page.width,
@@ -594,8 +758,9 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
   })));
   const pages: LayoutPage[] = [];
   const nativePages = new Set<number>();
+  const headingSizes: HeadingSizes = new Map();
   let tail: Tail | undefined;
-  for (const [pageIndex, { page, ...sourceCandidates }] of sources.entries()) {
+  for (const [pageIndex, { page, margin, ...sourceCandidates }] of sources.entries()) {
     if (page.layout !== undefined) {
       nativePages.add(page.pageNumber);
       pages.push({
@@ -603,6 +768,7 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
         elements: page.layout,
         ...(page.evidence === undefined ? {} : { evidence: page.evidence }),
       });
+      onPage(page.pageNumber);
       tail = undefined;
       continue;
     }
@@ -639,13 +805,11 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
       }
     }
 
-    const candidates = splitColumnCandidates(
-      continuedTable === undefined
-        ? sourceCandidates.candidates
-        : sourceCandidates.candidates.filter((candidate) => !continuedTable.consumed.has(candidate)),
-      page.width,
-      acceptTable,
-    );
+    const remainingCandidates = continuedTable === undefined
+      ? sourceCandidates.candidates
+      : sourceCandidates.candidates.filter((candidate) => !continuedTable.consumed.has(candidate));
+    const gutter = clearGutter(remainingCandidates, page.width);
+    const candidates = splitColumnCandidates(remainingCandidates, page.width, acceptTable, gutter);
     if (sourceCandidates.source !== "blocks") {
       warnings.push({
         code: "LAYOUT_DEGRADED",
@@ -662,7 +826,7 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
         pageNumber: page.pageNumber,
       });
     }
-    const ordered = readingOrder(candidates, page.width);
+    const ordered = readingOrder(candidates, page.width, gutter?.boundary);
     const bodySize = bodyFontSize(sourceCandidates.candidates, tableRowIds(sourceCandidates.candidates));
     const body = ordered.filter((candidate) =>
       !furnitureIds.has(candidate.id) && !(candidate.sourceIds ?? []).some((id) => furnitureIds.has(id)));
@@ -674,7 +838,7 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
     const traits = new Map<DocumentElement, TableTraits>();
     const elements: DocumentElement[] = [
       ...pageFurniture.filter((element) => element.kind === "page-header").sort(byPosition),
-      ...analyzeTextCandidates(body, bodySize, acceptTable, traits, warnings),
+      ...analyzeTextCandidates(body, bodySize, acceptTable, traits, warnings, gutter?.boundary, headingSizes),
       ...figureElements(page),
       ...pageFurniture.filter((element) => element.kind === "page-footer").sort(byPosition),
     ];
@@ -722,6 +886,9 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
       tail = { ...tail, page: frame, box: joinedBox };
     } else tail = undefined;
 
+    const footer = elements.findIndex((element) => element.kind === "page-footer");
+    elements.splice(footer === -1 ? elements.length : footer, 0, ...margin.map(marginElement));
+
     if (pageIndex + 1 < document.pages.length) {
       elements.push({
         id: `p${page.pageNumber}-page-break`,
@@ -734,13 +901,22 @@ export function analyzeDocument(document: LoadedDocument): DeterministicAnalysis
       });
     }
     pages.push({ pageNumber: page.pageNumber, width: page.width, height: page.height, elements });
+    onPage(page.pageNumber);
   }
 
-  const identified = new Map(withElementIds(pages.filter((page) => !nativePages.has(page.pageNumber)))
+  const levels = documentHeadingLevels(headingSizes);
+  const leveled = pages.map((page) => ({
+    ...page,
+    elements: page.elements.map((element) => {
+      const level = levels.get(element);
+      return level === undefined || element.kind !== "heading" ? element : { ...element, level };
+    }),
+  }));
+  const identified = new Map(withElementIds(leveled.filter((page) => !nativePages.has(page.pageNumber)))
     .map((page) => [page.pageNumber, page]));
   return {
     document: {
-      pages: pages.map((page) => identified.get(page.pageNumber) ?? page),
+      pages: leveled.map((page) => identified.get(page.pageNumber) ?? page),
       ...(document.sourceDigest === undefined ? {} : { sourceDigest: document.sourceDigest }),
       ...(document.physicalSourceDigest === undefined ? {} : { physicalSourceDigest: document.physicalSourceDigest }),
       ...(document.metadata === undefined ? {} : { metadata: document.metadata }),
@@ -989,6 +1165,10 @@ function applyToBody(
     }
     if (seen.has(annotation.id)) {
       return { document, valid: false, reason: `duplicate element id ${annotation.id}` };
+    }
+    const level: unknown = annotation.level;
+    if (level !== undefined && !(Number.isInteger(level) && (level as number) >= 1 && (level as number) <= 6)) {
+      return { document, valid: false, reason: `heading level ${String(level)} for ${annotation.id} must be an integer from 1 to 6` };
     }
     seen.add(annotation.id);
   }

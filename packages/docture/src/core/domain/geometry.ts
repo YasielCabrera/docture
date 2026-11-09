@@ -44,6 +44,12 @@ export interface TextSpan {
   /** 0–1 where the producer reports one (OCR does; a text layer does not). */
   readonly confidence?: number;
   readonly direction?: "ltr" | "rtl" | "ttb";
+  /**
+   * Degrees the baseline turns counterclockwise from horizontal, in (-180, 180],
+   * for a run that is not set horizontally: `90` for a margin stamp that reads
+   * bottom to top. Absent for horizontal text.
+   */
+  readonly rotation?: number;
   readonly style?: TextStyle;
   /** Authored link target intersecting this span. */
   readonly href?: string;
@@ -54,7 +60,7 @@ export interface TextLine {
   /** Top edge of the line box. */
   readonly y: number;
   readonly height: number;
-  /** Span texts joined with single spaces. */
+  /** Span texts in reading order, separated by a space where the layout shows a word gap. */
   readonly text: string;
   readonly spans: readonly TextSpan[];
 }

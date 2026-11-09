@@ -1,3 +1,5 @@
+import { access } from "node:fs/promises";
+import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { COMMANDS } from "../src/cli/specs.js";
 import { version } from "../src/version.js";
@@ -68,5 +70,41 @@ describe("the top level", () => {
     expect(run.code).toBe(2);
     expect(run.stdout).toBe("");
     expect(run.stderr).toContain("error");
+  });
+
+  it("writes a version 1 error envelope to stdout when --format json was asked for", async () => {
+    const run = await cli(["extract", "invoice.pdf", "--no-config", "--format", "json"], { cwd: await at() });
+
+    expect(run.code).toBe(2);
+    expect(JSON.parse(run.stdout)).toEqual({
+      version: 1,
+      command: "extract",
+      ok: false,
+      results: [],
+      error: {
+        code: "USAGE",
+        message: "`docture extract` needs a schema.",
+        hint: "Pass --schema ./invoice.ts, or set `schema` in docture.config.ts.",
+      },
+    });
+    expect(run.stderr).toContain("error [USAGE] `docture extract` needs a schema.");
+  });
+
+  it("writes the error envelope as one NDJSON line, even when the flags themselves failed to parse", async () => {
+    const run = await cli(["convert", "a.pdf", "--out", "o", "--format=ndjson", "--to", "docx"], { cwd: await at() });
+
+    expect(run.code).toBe(2);
+    expect(run.stdout).toBe(
+      '{"version":1,"command":"convert","ok":false,"results":[],"error":{"code":"USAGE",' +
+        '"message":"--to must be one of md, markdown, html, txt, text, json, got \\"docx\\".","hint":"Run `docture convert --help`."}}\n',
+    );
+  });
+
+  it("leaves stdout empty and writes no file when a wrong extract invocation names --out", async () => {
+    const dir = await at();
+    const run = await cli(["extract", "invoice.pdf", "--no-config", "--format", "json", "-o", "result.json"], { cwd: dir });
+
+    expect([run.code, run.stdout]).toEqual([2, ""]);
+    await expect(access(join(dir, "result.json"))).rejects.toThrow("ENOENT");
   });
 });

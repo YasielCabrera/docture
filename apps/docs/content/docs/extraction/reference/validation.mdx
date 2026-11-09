@@ -42,7 +42,7 @@ type RuleFailureMode = "report" | "fail";
 
 In `"report"` mode, the default, the extraction returns the data with `validation.valid` set to `false` and the issues listed. In `"fail"` mode the attempt records `CONTRACT_VIOLATION` with the issues, and the next strategy runs. When every strategy fails, the extraction rejects with `ContractViolationError`, whose `failedCheck` is `"rule"` when the first violation came from a rule and `"schema"` when it came from the schema.
 
-An `onRuleFailure` other than `"report"` or `"fail"` throws a `RangeError` from `createExtractor`, or rejects the call before any strategy runs.
+An `onRuleFailure` other than `"report"` or `"fail"` throws `InvalidOptionError` (code `INVALID_OPTION`) from `createExtractor`, or rejects the call before any strategy runs.
 
 ### `ValidationIssue`
 

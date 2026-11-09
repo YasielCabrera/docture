@@ -26,7 +26,6 @@ function mimeTypeOf(bytes: Uint8Array): PageImage["mimeType"] | undefined {
 export interface PageRendererOptions {
   readonly config?: LoadedConfig;
   readonly dpi: number;
-  readonly timeoutMs?: number;
 }
 
 /**
@@ -42,7 +41,7 @@ export async function pageRenderer(options: PageRendererOptions): Promise<PageRe
   ];
   return {
     async render(raw, signal) {
-      const { document, loader } = await readDocument(rendering.loaders, raw, silentLogger, signal, options.timeoutMs);
+      const { document, loader } = await readDocument(rendering.loaders, raw, silentLogger, signal, options.config?.config.stageTimeoutMs);
       const images: PageImage[] = [];
       for (const page of document.pages) {
         if (page.image === undefined) throw unrenderable(loader, page.pageNumber);

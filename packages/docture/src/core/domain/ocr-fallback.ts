@@ -1,10 +1,12 @@
+import type { DoctureErrorCode } from "./error-codes.js";
+
 /** Diagnostics of a `withOcrFallback` load, carried from the loaded document to `ConversionResult.ocrFallback`. */
 
 export interface OcrFallbackWarning {
   readonly pageNumber: number;
   readonly code: "OCR_FAILED" | "OCR_PAGE_MISSING" | "NO_IMPROVEMENT" | "GEOMETRY_MISMATCH" | "OCR_NOT_ELIGIBLE";
   readonly message: string;
-  readonly errorCode?: string;
+  readonly errorCode?: DoctureErrorCode;
 }
 
 /** Which loader supplied one page, with the qualities that decided it. */

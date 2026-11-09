@@ -51,6 +51,30 @@ async function loadedPage(rasterizer: Rasterizer, signal = new AbortController()
   return page as LoadedPage & { image: NonNullable<LoadedPage["image"]> };
 }
 
+describe("page image retention", () => {
+  it("keeps the eight most recently used renders and re-renders an older page", async () => {
+    const rendered: number[] = [];
+    const rasterizer: Rasterizer = {
+      name: "counting",
+      formats: ["png"],
+      async rasterize(_document, options) {
+        const pageNumber = options.pages?.[0] ?? 1;
+        rendered.push(pageNumber);
+        return [{ pageNumber, bytes: new Uint8Array([...PNG, pageNumber]), widthPx: 1, heightPx: 1, scale: 1, format: "png" }];
+      },
+    };
+    const loader = withRasterizer(inMemoryLoader(loadedDocument(Array.from({ length: 10 }, (_, index) => `page ${index + 1}`))), rasterizer);
+    const pages = (await loader.load(raw, { signal: new AbortController().signal, logger: silentLogger })).pages;
+    const image = (pageNumber: number) => pages[pageNumber - 1]!.image!({ dpi: 72 });
+
+    for (let pageNumber = 1; pageNumber <= 10; pageNumber += 1) await image(pageNumber);
+    await image(3);
+    await image(10);
+    expect([...await image(1)]).toEqual([...PNG, 1]);
+    expect(rendered).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1]);
+  });
+});
+
 describe("page images and per-call signals", { timeout: 2_000 }, () => {
   it("cancels the render for an aborted call, then renders again for a later live call", async () => {
     const { rasterizer, renders } = pendingRasterizer();

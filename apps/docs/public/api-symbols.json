@@ -5500,6 +5500,26 @@
   },
   {
     "packageName": "docture",
+    "symbol": "DoctureErrorJson",
+    "importPaths": [
+      "docture",
+      "docture/node"
+    ],
+    "url": "/docs/resources/errors#structured-errors",
+    "description": "isDoctureError(value) narrows unknown values through docture error identity, including errors from another installed copy. Matching never relies on a class name or code alone. isDoctureError(value, code) also checks the code and narrows..."
+  },
+  {
+    "packageName": "docture",
+    "symbol": "DoctureErrorOf",
+    "importPaths": [
+      "docture",
+      "docture/node"
+    ],
+    "url": "/docs/resources/errors#structured-errors",
+    "description": "isDoctureError(value) narrows unknown values through docture error identity, including errors from another installed copy. Matching never relies on a class name or code alone. isDoctureError(value, code) also checks the code and narrows..."
+  },
+  {
+    "packageName": "docture",
     "symbol": "DocumentChunk",
     "importPaths": [
       "docture/chunk"
@@ -5763,7 +5783,7 @@
       "docture/inputs/email"
     ],
     "url": "/docs/integrations/email#handle-errors",
-    "description": "Missing message headers, invalid limits, and exceeded limits throw EmailInputError with code LOAD_FAILED. Other malformed MIME follows the parser's own recovery behavior."
+    "description": "Missing message headers and exceeded limits throw EmailInputError with code EMAIL_INVALID. A limit that is not a non-negative safe integer, or a maxParts below 1, throws InvalidOptionError with code INVALID_OPTION. Other malformed MIME..."
   },
   {
     "packageName": "docture",
@@ -6251,6 +6271,16 @@
   },
   {
     "packageName": "docture",
+    "symbol": "InvalidOptionError",
+    "importPaths": [
+      "docture",
+      "docture/node"
+    ],
+    "url": "/docs/resources/errors#error-catalogue",
+    "description": "Error codes, fields, recovery behavior, and helpers."
+  },
+  {
+    "packageName": "docture",
     "symbol": "InvoiceOptions",
     "importPaths": [
       "docture/testing/fixtures"
@@ -6267,6 +6297,16 @@
     ],
     "url": "/docs/resources/errors#errors-from-another-installed-copy",
     "description": "A package manager can install docture more than once, for example once for an application and once for @docture/cli when their AI SDK versions differ. Each Docture error class recognizes instances created by any installed copy, so..."
+  },
+  {
+    "packageName": "docture",
+    "symbol": "isCallerAbort",
+    "importPaths": [
+      "docture",
+      "docture/node"
+    ],
+    "url": "/docs/resources/errors#abort-and-timeout-behavior",
+    "description": "A caller abort is not wrapped in DoctureError. It propagates and stops fallback. This includes an AbortError, a caller-provided AbortSignal.timeout() error, and any custom reason passed to AbortController.abort(reason). The pipeline..."
   },
   {
     "packageName": "docture",
@@ -6296,7 +6336,7 @@
       "docture/node"
     ],
     "url": "/docs/resources/errors#structured-errors",
-    "description": "isDoctureError(value) narrows unknown values through docture error identity, including errors from another installed copy. Matching never relies on a class name or code alone. DoctureError.toJSON() returns { code, message, hint? };..."
+    "description": "isDoctureError(value) narrows unknown values through docture error identity, including errors from another installed copy. Matching never relies on a class name or code alone. isDoctureError(value, code) also checks the code and narrows..."
   },
   {
     "packageName": "docture",
@@ -6858,7 +6898,7 @@
       "docture/loaders/mammoth"
     ],
     "url": "/docs/integrations/mammoth#handle-errors-and-cancellation",
-    "description": "An invalid DOCX throws MammothDocumentError with code LOAD_FAILED and the Mammoth error as its cause. The loader checks for cancellation before and after parsing. It cannot interrupt Mammoth while a parse runs."
+    "description": "An invalid DOCX throws MammothDocumentError with code DOCX_FAILED and the Mammoth error as its cause. Inside an Extractor or DocumentConverter, the failure is a loader attempt with that errorCode, and the call raises LOAD_FAILED when no..."
   },
   {
     "packageName": "docture",
@@ -7692,7 +7732,27 @@
       "docture/node"
     ],
     "url": "/docs/extraction/reference/extractor#pipelinecomponents",
-    "description": "The component collection that runPipeline() receives. It has the same fields as ExtractorOptions, with loaders, strategies, classifiers, classifications, policy, and logger required."
+    "description": "The component collection that runPipeline() receives. loaders, strategies, classifiers, classifications, policy, and logger are required. Unlike ExtractorOptions, it has no llm shortcut or default timeoutMs; pass the whole-call deadline..."
+  },
+  {
+    "packageName": "docture",
+    "symbol": "PipelineEvent",
+    "importPaths": [
+      "docture",
+      "docture/node"
+    ],
+    "url": "/docs/extraction/reference/extractor#pipelineevent",
+    "description": "What onEvent receives. Events arrive synchronously, in the order they happen."
+  },
+  {
+    "packageName": "docture",
+    "symbol": "PipelineEventListener",
+    "importPaths": [
+      "docture",
+      "docture/node"
+    ],
+    "url": "/docs/extraction/reference/extractor#pipelineevent",
+    "description": "What onEvent receives. Events arrive synchronously, in the order they happen."
   },
   {
     "packageName": "docture",
@@ -8147,6 +8207,16 @@
     ],
     "url": "/docs/extraction/reference/splitting#splitcontext",
     "description": "Splitter contracts, Process configuration, page groups, and lifecycle."
+  },
+  {
+    "packageName": "docture",
+    "symbol": "SplitCoverage",
+    "importPaths": [
+      "docture",
+      "docture/node"
+    ],
+    "url": "/docs/resources/errors#error-catalogue",
+    "description": "Error codes, fields, recovery behavior, and helpers."
   },
   {
     "packageName": "docture",

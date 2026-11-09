@@ -274,7 +274,7 @@ assert.deepEqual(chunks.map(chunk => [chunk.text, chunk.elementIds, chunk.proven
   ["# Invoice INV-42\n\nTotal due: 17 EUR.", ["p1-text-2"], [1]],
   ["# Invoice INV-42\n\nPayment within 30 days.", ["p2-text-1"], [2]],
 ]);`,
-  broad: 'assert.equal(b.backend.extraction().name, "llm"); assert.equal(b.backend.vision().name, "vision");',
+  broad: 'assert.equal(b.backend.extraction().name, "verification/mock"); assert.equal(b.backend.vision().name, "verification/mock:vision");',
 };
 
 export function bundleRuntime(profile) {

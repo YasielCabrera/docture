@@ -16,12 +16,23 @@ export type PageImageRenderer = (
   signal: AbortSignal | undefined,
 ) => Promise<Uint8Array>;
 
+const RETAINED_PAGE_IMAGES = 8;
+
 export function pageImageRenderer(
   rasterizer: Rasterizer,
   document: RawDocument,
   ctx: LoadContext,
 ): PageImageRenderer {
   const renders = new Map<string, SharedRender>();
+  const retain = (): void => {
+    let settled = [...renders.values()].filter((render) => render.settled).length;
+    for (const [key, render] of renders) {
+      if (settled <= RETAINED_PAGE_IMAGES) return;
+      if (!render.settled) continue;
+      renders.delete(key);
+      settled -= 1;
+    }
+  };
 
   return (pageNumber, options, callSignal) => {
     const signal = callSignal ?? ctx.signal;
@@ -44,7 +55,10 @@ export function pageImageRenderer(
         });
       const created: SharedRender = { bytes, controller, waiting: 0, settled: false };
       bytes.then(
-        () => { created.settled = true; },
+        () => {
+          created.settled = true;
+          retain();
+        },
         () => {
           created.settled = true;
           if (renders.get(key) === created) renders.delete(key);
@@ -54,7 +68,11 @@ export function pageImageRenderer(
       render = created;
     }
     const shared = render;
-    if (shared.settled) return shared.bytes;
+    if (shared.settled) {
+      renders.delete(key);
+      renders.set(key, shared);
+      return shared.bytes;
+    }
 
     shared.waiting += 1;
     return new Promise<Uint8Array>((resolve, reject) => {

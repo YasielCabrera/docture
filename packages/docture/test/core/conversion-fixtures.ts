@@ -118,3 +118,42 @@ export function bySourceId(document: LayoutDocument, annotations: readonly Layou
     })));
   return annotations.map((annotation) => ({ ...annotation, id: ids.get(annotation.id) ?? annotation.id }));
 }
+
+/** `[text, x, width, fontSize?, bold?]`: one text-layer run. */
+export type Cell = readonly [text: string, x: number, width: number, size?: number, bold?: boolean];
+export type Row = readonly [y: number, ...cells: Cell[]];
+
+/** A letter-size page shaped like PDF.js output: one block per visual line. */
+export function textLayerPage(pageNumber: number, rows: readonly Row[]): LoadedDocument["pages"][number] {
+  const lines: TextLine[] = rows.map(([y, ...cells]) => {
+    const spans: TextSpan[] = cells.map(([text, x, width, size = 9.5, bold]) =>
+      ({ text, x, y, width, height: size, style: { fontSize: size, ...(bold === true ? { bold } : {}) } }));
+    return { y, height: Math.max(...spans.map((value) => value.height)), text: spans.map((value) => value.text).join(" "), spans };
+  });
+  return {
+    pageNumber,
+    width: 612,
+    height: 792,
+    text: lines.map((value) => value.text).join("\n"),
+    lines,
+    blocks: lines.map((value, index) => {
+      const first = value.spans[0];
+      const last = value.spans.at(-1);
+      const x = first?.x ?? 0;
+      return {
+        id: `p${pageNumber}-text-${index + 1}`,
+        kind: "text" as const,
+        x,
+        y: value.y,
+        width: (last === undefined ? 0 : last.x + last.width) - x,
+        height: value.height,
+        lines: [value],
+      };
+    }),
+  };
+}
+
+export function textLayerDocument(...pages: readonly (readonly Row[])[]): LoadedDocument {
+  const loaded = pages.map((rows, index) => textLayerPage(index + 1, rows));
+  return { loader: "text-layer", form: "digital", text: loaded.map((page) => page.text).join("\f"), pages: loaded };
+}

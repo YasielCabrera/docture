@@ -1,8 +1,9 @@
 import { availableParallelism } from "node:os";
 import { requestedPageNumbers } from "../../core/pipeline/pages.js";
-import { PageSelectionError } from "../../core/pipeline/errors.js";
+import { InvalidOptionError, PageSelectionError } from "../../core/pipeline/errors.js";
 import { readsAsTiff } from "../../core/pipeline/source.js";
 import { tiffLayout, tiffPageTooLarge } from "../../core/domain/tiff.js";
+import { jpegOrientation } from "../../core/domain/image.js";
 import { pageImageRenderer } from "../../core/contracts/page-images.js";
 import {
   imageSize,
@@ -152,14 +153,22 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
   private pool: TesseractPool | undefined;
 
   constructor(private readonly options: DocumentLoaderTesseractOptions = {}) {
+    if (options.languages?.length === 0) {
+      throw new InvalidOptionError("languages", 'a non-empty list of Tesseract language codes, such as ["eng"]', options.languages);
+    }
     this.capabilities = {
       text: true,
       geometry: true,
       images: true,
-      mimeTypes:
-        options.rasterizer === undefined
-          ? IMAGE_MIME_TYPES
-          : [...IMAGE_MIME_TYPES, "application/pdf"],
+      ...(options.rasterizer === undefined
+        ? {
+          mimeTypes: IMAGE_MIME_TYPES,
+          declines: {
+            "application/pdf":
+              "pass { rasterizer } to DocumentLoaderTesseract to read PDFs, e.g. new DocumentLoaderTesseract({ rasterizer: new NapiCanvasRasterizer() })",
+          },
+        }
+        : { mimeTypes: [...IMAGE_MIME_TYPES, "application/pdf"] }),
     };
   }
 
@@ -253,7 +262,21 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
       if (size === undefined) {
         throw new Error(`tesseract: these bytes are not a readable PNG or JPEG (${mimeType}).`);
       }
-      return [{ pageNumber: 1, ...size, scale: pointsPerPixel, loadBytes: () => document.bytes, keepDecodedPng: false }];
+      const orientation = jpegOrientation(document.bytes);
+      if (orientation === 1) {
+        return [{ pageNumber: 1, ...size, scale: pointsPerPixel, loadBytes: () => document.bytes, keepDecodedPng: false }];
+      }
+      // Tesseract reads the page upright, so the page, its boxes and its image all
+      // use the displayed frame: the engine's decoded PNG, not the stored pixels.
+      const quarterTurn = orientation >= 5;
+      return [{
+        pageNumber: 1,
+        widthPx: quarterTurn ? size.heightPx : size.widthPx,
+        heightPx: quarterTurn ? size.widthPx : size.heightPx,
+        scale: pointsPerPixel,
+        loadBytes: () => withLeadingOrientation(document.bytes, orientation),
+        keepDecodedPng: true,
+      }];
     }
 
     const rasterizer = this.options.rasterizer;
@@ -358,9 +381,15 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
     images: PageImages,
   ): LoadedPage {
     const floor = this.options.minConfidence ?? 0;
+    // Boxes share the frame of `page.image()`. The engine's decoded PNG is already
+    // deskewed; an original raster is not, so its boxes are turned back onto it.
+    const unturn =
+      raster.keepDecodedPng || recognition.rotateRadians === 0
+        ? undefined
+        : turnBack(recognition.rotateRadians, raster.widthPx, raster.heightPx);
     const words: PositionedWord[] = recognition.words
       .filter((word) => word.confidence >= floor)
-      .map((word) => ({ text: word.text, box: word.box, confidence: word.confidence }));
+      .map((word) => ({ text: word.text, box: unturn?.(word.box) ?? word.box, confidence: word.confidence }));
 
     /**
      * Tesseract's own block → paragraph → line grouping is deliberately discarded in
@@ -421,11 +450,7 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
   }
 
   private languages(): readonly string[] {
-    const languages = this.options.languages ?? ["eng"];
-    if (languages.length === 0) {
-      throw new Error("tesseract: `languages` cannot be empty; pass at least one, e.g. ['eng'].");
-    }
-    return languages;
+    return this.options.languages ?? ["eng"];
   }
 }
 
@@ -450,10 +475,46 @@ function tiffOcrPages(bytes: Uint8Array, mimeType: string): readonly TiffPage[] 
   return pages;
 }
 
+type PixelBox = readonly [number, number, number, number];
+
+/**
+ * Maps a box from the image the engine deskewed by `rotateRadians` about its centre
+ * back onto the original. In the y-down pixel frame that is a turn by minus the
+ * reported angle, checked against tesseract.js 7 on a page skewed 4 degrees.
+ */
+function turnBack(rotateRadians: number, widthPx: number, heightPx: number): (box: PixelBox) => PixelBox {
+  const cos = Math.cos(-rotateRadians);
+  const sin = Math.sin(-rotateRadians);
+  const cx = widthPx / 2;
+  const cy = heightPx / 2;
+  return ([left, top, right, bottom]) => {
+    const corners = [[left, top], [right, top], [left, bottom], [right, bottom]] as const;
+    const xs = corners.map(([x, y]) => cx + (x - cx) * cos - (y - cy) * sin);
+    const ys = corners.map(([x, y]) => cy + (x - cx) * sin + (y - cy) * cos);
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  };
+}
+
+/**
+ * tesseract.js applies EXIF orientation only when it finds a big-endian
+ * orientation entry in the first 500 bytes, so a little-endian or late EXIF block
+ * is read sideways. A minimal big-endian APP1 right after SOI makes it find one.
+ */
+function withLeadingOrientation(bytes: Uint8Array, orientation: number): Uint8Array {
+  const tiff = [0x4d, 0x4d, 0x00, 0x2a, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, orientation, 0, 0, 0, 0, 0, 0];
+  const payload = [0x45, 0x78, 0x69, 0x66, 0, 0, ...tiff];
+  const segment = [0xff, 0xe1, 0, payload.length + 2, ...payload];
+  const output = new Uint8Array(bytes.length + segment.length);
+  output.set(bytes.subarray(0, 2));
+  output.set(segment, 2);
+  output.set(bytes.subarray(2), 2 + segment.length);
+  return output;
+}
+
 /** Tesseract decodes only the first IFD, so later pages get a copy whose header points at theirs. */
 function tiffPageBytes(bytes: Uint8Array, page: TiffPage): Uint8Array {
   if (page.pageNumber === 1) return bytes;
-  const copy = bytes.slice();
-  new DataView(copy.buffer).setUint32(4, page.ifdOffset, page.littleEndian);
+  const copy = new Uint8Array(bytes);
+  new DataView(copy.buffer, copy.byteOffset, copy.byteLength).setUint32(4, page.ifdOffset, page.littleEndian);
   return copy;
 }

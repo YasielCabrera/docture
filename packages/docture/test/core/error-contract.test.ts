@@ -14,20 +14,24 @@ describe("public error contract", () => {
       () => core.createDocumentConverter({ loaders: [] }),
       () => new core.DocumentConverter().loadLlm({ id: "text", extraction: () => fakeStrategy() }),
       () => new core.Extractor().loadLlm({ id: "text", extraction: () => fakeStrategy() }, { vision: true }),
-      () => core.pageWindows([1], 1),
     ]) {
       try { action(); } catch (error) { failures.push(error); }
     }
     failures.push(await new core.Process().extract().catch((error: unknown) => error));
-    expect(failures).toHaveLength(6);
+    expect(failures).toHaveLength(5);
     expect(failures.map((error) => error instanceof core.DoctureError ? error.code : undefined))
-      .toEqual(Array(6).fill("MISSING_COMPONENT"));
+      .toEqual(Array(5).fill("MISSING_COMPONENT"));
   });
 
-  it("serializes code and message with the command error shape", () => {
+  it("serializes code, message, hint and the error's diagnostic fields", () => {
     const error = new core.TimeoutError("extract:slow", 25);
     expect(JSON.parse(JSON.stringify(error))).toEqual({
-      code: "TIMEOUT", message: '"extract:slow" exceeded its 25ms deadline.',
+      code: "TIMEOUT",
+      name: "TimeoutError",
+      message: '"extract:slow" exceeded its 25ms deadline.',
+      hint: "A stage hit its stageTimeoutMs deadline. Raise stageTimeoutMs, or omit it for no stage deadline.",
+      stage: "extract:slow",
+      ms: 25,
     });
   });
 

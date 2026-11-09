@@ -2,7 +2,7 @@ import { createDisposalScope, type FlexibleSchema, type ScopedDisposable } from 
 import { jsonSchema } from "ai";
 import type { LoadedConfig } from "../config.js";
 import type { Io } from "../cli/io.js";
-import { explain } from "../cli/errors.js";
+import { explain, SERVICE_HINTS } from "../cli/errors.js";
 import { convertedContent, inspectProbe, type InspectReport } from "../operations.js";
 import { envelope, errorRecord, recordOf, type Envelope } from "../output.js";
 import { buildConversionWiring, buildWiring, type WiringFlags } from "../wiring.js";
@@ -50,7 +50,10 @@ export async function createOperations(options: OperationOptions): Promise<Servi
       dispose,
       async run(request, signal) {
         const label = request.document.fileName ?? "document";
-        const selected = request.pages === undefined ? {} : { pages: request.pages };
+        const selected = {
+          ...(request.pages === undefined ? {} : { pages: request.pages }),
+          ...(options.flags.timeoutMs === undefined ? {} : { timeoutMs: options.flags.timeoutMs }),
+        };
         try {
           if (request.route === "convert") {
             for await (const item of conversion.converter.convertBatch([request.document], { format: request.format, assets: "embedded", concurrency: 1, signal, ...selected })) {
@@ -69,7 +72,7 @@ export async function createOperations(options: OperationOptions): Promise<Servi
           return envelope("extract", [recordOf(label, result, true)]);
         } catch (error) {
           signal.throwIfAborted();
-          return envelope(request.route, [errorRecord(label, explain(error))]);
+          return envelope(request.route, [errorRecord(label, explain(error, SERVICE_HINTS))]);
         }
       },
     };

@@ -41,6 +41,32 @@ You may override it per extraction through `RunOptions`. A loader or strategy de
 creates a failed attempt with `TIMEOUT`, then fallback continues. A classifier deadline
 becomes an abstaining signal so the remaining classifiers can answer.
 
+## Set a deadline for the whole call
+
+`timeoutMs` bounds one call from start to finish, however many loaders and strategies it
+tries. Set it on the extractor as a default, or per call:
+
+```ts
+const result = await extractor.extract("invoice.pdf", Invoice, { timeoutMs: 60_000 });
+```
+
+When it passes, every component's `signal` aborts, no further fallback starts, and the
+call rejects with `TIMEOUT` whose `stage` is `"call"`. It rejects on time even when a
+component ignores its signal. Each `extractBatch()` item has its own deadline.
+
+## Report progress
+
+`onEvent` receives a `load` event, a `classify` event, and each finished `attempt` as
+they happen. See [`PipelineEvent`](/docs/extraction/reference/extractor#pipelineevent).
+
+```ts
+await extractor.extract("invoice.pdf", Invoice, {
+  onEvent(event) {
+    if (event.type === "load") console.error(`read ${event.pages} pages with ${event.loader}`);
+  },
+});
+```
+
 ## Log pipeline events
 
 The default logger is silent. Register `consoleLogger` or implement `Logger`:
@@ -67,13 +93,14 @@ try {
 idempotent. If several components fail during disposal, docture waits for all of them and
 throws an `AggregateError` containing every failure.
 
-`Process.dispose()` releases its splitter, default extractor, and directly registered
-loaders.
+`Process.dispose()` releases its splitter and directly registered loaders. The extractor
+passed to `loadExtractor()` is borrowed, so one extractor can serve several processes.
+Dispose it through its owner after its last use.
 
 ## Scope disposal
 
-`Extractor`, `DocumentConverter`, composed raster loaders, and the OCR loader classes
-support `Symbol.asyncDispose`. Node 22 or later can release their resources with
+`Extractor`, `DocumentConverter`, `Process`, composed raster loaders, and the OCR loader
+classes support `Symbol.asyncDispose`. Node 22 or later can release their resources with
 `await using`. Explicit `dispose()` remains available.
 
 ```ts
@@ -82,4 +109,4 @@ await extractor.extract(source, schema);
 ```
 
 Failed lazy page renders and engine initialization are retried on the next request.
-Successful page renders remain memoized.
+Page images retain the eight most recently used successful renders per document.

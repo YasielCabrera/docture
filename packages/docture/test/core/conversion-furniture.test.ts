@@ -91,6 +91,24 @@ describe("running headers and footers", () => {
     expect(json.pages.map((page) => [page.width, page.height])).toEqual([[600, 800], [600, 800], [600, 800]]);
   });
 
+  it.each([
+    { name: "a bare page number", text: (n: number) => `${n}` },
+    { name: "a dashed page number", text: (n: number) => `- ${n} -` },
+    { name: "a German page label", text: (n: number) => `Seite ${n} von 3` },
+    { name: "a page number offset by an unnumbered cover", text: (n: number) => `Page ${n + 2}` },
+    { name: "a journal folio that continues the volume's numbering", text: (n: number) => `${n + 244}` },
+    { name: "a running title whose page label shares its run", text: (n: number) => `Acme Annual Report 2024 · Page ${n}` },
+    { name: "a page label that opens a running title's run", text: (n: number) => `Page ${n} | Acme Annual Report` },
+  ])("removes $name that tracks the page", async ({ text }) => {
+    const result = await convert(threePages((n) => ({ text: text(n), y: 20 })), "markdown");
+    expect(result.pages.map((page) => summary(page.elements)[0])).toEqual([1, 2, 3].map((n) => `page-header:repeated:${text(n)}`));
+  });
+
+  it("removes a running title whose folio is set apart at the end of the line", async () => {
+    const result = await convert(threePages((n) => ({ text: "", y: 20, cells: [["Bitcoin: A Peer-to-Peer Electronic Cash System", 40], [`${n}`, 540]] })), "markdown");
+    expect(result.content).toBe([1, 2, 3].map((n) => `<!-- page: ${n} -->\n\nBody text of page ${n}.`).join("\n\n"));
+  });
+
   it("detects alternating odd and even running heads and page numbers", async () => {
     const result = await convert(bookSpread(), "markdown");
     expect(result.pages.map((page) => summary(page.elements).filter((entry) => entry.startsWith("page-"))))
@@ -126,6 +144,10 @@ describe("running headers and footers", () => {
     { name: "two pages", loaded: acmeReport(2) },
     { name: "top lines that differ on every page", loaded: threePages((n) => ({ text: ["Summary", "Methods", "Results"][n - 1] ?? "", y: 20 })) },
     { name: "numbers that do not track the page", loaded: threePages((n) => ({ text: `Invoice ${[1043, 2210, 3381][n - 1]}`, y: 20 })) },
+    { name: "an invoice number that increments with the page", loaded: threePages((n) => ({ text: `Invoice number ${1000 + n}`, y: 20 })) },
+    { name: "a step number that equals the page number", loaded: threePages((n) => ({ text: `Step ${n}`, y: 20 })) },
+    { name: "an invoice number set apart in a running title", loaded: threePages((n) => ({ text: `Acme 2024 · Invoice ${1000 + n}`, y: 20 })) },
+    { name: "a part count that follows the page", loaded: threePages((n) => ({ text: `Assembly Part ${n} of 12`, y: 20 })) },
     { name: "repeated text at drifting heights", loaded: threePages((n) => ({ text: "ACME Corp Confidential", y: [10, 50, 10][n - 1] ?? 0 })) },
     { name: "repeated text outside the bands", loaded: threePages(() => ({ text: "ACME Corp Confidential", y: 120 })) },
     { name: "a repeated heading-size title", loaded: threePages(() => ({ text: "Annual Report", y: 20, size: 24 })) },

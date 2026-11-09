@@ -269,10 +269,13 @@ npm install --save-dev @docture/cli @modelcontextprotocol/sdk
 { "mcpServers": { "docture": { "command": "npx", "args": ["docture", "mcp"] } } }
 ```
 
-Both tools take a `source` and optional one-based `pages`; `convert` also takes `format`.
+Both tools take a `source` and optional one-based `pages`; `convert` also takes `format`,
+and pages through long output with `offset` and `maxChars` (default 20000).
 Each tool call returns the version 1 envelope as structured content and JSON text, and
 sets `isError` when an item failed, including a config that fails to load or build.
-Malformed arguments and `-` as a source are JSON-RPC invalid-parameter errors. Stdout
+Missing or malformed arguments, including `-` as a source, return a failed envelope with
+code `USAGE` and a hint when one applies, and set `isError`, so the model can retry. Only
+a tool name the server does not list is a JSON-RPC invalid-parameter error. Stdout
 carries only protocol frames. `createMcpServer` from `@docture/cli/mcp` builds the same
 server for any MCP transport.
 

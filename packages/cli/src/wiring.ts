@@ -62,6 +62,10 @@ export interface WiringFlags {
   readonly maxPages?: number;
   readonly completion?: CompletionStrategy;
   readonly maxChars?: number;
+  /**
+   * A deadline for each whole call. The wiring does not build it in: each caller passes it
+   * with every call, so it also bounds a config's prebuilt extractor or converter.
+   */
   readonly timeoutMs?: number;
   readonly classify?: boolean;
   readonly assistLayout?: boolean;
@@ -432,7 +436,7 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
     );
   }
 
-  const stageTimeoutMs = flags.timeoutMs ?? config?.config.stageTimeoutMs;
+  const stageTimeoutMs = config?.config.stageTimeoutMs;
   const ordered = [...(input.before ?? []), ...strategies];
   const extractor = createExtractor({
     loaders,
@@ -459,7 +463,6 @@ export async function buildWiring(input: WiringInput): Promise<Wiring> {
   };
 }
 
-/** Build the conversion peer from the same loader, model, cache, and timeout rules. */
 export async function buildConversionWiring(
   input: ConversionWiringInput,
 ): Promise<ConversionWiring> {
@@ -532,7 +535,7 @@ export async function buildConversionWiring(
     notes.push(`layout analyzer ${layoutAnalyzer.name} from config`);
   }
 
-  const stageTimeoutMs = flags.timeoutMs ?? config?.config.stageTimeoutMs;
+  const stageTimeoutMs = config?.config.stageTimeoutMs;
   const converter = createDocumentConverter({
     loaders,
     ...(layoutAnalyzer === undefined ? {} : { layoutAnalyzer }),

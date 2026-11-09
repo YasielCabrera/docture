@@ -64,7 +64,7 @@ describe("classification scheduling", () => {
     }
   });
 
-  it("records thrown classifiers as abstentions and propagates caller abort", async () => {
+  it("records thrown classifiers, including their own aborts, as abstentions and propagates caller abort", async () => {
     const extractor = createExtractor({
       loaders: [fakeLoader()],
       classifiers: [fakeClassifier("broken", "throw"), fakeClassifier("working", vote("working"))],
@@ -74,10 +74,17 @@ describe("classification scheduling", () => {
       { classifier: "broken", name: null, confidence: 0, note: "threw: classifier exploded" },
       vote("working"),
     ]);
-    const aborted = createExtractor({
+    const controller = new AbortController();
+    const selfAborting = createExtractor({
       loaders: [fakeLoader()],
       classifiers: [{ name: "cancelled", async classify() { throw new DOMException("stopped", "AbortError"); } }],
     });
-    await expect(aborted.classify(PDF_BYTES, candidates)).rejects.toMatchObject({ name: "AbortError", message: "stopped" });
+    const abstained = await selfAborting.classify(PDF_BYTES, candidates);
+    expect(abstained.signals).toEqual([{ classifier: "cancelled", name: null, confidence: 0, note: "threw: stopped" }]);
+    const cancelled = createExtractor({
+      loaders: [fakeLoader()],
+      classifiers: [{ name: "cancelled", async classify() { controller.abort(new DOMException("stopped", "AbortError")); throw controller.signal.reason; } }],
+    });
+    await expect(cancelled.classify(PDF_BYTES, candidates, { signal: controller.signal })).rejects.toMatchObject({ name: "AbortError", message: "stopped" });
   });
 });

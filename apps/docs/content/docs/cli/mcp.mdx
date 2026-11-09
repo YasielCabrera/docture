@@ -32,7 +32,7 @@ A tool's `source` is a path relative to the directory the host starts the server
 
 ## Read results and errors
 
-Each result is the version 1 envelope, as structured content and as JSON text. A failed document sets the MCP `isError` flag and reports `error.code`, for example `LOAD_FAILED`. A config that fails to load, or a config factory that throws or returns an invalid converter, answers the same way: one failed item with the code the CLI would report. For the core tools, missing or malformed arguments are JSON-RPC invalid-parameter errors. Invalid Paperless tool arguments return a failed envelope with code `USAGE` and set `isError`.
+Each result is the version 1 envelope, as structured content and as JSON text. A failed document sets the MCP `isError` flag and reports `error.code`, for example `LOAD_FAILED`. A config that fails to load, or a config factory that throws or returns an invalid converter, answers the same way: one failed item with the code the CLI would report. Missing or malformed arguments, for every tool, return a failed envelope with code `USAGE` and a hint when one applies, and set `isError`, so the model can read the problem and retry. Only a tool name the server does not list is a JSON-RPC invalid-parameter error.
 
 Stdout carries only protocol frames. Warnings go to stderr. The server stops at the end of its input or on Ctrl-C, and cancels calls still in flight.
 

@@ -774,7 +774,7 @@ export default defineSynthConfig({ model, templates: [slip], createdAt: "2025-01
     assert.doesNotMatch(missing.stderr, /corrupt/);
     await save(join(consumer, "broken.pdf"), "%PDF-1.7 this is not a document");
     const damaged = await runFailing("npm-cli-damaged-file", bin, ["inspect", "broken.pdf", "--no-config"], consumer);
-    assert.ok(damaged.stderr.includes("it may be corrupt, truncated, or password-protected"), damaged.stderr);
+    assert.ok(damaged.stderr.includes("A corrupt, truncated or password-protected file fails every loader"), damaged.stderr);
     assert.doesNotMatch(damaged.stderr, /Install the engine/);
   });
   const mcpRange = cli.manifest.peerDependencies["@modelcontextprotocol/sdk"];

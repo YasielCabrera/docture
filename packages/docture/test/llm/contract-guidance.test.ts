@@ -214,6 +214,8 @@ describe("direct Contract guidance", () => {
     get rules() { return this.#values.rules; }
     get onRuleFailure() { return this.#values.onRuleFailure; }
     get maxRepairs() { return this.#values.maxRepairs; }
+    get timeoutMs() { return this.#values.timeoutMs; }
+    get onEvent() { return this.#values.onEvent; }
   }
 
   const optionShapes: [string, (values: Required<RunOptions>) => RunOptions][] = [
@@ -231,6 +233,8 @@ describe("direct Contract guidance", () => {
       rules: { value: values.rules },
       onRuleFailure: { value: values.onRuleFailure },
       maxRepairs: { value: values.maxRepairs },
+      timeoutMs: { value: values.timeoutMs },
+      onEvent: { value: values.onEvent },
     })],
   ];
 
@@ -238,6 +242,7 @@ describe("direct Contract guidance", () => {
     return {
       signal, pages: [2], stageTimeoutMs: 10_000, only: ["recorder"],
       classifications: [sameName], classify: {}, logger: silentLogger, rules: [], onRuleFailure: "report", maxRepairs: 1,
+      timeoutMs: 10_000, onEvent: () => {},
     };
   }
 

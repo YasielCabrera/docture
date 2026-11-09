@@ -35,7 +35,7 @@ Examples use the project-local CLI installed in [Run your first CLI commands](/d
 | `--max-pages <n>` | Not set | Send at most this many page images to the model, under --vision |
 | `--completion <mode>` | forbidden | How a document too big for one request is split. Choices: `forbidden`, `paginate`, `concatenate`. |
 | `--max-chars <n>` | 24000 | Character budget per request under --completion concatenate |
-| `--timeout <ms>` | Not set | Per-stage deadline. Omit for none |
+| `--timeout <ms>` | Not set | Deadline for each document, across every stage. Omit for none |
 | `--concurrency <n>` | 4 | Overlaps model calls and I/O; local PDF work uses one thread |
 | `--only <strategy>` | Not set | Restrict to these strategies, in this order. Repeatable |
 | `--classify` | Not set | Classify with the model first, and prompt with what it decided |

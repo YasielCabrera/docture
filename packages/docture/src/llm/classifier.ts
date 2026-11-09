@@ -138,26 +138,28 @@ export class LlmClassifier implements Classifier {
         verdict = response.output;
       }
 
-      if (verdict.name === "UNKNOWN") {
-        return { classifier: this.name, name: null, confidence: 0, note: verdict.reason, usage };
-      }
-
-      // A model that returns a name outside the candidate list has not classified —
-      // it has invented. Treat it as an abstention and say so.
-      const known = ctx.candidates.some((candidate) => candidate.name === verdict.name);
-      if (!known) {
+      const answer = verdict.name.trim();
+      const folded = answer.toLowerCase();
+      const byCase = ctx.candidates.filter((candidate) => candidate.name.trim().toLowerCase() === folded);
+      const known = byCase.find((candidate) => candidate.name.trim() === answer) ?? (byCase.length === 1 ? byCase[0] : undefined);
+      if (known === undefined) {
+        if (byCase.length === 0 && folded === "unknown") {
+          return { classifier: this.name, name: null, confidence: 0, note: verdict.reason, usage };
+        }
         return {
           classifier: this.name,
           name: null,
           confidence: 0,
-          note: `returned "${verdict.name}", which is not a candidate`,
+          note: byCase.length === 0
+            ? `returned "${verdict.name}", which is not a candidate`
+            : `returned "${verdict.name}", which matches more than one candidate when case is ignored`,
           usage,
         };
       }
 
       return {
         classifier: this.name,
-        name: verdict.name,
+        name: known.name,
         confidence: verdict.confidence,
         note: verdict.reason,
         usage,

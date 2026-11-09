@@ -194,6 +194,6 @@ describe("model telemetry", () => {
     await createExtractor({ loaders: [inMemoryLoader(loadedDocument([page]))] })
       .loadLlm(backend)
       .extract(source, Total);
-    expect(starts.map((start) => start.functionId)).toEqual(["docture.extract.llm"]);
+    expect(starts.map((start) => start.functionId)).toEqual(["docture.extract.m"]);
   });
 });

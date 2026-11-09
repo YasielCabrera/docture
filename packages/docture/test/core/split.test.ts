@@ -13,6 +13,7 @@ import {
   UNCLASSIFIED,
   aggregateDocGroups,
   defineSplitter,
+  isDoctureError,
   pageWindows,
   runSplitter,
   silentLogger,
@@ -60,7 +61,7 @@ describe("pageWindows", () => {
   });
 
   it("refuses a window narrower than a seam", () => {
-    expect(() => pageWindows([1, 2], 1)).toThrowError(/integer window of at least 2/);
+    expect(() => pageWindows([1, 2], 1)).toThrowError(expect.objectContaining({ code: "INVALID_OPTION", message: "size must be an integer of at least 2; received 1." }));
   });
 });
 
@@ -239,5 +240,75 @@ describe("runSplitter", () => {
 
   it("is empty for a document with no pages", async () => {
     expect(await runSplitter(fakeSplitter(), [], SplittingStrategy.EAGER, ctx())).toEqual([]);
+  });
+});
+
+describe("runSplitter coverage", () => {
+  const four = multiPageDoc(["a", "b", "c", "d"]).pages;
+
+  it("rejects groups that repeat a page or leave pages out", async () => {
+    const splitter = fakeSplitter({
+      eager: [
+        { pages: [1, 2], classification: "invoice" },
+        { pages: [2], classification: "invoice" },
+      ],
+    });
+    await expect(runSplitter(splitter, four, SplittingStrategy.EAGER, ctx())).rejects.toThrow(
+      "Splitting failed: fake-splitter must place every page in exactly one group; " +
+        "page 2 is in 2 groups; pages 3, 4 are in no group.",
+    );
+  });
+
+  it("reports which pages overlap, are missing or are unknown as structured fields", async () => {
+    const splitter = fakeSplitter({
+      eager: [
+        { pages: [1, 2], classification: "invoice" },
+        { pages: [2, 9], classification: "invoice" },
+      ],
+    });
+    const failure: unknown = await runSplitter(splitter, four, SplittingStrategy.EAGER, ctx()).catch((error: unknown) => error);
+    expect(isDoctureError(failure, "SPLIT_FAILED") ? failure.toJSON().coverage : failure)
+      .toEqual({ overlaps: [2], missing: [3, 4], unknown: [9] });
+    expect(isDoctureError(failure, "SPLIT_FAILED") ? failure.hint : failure).toBe(
+      "Return groups from the splitter that cover every page of the bundle exactly once; coverage lists the overlapping, missing and unknown pages.",
+    );
+  });
+
+  it("rejects a group with no pages even when the other groups cover the bundle", async () => {
+    const splitter = fakeSplitter({
+      eager: [
+        { pages: [1, 2, 3, 4], classification: "invoice" },
+        { pages: [], classification: "receipt" },
+      ],
+    });
+    const failure: unknown = await runSplitter(splitter, four, SplittingStrategy.EAGER, ctx()).catch((error: unknown) => error);
+    expect(isDoctureError(failure, "SPLIT_FAILED") ? { message: failure.message, coverage: failure.coverage } : failure).toEqual({
+      message: "Splitting failed: fake-splitter must place every page in exactly one group; group 2 (receipt) has no pages.",
+      coverage: { overlaps: [], missing: [], unknown: [] },
+    });
+  });
+
+  it("rejects a page the bundle does not have", async () => {
+    const splitter = fakeSplitter({
+      eager: [{ pages: [1, 2, 3, 4, 9], classification: "invoice" }],
+    });
+    await expect(runSplitter(splitter, four, SplittingStrategy.EAGER, ctx())).rejects.toThrow(
+      "Splitting failed: fake-splitter must place every page in exactly one group; page 9 is not in the bundle.",
+    );
+  });
+
+  it("numbers LAZY groups with the pages' own numbers", async () => {
+    const pages = multiPageDoc(["a", "b", "c"]).pages.map((page, index) => ({ ...page, pageNumber: index + 4 }));
+    const splitter = defineSplitter({
+      name: "breaks-after-four",
+      async belongsToSameDocument(first) {
+        return seam(first.pageNumber !== 4);
+      },
+    });
+    const groups = await runSplitter(splitter, pages, SplittingStrategy.LAZY, ctx());
+    expect(groups).toEqual([
+      { pages: [4], classification: "invoice" },
+      { pages: [5, 6], classification: "invoice" },
+    ]);
   });
 });

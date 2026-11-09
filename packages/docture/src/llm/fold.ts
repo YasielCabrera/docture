@@ -29,6 +29,11 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+/** Assignment would run the `__proto__` setter; a model's field named that is data. */
+function defineOwn(target: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(target, key, { value, enumerable: true, writable: true, configurable: true });
+}
+
 function isPresent(value: unknown): boolean {
   return value !== null && value !== undefined && !(typeof value === "string" && value.trim() === "");
 }
@@ -62,11 +67,11 @@ function mergeTwo(first: Tracked, second: Tracked, rank: OriginRank | undefined)
     const secondOrigin = second.origin as Record<string, OriginTree>;
     for (const [key, item] of Object.entries(second.value)) {
       const right: Tracked = { value: item, origin: secondOrigin[key] as OriginTree };
-      const merged = key in value
+      const merged = Object.hasOwn(value, key)
         ? mergeTwo({ value: value[key], origin: origin[key] as OriginTree }, right, rank)
         : right;
-      value[key] = merged.value;
-      origin[key] = merged.origin;
+      defineOwn(value, key, merged.value);
+      defineOwn(origin, key, merged.origin);
     }
     return { value, origin };
   }
@@ -98,7 +103,7 @@ function sameValue(first: unknown, second: unknown): boolean {
   }
   if (isPlainObject(first) && isPlainObject(second)) {
     const keys = Object.keys(first);
-    return keys.length === Object.keys(second).length && keys.every((key) => key in second && sameValue(first[key], second[key]));
+    return keys.length === Object.keys(second).length && keys.every((key) => Object.hasOwn(second, key) && sameValue(first[key], second[key]));
   }
   return first === second;
 }

@@ -71,7 +71,7 @@ it.each(["partial_success", "skipped", "failure"])("fails closed on conversion s
   status = conversionStatus;
   try {
     const client = new DoclingServeClient({ baseUrl });
-    await expect(client.convert(input)).rejects.toMatchObject({ reason: "conversion" });
+    await expect(client.convert(input)).rejects.toMatchObject({ code: "DOCLING_FAILED", reason: "conversion" });
     if (conversionStatus === "partial_success") {
       const partial = await client.convert(input, { allowPartial: true });
       expect(partial.diagnostics.some((entry) => entry.code === "PARTIAL_CONVERSION")).toBe(true);
@@ -246,4 +246,71 @@ it("stops waiting for a job that stays queued past queueTimeoutMs", async () => 
   const job = scriptedJob(() => "pending");
   const outcome = await settleWithFakeTimers({ baseUrl, fetch: job.fetcher, jobTimeoutMs: 600_000, queueTimeoutMs: 5_000 }, 6_000);
   expect(outcome?.error).toMatchObject({ reason: "timeout", taskId: "job-1", outcome: "unknown", message: "Docling job stayed queued past queueTimeoutMs; server cancellation is not implied." });
+});
+
+it("bounds a synchronous convert by convertTimeoutMs rather than requestTimeoutMs", async () => {
+  const slow = vi.fn<typeof fetch>().mockImplementation(async (url, init) => {
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    init?.signal?.throwIfAborted();
+    return fetch(url, init);
+  });
+  const converted = await new DoclingServeClient({ baseUrl, fetch: slow, requestTimeoutMs: 10 }).convert(input);
+  expect(converted.conversionStatus).toBe("success");
+  await expect(new DoclingServeClient({ baseUrl, fetch: slow, requestTimeoutMs: 10_000, convertTimeoutMs: 10 }).convert(input))
+    .rejects.toMatchObject({ reason: "timeout", outcome: "unknown" });
+});
+
+it("backs off exponentially between GET retries and waits as long as Retry-After asks", async () => {
+  const random = vi.spyOn(Math, "random").mockReturnValue(1);
+  try {
+    const failing = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response("{}", { status: 500 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 502 }))
+      .mockResolvedValueOnce(Response.json({ status: "ok" }));
+    const started = performance.now();
+    await expect(new DoclingServeClient({ baseUrl, fetch: failing, getRetryDelayMs: 100 }).health()).resolves.toEqual({ status: "ok" });
+    const backedOff = performance.now() - started;
+
+    const limited = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response("{}", { status: 429, headers: { "retry-after": "1" } }))
+      .mockResolvedValueOnce(Response.json({ status: "ok" }));
+    const waited = performance.now();
+    await expect(new DoclingServeClient({ baseUrl, fetch: limited, getRetryDelayMs: 0 }).health()).resolves.toEqual({ status: "ok" });
+    const retriedAfter = performance.now() - waited;
+
+    expect({ calls: [failing.mock.calls.length, limited.mock.calls.length], backedOff: backedOff >= 295, retriedAfter: retriedAfter >= 995 })
+      .toEqual({ calls: [3, 2], backedOff: true, retriedAfter: true });
+  } finally {
+    random.mockRestore();
+  }
+});
+
+it("reports the HTTP error at once when Retry-After would outlast the request deadline", async () => {
+  const busy = vi.fn<typeof fetch>(async () => Response.json({ detail: "queue full" }, { status: 503, headers: { "retry-after": "5" } }));
+  const started = performance.now();
+  const error = await new DoclingServeClient({ baseUrl, fetch: busy, requestTimeoutMs: 300 }).health().catch((caught: unknown) => caught);
+  const elapsed = performance.now() - started;
+  expect({ error, calls: busy.mock.calls.length, beforeDeadline: elapsed < 250 })
+    .toEqual({ error: expect.objectContaining({ reason: "http", status: 503, message: "Docling HTTP 503: queue full" }), calls: 1, beforeDeadline: true });
+});
+
+it("keeps the caller's abort reason over a pending Retry-After wait", async () => {
+  const controller = new AbortController();
+  const busy = vi.fn<typeof fetch>(async () => {
+    setTimeout(() => controller.abort("caller stopped"), 20);
+    return new Response("{}", { status: 503, headers: { "retry-after": "1" } });
+  });
+  const error = await new DoclingServeClient({ baseUrl, fetch: busy }).health(controller.signal).catch((caught: unknown) => caught);
+  expect({ error, calls: busy.mock.calls.length }).toEqual({ error: "caller stopped", calls: 1 });
+});
+
+it("names Docling's own error detail, bounded, in the HTTP error", async () => {
+  const rejecting = vi.fn<typeof fetch>()
+    .mockResolvedValueOnce(Response.json({ detail: "page_range must be ascending" }, { status: 422 }))
+    .mockResolvedValueOnce(new Response(`internal ${"x".repeat(5000)}`, { status: 400 }));
+  const client = new DoclingServeClient({ baseUrl, fetch: rejecting });
+  const first = await client.convert(input).catch((error: unknown) => error);
+  const second = await client.convert(input).catch((error: unknown) => error);
+  expect(first).toMatchObject({ reason: "http", status: 422, message: "Docling HTTP 422: page_range must be ascending" });
+  expect(String((second as Error).message)).toBe(`Docling HTTP 400: internal ${"x".repeat(491)}...`);
 });

@@ -119,17 +119,47 @@ function safeHref(
   return undefined;
 }
 
+/** An `&` that a Markdown renderer would read as the start of an entity or character reference. */
+const ENTITY_START = /&(?=(?:[A-Za-z][A-Za-z0-9]{0,31}|#[0-9]{1,7}|#[xX][0-9A-Fa-f]{1,6});)/gu;
+
 function inlineMarkdownText(value: string): string {
-  return value.replace(/([\\`*_[\]<>])/gu, "\\$1");
+  return value.replace(/([\\`*_[\]<>~|])/gu, "\\$1").replace(ENTITY_START, "&amp;");
 }
 
-/** Escape what would open a heading, list, or rule, or underline the line above, at the start of a line. */
+/**
+ * Escape what would open a heading, list, rule, or code block, or underline the
+ * line above, at the start of a line. Leading indentation is dropped: it would
+ * open an indented code block and carries no meaning in paragraph text.
+ */
 function escapeLineStarts(value: string): string {
   return value
-    .replace(/^([\t ]{0,3})#/gmu, "$1\\#")
-    .replace(/^([\t ]{0,3})([+-])(?=\s|$)/gmu, "$1\\$2")
-    .replace(/^([\t ]{0,3})(\d{1,9})([.)])(?=\s|$)/gmu, "$1$2\\$3")
-    .replace(/^([\t ]{0,3})(-+|=+|~{3,})([\t ]*)$/gmu, "$1\\$2$3");
+    .replace(/^[\t ]+/gmu, "")
+    .replace(/^#/gmu, "\\#")
+    .replace(/^([+-])(?=\s|$)/gmu, "\\$1")
+    .replace(/^(\d{1,9})([.)])(?=\s|$)/gmu, "$1\\$2")
+    .replace(/^(?=-[-\t ]*$|=+[\t ]*$)/gmu, "\\");
+}
+
+/**
+ * A link destination; one with spaces or parentheses is written in angle brackets.
+ * Line breaks are percent-encoded, since no destination form may hold one.
+ */
+function linkDestination(href: string): string {
+  const value = href.replace(/[\r\n]/gu, (character) => (character === "\n" ? "%0A" : "%0D"));
+  return /[\s()<>]/u.test(value)
+    ? `<${value.replace(/[<>\\]/gu, "\\$&")}>`
+    : value.replace(/\\/gu, "\\\\");
+}
+
+/** A code fence one backtick longer than the longest backtick run in `text`, and at least three. */
+function codeFence(text: string): string {
+  const longest = Math.max(0, ...(text.match(/`+/gu) ?? []).map((run) => run.length));
+  return "`".repeat(Math.max(3, longest + 1));
+}
+
+/** Escape a trailing `#` run, which Markdown would read as a closing sequence and drop. */
+function keepTrailingHashes(value: string): string {
+  return value.replace(/(^|[\t ])(#+[\t ]*)$/u, "$1\\$2");
 }
 
 function markdownText(value: string): string {
@@ -146,7 +176,7 @@ function markdownRuns(
       const text = inlineMarkdownText(run.text);
       if (run.href === undefined) return text;
       const href = safeHref(run.href, pageNumber, warnings);
-      return href === undefined ? text : `[${text}](${href.replace(/[()\\]/gu, "\\$&")})`;
+      return href === undefined ? text : `[${text}](${linkDestination(href)})`;
     })
     .join(""));
 }
@@ -183,14 +213,12 @@ function plainElement(element: DocumentElement): string {
     case "page-header":
     case "page-footer":
       return element.text;
-    case "list":
+    case "list": {
+      const markers = element.ordered ? orderedMarkers(element.items) : [];
       return element.items
-        .map((item, index) =>
-          item.marker === undefined
-            ? `${element.ordered ? `${index + 1}.` : "•"} ${item.text}`
-            : `${item.marker}${item.text}`,
-        )
+        .map((item, index) => item.marker === undefined ? `${markers[index] ?? "•"} ${item.text}` : `${item.marker}${item.text}`)
         .join("\n");
+    }
     case "table":
       return element.sourceText ?? element.rows.map((row) => row.join("\t")).join("\n");
     case "figure":
@@ -204,7 +232,7 @@ function markdownTable(rows: readonly (readonly string[])[]): string {
   const width = Math.max(...rows.map((row) => row.length));
   const cells = rows.map((row) =>
     Array.from({ length: width }, (_unused, index) =>
-      inlineMarkdownText(row[index] ?? "").replace(/\|/gu, "\\|").replace(/\n/gu, "<br>"),
+      inlineMarkdownText(row[index] ?? "").replace(/\n/gu, "<br>"),
     ),
   );
   const header = cells[0] ?? [];
@@ -220,7 +248,7 @@ function assetUrl(asset: ConversionAsset, mode: ConversionAssetMode): string {
   if (mode === "embedded") {
     return `data:${asset.mimeType};base64,${base64(asset.bytes)}`;
   }
-  return encodeURI(asset.reference);
+  return asset.reference.split("/").map(encodeURIComponent).join("/");
 }
 
 function missingAsset(
@@ -234,10 +262,19 @@ function missingAsset(
   });
 }
 
-/** The item's own number and delimiter, such as `3.` or `10)`, so a list that starts mid-sequence keeps its numbering. */
-function orderedMarker(marker: string | undefined, index: number): string {
-  const original = /^\s*(\d{1,9}[.)])\s*$/u.exec(marker ?? "")?.[1];
-  return original ?? `${index + 1}.`;
+function orderedMarkers(items: readonly { readonly marker?: string }[]): string[] {
+  let next = 1;
+  let delimiter = ".";
+  return items.map((item) => {
+    const original = /^\s*(\d{1,9})([.)])\s*$/u.exec(item.marker ?? "");
+    if (original !== null) {
+      next = Number(original[1]);
+      delimiter = original[2] ?? ".";
+    }
+    const marker = `${next}${delimiter}`;
+    next += 1;
+    return marker;
+  });
 }
 
 function orderedStart(items: readonly { readonly marker?: string }[]): number {
@@ -249,20 +286,19 @@ function markdownElement(element: DocumentElement, ctx: RenderContext): string {
   const pageNumber = element.provenance.pageNumber;
   switch (element.kind) {
     case "heading":
-      return `${"#".repeat(element.level)} ${markdownRuns(element.runs.map((run) => ({ ...run, text: run.text.replace(/\s*\n\s*/gu, " ") })), pageNumber, ctx.warnings)}`;
+      return `${"#".repeat(element.level)} ${keepTrailingHashes(markdownRuns(element.runs.map((run) => ({ ...run, text: run.text.replace(/\s*\n\s*/gu, " ") })), pageNumber, ctx.warnings))}`;
     case "paragraph":
       return markdownRuns(element.runs, pageNumber, ctx.warnings);
     case "code": {
-      const fence = element.text.includes("```") ? "````" : "```";
+      const fence = codeFence(element.text);
       return `${fence}\n${element.text}\n${fence}`;
     }
-    case "list":
+    case "list": {
+      const markers = element.ordered ? orderedMarkers(element.items) : [];
       return element.items
-        .map(
-          (item, index) =>
-            `${element.ordered ? orderedMarker(item.marker, index) : "-"} ${markdownRuns(item.runs, pageNumber, ctx.warnings)}`,
-        )
+        .map((item, index) => `${markers[index] ?? "-"} ${markdownRuns(item.runs, pageNumber, ctx.warnings)}`)
         .join("\n");
+    }
     case "table":
       return markdownTable(flattenHeaderRows(element));
     case "page-header":

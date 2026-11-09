@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import {
   DEFAULT_RASTER_OPTIONS,
   defineRasterizer,
+  InvalidOptionError,
   type RasterFormat,
   type RasterOptions,
   type RasterPage,
@@ -21,6 +22,7 @@ import {
   type RawDocument,
 } from "../../core/index.js";
 import { importEngine, lazyEngine } from "../../core/engines.js";
+import { DEFAULT_MAX_PIXELS, withinPixels } from "../../core/domain/image.js";
 import { requestedPageNumbers } from "../../core/pipeline/pages.js";
 
 export interface NapiCanvasRasterizerOptions {
@@ -31,6 +33,12 @@ export interface NapiCanvasRasterizerOptions {
   readonly quality?: number;
   /** Cap the long edge in pixels. A vision model rarely wants more than ~2000. */
   readonly maxEdge?: number;
+  /**
+   * Most pixels one page may render to; a larger page renders at a lower DPI.
+   * Default 40 megapixels, an A0 sheet at about 160 DPI. It keeps a 200-inch page
+   * from allocating gigabytes. `Infinity` turns the cap off.
+   */
+  readonly maxPixels?: number;
   /** Password for an encrypted PDF. */
   readonly password?: string;
 }
@@ -125,19 +133,24 @@ function resolveScale(
   heightPt: number,
   dpi: number,
   maxEdge: number | undefined,
+  maxPixels: number,
 ): number {
   const fromDpi = dpi / 72;
-  if (maxEdge === undefined) return fromDpi;
-  const longEdgePx = Math.max(widthPt, heightPt) * fromDpi;
-  if (longEdgePx <= maxEdge) return fromDpi;
-  return maxEdge / Math.max(widthPt, heightPt);
+  const longEdgePt = Math.max(widthPt, heightPt);
+  const edged = maxEdge === undefined || longEdgePt * fromDpi <= maxEdge ? fromDpi : maxEdge / longEdgePt;
+  return withinPixels(widthPt, heightPt, edged, maxPixels, Math.floor);
 }
 
 export class NapiCanvasRasterizer implements Rasterizer {
   readonly name = "napi-canvas";
   readonly formats = ["png", "jpeg"] as const satisfies readonly RasterFormat[];
 
-  constructor(private readonly options: NapiCanvasRasterizerOptions = {}) {}
+  constructor(private readonly options: NapiCanvasRasterizerOptions = {}) {
+    const { maxPixels } = options;
+    if (maxPixels !== undefined && !(maxPixels >= 1)) {
+      throw new InvalidOptionError("maxPixels", "a number of at least 1, or Infinity", maxPixels);
+    }
+  }
 
   async rasterize(
     document: RawDocument,
@@ -151,6 +164,7 @@ export class NapiCanvasRasterizer implements Rasterizer {
     const format = options.format ?? this.options.format ?? DEFAULT_RASTER_OPTIONS.format;
     const quality = options.quality ?? this.options.quality ?? 0.9;
     const maxEdge = options.maxEdge ?? this.options.maxEdge;
+    const maxPixels = this.options.maxPixels ?? DEFAULT_MAX_PIXELS;
 
     const task = pdfjs.getDocument({
       // A copy: pdf.js detaches the buffer it is handed, and the caller may still
@@ -184,7 +198,7 @@ export class NapiCanvasRasterizer implements Rasterizer {
         const page = await pdf.getPage(pageNumber);
         try {
           const base = page.getViewport({ scale: 1 });
-          const scale = resolveScale(base.width, base.height, dpi, maxEdge);
+          const scale = resolveScale(base.width, base.height, dpi, maxEdge, maxPixels);
           const viewport = page.getViewport({ scale });
 
           const widthPx = Math.max(1, Math.floor(viewport.width));

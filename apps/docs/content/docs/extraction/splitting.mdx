@@ -61,10 +61,17 @@ try {
 	for (const item of documents) console.log(item.name, item.pages, item.data);
 } finally {
 	await process.dispose();
+	await extractor.dispose();
 }
 ```
 
-Each result carries the kind's typed data and original page numbers. The configured extractor supplies loaders and extraction strategies.
+Each result carries the kind's typed data and original page numbers. The configured extractor supplies loaders and extraction strategies. The process borrows it, so dispose the extractor yourself after its last use.
+
+To run one configured process over several files, pass each source to `extract()`:
+
+```ts
+const results = await Promise.all(files.map((file) => process.extract(file)));
+```
 
 ## Eager and lazy splitting
 
@@ -85,13 +92,20 @@ happen when `extract()` or `splitOnly()` is called.
 
 The process can use its own loaders, splitter, default extractor, and logger. A
 classification may override the default extractor for its document kind. The loaded
-document is passed to each extraction, so the source is not read again.
+document is passed to each extraction, so the source is not read again. Each group is
+extracted under the kind the split gave it, so the extractor's classifiers do not run
+again for it. If one group fails, the groups still running are cancelled.
+
+A splitter must place every page in exactly one group. A repeated, missing, or unknown
+page fails the split with `SplitFailedError`, which names the pages.
 
 Unclassified groups throw `UnclassifiedGroupError` by default. Set
 `onUnclassified: "skip"` only when dropping those groups is an explicit choice.
 
 `lastSplit` reports the splitter, strategy, groups, and splitting usage. Call
-`dispose()` to release the splitter, extractor, and loaders.
+`dispose()`, or declare the process with `await using`, to release the splitter and the
+loaders passed to `loadDocumentLoader()`. The extractor passed to `loadExtractor()` is
+borrowed and stays open.
 
 `docture/llm` ships `TextSplitter` for text layers and `ImageSplitter` for renderable
 pages. Their functional forms are `textSplitter()` and `imageSplitter()`.

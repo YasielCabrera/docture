@@ -14,7 +14,7 @@
  * through and a different one might.
  */
 
-import type { DoctureError, DoctureErrorCode } from "docture";
+import type { DoctureErrorCode } from "docture";
 
 export type ExitCode = 0 | 1 | 2;
 
@@ -43,21 +43,13 @@ export class CliError extends Error {
   }
 }
 
-/**
- * The next thing to try, per failure code.
- *
- * Core already reports *what* happened precisely; a terminal is the place to say
- * what to do about it. Keyed on the literal `code`, so a new error code is a
- * compile error here rather than a silently unhelpful message.
- */
-const HINTS: Readonly<Record<DoctureErrorCode, string>> = {
-  PAGE_OUT_OF_RANGE: "Select existing 1-based page numbers and at least one page.",
-  MODEL_OUTPUT_FAILED: "The model response did not satisfy the schema. Adjust the schema or instructions.",
+/** Advice by error code, phrased for whoever reads it. Codes without one keep Docture's own hint. */
+export type Hints = Readonly<Partial<Record<DoctureErrorCode, string>>>;
+
+const CLI_HINTS: Hints = {
   NO_ELIGIBLE_LOADER:
     "No loader accepts this file type. `docture inspect <file>` shows what was tried; " +
     "wire another loader in docture.config.ts.",
-  LOAD_FAILED:
-    "The file could not be read — it may be corrupt, truncated, or password-protected.",
   NO_CONVERTIBLE_CONTENT:
     "No loader found indexable text. For a scanned PDF, add --ocr tesseract or --ocr paddleocr, " +
     "or configure an OCR loader in docture.config.ts.",
@@ -69,15 +61,10 @@ const HINTS: Readonly<Record<DoctureErrorCode, string>> = {
     "The data produced does not satisfy your schema. The offending fields are listed above — " +
     "loosen the schema, or add --instructions to steer the model.",
   UNSUPPORTED_SOURCE: "Pass an existing, readable file path, a file:// URL, or an http(s) URL.",
-  TIMEOUT: "A stage hit its deadline. Raise it with --timeout <ms>, or drop the flag for none.",
+  TIMEOUT:
+    "A deadline elapsed. Raise --timeout <ms> for the whole document, or stageTimeoutMs in docture.config.ts for one stage.",
   DUPLICATE_COMPONENT:
     "Two components in docture.config.ts share a name. Give one of them a distinct `name`.",
-  SPLIT_FAILED:
-    "The bundle could not be cut into documents. An ImageSplitter needs a loader that can " +
-    "render pages — compose one with withRasterizer(loader, rasterizer).",
-  UNCLASSIFIED_GROUP:
-    "Some pages were split off as a kind that is not in your classification list. Add it, " +
-    "or pass { onUnclassified: \"skip\" } to drop those pages.",
   MISSING_ENGINE:
     "The file was not read. Install the engine named above in the project that runs docture, " +
     "or remove that component from docture.config.ts.",
@@ -85,38 +72,34 @@ const HINTS: Readonly<Record<DoctureErrorCode, string>> = {
     "Supply the missing component in docture.config.ts before running this command.",
   DISPOSED:
     "A converter or loader from docture.config.ts was used after it was disposed. Build a new one per run.",
-  EVAL_SPEC_INVALID:
-    "The eval spec cannot be resolved. Fix every listed path: add a fields rule, an arrays rule or a segment, " +
-    "or remove the rule that matches nothing.",
-  GROUND_TRUTH_INVALID:
-    "The expected values do not satisfy the eval spec. Correct the listed paths in the case's expected file, " +
-    "or change the spec if the schema is what changed.",
-  EVAL_DATASET_INVALID:
-    "The dataset cannot produce its cases. Check the listed document or expected file, sign off drafts, " +
-    "or pass only case ids the dataset has.",
-  EVAL_RUN_STORE_FAILED:
-    "A stored run cannot be read or written. Check the run id and the store directory, " +
-    "or rerun the eval if the run was written by another format version.",
-  OUT_OF_SCOPE:
-    "The processor declined this case. The eval records it as skipped; route it to a processor that handles it.",
-  MIGRATION_GUARD_FAILED:
-    "The migration changed paths outside its targets or gives a different result when applied twice. " +
-    "Fix the migration before writing it.",
-  EVAL_RUNS_INCOMPARABLE:
-    "The two runs cannot be paired. Pick the experiments to compare explicitly, " +
-    "or rerun so each case and epoch appears once per experiment.",
-  EVAL_PREFLIGHT_FAILED:
-    "An experiment failed its preflight check before any case ran. " +
-    "Fix the setup the message names, such as a missing credential, model or engine, then rerun.",
   SYNTHESIS_FAILED:
     "The model could not sample a value that passes its schema, constraints and scenario. " +
     "Fix the listed generator or constraint in docture.synth.ts, or loosen the scenario's expect.",
-  TEMPLATE_INVALID:
-    "The template's drawing does not match its printed mask. Draw every field the mask prints with page.field, " +
-    "mark the others false, or use a font that has the listed glyphs.",
   LABEL_VERIFICATION_FAILED:
     "A labeled value is not where its box says on the rendered page. Fix the template's coordinates or widths " +
     "so each field fits on the page, or pass --no-verify to write it anyway.",
+};
+
+export const MCP_HINTS: Hints = {
+  ...CLI_HINTS,
+  NO_ELIGIBLE_LOADER:
+    "No loader on this server accepts this file type. The inspect tool shows what was tried.",
+  NO_CONVERTIBLE_CONTENT:
+    "No loader found indexable text. A scanned PDF needs an OCR loader in the server's docture.config.ts.",
+  NO_ELIGIBLE_STRATEGY:
+    "The document loaded but nothing configured on this server can read it. A scan has no text layer " +
+    "and needs a vision strategy in the server's docture.config.ts.",
+  EXTRACTION_FAILED: "Every configured strategy threw. The message names each strategy and its error.",
+  CONTRACT_VIOLATION:
+    "The data produced does not satisfy the configured schema. The offending fields are listed in the message.",
+  TIMEOUT:
+    "A deadline in the server's docture.config.ts elapsed. Request fewer pages, or ask the server's operator to raise the deadline.",
+};
+
+export const SERVICE_HINTS: Hints = {
+  ...MCP_HINTS,
+  NO_ELIGIBLE_LOADER: "No loader on this server accepts this file type. The inspect route shows what was tried.",
+  TIMEOUT: "A deadline set by this server elapsed. Send fewer pages, or ask the server's operator to raise the deadline.",
 };
 
 const RULE_VIOLATION_HINT =
@@ -129,8 +112,8 @@ export interface Explained {
   readonly hint?: string;
 }
 
-/** Turn any thrown value into something worth printing. */
-export function explain(error: unknown): Explained {
+/** Turn any thrown value into something worth printing, with `hints` for its reader. */
+export function explain(error: unknown, hints: Hints = CLI_HINTS): Explained {
   if (error instanceof UsageError || error instanceof CliError) {
     return {
       code: error instanceof UsageError ? "USAGE" : "CLI",
@@ -139,8 +122,9 @@ export function explain(error: unknown): Explained {
     };
   }
   if (hasDoctureIdentity(error)) {
-    const ruleFailure = error.code === "CONTRACT_VIOLATION" && "failedCheck" in error && error.failedCheck === "rule";
-    return { message: error.message, code: error.code, hint: ruleFailure ? RULE_VIOLATION_HINT : HINTS[error.code] };
+    const ruleFailure = error.code === "CONTRACT_VIOLATION" && error.failedCheck === "rule";
+    const hint: string | undefined = ruleFailure ? RULE_VIOLATION_HINT : hints[error.code] ?? error.hint;
+    return { message: error.message, code: error.code, ...(hint === undefined ? {} : { hint }) };
   }
   if (error instanceof Error) {
     return { code: "INTERNAL", message: error.message };
@@ -148,7 +132,13 @@ export function explain(error: unknown): Explained {
   return { code: "INTERNAL", message: String(error) };
 }
 
-function hasDoctureIdentity(error: unknown): error is DoctureError {
+interface DoctureErrorFromAnyCopy extends Error {
+  readonly code: DoctureErrorCode;
+  readonly hint?: string;
+  readonly failedCheck?: unknown;
+}
+
+function hasDoctureIdentity(error: unknown): error is DoctureErrorFromAnyCopy {
   if (!(error instanceof Error)) return false;
   for (let prototype: unknown = Object.getPrototypeOf(error);
     typeof prototype === "object" && prototype !== null;
@@ -167,5 +157,6 @@ export const EXIT_INTERRUPTED = 130;
 
 export function exitCodeOf(error: unknown): ExitCode {
   if (error instanceof UsageError) return 2;
+  if (hasDoctureIdentity(error) && error.code === "INVALID_OPTION") return 2;
   return 1;
 }

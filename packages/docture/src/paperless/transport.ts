@@ -1,11 +1,10 @@
-import { DoctureError } from "../core/pipeline/errors.js";
+import { UnsupportedSourceError } from "../core/pipeline/errors.js";
 
 export type PaperlessApiVersion = 9 | 10;
 export type PaperlessFailure = "configuration" | "http" | "protocol" | "transport" | "limit" | "unsupported-version" | "source-changed";
 
-export class PaperlessError extends DoctureError {
+export class PaperlessError extends UnsupportedSourceError {
   protected static override readonly doctureErrorIdentity = "PaperlessError";
-  override readonly code = "UNSUPPORTED_SOURCE" as const;
   constructor(message: string, readonly kind: PaperlessFailure = "protocol", readonly status?: number, readonly outcome: "rejected" | "unknown" = "rejected", options?: { readonly cause?: unknown }) {
     super(message, options);
   }
@@ -53,7 +52,7 @@ export class PaperlessTransport {
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#headers = new Headers(options.headers);
     if (options.token !== undefined) this.#headers.set("Authorization", `Token ${options.token}`);
-    this.#timeoutMs = positiveInteger(options.timeoutMs ?? 30_000, "timeoutMs");
+    this.#timeoutMs = positiveInteger(options.timeoutMs ?? 30_000, "timeoutMs", 2_147_483_647);
     this.#maxResponseBytes = positiveInteger(options.maxResponseBytes ?? 32 * 1024 * 1024, "maxResponseBytes");
   }
 

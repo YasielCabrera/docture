@@ -33,7 +33,27 @@ const EXTENSION_TYPES: Readonly<Record<string, string>> = {
   ".epub": "application/epub+zip",
 };
 
-const KNOWN_TYPES = new Set([...Object.values(EXTENSION_TYPES), "image/gif", "application/zip", "application/octet-stream"]);
+const KNOWN_TYPES = new Set([...Object.values(EXTENSION_TYPES), "image/gif", "application/zip"]);
+const GENERIC_TYPES = new Set(["application/octet-stream", "binary/octet-stream"]);
+
+interface Declaration {
+  readonly mimeType?: string;
+  readonly charset?: string;
+}
+
+function parseDeclaration(value: string | undefined): Declaration {
+  if (value === undefined) return {};
+  const [type = "", ...parameters] = value.split(";");
+  const lower = type.trim().toLowerCase();
+  const charset = parameters
+    .map((parameter) => /^\s*charset\s*=\s*"?([^";\s]+)"?\s*$/iu.exec(parameter)?.[1])
+    .find((match) => match !== undefined);
+  const mimeType = lower === "" || GENERIC_TYPES.has(lower) ? undefined : lower;
+  return {
+    ...(mimeType === undefined ? {} : { mimeType }),
+    ...(charset === undefined ? {} : { charset }),
+  };
+}
 
 function startsWith(bytes: Uint8Array, signature: readonly number[]): boolean {
   if (bytes.length < signature.length) return false;
@@ -83,9 +103,11 @@ function toUint8Array(value: Uint8Array | ArrayBuffer): Uint8Array {
 /**
  * Resolve `source` to bytes and a media type.
  *
- * Specific magic bytes override generic or conflicting known declarations.
- * Custom declarations and ZIP types stay authoritative. Otherwise use the
- * signature, then extension, then `application/octet-stream`.
+ * Specific magic bytes override conflicting known declarations. Custom
+ * declarations and ZIP types stay authoritative. A generic declaration
+ * (`application/octet-stream`, `binary/octet-stream`) counts as none: the
+ * signature decides, then the extension, then `application/octet-stream`.
+ * A declared `charset` is kept on the result for text loaders to decode with.
  */
 export type SourceResolver = (source: DocumentSource, signal?: AbortSignal) => Promise<RawDocument>;
 
@@ -109,6 +131,7 @@ export async function resolveSourceWithFiles(
   let bytes: Uint8Array;
   let fileName: string | undefined;
   let declared: string | undefined;
+  let declaredCharset: string | undefined;
 
   // A pre-loaded document has no bytes to resolve. The pipeline intercepts it
   // before this point; reaching here means someone called `resolveSource` directly.
@@ -122,6 +145,7 @@ export async function resolveSourceWithFiles(
     bytes = toUint8Array(source.bytes);
     fileName = source.fileName;
     declared = source.mimeType;
+    declaredCharset = source.charset;
   } else if (source instanceof Uint8Array || source instanceof ArrayBuffer) {
     bytes = toUint8Array(source);
   } else {
@@ -148,7 +172,7 @@ export async function resolveSourceWithFiles(
         }
         bytes = new Uint8Array(await response.arrayBuffer());
         fileName = portableBasename(asUrl.pathname) || undefined;
-        declared = response.headers.get("content-type")?.split(";")[0]?.trim() || undefined;
+        declared = response.headers.get("content-type") ?? undefined;
       } catch (error) {
         signal?.throwIfAborted();
         if (errorCodeOf(error) === "UNSUPPORTED_SOURCE") throw error;
@@ -167,19 +191,21 @@ export async function resolveSourceWithFiles(
 
   const sniffed = sniffMimeType(bytes);
   const fromName = typeFromName(fileName);
-  declared = declared?.split(";")[0]?.trim() || undefined;
+  const declaration = parseDeclaration(declared);
   const useSignature = sniffed !== undefined && sniffed !== "application/zip"
-    && (declared === undefined || KNOWN_TYPES.has(declared.toLowerCase()));
+    && (declaration.mimeType === undefined || KNOWN_TYPES.has(declaration.mimeType));
   const mimeType =
-    (useSignature ? sniffed : declared) ??
+    (useSignature ? sniffed : declaration.mimeType) ??
     // `PK` alone cannot tell .docx from .xlsx — let the name break the tie.
     (sniffed === "application/zip" ? (fromName ?? sniffed) : (sniffed ?? fromName)) ??
     "application/octet-stream";
+  const charset = useSignature ? undefined : declaredCharset ?? declaration.charset;
 
   return {
     bytes,
     mimeType,
     ...(fileName === undefined ? {} : { fileName }),
+    ...(charset === undefined ? {} : { charset }),
   };
 }
 

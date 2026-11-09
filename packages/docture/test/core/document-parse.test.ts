@@ -119,6 +119,26 @@ describe("parseDoctureDocument", () => {
     });
   });
 
+  it("rejects page order, negative geometry, and text that disagrees with its runs", async () => {
+    const saved = await convertedJson();
+    const broken = edit(saved, (copy) => {
+      copy.pages[2].pageNumber = 2;
+      copy.pages[0].width = -600;
+      copy.pages[0].elements[1].provenance.box.height = -12;
+      copy.pages[0].elements[1].text = "Body text of page one.";
+    });
+    expect(parseDoctureDocument(broken)).toEqual({
+      ok: false,
+      issues: [
+        { path: "pages.0.width", message: "must not be negative" },
+        { path: "pages.0.elements.1.provenance.box.height", message: "must not be negative" },
+        { path: "pages.0.elements.1.text", message: "must equal the text of its runs" },
+        { path: "pages.2.pageNumber", message: "must be greater than 2, the page before it" },
+        ...[0, 1, 2].map((index) => ({ path: `pages.2.elements.${index}.provenance.pageNumber`, message: "must equal the holding page number 2" })),
+      ],
+    });
+  });
+
   it("agrees with the published version 2 JSON Schema on shape", async () => {
     const acme = await convertedJson();
     const rich = await convertedJson(richDocument());

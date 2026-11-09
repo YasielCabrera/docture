@@ -70,7 +70,7 @@ function runSplitter(
 ): Promise<DocGroups>
 ```
 
-Eager splitting uses `splitEager()` when implemented and otherwise uses the lazy path. Rejects on component, abort, or rendering failures.
+Eager splitting uses `splitEager()` when implemented and otherwise uses the lazy path. Lazy groups carry the pages' own `pageNumber` values. Rejects with `SplitFailedError` when the eager groups repeat a page, leave a page out, or name a page the bundle does not have. Also rejects on component, abort, or rendering failures.
 
 ### `RunSplitterOptions`
 
@@ -135,7 +135,7 @@ Folds seam verdicts into groups.
 function aggregateDocGroups(verdicts: readonly SplitVerdict[], pageCount: number): DocGroup[]
 ```
 
-Preserves order and covers the declared page count.
+Preserves order and covers the declared page count. Groups hold 1-based positions from `1` to `pageCount`. `runSplitter` maps them to the pages' own numbers.
 
 ## Process
 
@@ -154,8 +154,11 @@ class Process<C extends readonly Classification[]> {
   loadSource(source: DocumentSource): this;
   split<const NC extends readonly Classification[]>(classifications: NC, strategy?: SplittingStrategy): Process<NC>;
   get lastSplit(): SplitReport | undefined;
+  extract(source: DocumentSource, options?: ProcessExtractOptions): Promise<ClassifiedExtraction<C>[]>;
   extract(options?: ProcessExtractOptions): Promise<ClassifiedExtraction<C>[]>;
+  splitOnly(source: DocumentSource, options?: RunOptions): Promise<SplitReport>;
   splitOnly(options?: RunOptions): Promise<SplitReport>;
+  [Symbol.asyncDispose](): Promise<void>;
   dispose(scope?: DisposalScope): Promise<void>;
 }
 ```
@@ -169,11 +172,15 @@ new Process()
   .split(classifications);
 ```
 
-`loadSource()` is an alias of `loadFile()`. Wiring and planning methods return the same process. `split()` defaults to `SplittingStrategy.EAGER` and does not read the source. `lastSplit` holds the report of the last completed split.
+`loadSource()` is an alias of `loadFile()`. Wiring and planning methods return the same process. `split()` defaults to `SplittingStrategy.EAGER` and does not read the source. A source passed to `extract()` or `splitOnly()` is used for that call instead of the loaded file, so one configured process can run several files concurrently. `lastSplit` holds the report of the last completed split, which is the last call to finish when calls overlap.
+
+Each group is extracted under the classification the split gave it. `result.classification` is that kind, with the group's confidence or `1` when the splitter reported none, and no classifier runs again for the group. The first failed group cancels the groups still running and starts no more.
 
 For a one-page source, `Process` does not call the splitter. With one configured classification it assigns that kind directly. With several, it asks the configured extractor to classify the page. Classification uses the same loader fallback and stage deadlines as extraction. Eligible classifiers run concurrently, while their signals keep registration order. A throwing classifier records an abstention. Caller aborts propagate.
 
-Missing source, loaders, splitter, classifications, or extractor configuration throws. Unknown groups throw `UnclassifiedGroupError` unless `onUnclassified` is `"skip"`. `dispose()` settles the splitter, default extractor, and process loaders, then reports failures with `AggregateError`.
+Missing source, loaders, splitter, classifications, or extractor configuration throws. Unknown groups throw `UnclassifiedGroupError` unless `onUnclassified` is `"skip"`.
+
+The process owns its splitter and the loaders passed to `loadDocumentLoader()`. It borrows the extractor passed to `loadExtractor()` and each classification's own extractor. `dispose()` and `await using` settle the owned components, then report failures with `AggregateError`. Dispose a borrowed extractor through its owner.
 
 ### `ProcessExtractOptions`
 
@@ -186,7 +193,7 @@ interface ProcessExtractOptions extends RunOptions {
 }
 ```
 
-`onUnclassified` defaults to `"throw"`. `concurrency`, the number of groups extracted at once, defaults to `4`.
+`onUnclassified` defaults to `"throw"`. `concurrency`, the number of groups extracted at once, defaults to `4`. A value that is not a positive integer throws `InvalidOptionError` with code `INVALID_OPTION` before the source is read.
 
 ### `SplitReport`
 

@@ -49,6 +49,7 @@ napiCanvasRasterizer(options?: NapiCanvasRasterizerOptions): Rasterizer
 | `format` | `png` | Output format. |
 | `quality` | `0.9` | JPEG quality from 0 to 1. |
 | `maxEdge` | none | Maximum image edge in pixels. |
+| `maxPixels` | `40000000` | Maximum pixels per page image. The DPI is lowered to fit; `Infinity` turns the cap off. |
 | `password` | none | Password for an encrypted PDF. |
 
 ## Pair it with a loader

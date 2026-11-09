@@ -16,9 +16,11 @@ import {
   SplittingStrategy,
   UnclassifiedGroupError,
   defineClassification,
+  errorCodeOf,
   type DocumentLoader,
+  type ProcessExtractOptions,
 } from "../../src/core/index.js";
-import { PDF_BYTES, fakeLoader, fakeSplitter, fakeStrategy, multiPageDoc, renderableDoc } from "./fakes.js";
+import { PDF_BYTES, doc, fakeLoader, fakeSplitter, fakeStrategy, multiPageDoc, renderableDoc } from "./fakes.js";
 
 const Invoice = z.object({ invoiceNumber: z.string() });
 const Licence = z.object({ licenceNumber: z.string() });
@@ -158,12 +160,35 @@ describe("splitting and extracting", () => {
 
     await new Process()
       .loadExtractor(extractor)
-      .loadSplitter(fakeSplitter({ eager: [{ pages: [3], classification: "licence" }] }))
+      .loadSplitter(fakeSplitter({ eager: [
+        { pages: [1, 2], classification: "UNKNOWN" },
+        { pages: [3], classification: "licence" },
+      ] }))
       .loadFile(PDF_BYTES)
       .split([licence])
-      .extract();
+      .extract({ onUnclassified: "skip" });
 
     expect(numbers).toEqual([3]);
+  });
+
+  it("takes options built from a prototype or a class as options, not as a source", async () => {
+    class Settings { readonly onUnclassified = "skip" as const; }
+    const inherited: ProcessExtractOptions = Object.create({ onUnclassified: "skip" });
+    const extracted: number[][] = [];
+    for (const options of [new Settings(), inherited]) {
+      const extractor = new Extractor()
+        .loadDocumentLoader(fakeLoader({ document: multiPageDoc(["a", "b", "c"]) }))
+        .loadStrategy(fakeStrategy({ data: { licenceNumber: "DL-9" }, onExtract: (ctx) => { extracted.push(ctx.document.pages.map((p) => p.pageNumber)); } }));
+      const outcome = await new Process()
+        .loadExtractor(extractor)
+        .loadSplitter(fakeSplitter({ eager: [{ pages: [1, 2], classification: "UNKNOWN" }, { pages: [3], classification: "licence" }] }))
+        .loadFile(PDF_BYTES)
+        .split([licence])
+        .extract(options)
+        .then((results) => results.length, (error: unknown) => errorCodeOf(error));
+      expect(outcome).toBe(1);
+    }
+    expect(extracted).toEqual([[3], [3]]);
   });
 
   it("insists on a planned split, rather than guessing what the kinds are", async () => {
@@ -232,7 +257,7 @@ describe("typing", () => {
 
     const results = await new Process()
       .loadExtractor(extractor)
-      .loadSplitter(fakeSplitter({ eager: [{ pages: [1], classification: "invoice" }] }))
+      .loadSplitter(fakeSplitter({ eager: [{ pages: [1, 2, 3], classification: "invoice" }] }))
       .loadFile(PDF_BYTES)
       .split([cheapToRecognise])
       .extract();
@@ -258,7 +283,7 @@ describe("per-classification extractors", () => {
 
     const { process } = build();
     const results = await process
-      .loadSplitter(fakeSplitter({ eager: [{ pages: [3], classification: "licence" }] }))
+      .loadSplitter(fakeSplitter({ eager: [{ pages: [1, 2, 3], classification: "licence" }] }))
       .loadFile(PDF_BYTES)
       .split([licenceOwnExtractor])
       .extract();
@@ -277,7 +302,7 @@ describe("per-classification extractors", () => {
     await expect(
       new Process()
         .loadDocumentLoader(fakeLoader({ document: bundle }))
-        .loadSplitter(fakeSplitter({ eager: [{ pages: [3], classification: "licence" }] }))
+        .loadSplitter(fakeSplitter({ eager: [{ pages: [1, 2, 3], classification: "licence" }] }))
         .loadFile(PDF_BYTES)
         .split([orphan])
         .extract(),
@@ -497,5 +522,181 @@ describe("a bundle that turned out to be one document", () => {
     await expect(
       onePageProcess(withDoc()).split([invoice, licence]).extract(),
     ).rejects.toThrowError(UnclassifiedGroupError);
+  });
+});
+
+const countingLoader = (load: DocumentLoader["load"], facts?: readonly string[]): DocumentLoader => ({
+  name: "counting",
+  capabilities: { text: true, geometry: false, images: false, mimeTypes: ["*/*"], ...(facts === undefined ? {} : { facts }) },
+  load,
+});
+
+describe("the splitter's verdict", () => {
+  it.each([undefined, "none", "hint"] as const)("retains the split classification when a strategy requests %s classification", async (needsClassification) => {
+    const extractor = new Extractor({
+      loaders: [fakeLoader()],
+      strategies: [{
+        name: "contrary",
+        ...(needsClassification === undefined ? {} : { needsClassification }),
+        async extract() {
+          return {
+            data: { invoiceNumber: "INV-1" },
+            classification: { name: "licence", confidence: 1, signals: [] },
+          };
+        },
+      }],
+    });
+    const results = await new Process().loadExtractor(extractor).split([invoice])
+      .extract({ loaded: doc("Invoice INV-1") });
+    expect(results.map((result) => [result.name, result.result.classification?.name])).toEqual([["invoice", "invoice"]]);
+  });
+
+  it("is the classification each document is extracted under, with no second classifier call", async () => {
+    const classify = vi.fn(async () => ({ classifier: "contrary", name: "licence", confidence: 1 }));
+    const seen: (string | undefined)[] = [];
+    const extractor = new Extractor({ classifications: [invoice, licence] })
+      .loadDocumentLoader(countingLoader(async () => bundle))
+      .loadClassifier({ name: "contrary", classify })
+      .loadStrategy(fakeStrategy({
+        needsClassification: "hint",
+        data: { invoiceNumber: "INV-1", licenceNumber: "DL-9" },
+        onExtract: (ctx) => seen.push(ctx.classification?.name),
+      }));
+    const results = await new Process().loadExtractor(extractor)
+      .loadSplitter(fakeSplitter({ eager: [
+        { pages: [1, 2], classification: "invoice" },
+        { pages: [3], classification: "licence" },
+      ] }))
+      .loadFile(PDF_BYTES).split([invoice, licence]).extract({ concurrency: 1 });
+
+    expect({
+      classifierCalls: classify.mock.calls.length,
+      seen,
+      reported: results.map((r) => r.result.classification),
+    }).toEqual({
+      classifierCalls: 0,
+      seen: ["invoice", "licence"],
+      reported: [
+        { name: "invoice", confidence: 1, signals: [] },
+        { name: "licence", confidence: 1, signals: [] },
+      ],
+    });
+  });
+});
+
+describe("a failing document", () => {
+  it("cancels the documents still running and starts no more", async () => {
+    const started: number[] = [];
+    const aborted: number[] = [];
+    const extractor = new Extractor().loadDocumentLoader(countingLoader(async () => multiPageDoc(["a", "b", "c", "d"])))
+      .loadStrategy({
+        name: "first-fails",
+        async extract(ctx) {
+          const page = ctx.document.pages[0]?.pageNumber ?? 0;
+          started.push(page);
+          if (page === 1) {
+            await new Promise((resolve) => setTimeout(resolve, 5));
+            throw new Error("page one failed");
+          }
+          return new Promise((_resolve, reject) => ctx.signal.addEventListener("abort", () => {
+            aborted.push(page);
+            reject(ctx.signal.reason);
+          }, { once: true }));
+        },
+      });
+    const failure = await new Process().loadExtractor(extractor)
+      .loadSplitter(fakeSplitter({ eager: [1, 2, 3, 4].map((page) => ({ pages: [page], classification: "invoice" })) }))
+      .loadFile(PDF_BYTES).split([invoice]).extract({ concurrency: 2 })
+      .catch((error: unknown) => errorCodeOf(error));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect({ failure, started, aborted }).toEqual({
+      failure: "EXTRACTION_FAILED",
+      started: [1, 2],
+      aborted: [2],
+    });
+  });
+});
+
+describe("loader facts", () => {
+  const signed = defineClassification({ name: "signed", description: "a signed form", schema: z.object({ ok: z.boolean() }) });
+  const needsSignature = fakeStrategy({ name: "needs-signature", requires: ["SIGNED"], data: { ok: true } });
+
+  it("keep a strategy that requires a loader's custom fact eligible", async () => {
+    const extractor = new Extractor()
+      .loadDocumentLoader(countingLoader(async () => multiPageDoc(["Signed form with more than fifty characters of text"]), ["SIGNED"]))
+      .loadStrategy(needsSignature);
+    const results = await new Process().loadExtractor(extractor).loadFile(PDF_BYTES).split([signed]).extract();
+    expect(results.map((r) => [r.name, r.data])).toEqual([["signed", { ok: true }]]);
+  });
+
+  it("keep the facts a loaded source carries", async () => {
+    const extractor = new Extractor().loadDocumentLoader(fakeLoader()).loadStrategy(needsSignature);
+    const results = await new Process().loadExtractor(extractor)
+      .loadFile({ loaded: multiPageDoc(["Signed form with more than fifty characters of text"]), facts: ["SIGNED"] })
+      .split([signed]).extract();
+    expect(results.map((r) => [r.name, r.data])).toEqual([["signed", { ok: true }]]);
+  });
+});
+
+describe("Process options", () => {
+  it.each([0, -1, 1.5, Number.NaN])("rejects concurrency %s before reading the file", async (concurrency) => {
+    const { process, load } = build();
+    await expect(process.loadSplitter(fakeSplitter({ eager: [{ pages: [1, 2, 3], classification: "invoice" }] }))
+      .loadFile(PDF_BYTES).split([invoice]).extract({ concurrency }))
+      .rejects.toThrow("concurrency must be a positive integer");
+    expect(load).not.toHaveBeenCalled();
+  });
+});
+
+describe("one configured Process, several files", () => {
+  const read: number[] = [];
+  const configured = (): Process<readonly [typeof invoice]> => new Process()
+    .loadExtractor(new Extractor()
+      .loadDocumentLoader(countingLoader(async (raw) => {
+        read.push(raw.bytes[0] ?? 0);
+        return multiPageDoc([`Document number ${raw.bytes[0]} with more than fifty characters of text`]);
+      }))
+      .loadStrategy({
+        name: "number",
+        async extract(ctx) { return { data: { invoiceNumber: /number (\d+)/.exec(ctx.document.text)?.[1] ?? "" } }; },
+      }))
+    .split([invoice]);
+
+  it("extracts each source passed to extract, concurrently", async () => {
+    const process = configured();
+    const [first, second] = await Promise.all([
+      process.extract(new Uint8Array([7])),
+      process.extract(new Uint8Array([9]), { concurrency: 1 }),
+    ]);
+    expect([first?.[0]?.data, second?.[0]?.data]).toEqual([{ invoiceNumber: "7" }, { invoiceNumber: "9" }]);
+  });
+
+  it("splits the source passed to splitOnly and keeps the loaded file for extract", async () => {
+    read.length = 0;
+    const process = configured().loadFile(new Uint8Array([3]));
+    const report = await process.splitOnly(new Uint8Array([5]));
+    const results = await process.extract();
+    expect({ read, groups: report.groups, data: results[0]?.data }).toEqual({
+      read: [5, 3],
+      groups: [{ pages: [1], classification: "invoice" }],
+      data: { invoiceNumber: "3" },
+    });
+  });
+});
+
+describe("disposal", () => {
+  it("borrows the extractor and releases the splitter and its own loaders", async () => {
+    const released: string[] = [];
+    const extractor = new Extractor()
+      .loadDocumentLoader(fakeLoader({ name: "extractor-loader", onDispose: () => { released.push("extractor-loader"); } }))
+      .loadStrategy(fakeStrategy({ onDispose: () => { released.push("strategy"); } }));
+    const process = new Process()
+      .loadDocumentLoader(fakeLoader({ name: "process-loader", onDispose: () => { released.push("process-loader"); } }))
+      .loadSplitter({ ...fakeSplitter(), async dispose() { released.push("splitter"); } })
+      .loadExtractor(extractor);
+
+    await process[Symbol.asyncDispose]();
+    expect(released.sort()).toEqual(["process-loader", "splitter"]);
   });
 });

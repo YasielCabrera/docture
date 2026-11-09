@@ -2,7 +2,7 @@
 
 Standalone copies require the [matching package builds and setup](../README.md#use-a-copied-folder).
 
-Read the local `invoice.pdf`, define the expected fields, and extract its invoice number and total. The parser handles this supply layout. Use [model extraction](../with-a-model) for documents with unfamiliar layouts.
+Read the local `invoice.pdf`, define the expected fields, and extract its invoice number and total. The parser handles this supply layout. For documents with unfamiliar layouts, replace `.loadStrategy(invoiceParser)` with `.loadLlm(new LLM(openai("gpt-5")))`, as [model extraction](../with-a-model) does.
 
 Run from the repository root after `pnpm install` and `pnpm build`.
 

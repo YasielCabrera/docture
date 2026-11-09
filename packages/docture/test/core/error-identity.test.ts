@@ -49,6 +49,7 @@ const names = [
   "MissingEngineError",
   "MissingComponentError",
   "DisposedError",
+  "InvalidOptionError",
 ] as const;
 type ErrorName = (typeof names)[number];
 
@@ -69,6 +70,7 @@ const samples: Record<ErrorName, (m: ErrorsModule) => DoctureError> = {
   MissingEngineError: (m: ErrorsModule) => new m.MissingEngineError("mupdf", "~1.28.0", "docture/loaders/mupdf"),
   MissingComponentError: (m: ErrorsModule) => new m.MissingComponentError("missing loader"),
   DisposedError: (m: ErrorsModule) => new m.DisposedError("DocumentConverter"),
+  InvalidOptionError: (m: ErrorsModule) => new m.InvalidOptionError("concurrency", "a positive integer", 0),
 };
 
 const codes: Record<ErrorName, string> = {
@@ -88,6 +90,7 @@ const codes: Record<ErrorName, string> = {
   MissingEngineError: "MISSING_ENGINE",
   MissingComponentError: "MISSING_COMPONENT",
   DisposedError: "DISPOSED",
+  InvalidOptionError: "INVALID_OPTION",
 };
 
 describe("errors from another installed copy of docture", () => {

@@ -52,6 +52,7 @@ export interface CommandSpec {
   readonly notes?: readonly string[];
   /** Commands named `<name> <subcommand>`. The first one runs when no subcommand is named. */
   readonly subcommands?: readonly CommandSpec[];
+  readonly envelopeFileFlag?: string;
 }
 
 /** What `parseArgs` can hand back for one flag, given our option table. */
@@ -253,6 +254,25 @@ export function numberFlag(
     throw new UsageError(`--${name} must be at most ${range.max}, got ${value}.`);
   }
   return value;
+}
+
+const MAX_LISTED_PAGES = 100_000;
+
+export function parsePageList(name: string, value: string): readonly number[] {
+  const invalid = new UsageError(`--${name} expects one-based page numbers and ranges, such as 2,4-6.`);
+  const tooMany = new UsageError(`--${name} can select at most ${MAX_LISTED_PAGES.toLocaleString("en-US")} pages.`);
+  const pages = new Set<number>();
+  for (const part of value.split(",")) {
+    const match = /^([1-9]\d*)(?:-([1-9]\d*))?$/.exec(part.trim());
+    if (match === null) throw invalid;
+    const first = Number(match[1]);
+    const last = match[2] === undefined ? first : Number(match[2]);
+    if (!Number.isSafeInteger(last) || last < first) throw invalid;
+    if (last - first >= MAX_LISTED_PAGES) throw tooMany;
+    for (let page = first; page <= last; page += 1) pages.add(page);
+    if (pages.size > MAX_LISTED_PAGES) throw tooMany;
+  }
+  return [...pages].sort((a, b) => a - b);
 }
 
 /**

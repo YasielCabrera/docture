@@ -18,11 +18,19 @@ export interface Deadline {
   release(): void;
 }
 
+/**
+ * The longest delay `setTimeout` honours; a longer one fires after 1 ms. A deadline past it
+ * (about 24.8 days) cannot elapse within a run, so it sets no timer.
+ */
+const MAX_TIMER_MS = 2_147_483_647;
+
 export function withDeadline(stage: string, ms: number | undefined, caller: AbortSignal): Deadline {
   const controller = new AbortController();
   let expired = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
 
   const onCallerAbort = (): void => {
+    if (timer !== undefined) clearTimeout(timer);
     controller.abort((caller as { reason?: unknown }).reason);
   };
 
@@ -30,18 +38,13 @@ export function withDeadline(stage: string, ms: number | undefined, caller: Abor
     onCallerAbort();
   } else {
     caller.addEventListener("abort", onCallerAbort, { once: true });
-  }
-
-  const timer =
-    ms === undefined || ms <= 0
+    timer = ms === undefined || ms <= 0 || ms > MAX_TIMER_MS
       ? undefined
       : setTimeout(() => {
           expired = true;
           controller.abort(new TimeoutError(stage, ms));
         }, ms);
-
-  // Do not hold the event loop open for a deadline nobody is waiting on.
-  timer?.unref?.();
+  }
 
   return {
     signal: controller.signal,

@@ -54,7 +54,8 @@ register honours them before you send it sensitive documents.
 Each call sets `functionId` to `docture.<stage>.<component>`. The stages are `extract`,
 `vision`, `classify`, `layout`, `split`, and `repair`, and the component is the
 strategy, classifier, analyzer, or splitter name, for example `docture.extract.llm` or
-`docture.classify.llm-classifier`. The runtime context gains a `docture` entry with
+`docture.classify.llm-classifier`. Components built by `LLM` carry its id, as in
+`docture.extract.gpt-5` and `docture.classify.gpt-5:classifier`. The runtime context gains a `docture` entry with
 `stage`, `component`, the source file name as `document` when known, the `pages` the call
 covered, and the `chunk` index of a multi-request extraction. `documentLabel: false`
 leaves `document` out. Layout calls name the converted source like every other stage.

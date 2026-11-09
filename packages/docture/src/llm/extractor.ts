@@ -39,7 +39,7 @@ import { llm, type LlmStrategyOptions } from "./strategy.js";
 import { llmClassifier } from "./classifier.js";
 import { vision, type VisionStrategyOptions } from "./vision.js";
 
-export interface LlmExtractorOptions extends Omit<ExtractorOptions, "strategies"> {
+export interface LlmExtractorOptions extends Omit<ExtractorOptions, "strategies" | "llm"> {
   /** Any AI SDK language model. */
   readonly model: LanguageModel;
   /**

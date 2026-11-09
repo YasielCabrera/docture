@@ -5,12 +5,21 @@ import type { Io } from "../cli/io.js";
 import { UsageError } from "../cli/errors.js";
 import { configuredPaperless } from "../paperless/config.js";
 import { runPaperlessAction, type PaperlessAction, type PaperlessSelection } from "../paperless/operations.js";
+import { PAPERLESS_OUTPUT } from "./tools.js";
 
 const ID = { type: "integer", minimum: 1 } as const;
 const SCHEMA = { type: "string", minLength: 1, description: "A schema name configured by the server owner" } as const;
 const SELECT = { documentId: ID, versionId: ID, query: { type: "string" }, limit: { type: "integer", minimum: 1 } } as const;
+const READS = { readOnlyHint: true, openWorldHint: true } as const;
+const ANNOTATIONS: Readonly<Record<string, NonNullable<Tool["annotations"]>>> = {
+  paperless_read: { title: "Read a Paperless document", ...READS },
+  paperless_search: { title: "Search Paperless", ...READS },
+  paperless_extract: { title: "Extract from Paperless documents", ...READS },
+  paperless_plan: { title: "Plan a Paperless fill-empty update", ...READS },
+  paperless_apply: { title: "Apply a Paperless fill-empty plan", readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+};
 function tool(name: string, description: string, properties: Record<string, object>, required: string[]): Tool {
-  return { name, description, inputSchema: { type: "object", properties, required, additionalProperties: false, ...(name === "paperless_extract" || name === "paperless_plan" ? { oneOf: [{ required: ["documentId"], not: { anyOf: [{ required: ["query"] }, { required: ["limit"] }] } }, { required: ["query"], not: { anyOf: [{ required: ["documentId"] }, { required: ["versionId"] }] } }] } : {}) } };
+  return { name, description, inputSchema: { type: "object", properties, required, additionalProperties: false, ...(name === "paperless_extract" || name === "paperless_plan" ? { oneOf: [{ required: ["documentId"], not: { anyOf: [{ required: ["query"] }, { required: ["limit"] }] } }, { required: ["query"], not: { anyOf: [{ required: ["documentId"] }, { required: ["versionId"] }] } }] } : {}) }, outputSchema: PAPERLESS_OUTPUT, ...(ANNOTATIONS[name] === undefined ? {} : { title: ANNOTATIONS[name].title, annotations: ANNOTATIONS[name] }) };
 }
 export function paperlessTools(config: LoadedConfig | undefined): readonly Tool[] {
   if (config?.config.paperless === undefined) return [];

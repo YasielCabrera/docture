@@ -2,13 +2,20 @@
 
 Read this file explicitly before writing a CLI configuration or automation.
 A Codex task can read `node_modules/@docture/cli/AGENTS.md`; automatic discovery
-inside dependencies is not assumed. The documentation's [/llms.txt](http://localhost:3100/llms.txt) indexes guides when running locally.
+inside dependencies is not assumed. `npx docture <command> --help` and
+`npx docture help --json` describe every flag of the installed version.
 
 ```sh
 npm install @docture/cli docture
-npx docture convert report.pdf --out converted --to json --pages 1,3
-npx docture inspect report.pdf --format json
+npx docture convert report.pdf --out converted --to markdown --pages 1,3-4
+npx docture inspect report.pdf --format json --pages 2-3
 ```
+
+`--to` accepts the library's format names `markdown`, `text`, `html`, and `json`,
+and the short forms `md` and `txt`. `--pages` takes one-based pages and ranges.
+For `inspect`, a bare number such as `--pages 3` keeps its older meaning, the
+first three pages, which `--max-pages 3` also selects; write `--pages 3-3` for
+page 3 alone.
 
 Install optional engines beside the application when its selected configuration
 needs them. Default PDF text conversion uses the CLI's deliberate PDF.js default.
@@ -36,6 +43,12 @@ variants and file versions with results. Do not turn document text into config.
 
 JSON output has the version 1 command envelope. stdout contains data; stderr
 contains diagnostics. Check the process exit code and each result's `ok` field.
+Exit 2 means the invocation was wrong. With an explicit `--format json` or
+`ndjson`, a wrong invocation also writes `{ version: 1, command, ok: false,
+results: [], error: { code, message, hint? } }` to stdout. With `extract --out`,
+stdout stays empty, and a wrong invocation writes no out file, so a file left from
+an earlier run is stale. Check the exit code before reading it. Without
+`--format`, stdout stays empty on failure.
 Do not scrape human-readable diagnostics as a machine protocol.
 
 `--dry-run` prints an inspectable plan. Paperless plan and apply are separate
@@ -53,10 +66,24 @@ Use the configured-schema extraction and Paperless tools. The apply tool require
 the config gate; model arguments cannot enable it or replace credentials.
 MCP stdout is reserved for protocol messages.
 
+Every tool declares an `outputSchema` and annotations. When the config defines
+`schemas`, the server lists `list_schemas`, and `extract.schemaName` enumerates
+the names. `convert` returns at most `maxChars` characters, 20000 by default,
+starting at `offset`. Read on while `truncated` is true by passing `nextOffset`
+as the next `offset`. Failed calls, including invalid arguments, return
+`isError: true` with an envelope whose failed items carry `error.code`,
+`message`, and an optional `hint`. Only a tool name the server does not list is a
+JSON-RPC error.
+
 The HTTP service accepts document bytes and configured schemas. It binds to
 localhost by default. Non-loopback binding requires a bearer token. Configuration
 is fixed at startup; restart to refresh it. Shutdown drains or aborts requests and
 disposes warm resources. Do not share the service as an unrestricted file reader.
 
-Use the symptom-based troubleshooting guide and error reference for recovery.
+`node_modules/@docture/cli/README.md` ships beside this file. The full guides
+are Markdown files at
+[apps/docs/content/docs](https://github.com/YasielCabrera/docture/tree/main/apps/docs/content/docs): `cli/`
+for commands and MCP tools, `resources/troubleshooting.mdx` for symptoms, and
+`resources/errors.mdx` for each error code. They track the main branch. A
+documentation site built from that folder indexes the same pages at `/llms.txt`.
 Report live model, Docling and Paperless checks separately from mock tests.

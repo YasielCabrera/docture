@@ -15,11 +15,13 @@ import {
   type DocumentSource,
 } from "../domain/document.js";
 import type { LoadedDocument } from "../domain/geometry.js";
+import { isolatedListener, type PipelineEventListener } from "../domain/events.js";
 import type { Logger } from "../domain/logger.js";
 import { silentLogger } from "../domain/logger.js";
 import {
   sumUsage,
   type Attempt,
+  type ClassificationResult,
   type ExtractionConflict,
   type ExtractionResult,
   type RuleFailureMode,
@@ -39,6 +41,7 @@ import type {
 import { alignCitations } from "./citations.js";
 import { checkedExamples, guidedExamplesOf, serializeExamples, type GuidedExample } from "./examples.js";
 import { classifyDocument, type ClassifyOptions } from "./classify.js";
+import { abandonAfterDeadline, withCallDeadline } from "./abandon.js";
 import { withDeadline } from "./deadline.js";
 import {
   classificationIsWanted,
@@ -53,11 +56,12 @@ import {
   NoEligibleStrategyError,
   TimeoutError,
   errorCodeOf,
-  isAbortError,
+  isCallerAbort,
   messageOf,
   repairOutputOf,
 } from "./errors.js";
 import { documentFeatures, preloadedFeatures } from "./features.js";
+import { nonNegativeInteger, oneOf } from "./options.js";
 import { readDocument } from "./read.js";
 import { resolveSchema } from "./schema.js";
 import { resolveSource, type SourceResolver } from "./source.js";
@@ -88,6 +92,16 @@ export interface RunOptions<T = unknown> {
   readonly pages?: readonly number[];
   /** Overrides the extractor's default for this call. */
   readonly stageTimeoutMs?: number;
+  /**
+   * Deadline in ms for the whole call. When it passes, every component's signal aborts and
+   * the call rejects with `TIMEOUT` at stage `"call"`. Overrides the extractor's default when set.
+   */
+  readonly timeoutMs?: number;
+  /**
+   * Progress as it happens: `load`, `classify`, and each finished `attempt`. Called
+   * synchronously; a listener that throws is logged and ignored.
+   */
+  readonly onEvent?: PipelineEventListener;
   /** Restrict to these strategy names, in this order. Useful for an eval sweep. */
   readonly only?: readonly string[];
   /** Candidate document kinds for this call. */
@@ -114,12 +128,17 @@ const PROCESS_HINTS_KEY = "docture.internal.process-hints.v1";
 interface ProcessGuidance {
   readonly hints?: string;
   readonly examples?: readonly GuidedExample[];
+  readonly classification?: ClassificationResult;
 }
 
 export function withProcessHints<T>(
   options: RunOptions<T>,
   hints: string | undefined,
-  selected?: { readonly owner: string; readonly examples: readonly ContractExample[] | undefined },
+  selected?: {
+    readonly owner: string;
+    readonly examples: readonly ContractExample[] | undefined;
+    readonly classification?: ClassificationResult;
+  },
 ): RunOptions<T> {
   const examples = serializeExamples(selected?.examples, selected?.owner ?? "");
   return {
@@ -127,6 +146,7 @@ export function withProcessHints<T>(
     [Symbol.for(PROCESS_HINTS_KEY)]: {
       ...(hints === undefined ? {} : { hints }),
       ...(examples === undefined ? {} : { examples }),
+      ...(selected?.classification === undefined ? {} : { classification: selected.classification }),
     },
   };
 }
@@ -137,10 +157,21 @@ function processHintsOf<T>(options: RunOptions<T>): ProcessGuidance | undefined 
   const selection: unknown = options[key];
   if (typeof selection !== "object" || selection === null) return undefined;
   const examples = guidedExamplesOf(selection);
-  const withExamples = examples === undefined ? {} : { examples };
-  if (!("hints" in selection) || selection.hints === undefined) return withExamples;
+  const classification = "classification" in selection ? decidedClassification(selection.classification) : undefined;
+  const decided = {
+    ...(examples === undefined ? {} : { examples }),
+    ...(classification === undefined ? {} : { classification }),
+  };
+  if (!("hints" in selection) || selection.hints === undefined) return decided;
   if (typeof selection.hints !== "string") return undefined;
-  return { hints: selection.hints, ...withExamples };
+  return { hints: selection.hints, ...decided };
+}
+
+function decidedClassification(value: unknown): ClassificationResult | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const { name, confidence, signals } = value as Partial<Record<keyof ClassificationResult, unknown>>;
+  if (typeof name !== "string" || typeof confidence !== "number" || !Array.isArray(signals)) return undefined;
+  return { name, confidence, signals: signals as ClassificationResult["signals"] };
 }
 
 const CONTRACT_GUIDANCE_KEY = "docture.internal.contract-guidance.v1";
@@ -153,11 +184,11 @@ interface ContractGuidance {
 
 export function snapshotRunOptions<T>(options: RunOptions<T>): RunOptions<T> {
   const {
-    signal, pages, stageTimeoutMs, only, classifications, classify, logger, rules, onRuleFailure, maxRepairs,
+    signal, pages, stageTimeoutMs, timeoutMs, onEvent, only, classifications, classify, logger, rules, onRuleFailure, maxRepairs,
     ...extra
   } = options;
   const fields: { [K in keyof RunOptions<T>]-?: RunOptions<T>[K] | undefined } = {
-    signal, pages, stageTimeoutMs, only, classifications, classify, logger, rules, onRuleFailure, maxRepairs,
+    signal, pages, stageTimeoutMs, timeoutMs, onEvent, only, classifications, classify, logger, rules, onRuleFailure, maxRepairs,
   };
   const selected = processHintsOf(options);
   return {
@@ -165,6 +196,8 @@ export function snapshotRunOptions<T>(options: RunOptions<T>): RunOptions<T> {
     ...(fields.signal === undefined ? {} : { signal: fields.signal }),
     ...(fields.pages === undefined ? {} : { pages: fields.pages }),
     ...(fields.stageTimeoutMs === undefined ? {} : { stageTimeoutMs: fields.stageTimeoutMs }),
+    ...(fields.timeoutMs === undefined ? {} : { timeoutMs: fields.timeoutMs }),
+    ...(fields.onEvent === undefined ? {} : { onEvent: fields.onEvent }),
     ...(fields.only === undefined ? {} : { only: fields.only }),
     ...(fields.classifications === undefined ? {} : { classifications: fields.classifications }),
     ...(fields.classify === undefined ? {} : { classify: fields.classify }),
@@ -240,10 +273,21 @@ export async function runPipeline<T>(
   schema: FlexibleSchema<T>,
   options: RunOptions<T> = {},
 ): Promise<ExtractionResult<T>> {
+  return withCallDeadline(options.timeoutMs, options.signal, (signal) =>
+    run(components, source, schema, signal === undefined ? options : { ...snapshotRunOptions(options), signal }));
+}
+
+async function run<T>(
+  components: PipelineComponents,
+  source: DocumentSource,
+  schema: FlexibleSchema<T>,
+  options: RunOptions<T>,
+): Promise<ExtractionResult<T>> {
   const startedAt = Date.now();
   const logger = options.logger ?? components.logger;
   const signal = options.signal ?? new AbortController().signal;
   const stageTimeoutMs = options.stageTimeoutMs ?? components.stageTimeoutMs;
+  const emit = isolatedListener(options.onEvent, logger);
   const rules = options.rules ?? components.rules ?? [];
   const onRuleFailure = checkedRuleFailureMode(
     options.onRuleFailure !== undefined ? options.onRuleFailure : components.onRuleFailure ?? "report",
@@ -264,6 +308,7 @@ export async function runPipeline<T>(
   let loadAttempts: readonly Attempt[];
   let featuresFor: (selected: LoadedDocument) => DocumentFeatures;
   let documentLabel: string | undefined;
+  let loadMs: number | undefined;
 
   if (preloaded !== undefined) {
     document = preloaded.loaded;
@@ -273,10 +318,13 @@ export async function runPipeline<T>(
     featuresFor = (selected) => preloadedFeatures({ ...preloaded, loaded: selected });
   } else {
     const raw = await (components.sourceResolver ?? resolveSource)(source, signal);
+    const loadStarted = Date.now();
     const loaded = await readDocument(
       components.loaders, raw, logger, signal, stageTimeoutMs,
       options.pages === undefined ? undefined : { pages: options.pages },
+      (attempt) => { if (attempt.status === "failed") emit({ type: "attempt", attempt }); },
     );
+    loadMs = Date.now() - loadStarted;
     document = loaded.document;
     loaderName = loaded.loader.name;
     loadAttempts = loaded.attempts;
@@ -293,6 +341,7 @@ export async function runPipeline<T>(
   if (options.pages !== undefined) {
     document = selectPages(document, options.pages);
   }
+  if (loadMs !== undefined) emit({ type: "load", loader: loaderName, pages: document.pages.length, ms: loadMs });
   const features = featuresFor(document);
 
   const requested =
@@ -306,8 +355,10 @@ export async function runPipeline<T>(
   if (eligible.length === 0) throw new NoEligibleStrategyError(features, gaps);
 
   const candidates = options.classifications ?? components.classifications;
-  const classification = classificationIsWanted(eligible)
-    ? await classifyDocument(
+  const decided = processHintsOf(options)?.classification;
+  const classification = decided ?? (!classificationIsWanted(eligible)
+    ? undefined
+    : await classifyDocument(
         components.classifiers,
         candidates,
         document,
@@ -317,8 +368,7 @@ export async function runPipeline<T>(
         stageTimeoutMs,
         options.classify ?? components.classify ?? {},
         documentLabel,
-      )
-    : undefined;
+      ).then((result) => { emit({ type: "classify", result }); return result; }));
 
   const hints = extractionHints(options, candidates, classification?.name);
 
@@ -349,6 +399,10 @@ export async function runPipeline<T>(
   const plan = ordered.filter((s) => routable.includes(s));
 
   const attempts: Attempt[] = [];
+  const record = (attempt: Attempt): void => {
+    attempts.push(attempt);
+    emit({ type: "attempt", attempt });
+  };
   let usage = sumUsage((classification?.signals ?? []).map((signal) => signal.usage), 0);
   let firstViolation: ContractViolationError | undefined;
 
@@ -378,9 +432,12 @@ export async function runPipeline<T>(
           ...(examples === undefined ? {} : { examples }),
           ...(documentLabel === undefined ? {} : { documentLabel }),
         };
-        outcome = previous !== undefined && strategy.repair !== undefined
-          ? await strategy.repair(ctx, previous)
-          : await strategy.extract(ctx);
+        outcome = await abandonAfterDeadline(
+          previous !== undefined && strategy.repair !== undefined
+            ? strategy.repair(ctx, previous)
+            : strategy.extract(ctx),
+          deadline,
+        );
         deadline.signal.throwIfAborted();
         if (outcome.conflicts !== undefined && outcome.conflicts.length > 0) conflicts = outcome.conflicts;
 
@@ -392,7 +449,7 @@ export async function runPipeline<T>(
         } else {
           const violation = new ContractViolationError(strategy.name, validation.issues);
           firstViolation ??= violation;
-          attempts.push({
+          record({
             ...failedAttempt(stage, strategy.name, Date.now() - started, violation),
             ...(outcome.usage === undefined ? {} : { usage: outcome.usage }),
           });
@@ -406,13 +463,13 @@ export async function runPipeline<T>(
         const failure = deadline.expired()
           ? new TimeoutError(`${stage}:${strategy.name}`, stageTimeoutMs ?? 0)
           : error;
-        if (isAbortError(failure)) throw failure;
+        if (isCallerAbort(failure, signal)) throw failure;
         usage = sumUsage([usage, failedUsage], usage.wallMs);
         logger.warn("strategy failed", {
           strategy: strategy.name,
           errorCode: errorCodeOf(failure),
         });
-        attempts.push({
+        record({
           ...failedAttempt(stage, strategy.name, Date.now() - started, failure),
           ...(failedUsage === undefined ? {} : { usage: failedUsage }),
         });
@@ -425,14 +482,14 @@ export async function runPipeline<T>(
         const ruleIssues = await checkRules<T>(rules, parsed.data);
         signal.throwIfAborted();
         if (ruleIssues.length === 0 || onRuleFailure === "report") {
-          attempts.push({
+          record({
             stage,
             strategy: strategy.name,
             status: "ok",
             ms: Date.now() - started,
             ...(outcome.usage === undefined ? {} : { usage: outcome.usage }),
           });
-          const finalClassification = outcome.classification ?? classification;
+          const finalClassification = decided ?? outcome.classification ?? classification;
           return {
             data: parsed.data,
             method: strategy.name,
@@ -451,7 +508,7 @@ export async function runPipeline<T>(
         }
         const violation = new ContractViolationError(strategy.name, ruleIssues, { failedCheck: "rule" });
         firstViolation ??= violation;
-        attempts.push({
+        record({
           ...failedAttempt(stage, strategy.name, Date.now() - started, violation),
           ...(outcome.usage === undefined ? {} : { usage: outcome.usage }),
         });
@@ -476,19 +533,11 @@ export async function runPipeline<T>(
 }
 
 export function checkedMaxRepairs(maxRepairs: number): number {
-  if (!Number.isInteger(maxRepairs) || maxRepairs < 0) {
-    throw new RangeError("maxRepairs must be a non-negative integer");
-  }
-  return maxRepairs;
+  return nonNegativeInteger("maxRepairs", maxRepairs);
 }
 
-const RULE_FAILURE_MODES: readonly RuleFailureMode[] = ["report", "fail"];
-
 export function checkedRuleFailureMode(mode: RuleFailureMode): RuleFailureMode {
-  if (!RULE_FAILURE_MODES.includes(mode)) {
-    throw new RangeError(`onRuleFailure must be "report" or "fail"; received ${JSON.stringify(mode) ?? String(mode)}`);
-  }
-  return mode;
+  return oneOf("onRuleFailure", mode, ["report", "fail"] satisfies readonly RuleFailureMode[]);
 }
 
 function dataRepair(outcome: StrategyOutcome, issues: readonly ValidationIssue[]): RepairInput {

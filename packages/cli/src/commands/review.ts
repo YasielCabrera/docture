@@ -2,13 +2,13 @@ import { resolveSource } from "docture/node";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { createDisposalScope, type DisposalScope, type LayoutPage, type RawDocument } from "docture";
+import { createDisposalScope, TimeoutError, type DisposalScope, type LayoutPage, type RawDocument } from "docture";
 import { boolFlag, numberFlag, stringFlag, type Parsed } from "../cli/args.js";
 import { CliError, UsageError, type ExitCode } from "../cli/errors.js";
 import { styleFor, type Io, type Style } from "../cli/io.js";
 import { resolveConfig, type LoadedConfig } from "../config.js";
 import { describeInput, sourcesOf, type Input } from "../inputs.js";
-import { commonOptions, wiringFlags, type CommonOptions } from "../options.js";
+import { callTimeout, commonOptions, wiringFlags, type CommonOptions } from "../options.js";
 import { reportWiring } from "../output.js";
 import { localInputs, refuseInputAliases, refuseMissingLeafAliases, type ProtectedInput } from "../output-safety.js";
 import { emitPlan } from "../plan.js";
@@ -97,6 +97,7 @@ interface Prepared {
 }
 
 export async function reviewCommand(parsed: Parsed, io: Io, signal: AbortSignal): Promise<ExitCode> {
+  const { timeoutMs } = callTimeout(parsed);
   const common = commonOptions(parsed, io.color);
   const style = styleFor(common.color);
   const request = await reviewRequest(parsed, io.cwd);
@@ -114,7 +115,7 @@ export async function reviewCommand(parsed: Parsed, io: Io, signal: AbortSignal)
     ? config?.config.extractor
     : config?.config.converter;
   try {
-    return await reviewConfigured(parsed, io, signal, { request, dpi, out, common, style, config, disposalScope });
+    return await reviewConfigured(parsed, io, signal, { request, dpi, out, common, style, config, disposalScope, timeoutMs });
   } finally {
     await disposalScope.dispose(
       ...(supplied === undefined || typeof supplied === "function" ? [] : [supplied]),
@@ -124,6 +125,7 @@ export async function reviewCommand(parsed: Parsed, io: Io, signal: AbortSignal)
 }
 
 interface Configured {
+  readonly timeoutMs: number | undefined;
   readonly disposalScope: DisposalScope;
   readonly request: ReviewRequest;
   readonly dpi: number;
@@ -160,12 +162,10 @@ async function reviewConfigured(parsed: Parsed, io: Io, signal: AbortSignal, con
   }
 
   const nativeConfigured = config?.config.loaders?.some((loader) => loader.capabilities.facts?.includes("NATIVE_EVIDENCE")) === true;
-  let renderer: PageRenderer | undefined = saved === undefined && !nativeConfigured ? await pageRenderer({
-    dpi, ...(config === undefined ? {} : { config }), ...(flags.timeoutMs === undefined ? {} : { timeoutMs: flags.timeoutMs }),
-  }) : undefined;
+  const rendering = { dpi, ...(config === undefined ? {} : { config }) };
+  let renderer: PageRenderer | undefined = saved === undefined && !nativeConfigured ? await pageRenderer(rendering) : undefined;
   try {
     const title = request.source.label;
-    const raw = await rawOf(request.source, io, signal);
     const reviewer =
       saved !== undefined
         ? { review: async () => saved, dispose: async () => {} }
@@ -174,14 +174,15 @@ async function reviewConfigured(parsed: Parsed, io: Io, signal: AbortSignal, con
           : await extractionReviewer(io, prepared);
     // The reviewer's wiring shares the configured loaders with the renderer, so it stays open until the pages are rendered.
     try {
-      const reviewed = await reviewer.review(raw, signal);
-      const sourceDigest = `sha256:${createHash("sha256").update(raw.bytes).digest("hex")}`;
-      assertNativeBinding(reviewed, sourceDigest);
-      if (renderer === undefined && !(saved !== undefined && hasNativeEvidence(saved)) && !nativeConfigured) renderer = await pageRenderer({
-        dpi, ...(config === undefined ? {} : { config }), ...(flags.timeoutMs === undefined ? {} : { timeoutMs: flags.timeoutMs }),
-      });
       const warn = (warnings: readonly string[]): void => reportWiring(io, common, style, [], warnings);
-      const images = await reviewImages(reviewed, raw, signal, { config, dpi, timeoutMs: flags.timeoutMs }, warn, renderer);
+      const { reviewed, images, sourceDigest } = await withinDocumentDeadline(configured.timeoutMs, signal, async (bounded) => {
+        const raw = await rawOf(request.source, io, bounded);
+        const sourceDigest = `sha256:${createHash("sha256").update(raw.bytes).digest("hex")}`;
+        const reviewed = await reviewer.review(raw, bounded);
+        assertNativeBinding(reviewed, sourceDigest);
+        if (renderer === undefined && !(saved !== undefined && hasNativeEvidence(saved)) && !nativeConfigured) renderer = await pageRenderer(rendering);
+        return { reviewed, images: await reviewImages(reviewed, raw, bounded, rendering, warn, renderer), sourceDigest };
+      });
       const html = reviewHtml(reviewed, title, images, request, warn, sourceDigest);
       await mkdir(dirname(out), { recursive: true });
       await writeFile(out, html, "utf8");
@@ -195,6 +196,23 @@ async function reviewConfigured(parsed: Parsed, io: Io, signal: AbortSignal, con
     }
   } finally {
     await renderer?.dispose();
+  }
+}
+
+const MAX_TIMER_MS = 2_147_483_647;
+
+async function withinDocumentDeadline<T>(ms: number | undefined, caller: AbortSignal, work: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  caller.throwIfAborted();
+  if (ms === undefined || ms > MAX_TIMER_MS) return work(caller);
+  const deadline = new AbortController();
+  const expired = new Promise<never>((_, reject) => {
+    deadline.signal.addEventListener("abort", () => reject(deadline.signal.reason), { once: true });
+  });
+  const timer = setTimeout(() => deadline.abort(new TimeoutError("call", ms)), ms);
+  try {
+    return await Promise.race([work(AbortSignal.any([caller, deadline.signal])), expired]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -221,7 +239,7 @@ function assertNativeBinding(reviewed: Reviewed, digest: string): void {
 
 async function reviewImages(
   reviewed: Reviewed, raw: RawDocument, signal: AbortSignal,
-  options: { readonly config: LoadedConfig | undefined; readonly dpi: number; readonly timeoutMs: number | undefined },
+  options: { readonly config?: LoadedConfig; readonly dpi: number },
   warn: (warnings: readonly string[]) => void,
   existing?: PageRenderer,
 ): Promise<readonly PageImage[]> {
@@ -234,7 +252,7 @@ async function reviewImages(
   }
   try {
     if (existing !== undefined) return await existing.render(raw, signal);
-    const renderer = await pageRenderer({ dpi: options.dpi, ...(options.config === undefined ? {} : { config: options.config }), ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }) });
+    const renderer = await pageRenderer(options);
     try { return await renderer.render(raw, signal); }
     finally { await renderer.dispose(); }
   } catch (error) {

@@ -58,11 +58,11 @@ export function bundleProcess() {
     },
   });
   const extractor = new Extractor({ loaders: [new DocumentLoaderPdfJs()], strategies: [accountParser] });
-  return new Process().loadExtractor(extractor).loadSplitter(accountSplitter());
+  return { extractor, process: new Process().loadExtractor(extractor).loadSplitter(accountSplitter()) };
 }
 
 export async function runExample() {
-  const process = bundleProcess();
+  const { extractor, process } = bundleProcess();
   try {
     const documents = await process
       .loadFile(fileURLToPath(new URL("./statement.pdf", import.meta.url)))
@@ -74,6 +74,7 @@ export async function runExample() {
     };
   } finally {
     await process.dispose();
+    await extractor.dispose();
   }
 }
 

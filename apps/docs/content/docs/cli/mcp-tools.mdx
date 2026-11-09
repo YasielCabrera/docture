@@ -4,19 +4,26 @@ description: Arguments and behavior of the core and configured Paperless tools.
 type: reference
 ---
 
-`docture mcp` lists three core tools, plus Paperless tools when the config has Paperless settings. To install and register the server, see [Connect an MCP host](/docs/cli/mcp).
+`docture mcp` lists three core tools, `list_schemas` when the config defines `schemas`, and Paperless tools when the config has Paperless settings. To install and register the server, see [Connect an MCP host](/docs/cli/mcp).
 
 ## Core tools
 
 | Tool | Arguments | Result |
 | --- | --- | --- |
-| `convert` | `source`, optional `format` and one-based `pages` | `content`, `format`, `mimeType`, `pageCount`, `loader`, `method`, and `warnings` |
+| `convert` | `source`, optional `format`, one-based `pages`, `offset`, and `maxChars` | `content`, `offset`, `totalChars`, `truncated`, `nextOffset` when truncated, `format`, `mimeType`, `pageCount`, `loader`, `method`, and `warnings` |
 | `inspect` | `source`, optional one-based `pages` | The same fields as `inspect --format json` |
 | `extract` | `source`, optional `schemaName` | Full extraction envelope with validation, citations, conflicts, and native evidence when available |
+| `list_schemas` | None | `defaultSchema`, and `schemas` with each `name` and the contract's `description` when it has one |
 
 `format` is `markdown`, `html`, `text`, or `json`. The default is `markdown`. Sources are paths or URLs, never `-`. `pages` keeps the original page numbers, and a page the document lacks fails the item with `PAGE_OUT_OF_RANGE`.
 
-`extract` uses the config's `schema`, or the entry of `schemas` that `schemaName` names. An unknown name fails before extraction. Model input cannot replace a schema, model, connection, or credentials.
+## Read long conversions in parts
+
+`convert` returns at most `maxChars` characters of `content` per document, 20000 by default, starting at character `offset`, 0 by default. `totalChars` is the length of the whole conversion. When `truncated` is `true`, call `convert` again with the same arguments and `offset` set to `nextOffset`. The parts concatenate to the whole conversion, and a part never splits a surrogate pair. When `maxChars` is too small for the pair at `offset`, the part holds that whole pair, and an `offset` that points between the halves of a pair starts at the pair. `offset` in the result reports where the part starts. To read by page instead, pass `pages`.
+
+## Choose a schema
+
+`extract` uses the config's `schema`, or the entry of `schemas` that `schemaName` names. When the config defines `schemas`, the input schema lists their names as an `enum`, and `list_schemas` describes each one. An unknown name fails before extraction with code `USAGE` and a hint that lists the valid names, or, when the config has only `schema`, says to omit `schemaName`. Model input cannot replace a schema, model, connection, or credentials.
 
 ## Paperless tools
 
@@ -34,6 +41,6 @@ A document selection uses `documentId` and optional `versionId`. A query uses `q
 
 ## Results, errors, and shutdown
 
-Tools return the version 1 CLI envelope as structured content and JSON text. Failed operations set `isError`. Invalid arguments to `convert`, `inspect`, and `extract` use JSON-RPC invalid-parameter errors. Invalid Paperless tool arguments return a failed envelope with code `USAGE` and set `isError`. Configuration stays fixed and pipelines stay warm until the server closes. Shutdown cancels active calls, waits for them to settle, and disposes shared resources.
+Tools return the version 1 CLI envelope as structured content and JSON text. Each tool declares an `outputSchema` for its structured content, and a `title` with annotations: every tool except `paperless_apply` is read-only. Failed operations, including invalid arguments, set `isError` and return a failed item with `error.code`, `error.message`, and `error.hint` when Docture has one. Invalid arguments use code `USAGE`. A hint never names a CLI flag: it says what the client can change, or what the server's operator must change in `docture.config.ts`. Only a tool name the server does not list is a JSON-RPC invalid-parameter error, including `list_schemas` without `schemas` and `paperless_apply` without `enableApply`. Configuration stays fixed and pipelines stay warm until the server closes. Shutdown cancels active calls, waits for them to settle, and disposes shared resources.
 
 To create the server in Node, see the [MCP server API](/docs/cli/reference/cli#mcp-server).

@@ -24,7 +24,7 @@ Creates a model classifier.
 function llmClassifier(options: LlmClassifierOptions): Classifier
 ```
 
-The classifier requires `TEXT_LAYER` and is named `llm-classifier` by default. `new LlmClassifier(options)` builds the same classifier; see [model backend and factory API](/docs/extraction/reference/models).
+The classifier requires `TEXT_LAYER` and is named `llm-classifier` by default. `LLM.classifier()` names it after the model, as `<id>:classifier`. `new LlmClassifier(options)` builds the same classifier; see [model backend and factory API](/docs/extraction/reference/models).
 
 It sends the first `excerptChars` characters of the document text and the candidate names and descriptions. No candidates or empty text returns `null`. An `UNKNOWN` answer, an invented candidate name, or a model error returns a signal whose name is `null`. The classifier does not reject for model failures.
 

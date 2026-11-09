@@ -114,7 +114,7 @@ describe("Paperless CLI and MCP", () => {
     try {
       const tools = await client.listTools(); expect(tools.tools.map((tool) => tool.name)).toContain("paperless_plan"); expect(tools.tools.map((tool) => tool.name)).not.toContain("paperless_apply");
       const planned = structured(await client.callTool({ name: "paperless_plan", arguments: { documentId: 42, schemaName: "invoice" } })); expect(planned.ok).toBe(true); expect(planned.results[0]?.plan?.source.fileVersionId).toBe(42); expect(f.writes()).toBe(0);
-      const disabled = await client.callTool({ name: "paperless_apply", arguments: { schemaName: "invoice", plan: planned.results[0]?.plan } }); expect(disabled.isError).toBe(true); expect(f.writes()).toBe(0); expect(io.stdout).toBe("");
+      await expect(client.callTool({ name: "paperless_apply", arguments: { schemaName: "invoice", plan: planned.results[0]?.plan } })).rejects.toThrow('Unknown tool "paperless_apply".'); expect(f.writes()).toBe(0); expect(io.stdout).toBe("");
     } finally { await server.close(); }
   });
 

@@ -5,6 +5,7 @@
 
 import type { LineSourceId, SourceLine } from "./conversion.js";
 import type { DocumentFeatures } from "./document.js";
+import type { DoctureErrorCode } from "./error-codes.js";
 import type { EvidenceSourceId, SourceEvidence } from "./evidence.js";
 
 /** Token and money accounting, summed across every strategy that ran. */
@@ -62,7 +63,7 @@ export interface Attempt {
   /** Present when `status` is not "ok". */
   readonly error?: string;
   /** The error's `code` when it was one of ours. */
-  readonly errorCode?: string;
+  readonly errorCode?: DoctureErrorCode;
   readonly usage?: Partial<Usage>;
   /** Model response text, truncated to the first 10,000 JavaScript characters. */
   readonly rawOutput?: string;

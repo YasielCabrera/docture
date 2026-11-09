@@ -266,6 +266,22 @@ describe("TextSplitter under EAGER", () => {
     expect(groups).toEqual([{ pages: [1, 2], classification: "invoice", confidence: 0.9 }]);
   });
 
+  it("keeps a page claimed by two documents only in the more confident one", async () => {
+    const { model } = mockModel([
+      { documents: [
+        { pages: [1, 2], classification: "invoice", confidence: 0.6 },
+        { pages: [2, 3], classification: "licence", confidence: 0.9 },
+        { pages: [3, 4], classification: "invoice", confidence: 0.9 },
+      ] },
+    ]);
+    const groups = await new TextSplitter({ model }).splitEager(pages(["a", "b", "c", "d"]), ctx());
+    expect(groups).toEqual([
+      { pages: [1], classification: "invoice", confidence: 0.6 },
+      { pages: [2, 3], classification: "licence", confidence: 0.9 },
+      { pages: [4], classification: "invoice", confidence: 0.9 },
+    ]);
+  });
+
   it("deduplicates and sorts the pages of a group", async () => {
     const { model } = mockModel([
       { documents: [{ pages: [3, 1, 1, 2], classification: "invoice", confidence: 0.9 }] },

@@ -222,10 +222,15 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
       text: true,
       geometry: true,
       images: true,
-      mimeTypes:
-        options.rasterizer === undefined
-          ? IMAGE_MIME_TYPES
-          : [...IMAGE_MIME_TYPES, "application/pdf"],
+      ...(options.rasterizer === undefined
+        ? {
+          mimeTypes: IMAGE_MIME_TYPES,
+          declines: {
+            "application/pdf":
+              "pass { rasterizer } to DocumentLoaderPaddleOcr to read PDFs, e.g. new DocumentLoaderPaddleOcr({ rasterizer: new NapiCanvasRasterizer() })",
+          },
+        }
+        : { mimeTypes: [...IMAGE_MIME_TYPES, "application/pdf"] }),
     };
   }
 

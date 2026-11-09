@@ -138,9 +138,10 @@ export class LlmLayoutAnalyzer implements LayoutAnalyzer {
         ? undefined
         : cacheKey({ provider: providerOf(this.options.model), modelId, temperature: this.options.temperature, system, prompt, jsonSchema: schema, variant: "layout" });
     const cached = key === undefined ? undefined : await this.options.cache?.get(key);
-    if (cached !== undefined) {
+    const reused = cached === undefined ? undefined : analysisSchema.safeParse(cached.data);
+    if (cached !== undefined && reused?.success === true) {
       return {
-        annotations: annotationsOf((cached.data as z.infer<typeof analysisSchema>).annotations),
+        annotations: annotationsOf(reused.data.annotations),
         usage: toUsage(cached.usage, 0),
       };
     }

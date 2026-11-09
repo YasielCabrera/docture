@@ -91,7 +91,7 @@ Run it with your OpenAI key:
 OPENAI_API_KEY=your-key npx tsx extract-with-a-model.mts
 ```
 
-`LLM` sends the PDF text and the schema, including its field descriptions, to the model. The extractor validates the model's answer against `Invoice`, as it did the parser's. The last line names the `llm` strategy and the tokens it used.
+`LLM` sends the PDF text and the schema, including its field descriptions, to the model. The extractor validates the model's answer against `Invoice`, as it did the parser's. The last line names the model strategy that answered and the tokens it used.
 
 To keep the parser and call the model only when it fails, [add model fallback](/docs/extraction/without-a-model#add-model-fallback).
 

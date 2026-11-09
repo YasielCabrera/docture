@@ -56,6 +56,7 @@ import { repairFingerprint, repairMessages } from "./repair.js";
 import { EXTRACTION_CACHE_VERSION, requestObject, untransformed, type ObjectRequest, type ObjectResponse } from "./request.js";
 import { callTelemetry, type LlmTelemetryOptions, type TelemetryScope } from "./telemetry.js";
 import { modelIdOf, providerOf } from "./model-id.js";
+import { positiveInteger } from "../core/pipeline/options.js";
 
 export interface LlmStrategyOptions {
   /** Any AI SDK language model: a provider instance or a gateway model string. */
@@ -111,9 +112,7 @@ export class LlmStrategy implements ExtractionStrategy {
   readonly needsClassification: ClassificationNeed;
 
   constructor(private readonly options: LlmStrategyOptions) {
-    if (options.concurrency !== undefined && (!Number.isInteger(options.concurrency) || options.concurrency < 1)) {
-      throw new RangeError("concurrency must be a positive integer");
-    }
+    if (options.concurrency !== undefined) positiveInteger("concurrency", options.concurrency);
     this.name = options.name ?? "llm";
     // "hint" by default: a classification improves the prompt when one exists, but
     // this strategy reads an unrecognised document perfectly well without one — that

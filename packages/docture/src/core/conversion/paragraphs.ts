@@ -1,5 +1,5 @@
-import type { TextSpan } from "../domain/geometry.js";
-import { characterFontSize, isMonospace, median, unionBox, type Candidate } from "./candidates.js";
+import type { LayoutBox } from "../domain/geometry.js";
+import { characterFontSize, isBold, isMonospace, median, mostCharacters, unionBox, type Candidate } from "./candidates.js";
 
 /** Font sizes within this fraction of each other set the same text. */
 const SIZE_TOLERANCE = 0.05;
@@ -25,15 +25,19 @@ interface Typography {
   readonly monospace: boolean;
 }
 
+const typographies = new WeakMap<Candidate, Typography>();
+
 function typography(candidate: Candidate): Typography {
+  const known = typographies.get(candidate);
+  if (known !== undefined) return known;
   const spans = candidate.lines.flatMap((line) => line.spans);
-  const mostly = (test: (span: TextSpan) => boolean) =>
-    spans.length > 0 && spans.filter(test).length >= spans.length / 2;
-  return {
+  const found = {
     size: characterFontSize(spans) || median(spans.map((span) => span.height)),
-    bold: mostly((span) => span.style?.bold === true),
-    monospace: mostly(isMonospace),
+    bold: mostCharacters(spans, isBold),
+    monospace: mostCharacters(spans, isMonospace),
   };
+  typographies.set(candidate, found);
+  return found;
 }
 
 function sameTypography(a: Typography, b: Typography): boolean {
@@ -49,6 +53,16 @@ function baseline(candidate: Candidate): number {
     undefined,
   );
   return longest === undefined ? candidate.box.y + candidate.box.height : longest.y + longest.height;
+}
+
+function opensBold(candidate: Candidate): boolean {
+  const span = candidate.lines[0]?.spans.find((item) => item.text.trim() !== "");
+  return span !== undefined && isBold(span);
+}
+
+function closesMonospace(candidate: Candidate): boolean {
+  const span = candidate.lines.at(-1)?.spans.findLast((item) => item.text.trim() !== "");
+  return span !== undefined && isMonospace(span);
 }
 
 function firstWordWidth(candidate: Candidate): number {
@@ -89,8 +103,14 @@ function continuesBlock(
   const previous = block[block.length - 1];
   if (first === undefined || previous === undefined) return false;
   if (!mergeable(next) || next.role !== first.role) return false;
-  const style = typography(first);
-  if (!sameTypography(style, typography(next))) return false;
+  const lead = typography(first);
+  const last = typography(previous);
+  const style = lead.bold && !last.bold ? last : lead;
+  const nextStyle = typography(next);
+  const endsLead = style.bold && !nextStyle.bold && opensBold(next) && sameTypography(style, { ...nextStyle, bold: true });
+  const endsCode = !style.monospace && nextStyle.monospace && closesMonospace(previous) &&
+    sameTypography(style, { ...nextStyle, monospace: false });
+  if (!sameTypography(style, nextStyle) && !endsLead && !endsCode) return false;
 
   const box = unionBox(block.map((candidate) => candidate.box));
   const overlap = Math.min(box.x + box.width, next.box.x + next.box.width) - Math.max(box.x, next.box.x);
@@ -114,16 +134,91 @@ function continuesBlock(
   return second === undefined || Math.abs(next.box.x - second.box.x) <= style.size * INDENT;
 }
 
+function sideOf(box: LayoutBox, gutter: number): "left" | "right" | undefined {
+  if (box.x + box.width <= gutter) return "left";
+  if (box.x >= gutter) return "right";
+  return undefined;
+}
+
+type Side = ReturnType<typeof sideOf> | "crossing";
+
+interface MeasureRow {
+  readonly lefts: number[];
+  readonly rights: number[];
+}
+
+interface MeasureIndex {
+  readonly gutter: number | undefined;
+  readonly rows: Map<string, MeasureRow>;
+  readonly sizes: number[];
+}
+
+const measureIndexes = new WeakMap<readonly Candidate[], MeasureIndex>();
+
+const measureKey = (style: Typography, side: Side, size: number): string =>
+  `${style.bold ? 1 : 0}${style.monospace ? 1 : 0}${side ?? "crossing"}:${size}`;
+
+function measureIndex(candidates: readonly Candidate[], gutter: number | undefined): MeasureIndex {
+  const known = measureIndexes.get(candidates);
+  if (known !== undefined && known.gutter === gutter) return known;
+  const groups = new Map<string, Candidate[]>();
+  const sizes = new Set<number>();
+  for (const candidate of candidates) {
+    if (!mergeable(candidate)) continue;
+    const style = typography(candidate);
+    const side = gutter === undefined ? "crossing" : sideOf(candidate.box, gutter) ?? "crossing";
+    const key = measureKey(style, side, style.size);
+    const group = groups.get(key);
+    if (group === undefined) groups.set(key, [candidate]);
+    else group.push(candidate);
+    sizes.add(style.size);
+  }
+  const rows = new Map<string, MeasureRow>();
+  for (const [key, group] of groups) {
+    const sorted = [...group].sort((a, b) => a.box.x - b.box.x);
+    let widest = Number.NEGATIVE_INFINITY;
+    rows.set(key, {
+      lefts: sorted.map((candidate) => candidate.box.x),
+      rights: sorted.map((candidate) => (widest = Math.max(widest, candidate.box.x + candidate.box.width))),
+    });
+  }
+  const index = { gutter, rows, sizes: [...sizes] };
+  measureIndexes.set(candidates, index);
+  return index;
+}
+
+function countBelow(values: readonly number[], limit: number): number {
+  let low = 0;
+  let high = values.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if ((values[middle] ?? 0) < limit) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
 /**
  * The right edge of the widest running-text line in the same typography that
  * shares horizontal space with `first`: the column measure a wrapped line fills.
  */
-function columnMeasure(candidates: readonly Candidate[], first: Candidate): number {
+function columnMeasure(candidates: readonly Candidate[], first: Candidate, gutter: number | undefined): number {
   const style = typography(first);
-  return Math.max(...candidates
-    .filter((candidate) => mergeable(candidate) && sameTypography(style, typography(candidate)) &&
-      candidate.box.x < first.box.x + first.box.width && first.box.x < candidate.box.x + candidate.box.width)
-    .map((candidate) => candidate.box.x + candidate.box.width));
+  if (!(style.size > 0)) return Number.NEGATIVE_INFINITY;
+  const index = measureIndex(candidates, gutter);
+  const own = gutter === undefined ? undefined : sideOf(first.box, gutter);
+  const sides: readonly Side[] = own === undefined ? ["left", "right", "crossing"] : [own];
+  let widest = Number.NEGATIVE_INFINITY;
+  for (const size of index.sizes) {
+    if (Math.abs(style.size - size) > style.size * SIZE_TOLERANCE) continue;
+    for (const side of sides) {
+      const row = index.rows.get(measureKey(style, side, size));
+      if (row === undefined) continue;
+      const count = countBelow(row.lefts, first.box.x + first.box.width);
+      if (count > 0) widest = Math.max(widest, row.rights[count - 1] ?? Number.NEGATIVE_INFINITY);
+    }
+  }
+  return widest > first.box.x ? widest : Number.NEGATIVE_INFINITY;
 }
 
 /**
@@ -135,10 +230,11 @@ export function paragraphLength(
   candidates: readonly Candidate[],
   start: number,
   opensBlock: (index: number) => boolean,
+  gutter?: number,
 ): number {
   const first = candidates[start];
   if (first === undefined || !mergeable(first)) return 1;
-  const measure = columnMeasure(candidates, first);
+  const measure = columnMeasure(candidates, first, gutter);
   const block: Candidate[] = [first];
   for (let index = start + 1; index < candidates.length; index += 1) {
     const next = candidates[index];

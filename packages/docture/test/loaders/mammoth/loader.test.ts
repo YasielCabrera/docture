@@ -31,7 +31,7 @@ describe("DOCX raw-text loading", () => {
 
   it.each([new Uint8Array([1, 2, 3]), new TextEncoder().encode("PK not a DOCX")])("rejects malformed DOCX with a typed failure", async (bytes) => {
     const failure: unknown = await new DocumentLoaderMammoth().load({ bytes, mimeType }, context()).catch((error: unknown) => error);
-    expect(errorCodeOf(failure)).toBe("LOAD_FAILED");
+    expect(errorCodeOf(failure)).toBe("DOCX_FAILED");
     expect(failure).toMatchObject({ message: expect.stringContaining("DOCX"), cause: expect.anything() });
   });
 
@@ -45,7 +45,7 @@ describe("DOCX raw-text loading", () => {
   it("rejects an otherwise valid ZIP without Word document parts", async () => {
     const bytes = new Uint8Array(await readFile(new URL("./fixtures/not-docx.zip", import.meta.url)));
     const failure: unknown = await new DocumentLoaderMammoth().load({ bytes, mimeType }, context()).catch((error: unknown) => error);
-    expect(errorCodeOf(failure)).toBe("LOAD_FAILED");
+    expect(errorCodeOf(failure)).toBe("DOCX_FAILED");
   });
 });
 

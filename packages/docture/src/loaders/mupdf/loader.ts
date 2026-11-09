@@ -177,6 +177,7 @@ function wordsAndImagesFrom(
   let box: [number, number, number, number] | undefined;
   let style: PositionedWord["style"];
   let direction: PositionedWord["direction"];
+  let rotation = 0;
 
   const flush = (): void => {
     if (box !== undefined && text.trim() !== "") {
@@ -186,6 +187,7 @@ function wordsAndImagesFrom(
         box,
         ...(style === undefined ? {} : { style }),
         ...(direction === undefined ? {} : { direction }),
+        ...(rotation === 0 ? {} : { rotation }),
         ...(href === undefined ? {} : { href }),
       });
     }
@@ -196,7 +198,13 @@ function wordsAndImagesFrom(
   };
 
   stext.walk({
-    beginLine: flush,
+    beginLine(_bbox, wmode, [dx, dy]) {
+      flush();
+      // MuPDF reports the line's baseline direction in y-down page space. Vertical
+      // writing (wmode 1) runs top to bottom with upright glyphs, so it is not rotated.
+      const degrees = wmode === 0 ? Math.round((Math.atan2(-dy, dx) * 180) / Math.PI) : 0;
+      rotation = degrees === -180 ? 180 : degrees;
+    },
     endLine: flush,
     onChar(character, _origin, font, size, quad, _color, bidi) {
       if (character.trim() === "") {

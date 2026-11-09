@@ -13,6 +13,8 @@ export interface RawDocument {
   /** IANA media type. Sniffed from the bytes when the caller does not say. */
   readonly mimeType?: string;
   readonly fileName?: string;
+  /** Declared text encoding, such as `windows-1252`. Text loaders decode with it; UTF-8 when absent. */
+  readonly charset?: string;
 }
 
 /**

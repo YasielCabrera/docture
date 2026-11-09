@@ -35,6 +35,12 @@ export interface LoaderCapabilities<
   readonly mimeTypes: readonly string[];
   /** Extra facts this loader publishes for custom strategies to require. */
   readonly facts?: readonly DocumentFact[];
+  /**
+   * Why this instance declines a media type it reads when configured differently,
+   * keyed by media type. `NoEligibleLoaderError` reports the reason in place of the
+   * accepted-types list, so the fix is in the error.
+   */
+  readonly declines?: Readonly<Record<string, string>>;
 }
 
 export interface LoadContext {
@@ -89,13 +95,11 @@ export function defineLoader<const C extends LoaderCapabilities>(
   return loader;
 }
 
-/** True when this loader accepts `mimeType`. `*​/*` accepts anything. */
+/** True when this loader accepts `mimeType`, compared without case. `*​/*` accepts anything. */
 export function loaderAccepts(loader: DocumentLoader, mimeType: string): boolean {
-  const accepted = loader.capabilities.mimeTypes;
-  return accepted.some(
-    (m) =>
-      m === "*/*" ||
-      m === mimeType ||
-      (m.endsWith("/*") && mimeType.startsWith(m.slice(0, -1))),
-  );
+  const wanted = mimeType.toLowerCase();
+  return loader.capabilities.mimeTypes.some((accepted) => {
+    const m = accepted.toLowerCase();
+    return m === "*/*" || m === wanted || (m.endsWith("/*") && wanted.startsWith(m.slice(0, -1)));
+  });
 }

@@ -74,4 +74,22 @@ describe("caller cancellation", () => {
     }).catch((error: unknown) => error);
     expect(outcome).toBe(reason);
   });
+
+  it("falls back to the next strategy after a strategy's own AbortSignal.timeout", async () => {
+    const own = { name: "own-timeout", async extract(): Promise<never> { throw new DOMException("timed out", "TimeoutError"); } };
+    const result = await createExtractor({
+      loaders: [fakeLoader()],
+      strategies: [own, fakeStrategy({ name: "next", data: { total: 1 } })],
+    }).extract(PDF_BYTES, z.object({ total: z.number() }));
+    expect([result.method, result.attempts.map((attempt) => attempt.errorCode)]).toEqual(["next", [undefined, undefined]]);
+  });
+
+  it("falls back to the next loader after a loader's own AbortError", async () => {
+    const own = { ...fakeLoader({ name: "own-abort" }), async load(): Promise<never> { throw new DOMException("gave up", "AbortError"); } };
+    const result = await createExtractor({
+      loaders: [own, fakeLoader({ name: "next" })],
+      strategies: [fakeStrategy({ data: { total: 2 } })],
+    }).extract(PDF_BYTES, z.object({ total: z.number() }));
+    expect(result.data).toEqual({ total: 2 });
+  });
 });

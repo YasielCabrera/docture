@@ -27,9 +27,9 @@ chunkDocument(document: ChunkableDocument, options: ChunkOptions): readonly Docu
 Returns the chunks in document order. The [budget rules](#budget-rules) and
 [packing rules](#packing-rules) define how elements are grouped.
 
-Throws `RangeError` when `budget.unit` is not `characters` or `estimatedTokens`, when
-`budget.max` is not a positive finite number, or when `overlapElements` is not a
-non-negative integer.
+Throws `InvalidOptionError` (`INVALID_OPTION`) when `budget.unit` is not `characters` or
+`estimatedTokens`, when `budget.max` is not a finite positive number, or when
+`overlapElements` is not a non-negative integer. The error's `option` names the field.
 
 ### `estimateTokens`
 

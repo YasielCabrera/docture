@@ -33,7 +33,7 @@ function configuredSink(baseUrl: string, token: string) {
 | `token` | none | API token. |
 | `headers` | none | Extra request headers. |
 | `fetch` | global `fetch` | Transport to use. |
-| `timeoutMs` | `30000` | Deadline for each request. |
+| `timeoutMs` | `30000` | Deadline for each request. At most `2147483647`. |
 | `maxResponseBytes` | 32 MiB | Maximum streamed response size. |
 | `fields` | required | `PaperlessFieldMapping` entries from extraction paths to existing custom field IDs. |
 | `tagIds` | none | Existing tags to add. |

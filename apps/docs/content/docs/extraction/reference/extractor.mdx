@@ -34,7 +34,7 @@ Every registration method returns the same extractor, so calls chain.
 | --- | --- |
 | `loadDocumentLoader()` | Appends loaders. Registration order is the loader fallback order. |
 | `loadStrategy()` | Appends strategies. Registration order is the routing order under `declarationOrder`. |
-| `loadLlm()` | Registers `backend.extraction()`, plus `backend.vision()` and `backend.classifier()` when `LoadLlmOptions` asks for them. |
+| `loadLlm()` | Registers `backend.extraction()`, plus `backend.vision()` and `backend.classifier()` when `LoadLlmOptions` asks for them. It checks every component before registering any, so a rejected call leaves the extractor unchanged. |
 | `loadClassifier()` | Appends classifiers. |
 | `loadClassifications()` | Appends default candidate document kinds. A call's `classifications` option overrides them. |
 | `loadPolicy()` | Replaces the routing policy. |
@@ -42,7 +42,7 @@ Every registration method returns the same extractor, so calls chain.
 
 `components` returns read-only copies of the current registrations. `dispose()` releases every loader, strategy, and classifier once; later calls return the same promise. See [batches and lifecycle](/docs/extraction/reference/batches) for `extractBatch()` and [classification](/docs/extraction/reference/classification) for `classify()`, `classifyTree()`, and `Extractor.flatten()`.
 
-Throws `DuplicateComponentError` (`DUPLICATE_COMPONENT`) when a name is registered twice. `loadLlm()` throws `MissingComponentError` (`MISSING_COMPONENT`) when it requests a vision strategy or classifier that the backend does not provide. Used in [extract your first document](/docs/extraction/quick-start).
+Throws `DuplicateComponentError` (`DUPLICATE_COMPONENT`) when a name is registered twice. `LLM` names its text strategy after the model id, so a second `loadLlm()` of the same model is a duplicate: pass `{ vision: true, classify: true }` in the first call, or give the second `LLM` a distinct `name`. `loadLlm()` throws `MissingComponentError` (`MISSING_COMPONENT`) when it requests a vision strategy or classifier that the backend does not provide. Used in [extract your first document](/docs/extraction/quick-start).
 
 ### `createExtractor`
 
@@ -69,10 +69,12 @@ Constructor options for `Extractor` and `createExtractor()`.
 | `policy` | `declarationOrder` | Orders eligible strategies. |
 | `logger` | `silentLogger` | Pipeline logger. |
 | `stageTimeoutMs` | no deadline | Per-stage deadline. |
+| `timeoutMs` | no deadline | Default deadline in milliseconds for each whole call: one extraction, classification, `classifyTree()` or batch item. |
 | `classify` | `higherOrder`, threshold `0` | Classifier result selection. |
 | `rules` | `[]` | Default `ValidationRule[]` for every call. Rules receive `unknown` data because one extractor serves many contracts. |
 | `onRuleFailure` | `"report"` | Default `RuleFailureMode`. |
 | `maxRepairs` | `1` | Default repairs per strategy. `0` disables repair. |
+| `llm` | none | A `ModelBackend`, or `{ backend, vision?, classify? }`. Registered after `strategies` and `classifiers`, exactly as `loadLlm(backend, { vision, classify })`. |
 
 ### `ModelBackend`
 
@@ -117,7 +119,7 @@ interface DocumentExtractor {
 
 ### `PipelineComponents`
 
-The component collection that `runPipeline()` receives. It has the same fields as `ExtractorOptions`, with `loaders`, `strategies`, `classifiers`, `classifications`, `policy`, and `logger` required.
+The component collection that `runPipeline()` receives. `loaders`, `strategies`, `classifiers`, `classifications`, `policy`, and `logger` are required. Unlike `ExtractorOptions`, it has no `llm` shortcut or default `timeoutMs`; pass the whole-call deadline in `RunOptions`.
 
 ```ts
 interface PipelineComponents {
@@ -191,7 +193,7 @@ The outcome of `safeExtract()` and of each batch item.
 ```ts
 type SafeExtraction<T> =
   | { readonly ok: true; readonly result: ExtractionResult<T> }
-  | { readonly ok: false; readonly error: Error };
+  | { readonly ok: false; readonly error: DoctureError | Error };
 ```
 
 A thrown value that is not an `Error` is wrapped in one.
@@ -210,13 +212,45 @@ Per-call options for every extraction and classification method.
 | `signal` | new signal | Caller cancellation. |
 | `pages` | all pages | 1-based page numbers to extract from a loaded document. |
 | `stageTimeoutMs` | extractor default | Per-call stage deadline. |
+| `timeoutMs` | extractor default | Deadline in milliseconds for the whole call. When it passes, every component's signal aborts, no fallback starts, and the call rejects with `TIMEOUT` at stage `"call"`. A caller abort keeps its own reason. |
+| `onEvent` | none | A [`PipelineEventListener`](#pipelineevent) that receives `load`, `classify` and each finished `attempt` as they happen. |
 | `only` | all strategies | Strategy names to use, in requested order. Unknown names are ignored. |
 | `classifications` | extractor default | Per-call candidate kinds. |
 | `classify` | extractor default | Per-call classification selection. |
 | `logger` | extractor default | Per-call logger. |
 | `rules` | extractor default | `ValidationRule<T>[]` typed from the contract. Replaces the extractor's rules. An empty array clears them. |
 | `onRuleFailure` | extractor default, then `"report"` | `"report"` keeps the data and lists rule issues in `result.validation`. `"fail"` fails the attempt with `CONTRACT_VIOLATION` and tries the next strategy. |
-| `maxRepairs` | extractor default, then `1` | Times to re-ask a strategy that implements `repair()` after its answer failed. Non-negative integer; other values reject with `RangeError`. `0` makes one call per strategy. |
+| `maxRepairs` | extractor default, then `1` | Times to re-ask a strategy that implements `repair()` after its answer failed. Non-negative integer; other values reject with `INVALID_OPTION`. `0` makes one call per strategy. |
+
+### `PipelineEvent`
+
+What `onEvent` receives. Events arrive synchronously, in the order they happen.
+
+```ts
+type PipelineEvent =
+  | { readonly type: "load"; readonly loader: string; readonly pages: number; readonly ms: number }
+  | { readonly type: "classify"; readonly result: ClassificationResult }
+  | { readonly type: "attempt"; readonly attempt: Attempt }
+  | { readonly type: "page"; readonly pageNumber: number; readonly done: number; readonly total: number };
+
+type PipelineEventListener = (event: PipelineEvent) => void;
+```
+
+- `load`: a loader read the document. `ms` covers the whole load stage, including loaders that failed first. A `LoadedSource` skips loading and emits none.
+- `classify`: the classifiers reached this verdict. Extraction and classification only.
+- `attempt`: an attempt finished. It is the same object that the call's `attempts` list holds, so an extraction reports failed loader attempts and every strategy attempt.
+- `page`: layout analysis finished a page. Conversion only.
+
+A listener that throws is logged as a warning and the call continues. Keep the listener
+cheap, because the pipeline waits for it to return.
+
+```ts
+const result = await extractor.extract("invoice.pdf", Invoice, {
+  onEvent(event) {
+    if (event.type === "attempt") console.error(`${event.attempt.strategy}: ${event.attempt.status}`);
+  },
+});
+```
 
 ### `RuleFailureMode`
 

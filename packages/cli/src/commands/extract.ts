@@ -16,7 +16,7 @@ import { styleFor, type Io, type Style } from "../cli/io.js";
 import { OUTPUT_FORMAT } from "../cli/specs.js";
 import { resolveConfig } from "../config.js";
 import { describeInput, expandInputs, sourcesOf, stem, type Input } from "../inputs.js";
-import { commonOptions, wiringFlags } from "../options.js";
+import { callTimeout, commonOptions, wiringFlags } from "../options.js";
 import { localInputs, refuseInputAliases, refuseMissingLeafAliases } from "../output-safety.js";
 import {
   attemptLines,
@@ -108,6 +108,7 @@ export async function extractCommand(
   const only = listFlag(parsed, "only");
   const concurrencyFlag = numberFlag(parsed, "concurrency", { min: 1, max: 64, integer: true });
   const dryRun = boolFlag(parsed, "dry-run");
+  const timeout = callTimeout(parsed);
 
   const inputs = await expandInputs(parsed.positionals, io.cwd);
 
@@ -189,6 +190,7 @@ export async function extractCommand(
       schemaSource.schema,
       {
         signal,
+        ...timeout,
         concurrency: concurrencyFlag ?? wiring.concurrency,
         ...(only.length === 0 ? {} : { only }),
       },

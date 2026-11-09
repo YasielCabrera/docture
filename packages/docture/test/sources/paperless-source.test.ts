@@ -89,6 +89,11 @@ describe("Paperless versioned sources", () => {
     await expect(source.read(42, { mode: "content", signal: controller.signal })).rejects.toBe(reason);
   });
 
+  it("rejects a deadline longer than a timer can wait", () => {
+    expect(() => new PaperlessSource({ baseUrl: "http://127.0.0.1/paperless/", apiVersion: 10, timeoutMs: 3_000_000_000 }))
+      .toThrow("timeoutMs must be a positive integer no greater than 2147483647.");
+  });
+
   it("requires confirmed archive PDF and labels an explicit original fallback", async () => {
     let hasArchive = false; let mime = "application/pdf";
     const baseUrl = await server((request, response) => {

@@ -26,7 +26,7 @@ Examples use the project-local CLI installed in [Run your first CLI commands](/d
 | `--pricing <path>` | Not set | JSON prices by model id with inputPerMillion and outputPerMillion; optional cacheReadPerMillion and cacheWritePerMillion default to inputPerMillion |
 | `--cache <dir>` | Not set | Cache model responses on disk and reuse them on a rerun |
 | `--temperature <n>` | 0 | Sampling temperature |
-| `--timeout <ms>` | Not set | Per-stage deadline. Omit for none |
+| `--timeout <ms>` | Not set | Deadline for each document, across every stage. Omit for none |
 | `--concurrency <n>` | 4 | Overlaps model calls and I/O; local PDF work uses one thread |
 | `--dry-run` | Not set | Validate the invocation and print the plan as JSON. Reads no document and writes no file |
 | `--config <path>` | Not set | Config file. Default: the nearest docture.config.&#123;ts,mts,js,mjs&#125; |

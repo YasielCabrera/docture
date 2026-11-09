@@ -8,7 +8,7 @@ import {
   type SafeConversion,
 } from "docture";
 import { jsonSchema } from "ai";
-import { explain } from "./cli/errors.js";
+import { explain, type Hints } from "./cli/errors.js";
 import type { Io } from "./cli/io.js";
 import type { CliConverter, CliExtractor } from "./define-config.js";
 import { sourcesOf, type Input } from "./inputs.js";
@@ -116,7 +116,7 @@ export async function* inspectInputs(
   extractor: Pick<CliExtractor, "extract">,
   inputs: readonly Input[],
   io: Pick<Io, "readStdin">,
-  options: Pick<InspectOptions, "pages">,
+  options: Pick<InspectOptions, "pages"> & { readonly timeoutMs?: number; readonly hints?: Hints },
   signal: AbortSignal,
 ): AsyncGenerator<Item<InspectReport>, void, undefined> {
   const sources = await sourcesOf(inputs, io, signal);
@@ -127,11 +127,12 @@ export async function* inspectInputs(
         signal,
         only: ["inspect"],
         ...(options.pages === undefined ? {} : { pages: options.pages }),
+        ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
       });
       yield { ...(result.data as Probe), file: label, ok: true, loader: result.loader };
     } catch (error) {
       signal.throwIfAborted();
-      yield errorRecord(label, explain(error));
+      yield errorRecord(label, explain(error, options.hints));
     }
   }
 }

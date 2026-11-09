@@ -11,27 +11,29 @@ import type { ModelBackend } from "./contracts/model.js";
 import { applyLayoutAnnotations, analyzeDocument, withoutFurniture } from "./conversion/analyze.js";
 import { conversionAssets, exportDocument } from "./conversion/export.js";
 import type {
-  ConversionBatchItem,
   ConversionBatchOptions,
   ConversionResult,
   ConversionWarning,
   ConvertOptions,
-  SafeConversion,
 } from "./domain/conversion.js";
 import { isLoadedSource, type DocumentSource, type RawDocument } from "./domain/document.js";
 import type { LoadedDocument } from "./domain/geometry.js";
 import { silentLogger, type Logger } from "./domain/logger.js";
 import { sumUsage, type Attempt, type Usage } from "./domain/result.js";
 import { withDeadline } from "./pipeline/deadline.js";
+import { abandonAfterDeadline, withCallDeadline } from "./pipeline/abandon.js";
+import { positiveNumber } from "./pipeline/options.js";
+import { isolatedListener } from "./domain/events.js";
 import {
   DisposedError,
   DuplicateComponentError,
+  type DoctureError,
   NoConvertibleContentError,
   ModelOutputError,
   MissingComponentError,
   TimeoutError,
   errorCodeOf,
-  isAbortError,
+  isCallerAbort,
   messageOf,
 } from "./pipeline/errors.js";
 import { documentFeatures, preloadedFeatures } from "./pipeline/features.js";
@@ -53,6 +55,22 @@ export interface DocumentConverterOptions {
   readonly logger?: Logger;
   /** Per-stage deadline in ms. Omit for none. */
   readonly stageTimeoutMs?: number;
+  /** Default deadline in ms for each whole conversion call or batch item. Omit for none. */
+  readonly timeoutMs?: number;
+}
+
+/**
+ * `error` is a {@link DoctureError} for every failure the pipeline names; narrow it with
+ * `isDoctureError(error, code)`. Anything else a plugin threw arrives as it was thrown.
+ */
+export type SafeConversion =
+  | { readonly ok: true; readonly result: ConversionResult }
+  | { readonly ok: false; readonly error: DoctureError | Error };
+
+export interface ConversionBatchItem {
+  readonly source: DocumentSource;
+  readonly index: number;
+  readonly outcome: SafeConversion;
 }
 
 interface LoadedConversion {
@@ -84,9 +102,9 @@ function usageFrom(partial: Partial<Usage> | undefined): Usage {
 
 
 function snapshotConvertOptions(options: ConvertOptions): ConvertOptions {
-  const { format, pages, assets, signal, logger, stageTimeoutMs, ...extra } = options;
+  const { format, pages, assets, signal, logger, stageTimeoutMs, timeoutMs, onEvent, ...extra } = options;
   const fields: { [K in keyof ConvertOptions]-?: ConvertOptions[K] | undefined } = {
-    format, pages, assets, signal, logger, stageTimeoutMs,
+    format, pages, assets, signal, logger, stageTimeoutMs, timeoutMs, onEvent,
   };
   return {
     ...extra,
@@ -96,6 +114,8 @@ function snapshotConvertOptions(options: ConvertOptions): ConvertOptions {
     ...(fields.signal === undefined ? {} : { signal: fields.signal }),
     ...(fields.logger === undefined ? {} : { logger: fields.logger }),
     ...(fields.stageTimeoutMs === undefined ? {} : { stageTimeoutMs: fields.stageTimeoutMs }),
+    ...(fields.timeoutMs === undefined ? {} : { timeoutMs: fields.timeoutMs }),
+    ...(fields.onEvent === undefined ? {} : { onEvent: fields.onEvent }),
   };
 }
 
@@ -116,6 +136,7 @@ export class DocumentConverter {
   #layoutAnalyzer: LayoutAnalyzer | undefined;
   #logger: Logger;
   #stageTimeoutMs: number | undefined;
+  #timeoutMs: number | undefined;
   #disposed: Promise<void> | undefined;
   /** Aborted by dispose(), so no conversion starts loader work on released components. */
   #lifetime = new AbortController();
@@ -126,6 +147,7 @@ export class DocumentConverter {
     this.#layoutAnalyzer = options.layoutAnalyzer;
     this.#logger = options.logger ?? silentLogger;
     this.#stageTimeoutMs = options.stageTimeoutMs;
+    this.#timeoutMs = options.timeoutMs === undefined ? undefined : positiveNumber("timeoutMs", options.timeoutMs);
     assertUnique("loader", this.#loaders);
   }
 
@@ -173,35 +195,55 @@ export class DocumentConverter {
   }
 
   /** Convert a source to text, Markdown, HTML, or versioned JSON. */
-  async convert(
+  convert(
     source: DocumentSource,
     options: ConvertOptions = {},
   ): Promise<ConversionResult> {
+    const ms = options.timeoutMs ?? this.#timeoutMs;
+    return withCallDeadline(ms, options.signal, (signal) =>
+      this.#convert(source, ms === undefined || signal === undefined ? options : { ...snapshotConvertOptions(options), signal }));
+  }
+
+  async #convert(source: DocumentSource, options: ConvertOptions): Promise<ConversionResult> {
     const started = Date.now();
     const lifetime = this.#lifetime.signal;
     const signal = options.signal === undefined ? lifetime : AbortSignal.any([lifetime, options.signal]);
     signal.throwIfAborted();
     const logger = options.logger ?? this.#logger;
+    const emit = isolatedListener(options.onEvent, logger);
     const stageTimeoutMs = options.stageTimeoutMs ?? this.#stageTimeoutMs;
     const format = options.format ?? "markdown";
     const assetMode = options.assets ?? "referenced";
     const pages = options.pages === undefined ? undefined : [...options.pages];
+    const loadStarted = Date.now();
     const loaded = await this.#load(source, logger, signal, stageTimeoutMs, {
       ...(pages === undefined ? {} : { pages }),
       layout: true,
       assets: assetMode !== "omit",
-    });
+    }, (attempt) => emit({ type: "attempt", attempt }));
     signal.throwIfAborted();
+    if (!isLoadedSource(source)) {
+      emit({ type: "load", loader: loaded.loader, pages: loaded.document.pages.length, ms: Date.now() - loadStarted });
+    }
 
     if (loaded.document.text.trim().length === 0) {
       throw new NoConvertibleContentError(loaded.features);
     }
 
-    const deterministic = analyzeDocument(loaded.document);
+    const total = loaded.document.pages.length;
+    let done = 0;
+    const deterministic = analyzeDocument(loaded.document, (pageNumber) => {
+      done += 1;
+      emit({ type: "page", pageNumber, done, total });
+    });
     let layout = deterministic.document;
     let method = "deterministic";
     const warnings: ConversionWarning[] = [...deterministic.warnings];
     const attempts: Attempt[] = [...loaded.attempts];
+    const record = (attempt: Attempt): void => {
+      attempts.push(attempt);
+      emit({ type: "attempt", attempt });
+    };
     let modelUsage = usageFrom(undefined);
 
     if (this.#layoutAnalyzer !== undefined) {
@@ -210,12 +252,12 @@ export class DocumentConverter {
       const deadline = withDeadline(`layout:${analyzer.name}`, stageTimeoutMs, signal);
       let returnedUsage: Partial<Usage> | undefined;
       try {
-        const result = await analyzer.analyze({
+        const result = await abandonAfterDeadline(analyzer.analyze({
           document: withoutFurniture(layout),
           signal: deadline.signal,
           logger: logger.child({ layoutAnalyzer: analyzer.name }),
           ...(loaded.fileName === undefined ? {} : { documentLabel: loaded.fileName }),
-        });
+        }), deadline);
         returnedUsage = result.usage;
         deadline.signal.throwIfAborted();
         const applied = applyLayoutAnnotations(layout, result.annotations);
@@ -224,7 +266,7 @@ export class DocumentConverter {
           layout = applied.document;
           method = `deterministic+${analyzer.name}`;
           warnings.push(...(result.warnings ?? []));
-          attempts.push({
+          record({
             stage: "layout",
             strategy: analyzer.name,
             status: "ok",
@@ -237,7 +279,7 @@ export class DocumentConverter {
             code: "INVALID_LAYOUT_ANALYSIS",
             message: `Layout analyzer "${analyzer.name}" was ignored: ${reason}.`,
           });
-          attempts.push({
+          record({
             stage: "layout",
             strategy: analyzer.name,
             status: "failed",
@@ -252,13 +294,13 @@ export class DocumentConverter {
         const failure = deadline.expired()
           ? new TimeoutError(`layout:${analyzer.name}`, stageTimeoutMs ?? 0)
           : error;
-        if (isAbortError(failure)) throw failure;
+        if (isCallerAbort(failure, signal)) throw failure;
         modelUsage = usageFrom(failedUsage);
         warnings.push({
           code: "LAYOUT_ANALYZER_FAILED",
           message: `Layout analyzer "${analyzer.name}" failed; deterministic layout was kept: ${messageOf(failure)}.`,
         });
-        attempts.push({
+        record({
           ...failedAttempt("layout", analyzer.name, Date.now() - analyzerStarted, failure),
           ...(failedUsage === undefined ? {} : { usage: failedUsage }),
         });
@@ -371,15 +413,18 @@ export class DocumentConverter {
     signal: AbortSignal,
     stageTimeoutMs: number | undefined,
     request: LoadRequest,
+    onAttempt: (attempt: Attempt) => void,
   ): Promise<LoadedConversion> {
     const selected = (document: LoadedDocument): LoadedDocument =>
       request.pages === undefined ? document : selectPages(document, request.pages);
     if (isLoadedSource(source)) {
       const document = selected(source.loaded);
+      const attempt: Attempt = { stage: "load", strategy: source.loaded.loader, status: "ok", ms: 0 };
+      onAttempt(attempt);
       return {
         document,
         loader: source.loaded.loader,
-        attempts: [{ stage: "load", strategy: source.loaded.loader, status: "ok", ms: 0 }],
+        attempts: [attempt],
         features: preloadedFeatures({ ...source, loaded: document }),
         ...(source.fileName === undefined ? {} : { fileName: source.fileName }),
       };
@@ -393,6 +438,7 @@ export class DocumentConverter {
     const read = await readFirstUsable(
       this.#loaders, raw, logger, signal, stageTimeoutMs, request,
       (document) => selected(document).text.trim().length > 0,
+      onAttempt,
     );
     const document = selected(read.document);
     return {

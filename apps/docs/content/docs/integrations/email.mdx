@@ -69,6 +69,6 @@ Omitted inline resources still count toward the limits. A running parser cannot 
 
 ## Handle errors
 
-Missing message headers, invalid limits, and exceeded limits throw `EmailInputError` with code [`LOAD_FAILED`](/docs/resources/errors#error-catalogue). Other malformed MIME follows the parser's own recovery behavior.
+Missing message headers and exceeded limits throw `EmailInputError` with code [`EMAIL_INVALID`](/docs/resources/errors#error-catalogue). A limit that is not a non-negative safe integer, or a `maxParts` below `1`, throws `InvalidOptionError` with code `INVALID_OPTION`. Other malformed MIME follows the parser's own recovery behavior.
 
 The repository example in [`apps/examples/input-loaders`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/input-loaders), `index.ts`, reads the adjacent `invoice.eml`, expands its text body and PDF attachment, then converts both.

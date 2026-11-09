@@ -29,3 +29,18 @@ it.each(["", "0", "-1", "1.5", "2,", "1e2", "x"])("rejects invalid --pages %j be
   expect(result.stderr).toContain("--pages");
   expect(result.stderr).not.toContain("CONFIG MUST NOT LOAD");
 });
+
+it("convert accepts page ranges and the library's markdown and text format names", async () => {
+  const cwd = await tempDir("convert-ranges-and-names");
+  await writeFixture(cwd, "input.pdf", "%PDF-1.7 test");
+  await writeFixture(cwd, "docture.config.mjs", textLoaderConfig(["FIRST PAGE", "SECOND PAGE", "THIRD PAGE", "FOURTH PAGE"], ""));
+
+  const markdown = await cli(["convert", "input.pdf", "--out", "md", "--to", "markdown", "--pages", "1,3-4"], { cwd });
+  expect(markdown.code, markdown.stderr).toBe(0);
+  expect(await readFile(join(cwd, "md/input.md"), "utf8")).toBe(
+    "<!-- page: 1 -->\n\nFIRST PAGE\n\n<!-- page: 3 -->\n\nTHIRD PAGE\n\n<!-- page: 4 -->\n\nFOURTH PAGE",
+  );
+  const text = await cli(["convert", "input.pdf", "--out", "txt", "--to", "text", "--pages", "2-3"], { cwd });
+  expect(text.code, text.stderr).toBe(0);
+  expect(await readFile(join(cwd, "txt/input.txt"), "utf8")).toBe("SECOND PAGE\fTHIRD PAGE");
+});

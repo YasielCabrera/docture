@@ -1,8 +1,9 @@
 /**
  * docture — strongly typed extraction and grounded document conversion.
  *
- * THIS FILE IS THE SUPPORTED API. It is deliberately small, and an export-surface
- * test asserts the exact list — widening it is a decision, not a side effect.
+ * THIS FILE IS THE SUPPORTED API: everything core offers, from the composition roots
+ * to plugin contracts and the low-level pipeline. An export-surface test asserts the
+ * exact list, so widening it is a decision, not a side effect.
  *
  * Optional integrations have separate subpath entries. The root imports only core.
  * See ARCHITECTURE.md for layering and docs/decisions/0001-package-boundaries.md
@@ -20,12 +21,11 @@ export type {
 
 /** Deterministic document conversion with optional constrained layout assistance. */
 export { DocumentConverter, createDocumentConverter } from "./converter.js";
-export type { DocumentConverterOptions } from "./converter.js";
+export type { ConversionBatchItem, DocumentConverterOptions, SafeConversion } from "./converter.js";
 export type {
   CodeElement,
   ConversionAsset,
   ConversionAssetMode,
-  ConversionBatchItem,
   ConversionBatchOptions,
   ConversionFormat,
   ConversionResult,
@@ -50,7 +50,6 @@ export type {
   PageHeaderElement,
   ParagraphElement,
   ProvenanceSegment,
-  SafeConversion,
   SourceLine,
   TableCellSpan,
   TableElement,
@@ -245,6 +244,7 @@ export {
   DisposedError,
   DuplicateComponentError,
   ExtractionFailedError,
+  InvalidOptionError,
   LoadFailedError,
   MissingEngineError,
   MissingComponentError,
@@ -260,14 +260,16 @@ export {
   UnsupportedSourceError,
   errorCodeOf,
   isAbortError,
+  isCallerAbort,
   isDoctureError,
   messageOf,
 } from "./pipeline/errors.js";
-export type { Ineligibility, DoctureErrorCode } from "./pipeline/errors.js";
+export type { Ineligibility, DoctureErrorCode, DoctureErrorJson, DoctureErrorOf, SplitCoverage } from "./pipeline/errors.js";
 
 // ── Logging ─────────────────────────────────────────────────────────────────────
 export { consoleLogger, silentLogger } from "./domain/logger.js";
 export type { Logger } from "./domain/logger.js";
+export type { PipelineEvent, PipelineEventListener } from "./domain/events.js";
 
 // ── Sources ─────────────────────────────────────────────────────────────────────
 export { resolveSource, sniffMimeType, type SourceResolver } from "./pipeline/source.js";

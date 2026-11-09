@@ -23,14 +23,26 @@ process.on("SIGINT", () => {
   controller.abort();
 });
 
-// `process.exitCode` rather than `process.exit`: stdout may still be draining into
-// a pipe, and exiting outright truncates it.
+/** Resolves once every chunk written before it has left the process, even into a slow pipe. */
+function flushed(stream: NodeJS.WriteStream): Promise<void> {
+  return new Promise((resolve) => stream.write("", () => resolve()));
+}
+
+const argv = process.argv.slice(2);
 try {
-  const code = await run(process.argv.slice(2), { io, signal: controller.signal });
+  const code = await run(argv, { io, signal: controller.signal });
   process.exitCode = interrupted && code !== 0 ? EXIT_INTERRUPTED : code;
 } catch (error) {
   // `run` handles its own errors; anything arriving here is a bug in the CLI, and
   // a stack trace is the right thing to show for one.
   io.diagnostic(`${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`);
   process.exitCode = 1;
+}
+
+// A deadline abandons work that ignores its signal, and that work can hold the event
+// loop open long after the result is out. A one-shot command exits once its output
+// has drained; `mcp` and `serve` return only after they have shut down.
+if (argv[0] !== "mcp" && argv[0] !== "serve") {
+  await Promise.all([flushed(process.stdout), flushed(process.stderr)]);
+  process.exit();
 }

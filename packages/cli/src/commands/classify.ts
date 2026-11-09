@@ -13,7 +13,7 @@ import { styleFor, type Io } from "../cli/io.js";
 import { OUTPUT_FORMAT } from "../cli/specs.js";
 import { resolveConfig } from "../config.js";
 import { expandInputs, sourcesOf } from "../inputs.js";
-import { commonOptions, wiringFlags } from "../options.js";
+import { callTimeout, commonOptions, wiringFlags } from "../options.js";
 import {
   envelope,
   errorRecord,
@@ -82,6 +82,7 @@ export async function classifyCommand(
   const style = styleFor(common.color);
   const format = choiceFlag(parsed, OUTPUT_FORMAT) ?? "text";
   const concurrency = numberFlag(parsed, "concurrency", { min: 1, max: 64, integer: true });
+  const timeout = callTimeout(parsed);
 
   const config = await resolveConfig({
     cwd: io.cwd,
@@ -123,7 +124,7 @@ export async function classifyCommand(
     const sources = await sourcesOf(inputs, io, signal);
     verdicts = await pooled(inputs, concurrency ?? wiring.concurrency, async (input, index) => {
       try {
-        const result = await wiring.extractor.classify(sources[index]!, undefined, { signal });
+        const result = await wiring.extractor.classify(sources[index]!, undefined, { signal, ...timeout });
         const record: Verdict = {
           file: input.label,
           ok: true,

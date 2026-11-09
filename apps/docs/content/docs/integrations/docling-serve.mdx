@@ -98,7 +98,9 @@ const loader = new DocumentLoaderDoclingServe({ baseUrl: "http://127.0.0.1:5001/
 | `maxRequestBytes` | `20000000` | Maximum input file size. |
 | `maxResponseBytes` | `20000000` | Maximum response size, checked before JSON parsing. |
 | `getRetries` | `2` | Retries for GET requests, at most `10`. |
+| `getRetryDelayMs` | `250` | First backoff before a retried GET, doubled per retry with full jitter. A `Retry-After` header wins, capped at 60 seconds. |
 | `jobTimeoutMs` | `300000` | Deadline for an asynchronous job, from when it starts running. |
+| `convertTimeoutMs` | `jobTimeoutMs` | Deadline for the synchronous convert request, which waits for the whole conversion. |
 | `queueTimeoutMs` | `jobTimeoutMs` | Deadline for an asynchronous job that is still queued. |
 | `pollIntervalMs` | `250` | Delay between task status checks. |
 | `maxPolls` | enough for both deadlines | Maximum task status checks. Defaults to `(queueTimeoutMs + jobTimeoutMs) / pollIntervalMs`, rounded up. |
@@ -130,7 +132,7 @@ Partial conversions reject unless you set `allowPartial: true`. Skipped and fail
 
 POST requests are never retried. A dropped submission or a sync HTTP 504 can leave the server outcome unknown. GET retries and polling are bounded. POST redirects reject, and GET redirects cannot carry credentials to another origin.
 
-Service failures throw `DoclingServeError` with code [`LOAD_FAILED`](/docs/resources/errors#error-catalogue) and these fields:
+Service failures throw `DoclingServeError` with code [`DOCLING_FAILED`](/docs/resources/errors#error-catalogue). Inside an `Extractor` or `DocumentConverter`, the failure is a loader attempt with that `errorCode`, and the call raises `LOAD_FAILED` when no other loader succeeds. The error has these fields:
 
 - `reason`, a `DoclingServeFailure`: `configuration`, `transport`, `http`, `redirect`, `response`, `task`, `expired`, `timeout`, `conversion`, or `limit`.
 - `outcome`, `failed` or `unknown`. `unknown` means the server may have processed the request.

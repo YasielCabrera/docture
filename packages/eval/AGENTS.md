@@ -2,8 +2,9 @@
 
 Read this file explicitly before writing evaluation code for an application that
 uses `@docture/eval`. A coding agent can read `node_modules/@docture/eval/AGENTS.md`;
-automatic discovery inside dependencies is not assumed. The documentation site's
-`/llms.txt` lists every guide as Markdown.
+automatic discovery inside dependencies is not assumed. The guides are Markdown
+files at [apps/docs/content/docs/evaluation](https://github.com/YasielCabrera/docture/tree/main/apps/docs/content/docs/evaluation),
+and a documentation site built from them indexes every page at `/llms.txt`.
 
 ```sh
 npm install @docture/eval docture zod

@@ -11,7 +11,9 @@ export function requestedPageNumbers(
   if (requested === undefined) return Array.from({ length: limit }, (_, index) => index + 1);
   const unique = [...new Set(requested)];
   const missing = unique.filter((page) => !Number.isInteger(page) || page < 1 || page > limit);
-  if (unique.length === 0 || missing.length > 0) throw new PageSelectionError(missing, pageCount);
+  if (unique.length === 0 || missing.length > 0) {
+    throw new PageSelectionError(missing, pageCount, limit < pageCount ? { maxPages: limit } : {});
+  }
   return unique.sort((a, b) => a - b);
 }
 
@@ -19,7 +21,7 @@ export function selectPages(document: LoadedDocument, pages: readonly number[]):
   const known = new Set(document.pages.map((page) => page.pageNumber));
   const missingPages = [...new Set(pages)].filter((number) => !known.has(number));
   if (pages.length === 0 || missingPages.length > 0) {
-    throw new PageSelectionError(missingPages, document.pages.length);
+    throw new PageSelectionError(missingPages, document.pages.length, { loadedPages: [...known] });
   }
   const wanted = new Set(pages);
   const kept = document.pages.filter((page) => wanted.has(page.pageNumber));

@@ -19,7 +19,7 @@ extraction pipeline before you have a hand-labeled corpus.
 - **Any AI SDK model**: a provider instance, a gateway model string, or your own provider.
 - **Pluggable loaders**: pdf.js, MuPDF, Tesseract, PaddleOCR. Select each engine through an explicit subpath.
 - **Grounded conversion**: deterministic TXT, CommonMark, GFM tables, escaped HTML, and versioned JSON with page and box provenance.
-- **Capabilities**: loader types retain capability literals. Document facts determine strategy eligibility at runtime, and capability-specific APIs reject incompatible loader types.
+- **Capabilities**: loader types retain capability literals, so `withRasterizer` marks a loader as rendering pages and `createCheckedExtractor` rejects literal wiring whose strategies need a capability no loader declares. Document facts decide strategy eligibility at runtime, and an ineligible document fails with an error that names the fix, such as wrapping the loader with `withRasterizer(loader, rasterizer)`.
 - **Classification**: each kind carries its own schema, so narrowing on `name` narrows `data`.
 - **Splitting**: one PDF holding several unrelated documents comes back as one typed result each.
 - **Explicit fallback**: strategies run in order, every attempt is recorded with its error.
@@ -130,9 +130,12 @@ const receipt = defineClassification({
   schema: Receipt.schema,
 });
 
-const decided = await extractor
-  .loadLlm(new LLM(openai("gpt-5")), { classify: true })
-  .classify("unknown.pdf", [invoice, receipt] as const);
+// One loadLlm call registers the model's extraction strategy and its classifier.
+const classifying = new Extractor()
+  .loadDocumentLoader(new DocumentLoaderPdfJs())
+  .loadLlm(new LLM(openai("gpt-5")), { classify: true });
+
+const decided = await classifying.classify("unknown.pdf", [invoice, receipt] as const);
 
 decided.name;       // "invoice" | "receipt" | "UNKNOWN"
 decided.confidence; // 0-1
@@ -167,8 +170,11 @@ The bundle is read once, however many documents come out of it. `split` is lazy:
 records the plan, and only `extract` is awaited. A group the classification list does not
 cover is an error, not a silent skip.
 
+`Process` borrows the extractor passed to `loadExtractor()`; dispose it yourself after its last use.
+
 `TextSplitter` reads the pages; `ImageSplitter` looks at them, and declares
-`RENDERABLE_PAGES`, so APIs that require renderable input reject a text-only loader.
+`RENDERABLE_PAGES`. With a text-only loader, `split` fails with `SPLIT_FAILED` and tells
+you to compose the loader with `withRasterizer(loader, rasterizer)`.
 
 ### Scanned documents
 
@@ -201,20 +207,27 @@ Strategies run in the order you declared them and the first that does not throw 
 a deterministic parser in front of the model and it answers for free when it can:
 
 ```ts
-import { errorCodeOf } from "docture";
+import { errorCodeOf, isDoctureError } from "docture";
 
 const extractor = new Extractor()
   .loadDocumentLoader(new DocumentLoaderPdfJs())
-  .loadStrategy(myRegexParser)             // tried first, free and exact
-  .loadLlm(new LLM(openai("gpt-5")));      // tried when it fails
+  .loadStrategy(myRegexParser)                // tried first, free and exact
+  .loadLlm(new LLM(openai("gpt-5-mini")))     // strategy "gpt-5-mini"
+  .loadLlm(new LLM(openai("gpt-5")));         // strategy "gpt-5", tried last
 
 const outcome = await extractor.safeExtract("invoice.pdf", Invoice);
 
 if (!outcome.ok) {
-  switch (errorCodeOf(outcome.error)) {    // typed codes, no string matching
+  switch (errorCodeOf(outcome.error)) {       // typed codes: a typo does not compile
     case "NO_ELIGIBLE_STRATEGY": break;
     case "CONTRACT_VIOLATION": break;
     case "TIMEOUT": break;
+  }
+  if (isDoctureError(outcome.error, "CONTRACT_VIOLATION")) {
+    outcome.error.issues;                     // narrowed, no cast
+  }
+  if (isDoctureError(outcome.error)) {
+    outcome.error.hint;                       // the next thing to try
   }
 }
 ```
@@ -236,13 +249,17 @@ in `result.attempts` with its error.
 | `MODEL_OUTPUT_FAILED` | A billed model response failed structured-output validation. |
 | `CONTRACT_VIOLATION` | Extracted data failed the requested schema or a fail-mode validation rule. |
 | `UNSUPPORTED_SOURCE` | The source cannot be read. |
-| `TIMEOUT` | A library-owned stage deadline elapsed. |
+| `TIMEOUT` | A library-owned deadline elapsed: a stage's `stageTimeoutMs` or the whole call's `timeoutMs`. |
 | `DUPLICATE_COMPONENT` | Two components use the same registered name. |
 | `SPLIT_FAILED` | Splitting is unavailable or failed. |
 | `UNCLASSIFIED_GROUP` | A split group matched none of the allowed kinds. |
 | `MISSING_ENGINE` | A selected integration's optional engine is not installed. |
 | `MISSING_COMPONENT` | Required wiring or call state is missing. |
 | `DISPOSED` | A component was used after `dispose()` released it. |
+| `INVALID_OPTION` | An option or argument is outside the values it accepts. |
+| `DOCLING_FAILED` | Docling Serve rejected the request or returned no usable conversion. Raised by `docture/loaders/docling`. |
+| `DOCX_FAILED` | Mammoth could not read the DOCX file. Raised by `docture/loaders/mammoth`. |
+| `EMAIL_INVALID` | The input is not a readable RFC email or exceeds a configured limit. Raised by `docture/inputs/email`. |
 | `EVAL_SPEC_INVALID` | An eval spec, rule set or metric set cannot be resolved. Raised by `@docture/eval`. |
 | `GROUND_TRUTH_INVALID` | Expected values do not satisfy their eval spec. Raised by `@docture/eval`. |
 | `EVAL_DATASET_INVALID` | An eval dataset cannot produce its cases. Raised by `@docture/eval`. |
@@ -323,6 +340,9 @@ parse HTML/XHTML on demand, without optional engines or resource downloads.
 The schema helper has a Zod peer. Model integrations use optional `ai@^7` and Zod peers; Zod 3.25.76 or later 3.x, or Zod 4.1.8 or later, satisfies both.
 `loadLlm` accepts the core `ModelBackend` interface, implemented by `LLM`. The backend
 creates text, vision, classification, splitting, and layout components from one configuration.
+Their names derive from the model id (`gpt-5`, `gpt-5:vision`, `gpt-5:classifier`), so two
+models form a fallback chain. To wire the same model twice, give one a distinct `{ name }`.
+An options object takes the same model: `new Extractor({ loaders, llm: { backend, vision: true } })`.
 
 ## How it works
 
@@ -346,12 +366,15 @@ Only `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic` are pu
 | Import | Exports or purpose |
 | --- | --- |
 | `docture` | Core contracts, `Extractor`, `DocumentConverter`, `Process`, errors, and custom components |
+| `docture/node` | The core API with local file paths and file URLs: `Extractor`, `DocumentConverter`, `Process`, `resolveNodeSource` |
 | `docture/llm` | `LLM`, `model`, and all model components and helpers |
 | `docture/llm/text` | `LlmStrategy`, `LlmStrategyOptions`, `llm`, `modelIdOf` |
 | `docture/llm/vision` | `VisionStrategy`, `vision`, and options |
 | `docture/llm/classifier` | `LlmClassifier`, `llmClassifier`, and options |
 | `docture/llm/layout` | `LlmLayoutAnalyzer`, `llmLayout`, and options |
 | `docture/llm/split` | `TextSplitter`, `ImageSplitter`, factories, and options |
+| `docture/llm/ocr` | `LlmOcrLoader`, `llmOcr`: a vision model as an OCR loader |
+| `docture/llm/tool` | `extractTool`: an extractor as an AI SDK tool |
 | `docture/llm/extractor` | `createLlmExtractor` and options |
 | `docture/llm/cache` | Memory and file caches, fingerprints, and cache keys |
 | `docture/llm/pricing` | Token accounting and prices |
@@ -362,6 +385,12 @@ Only `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic` are pu
 | `docture/loaders/mupdf` | `DocumentLoaderMuPdf`, `MuPdfRasterizer` |
 | `docture/loaders/tesseract` | `DocumentLoaderTesseract` |
 | `docture/loaders/paddleocr` | `DocumentLoaderPaddleOcr` |
+| `docture/loaders/mammoth` | `DocumentLoaderMammoth` for DOCX |
+| `docture/loaders/docling` | `DocumentLoaderDoclingServe`, `DoclingServeClient` for a Docling Serve instance |
+| `docture/import/docling` | `importDoclingDocument`: a DoclingDocument as a Docture document |
+| `docture/inputs/email` | `expandEmail`: an email and its attachments as sources |
+| `docture/sources/paperless` | `PaperlessSource`, `paperlessSource`: documents from Paperless-ngx |
+| `docture/sinks/paperless` | `PaperlessSink`, `paperlessSink`: write extraction results back to Paperless-ngx |
 | `docture/raster/canvas` | `NapiCanvasRasterizer` |
 | `docture/chunk` | Retrieval chunks with page, box, and source-id provenance |
 | `@docture/eval` | Specs, field scoring, metrics, result format, and gates |
@@ -380,6 +409,7 @@ Only `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic` are pu
 | `docture/testing/doubles` | In-memory documents, loaders, and fixed or failing strategies |
 | `docture/testing/conformance` | Loader and rasterizer contract suites |
 | `docture/testing/fixtures` | Generated PDFs and their expected data |
+| `docture/testing/llm` | `mockLayoutModel`, `mockOcrModel`: deterministic model doubles |
 | `@docture/cli` | CLI configuration, IO, errors, and `run` |
 
 ### Install selected peers
@@ -537,7 +567,8 @@ Most document-extraction libraries hand back a `Record<string, unknown>` and a p
 that the model probably got it right. This one is built around three ideas:
 
 1. **The types are the contract.** `result.data` is inferred from your schema to its
-   leaves. APIs with capability-specific loader types reject incompatible loaders.
+   leaves. `createCheckedExtractor` rejects a loader that lacks a capability at compile
+   time; other wiring reports the missing capability at run time and names the fix.
 2. **The model is yours.** Not a wrapper with its own provider list, its own version of
    the SDK and its own opinions about prompts. `ai` is a peer dependency.
 3. **Explicit engines.** Each adapter has a named subpath and a declared engine peer.

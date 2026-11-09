@@ -2,7 +2,7 @@
 
 Standalone copies require the [matching package builds and setup](../README.md#use-a-copied-folder).
 
-Use the AI SDK gateway as the model provider and `llm()` as the extraction strategy. The local PDF and schema are the same inputs you would supply in an application.
+Use the AI SDK gateway as the model provider, wrap the model in `LLM`, and register it with `loadLlm`. The local PDF and schema are the same inputs you would supply in an application. With a direct provider, the same line reads `.loadLlm(new LLM(openai("gpt-5")))`.
 
 Run from the repository root after `pnpm install` and `pnpm build`.
 

@@ -61,8 +61,22 @@ export interface PdfJsObjects {
   get(id: string, callback?: (value: PdfJsImageData | null) => void): PdfJsImageData | null | undefined;
 }
 
+/** The font a text item's `fontName` names, once an operator list has loaded it. */
+export interface PdfJsFont {
+  readonly name?: string;
+  readonly bold?: boolean;
+  readonly black?: boolean;
+  readonly italic?: boolean;
+}
+
+export interface PdfJsCommonObjects {
+  has(id: string): boolean;
+  get(id: string): unknown;
+}
+
 export interface PdfJsPage {
   readonly objs: PdfJsObjects;
+  readonly commonObjs: PdfJsCommonObjects;
   getViewport(options: { scale: number }): PdfJsViewport;
   getTextContent(options?: { includeMarkedContent?: boolean; disableNormalization?: boolean }): Promise<{
     items: readonly (PdfJsTextItem | PdfJsMarkedContent)[];
@@ -71,11 +85,13 @@ export interface PdfJsPage {
   }>;
   getAnnotations(): Promise<readonly Readonly<Record<string, unknown>>[]>;
   getStructTree(): Promise<PdfJsStructTree | null>;
-  getOperatorList(): Promise<{
-    fnArray: readonly number[];
-    argsArray: readonly (readonly unknown[])[];
-  }>;
+  getOperatorList(): Promise<PdfJsOperatorList>;
   cleanup(): boolean;
+}
+
+export interface PdfJsOperatorList {
+  readonly fnArray: readonly number[];
+  readonly argsArray: readonly (readonly unknown[])[];
 }
 
 export interface PdfJsMarkedContent {

@@ -36,6 +36,6 @@ A page request can select page 1. Any other page fails with [`PAGE_OUT_OF_RANGE`
 
 ## Handle errors and cancellation
 
-An invalid DOCX throws `MammothDocumentError` with code [`LOAD_FAILED`](/docs/resources/errors#error-catalogue) and the Mammoth error as its cause. The loader checks for cancellation before and after parsing. It cannot interrupt Mammoth while a parse runs.
+An invalid DOCX throws `MammothDocumentError` with code [`DOCX_FAILED`](/docs/resources/errors#error-catalogue) and the Mammoth error as its cause. Inside an `Extractor` or `DocumentConverter`, the failure is a loader attempt with that `errorCode`, and the call raises `LOAD_FAILED` when no other loader succeeds. The loader checks for cancellation before and after parsing. It cannot interrupt Mammoth while a parse runs.
 
 The repository example in [`apps/examples/input-loaders`](https://github.com/YasielCabrera/docture/tree/main/apps/examples/input-loaders), `index.ts`, converts the adjacent `report.docx` without network access.

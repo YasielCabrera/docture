@@ -158,12 +158,13 @@ it("splits checking, credit and unknown pages without losing the reconciliation 
     { name: "checking-account", pages: [1, 2, 3], data: { accountNumber: "6547", endingBalance: 6682.22 } },
     { name: "credit-line", pages: [4, 5], data: { accountNumber: "3216", creditLimit: 1000 } },
   ]);
-  const process = bundleProcess();
+  const { extractor, process } = bundleProcess();
   try {
     await expect(process.loadFile(fileURLToPath(new URL("../bundles-and-splitting/statement.pdf", import.meta.url)))
       .split(ACCOUNT_KINDS, SplittingStrategy.LAZY).extract()).rejects.toThrow(/UNKNOWN/u);
   } finally {
     await process.dispose();
+    await extractor.dispose();
   }
 });
 

@@ -1,5 +1,6 @@
 import type { TableCellSpan } from "../domain/conversion.js";
 import type { LayoutBox, TextLine, TextSpan } from "../domain/geometry.js";
+import { spanSeparator } from "../domain/lines.js";
 import { boxOfLines, compatibleTableRows, HEADING_SIZE_RATIO, isTableCandidate, median, type Candidate } from "./candidates.js";
 
 const MAX_ROW_STEP = 3;
@@ -49,11 +50,28 @@ export function opensSection(
 }
 
 function rowsWithinPitch(rows: readonly Candidate[]): number {
+  const steps: number[] = [];
+  const insert = (step: number): void => {
+    let low = 0;
+    let high = steps.length;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if ((steps[middle] ?? 0) < step) low = middle + 1;
+      else high = middle;
+    }
+    steps.splice(low, 0, step);
+  };
+  const pitch = (): number => {
+    const middle = steps.length >> 1;
+    return steps.length % 2 === 1 ? steps[middle] ?? 0 : ((steps[middle - 1] ?? 0) + (steps[middle] ?? 0)) / 2;
+  };
   for (let count = 2; count < rows.length; count += 1) {
     const above = rows[count - 1];
     const below = rows[count];
+    const previous = rows[count - 2];
+    if (above !== undefined && previous !== undefined) insert(above.box.y - previous.box.y);
     if (above === undefined || below === undefined || below.role === "table") continue;
-    if (!nextRowWithin(above.box, below.box, rowPitch(rows.slice(0, count).map((row) => row.box)))) return count;
+    if (!nextRowWithin(above.box, below.box, pitch())) return count;
   }
   return rows.length;
 }
@@ -238,15 +256,24 @@ export function inferTableGrid(lines: readonly TextLine[], bands: readonly Colum
   return { rows, headerRows, ...(spans.length === 0 ? {} : { spans }) };
 }
 
+const bandRows = new WeakMap<Candidate, TextLine | null>();
+
 function bandRow(candidate: Candidate | undefined): TextLine | undefined {
-  const line = candidate?.lines[0];
-  if (candidate === undefined || line === undefined || candidate.role !== undefined || candidate.lines.length !== 1) return undefined;
-  const gap = median(line.spans.map((span) => span.height).filter((height) => height > 0)) || 10;
-  const separated = line.spans.every((span, index) => {
-    const next = line.spans[index + 1];
-    return next === undefined || next.x - (span.x + span.width) >= gap;
-  });
-  return separated && line.spans.length >= 2 ? line : undefined;
+  if (candidate === undefined) return undefined;
+  const known = bandRows.get(candidate);
+  if (known !== undefined) return known ?? undefined;
+  const line = candidate.lines[0];
+  let row: TextLine | null = null;
+  if (line !== undefined && candidate.role === undefined && candidate.lines.length === 1) {
+    const gap = median(line.spans.map((span) => span.height).filter((height) => height > 0)) || 10;
+    const separated = line.spans.every((span, index) => {
+      const next = line.spans[index + 1];
+      return next === undefined || next.x - (span.x + span.width) >= gap;
+    });
+    if (separated && line.spans.length >= 2) row = line;
+  }
+  bandRows.set(candidate, row);
+  return row ?? undefined;
 }
 
 const loneLabel = (candidate: Candidate | undefined): boolean =>
@@ -316,6 +343,41 @@ function equalWidthGroupAt(candidates: readonly Candidate[], start: number): Tab
   return { rule: "equal-width", candidates: group, rows, headerRows: 1, ...(bands === undefined ? {} : { bands }) };
 }
 
+const SENTENCE_END = /[.!?。！？]["'”’)）」』]*$/u;
+const PROSE_CELL_EMS = 12;
+
+/**
+ * A line's cells: runs of spans closer than one em, so a page that sets one span
+ * per word, as MuPDF and OCR do, reads in phrases like a PDF.js text layer.
+ */
+function cellsOf(line: TextLine): TextSpan[] {
+  const cells: TextSpan[] = [];
+  for (const span of line.spans) {
+    const previous = cells.at(-1);
+    const em = span.style?.fontSize ?? span.height;
+    if (previous === undefined || span.x - (previous.x + previous.width) >= em) {
+      cells.push(span);
+      continue;
+    }
+    cells[cells.length - 1] = {
+      ...previous,
+      text: previous.text + spanSeparator(previous, span) + span.text,
+      width: span.x + span.width - previous.x,
+    };
+  }
+  return cells;
+}
+
+function wrapsSentences(candidates: readonly Candidate[]): boolean {
+  const rows = candidates.map((candidate) => candidate.lines.flatMap(cellsOf));
+  return rows.some((row, index) => index > 0 && row.some((cell) => {
+    if (!SENTENCE_END.test(cell.text.trim())) return false;
+    const em = cell.style?.fontSize ?? cell.height;
+    const above = rows[index - 1]?.find((span) => Math.abs(span.x - cell.x) <= em);
+    return above !== undefined && above.width >= PROSE_CELL_EMS * em && !SENTENCE_END.test(above.text.trim());
+  }));
+}
+
 /** Whether grouped rows read as a table rather than columns of text: the analyzer's test for every group. */
 export function looksLikeTableGroup(candidates: readonly Candidate[]): boolean {
   if (candidates.some((candidate) => candidate.role === "table")) return true;
@@ -332,12 +394,9 @@ export function looksLikeTableGroup(candidates: readonly Candidate[]): boolean {
   return (
     candidates.length >= 3 &&
     candidates.every((candidate) =>
-      candidate.lines.every(
-        (line) =>
-          line.spans.length >= 2 &&
-          line.spans.every((span) => span.text.trim().length <= 40),
-      ),
-    )
+      candidate.lines.map(cellsOf).every((cells) => cells.length >= 2 && cells.every((cell) => cell.text.trim().length <= 40)),
+    ) &&
+    !wrapsSentences(candidates)
   );
 }
 

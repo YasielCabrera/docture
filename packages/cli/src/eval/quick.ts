@@ -27,7 +27,7 @@ import { OUTPUT_FORMAT } from "../cli/specs.js";
 import { resolveConfig } from "../config.js";
 import type { CliExtractor } from "../define-config.js";
 import { expandInputs, stem, type Input } from "../inputs.js";
-import { commonOptions, wiringFlags } from "../options.js";
+import { callTimeout, commonOptions, wiringFlags } from "../options.js";
 import {
   envelope,
   errorRecord,
@@ -257,6 +257,7 @@ export async function quickCommand(parsed: Parsed, io: Io, signal: AbortSignal):
   const tolerance = numberFlag(parsed, "tolerance", { min: 0 });
   const similarity = numberFlag(parsed, "string-similarity", { min: 0, max: 1 });
   const concurrency = numberFlag(parsed, "concurrency", { min: 1, max: 64, integer: true });
+  const timeout = callTimeout(parsed);
   const reporterNames = commaList(listFlag(parsed, "reporter"));
 
   const config = await resolveConfig({
@@ -321,6 +322,7 @@ export async function quickCommand(parsed: Parsed, io: Io, signal: AbortSignal):
     extract: (source, contract, options) =>
       wiring.extractor.extract(omitPlaceholderMediaTypeForSniffing(source), contract, {
         ...options,
+        ...timeout,
         ...(only.length === 0 ? {} : { only }),
       }),
     dispose: () => wiring.dispose(),

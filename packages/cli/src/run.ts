@@ -7,12 +7,13 @@
  * and why they assert on exactly what a user would see.
  */
 
+import { parseArgs } from "node:util";
 import { boolFlag, nearest, parseCommand, type CommandSpec, type Parsed } from "./cli/args.js";
 import { explain, exitCodeOf, UsageError, type ExitCode } from "./cli/errors.js";
 import { commandHelp, helpEnvelope, topLevelHelp } from "./cli/help.js";
 import { styleFor, type Io, type Style } from "./cli/io.js";
 import { COMMANDS, findCommand, HELP, HELP_JSON } from "./cli/specs.js";
-import { toJson } from "./output.js";
+import { errorRecord, toJson, toNdjson } from "./output.js";
 import { version } from "./version.js";
 
 type Handler = (parsed: Parsed, io: Io, signal: AbortSignal) => Promise<ExitCode>;
@@ -70,12 +71,41 @@ export interface RunOptions {
   readonly signal?: AbortSignal;
 }
 
+function machineFormat(spec: CommandSpec, argv: readonly string[]): "json" | "ndjson" | undefined {
+  const flag = spec.flags.find((candidate) => candidate.name === "format");
+  if (flag === undefined) return undefined;
+  const redirect = spec.flags.find((candidate) => candidate.name === spec.envelopeFileFlag);
+  const { values } = parseArgs({
+    args: [...argv],
+    options: {
+      format: { type: "string" },
+      ...(redirect === undefined ? {} : { [redirect.name]: { type: "string", ...(redirect.short === undefined ? {} : { short: redirect.short }) } }),
+    },
+    strict: false,
+    allowPositionals: true,
+  });
+  if (redirect !== undefined && values[redirect.name] !== undefined) return undefined;
+  const format = values["format"];
+  return format === "json" || format === "ndjson" ? format : undefined;
+}
+
+function writeFailure(io: Io, spec: CommandSpec, argv: readonly string[], error: unknown): void {
+  const format = machineFormat(spec, argv);
+  if (format === undefined) return;
+  const failure = { version: 1, command: spec.name, ok: false, results: [], error: errorRecord("", explain(error)).error };
+  io.write(format === "json" ? toJson(failure) : toNdjson(failure));
+}
+
 export async function run(argv: readonly string[], options: RunOptions): Promise<ExitCode> {
   const supplied = options.io;
+  let wroteStdout = false;
   const io: Io = {
     cwd: supplied.cwd,
     env: supplied.env,
-    write: (chunk) => supplied.write(chunk),
+    write: (chunk) => {
+      wroteStdout = true;
+      supplied.write(chunk);
+    },
     diagnostic: (chunk) => supplied.diagnostic(chunk),
     readStdin: (signal) => supplied.readStdin(signal),
     color: supplied.color && supplied.env["NO_COLOR"] === undefined,
@@ -99,10 +129,12 @@ export async function run(argv: readonly string[], options: RunOptions): Promise
   const helpRoute = first === "help" || first === "--help" || first === "-h";
   if (!helpRoute && command === undefined) return report(unknownCommand(first), io, color);
 
+  let selected: { readonly spec: CommandSpec; readonly args: readonly string[] } | undefined;
   try {
     if (command === undefined) return helpCommand(rest, io, stdoutStyle);
     const helpAsked = rest.includes("--help") || rest.includes("-h");
-    const { spec, args } = selectSubcommand(command, rest, helpAsked);
+    selected = selectSubcommand(command, rest, helpAsked);
+    const { spec, args } = selected;
     const parsed = parseCommand(helpAsked ? { ...spec, flags: [...spec.flags, HELP_JSON] } : spec, args);
     if (boolFlag(parsed, "help")) {
       return helpCommand([...spec.name.split(" "), ...(boolFlag(parsed, "json") ? ["--json"] : [])], io, stdoutStyle);
@@ -111,6 +143,7 @@ export async function run(argv: readonly string[], options: RunOptions): Promise
     if (handler === undefined) throw new UsageError(`"${spec.name}" is not implemented.`);
     return await (await handler())(parsed, io, signal);
   } catch (error) {
+    if (selected !== undefined && !wroteStdout) writeFailure(io, selected.spec, selected.args, error);
     return report(error, io, color);
   }
 }

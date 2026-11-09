@@ -29,6 +29,11 @@ export function commonOptions(parsed: Parsed, colorAvailable: boolean): CommonOp
   };
 }
 
+export function callTimeout(parsed: Parsed): { readonly timeoutMs?: number } {
+  const timeoutMs = numberFlag(parsed, "timeout", { min: 1, integer: true });
+  return timeoutMs === undefined ? {} : { timeoutMs };
+}
+
 /** Every flag the wiring cares about, validated. Absent stays absent. */
 export function wiringFlags(parsed: Parsed): WiringFlags {
   const model = stringFlag(parsed, "model");
@@ -40,7 +45,6 @@ export function wiringFlags(parsed: Parsed): WiringFlags {
   const dpi = numberFlag(parsed, "dpi", { min: 36, max: 1200, integer: true });
   const maxPages = numberFlag(parsed, "max-pages", { min: 1, integer: true });
   const maxChars = numberFlag(parsed, "max-chars", { min: 256, integer: true });
-  const timeoutMs = numberFlag(parsed, "timeout", { min: 1, integer: true });
   const completion = choiceFlag(parsed, COMPLETION);
   const ocr = choiceFlag(parsed, OCR);
 
@@ -56,7 +60,6 @@ export function wiringFlags(parsed: Parsed): WiringFlags {
     ...(maxPages === undefined ? {} : { maxPages }),
     ...(completion === undefined ? {} : { completion }),
     ...(maxChars === undefined ? {} : { maxChars }),
-    ...(timeoutMs === undefined ? {} : { timeoutMs }),
     ...(boolFlag(parsed, "classify") ? { classify: true } : {}),
     ...(boolFlag(parsed, "assist-layout") ? { assistLayout: true } : {}),
     ...(classificationsPath === undefined ? {} : { classificationsPath }),

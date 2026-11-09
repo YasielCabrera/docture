@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
+import PDFDocument from "pdfkit";
 import { describe, expect, it, vi } from "vitest";
 import { silentLogger, withRasterizer } from "docture";
 import { describeRasterizerConformance } from "docture/testing/conformance";
@@ -22,6 +23,17 @@ function halfBlackJpx(): Uint8Array {
 function withBrokenXref(pdf: Uint8Array): Uint8Array {
   const text = Buffer.from(pdf).toString("latin1").replace(/startxref\n\d+/, "startxref\n999999");
   return new Uint8Array(Buffer.from(text, "latin1"));
+}
+
+function blankPdf(widthPt: number, heightPt: number): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: [widthPt, heightPt] });
+    const chunks: Buffer[] = [];
+    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on("error", reject);
+    doc.on("end", () => resolve(new Uint8Array(Buffer.concat(chunks))));
+    doc.end();
+  });
 }
 
 async function grayAt(png: Uint8Array, x: number, y: number): Promise<number> {
@@ -59,6 +71,45 @@ describe("NapiCanvasRasterizer — specifics", () => {
     expect(Math.max(page.widthPx, page.heightPx)).toBeLessThanOrEqual(500);
     // scale x widthPx must still reconstruct the page width in points.
     expect(page.scale * page.widthPx).toBeCloseTo(595.28, 0);
+  });
+
+  it("renders a 14400pt page inside the default 40 megapixel budget, and a custom one", async () => {
+    const bytes = await blankPdf(14400, 14400);
+    const source = { bytes, mimeType: "application/pdf" };
+    const size = (pages: readonly { widthPx: number; heightPx: number; scale: number }[]) =>
+      pages.map((page) => [page.widthPx, page.heightPx, Math.round(page.scale * page.widthPx)]);
+
+    expect(size(await new NapiCanvasRasterizer().rasterize(source, { dpi: 300 }, ctx))).toEqual([[6324, 6324, 14400]]);
+    expect(size(await new NapiCanvasRasterizer({ maxPixels: 1_000_000 }).rasterize(source, { dpi: 300 }, ctx)))
+      .toEqual([[1000, 1000, 14400]]);
+  }, 60_000);
+
+  it.each([[100, 1], [1, 100]])("keeps a %s by %s point page within the pixel budget", async (width, height) => {
+    const source = { bytes: await blankPdf(width, height), mimeType: "application/pdf" };
+    const pages = await new NapiCanvasRasterizer({ maxPixels: 10 }).rasterize(source, { dpi: 72 }, ctx);
+    const page = pages[0]!;
+    expect(page.widthPx * page.heightPx).toBeLessThanOrEqual(10);
+    expect(Math.min(page.widthPx, page.heightPx)).toBe(1);
+  });
+
+  it("renders past the default budget when maxPixels is Infinity", async () => {
+    const source = { bytes: await blankPdf(7200, 7200), mimeType: "application/pdf" };
+    const pages = await new NapiCanvasRasterizer({ maxPixels: Infinity }).rasterize(source, { dpi: 66 }, ctx);
+    expect(pages.map((page) => [page.widthPx, page.heightPx])).toEqual([[6600, 6600]]);
+  }, 60_000);
+
+  it("rejects a maxPixels below one pixel or not a number", () => {
+    const rejected = (maxPixels: number) => {
+      try {
+        new NapiCanvasRasterizer({ maxPixels });
+      } catch (error) {
+        return [(error as Error).name, (error as Error).message];
+      }
+      return "accepted";
+    };
+    expect(rejected(0.5)).toEqual(["InvalidOptionError", "maxPixels must be a number of at least 1, or Infinity; received 0.5."]);
+    expect(rejected(Number.NaN)).toEqual(["InvalidOptionError", "maxPixels must be a number of at least 1, or Infinity; received NaN."]);
+    expect(rejected(1)).toBe("accepted");
   });
 
   it("emits JPEG when asked, and it is smaller than the PNG", async () => {

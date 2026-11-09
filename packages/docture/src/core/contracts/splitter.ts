@@ -33,8 +33,10 @@ import {
   type SplitVerdict,
 } from "../domain/split.js";
 import { pageWindows } from "./page-windows.js";
+import { SplitFailedError, type SplitCoverage } from "../pipeline/errors.js";
 import type { Usage } from "../domain/result.js";
 import type { Classification } from "./classifier.js";
+import { positiveInteger } from "../pipeline/options.js";
 
 export interface SplitContext {
   /** The kinds a page may be recognised as. Never empty when a splitter runs. */
@@ -112,7 +114,7 @@ export async function runSplitter(
   }
 
   if (strategy === "eager" && splitter.splitEager !== undefined) {
-    return splitter.splitEager(pages, ctx);
+    return coveringEveryPage(splitter.name, await splitter.splitEager(pages, ctx), pages);
   }
 
   const windows = pageWindows(pages, 2);
@@ -130,7 +132,39 @@ export async function runSplitter(
     ctx.signal,
   );
 
-  return aggregateDocGroups(verdicts, pages.length);
+  return aggregateDocGroups(verdicts, pages.length).map((group) => ({
+    ...group,
+    pages: group.pages.map((position) => pages[position - 1]?.pageNumber ?? position),
+  }));
+}
+
+function coveringEveryPage(name: string, groups: DocGroups, pages: readonly LoadedPage[]): DocGroups {
+  const counts = new Map(pages.map((page) => [page.pageNumber, 0]));
+  const unknown = new Set<number>();
+  for (const page of groups.flatMap((group) => group.pages)) {
+    const count = counts.get(page);
+    if (count === undefined) unknown.add(page);
+    else counts.set(page, count + 1);
+  }
+  const ascending = (values: Iterable<number>): number[] => [...values].sort((a, b) => a - b);
+  const coverage: SplitCoverage = {
+    overlaps: ascending([...counts].filter(([, count]) => count > 1).map(([page]) => page)),
+    missing: ascending([...counts].filter(([, count]) => count === 0).map(([page]) => page)),
+    unknown: ascending(unknown),
+  };
+  const problems = [
+    ...groups.flatMap((group, index) => group.pages.length === 0 ? [`group ${index + 1} (${group.classification}) has no pages`] : []),
+    ...coverage.overlaps.map((page) => `page ${page} is in ${counts.get(page)} groups`),
+    ...listed(coverage.missing, "in no group"),
+    ...listed(coverage.unknown, "not in the bundle"),
+  ];
+  if (problems.length === 0) return groups;
+  throw new SplitFailedError(`${name} must place every page in exactly one group; ${problems.join("; ")}`, [], coverage);
+}
+
+function listed(pages: readonly number[], state: string): string[] {
+  if (pages.length === 0) return [];
+  return [pages.length === 1 ? `page ${pages[0]} is ${state}` : `pages ${pages.join(", ")} are ${state}`];
 }
 
 /**
@@ -145,7 +179,7 @@ async function mapWithConcurrency<In, Out>(
   fn: (item: In, index: number, signal: AbortSignal) => Promise<Out>,
   signal?: AbortSignal,
 ): Promise<Out[]> {
-  if (!Number.isInteger(limit) || limit < 1) throw new RangeError("concurrency must be a positive integer");
+  positiveInteger("concurrency", limit);
   const results = new Array<Out>(items.length);
   const entries = items.entries();
   const controller = new AbortController();

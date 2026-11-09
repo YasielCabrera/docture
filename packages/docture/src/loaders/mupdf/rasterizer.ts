@@ -19,6 +19,7 @@ import { requestedPageNumbers } from "../../core/pipeline/pages.js";
 import {
   DEFAULT_RASTER_OPTIONS,
   defineRasterizer,
+  InvalidOptionError,
   type RasterFormat,
   type RasterOptions,
   type RasterPage,
@@ -26,6 +27,7 @@ import {
   type Rasterizer,
   type RawDocument,
 } from "../../core/index.js";
+import { DEFAULT_MAX_PIXELS, withinPixels } from "../../core/domain/image.js";
 import { importMuPdf, openDocument, withMuPdfLog } from "./mupdf.js";
 
 export interface MuPdfRasterizerOptions {
@@ -36,6 +38,12 @@ export interface MuPdfRasterizerOptions {
   readonly quality?: number;
   /** Cap the long edge in pixels. A vision model rarely wants more than ~2000. */
   readonly maxEdge?: number;
+  /**
+   * Most pixels one page may render to; a larger page renders at a lower DPI.
+   * Default 40 megapixels, an A0 sheet at about 160 DPI. It keeps a 200-inch page
+   * from allocating gigabytes. `Infinity` turns the cap off.
+   */
+  readonly maxPixels?: number;
   /** Password for an encrypted PDF. */
   readonly password?: string;
   /**
@@ -58,21 +66,27 @@ function resolveScale(
   heightPt: number,
   dpi: number,
   maxEdge: number | undefined,
+  maxPixels: number,
 ): number {
   const fromDpi = dpi / 72;
   const longEdgePt = Math.max(widthPt, heightPt);
-  if (maxEdge === undefined || longEdgePt * fromDpi <= maxEdge) return fromDpi;
   // MuPDF rounds a page's pixel box OUTWARD, so `maxEdge / longEdge` lands on the cap
   // exactly — unless the float product comes back a hair above it, which would ceil to
   // one pixel over. Aiming a nanometre under costs no pixel and makes the cap a promise.
-  return (maxEdge - 1e-9) / longEdgePt;
+  const edged = maxEdge === undefined || longEdgePt * fromDpi <= maxEdge ? fromDpi : (maxEdge - 1e-9) / longEdgePt;
+  return withinPixels(widthPt, heightPt, edged, maxPixels, Math.ceil);
 }
 
 export class MuPdfRasterizer implements Rasterizer {
   readonly name = "mupdf";
   readonly formats = ["png", "jpeg"] as const satisfies readonly RasterFormat[];
 
-  constructor(private readonly options: MuPdfRasterizerOptions = {}) {}
+  constructor(private readonly options: MuPdfRasterizerOptions = {}) {
+    const { maxPixels } = options;
+    if (maxPixels !== undefined && !(maxPixels >= 1)) {
+      throw new InvalidOptionError("maxPixels", "a number of at least 1, or Infinity", maxPixels);
+    }
+  }
 
   async rasterize(
     document: RawDocument,
@@ -86,6 +100,7 @@ export class MuPdfRasterizer implements Rasterizer {
     const format = options.format ?? this.options.format ?? DEFAULT_RASTER_OPTIONS.format;
     const quality = options.quality ?? this.options.quality ?? 0.9;
     const maxEdge = options.maxEdge ?? this.options.maxEdge;
+    const maxPixels = this.options.maxPixels ?? DEFAULT_MAX_PIXELS;
     const annotations = this.options.annotations ?? true;
 
     const pdf = withMuPdfLog(ctx.logger, () => openDocument(mupdf, document.bytes, this.options.password));
@@ -103,7 +118,7 @@ export class MuPdfRasterizer implements Rasterizer {
             const [x0, y0, x1, y1] = page.getBounds();
             const widthPt = x1 - x0;
             const heightPt = y1 - y0;
-            const scale = resolveScale(widthPt, heightPt, dpi, maxEdge);
+            const scale = resolveScale(widthPt, heightPt, dpi, maxEdge, maxPixels);
             // A white background survives JPEG encoding and avoids inverted pages.
             const pixmap = page.toPixmap(
               mupdf.Matrix.scale(scale, scale),

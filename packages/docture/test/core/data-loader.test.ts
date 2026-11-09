@@ -75,6 +75,28 @@ describe("DocumentLoaderData", () => {
     expect(documentLoaderData().name).toBe("DocumentLoaderData");
   });
 
+  it("decodes by the byte order mark when the declared charset disagrees", async () => {
+    const loader = new DocumentLoaderData();
+    const read = async (prefix: number[], body: number[], mimeType: string) =>
+      (await loader.load({ bytes: new Uint8Array([...prefix, ...body]), mimeType })).text;
+    expect([
+      await read([0xef, 0xbb, 0xbf], [...bytes("café")], "text/plain; charset=iso-8859-1"),
+      await read([0xff, 0xfe], [0x68, 0x00, 0xe9, 0x00], "text/plain; charset=iso-8859-1"),
+      await read([0xfe, 0xff], [0x00, 0x68, 0x00, 0xe9], "text/plain; charset=utf-8"),
+      await read([], [0x63, 0x61, 0x66, 0xe9], "text/plain; charset=iso-8859-1"),
+    ]).toEqual(["café", "hé", "hé", "café"]);
+  });
+
+  it("reads HTML whatever the case of its type and with parameters", async () => {
+    const loader = new DocumentLoaderData();
+    const latin1 = new Uint8Array([...bytes("<p>caf"), 0xe9, ...bytes("</p>")]);
+    expect([
+      (await loader.load({ bytes: latin1, mimeType: "text/html; charset=windows-1252" })).text,
+      (await loader.load({ bytes: bytes("<p>café</p>"), mimeType: "Text/HTML" })).text,
+      (await loader.load({ bytes: bytes("<p>café</p>"), mimeType: "text/plain" })).text,
+    ]).toEqual(["café", "café", "<p>café</p>"]);
+  });
+
   it("works as the only loader in a pipeline", async () => {
     const result = await new Extractor()
       .loadDocumentLoader(new DocumentLoaderData())

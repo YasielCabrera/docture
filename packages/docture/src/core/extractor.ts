@@ -26,11 +26,14 @@ import type { LoadLlmOptions, ModelBackend } from "./contracts/model.js";
 import type { ExtractionStrategy } from "./contracts/strategy.js";
 import { classifyDocument, type ClassifyOptions } from "./pipeline/classify.js";
 import { declarationOrder, type RoutingPolicy } from "./pipeline/eligibility.js";
-import { DuplicateComponentError, MissingComponentError } from "./pipeline/errors.js";
+import { DuplicateComponentError, MissingComponentError, type DoctureError } from "./pipeline/errors.js";
 import { readDocument } from "./pipeline/read.js";
 import { documentFeatures, preloadedFeatures } from "./pipeline/features.js";
 import { checkedMaxRepairs, checkedRuleFailureMode, runPipeline, snapshotRunOptions, withContractGuidance, type RunOptions } from "./pipeline/run.js";
 import { resolveSource, type SourceResolver } from "./pipeline/source.js";
+import { withCallDeadline } from "./pipeline/abandon.js";
+import { positiveNumber } from "./pipeline/options.js";
+import { isolatedListener } from "./domain/events.js";
 import { silentLogger } from "./domain/logger.js";
 
 export interface ExtractorOptions {
@@ -48,6 +51,8 @@ export interface ExtractorOptions {
   readonly logger?: Logger;
   /** Per-stage deadline in ms. Omit for none. */
   readonly stageTimeoutMs?: number;
+  /** Default deadline in ms for each whole call: one extraction, classification or batch item. Omit for none. */
+  readonly timeoutMs?: number;
   /** How to reconcile disagreeing classifiers. Default: most-confident wins. */
   readonly classify?: ClassifyOptions;
   /**
@@ -59,11 +64,21 @@ export interface ExtractorOptions {
   readonly onRuleFailure?: RuleFailureMode;
   /** Default repairs per strategy. Default 1; 0 disables repair. A call may override it. */
   readonly maxRepairs?: number;
+  /**
+   * A model, registered after `strategies` and `classifiers` exactly as
+   * `loadLlm(backend, { vision, classify })` would: `{ llm: new LLM(openai("gpt-5")) }`
+   * or `{ llm: { backend, vision: true, classify: true } }`.
+   */
+  readonly llm?: ModelBackend | ({ readonly backend: ModelBackend } & LoadLlmOptions);
 }
 
+/**
+ * `error` is a {@link DoctureError} for every failure the pipeline names; narrow it with
+ * `isDoctureError(error, code)`. Anything else a plugin threw arrives as it was thrown.
+ */
 export type SafeExtraction<T> =
   | { readonly ok: true; readonly result: ExtractionResult<T> }
-  | { readonly ok: false; readonly error: Error };
+  | { readonly ok: false; readonly error: DoctureError | Error };
 
 export interface BatchOptions<T = unknown> extends RunOptions<T> {
   /** How many documents to process at once. Default 4. */
@@ -96,6 +111,7 @@ export class Extractor implements DocumentExtractor {
   #policy: RoutingPolicy;
   #logger: Logger;
   #stageTimeoutMs: number | undefined;
+  #timeoutMs: number | undefined;
   #classify: ClassifyOptions | undefined;
   #rules: readonly ValidationRule[] | undefined;
   #onRuleFailure: RuleFailureMode | undefined;
@@ -111,6 +127,7 @@ export class Extractor implements DocumentExtractor {
     this.#policy = options.policy ?? declarationOrder;
     this.#logger = options.logger ?? silentLogger;
     this.#stageTimeoutMs = options.stageTimeoutMs;
+    this.#timeoutMs = options.timeoutMs === undefined ? undefined : positiveNumber("timeoutMs", options.timeoutMs);
     this.#classify = options.classify;
     this.#rules = options.rules === undefined ? undefined : [...options.rules];
     this.#onRuleFailure = options.onRuleFailure === undefined ? undefined : checkedRuleFailureMode(options.onRuleFailure);
@@ -121,6 +138,15 @@ export class Extractor implements DocumentExtractor {
     assertUnique("strategy", this.#strategies);
     assertUnique("classifier", this.#classifiers);
     assertUnique("classification", this.#classifications);
+
+    if (options.llm !== undefined) {
+      if ("backend" in options.llm) {
+        const { backend, ...llmOptions } = options.llm;
+        this.loadLlm(backend, llmOptions);
+      } else {
+        this.loadLlm(options.llm);
+      }
+    }
   }
 
   // ── Wiring ────────────────────────────────────────────────────────────────────
@@ -150,26 +176,24 @@ export class Extractor implements DocumentExtractor {
    * is what lets core accept a model without depending on one.
    */
   loadLlm(backend: ModelBackend, options: LoadLlmOptions = {}): this {
-    this.loadStrategy(backend.extraction());
-
-    if (options.vision === true) {
-      if (backend.vision === undefined) {
-        throw new MissingComponentError(
-          `Model "${backend.id}" has no vision strategy, so { vision: true } cannot be honoured.`,
-        );
-      }
-      this.loadStrategy(backend.vision());
+    if (options.vision === true && backend.vision === undefined) {
+      throw new MissingComponentError(
+        `Model "${backend.id}" has no vision strategy, so { vision: true } cannot be honoured.`,
+      );
     }
-
-    if (options.classify === true) {
-      if (backend.classifier === undefined) {
-        throw new MissingComponentError(
-          `Model "${backend.id}" has no classifier, so { classify: true } cannot be honoured.`,
-        );
-      }
-      this.loadClassifier(backend.classifier());
+    if (options.classify === true && backend.classifier === undefined) {
+      throw new MissingComponentError(
+        `Model "${backend.id}" has no classifier, so { classify: true } cannot be honoured.`,
+      );
     }
-
+    const strategies = [backend.extraction(), ...(options.vision === true && backend.vision !== undefined ? [backend.vision()] : [])];
+    const classifiers = options.classify === true && backend.classifier !== undefined ? [backend.classifier()] : [];
+    const fix = `If loadLlm(...) was called twice with the same model, pass { vision: true, classify: true } ` +
+      `in the first call. Otherwise give this LLM a distinct { name }.`;
+    assertUnique("strategy", [...this.#strategies, ...strategies], fix);
+    assertUnique("classifier", [...this.#classifiers, ...classifiers], fix);
+    this.#strategies.push(...strategies);
+    this.#classifiers.push(...classifiers);
     return this;
   }
 
@@ -233,11 +257,13 @@ export class Extractor implements DocumentExtractor {
     contract: C,
     options?: RunOptions<InferContract<C>>,
   ): Promise<ExtractionResult<InferContract<C>>> {
+    const configured = this.#runOptions(contract, options);
+    const timeoutMs = options?.timeoutMs ?? this.#timeoutMs;
     return runPipeline(
       this.#components(),
       source,
       schemaOf(contract) as FlexibleSchema<InferContract<C>>,
-      this.#runOptions(contract, options),
+      timeoutMs === undefined ? configured : { ...snapshotRunOptions(configured), timeoutMs },
     );
   }
 
@@ -344,8 +370,7 @@ export class Extractor implements DocumentExtractor {
     options?: RunOptions,
   ): Promise<ClassificationResponse<C>> {
     const candidates = (classifications ?? this.#classifications) as unknown as C;
-    const verdict = await this.#classifyAgainst(source, candidates, options);
-    return verdict;
+    return this.#withinCall(options, (bounded) => this.#classifyAgainst(source, candidates, bounded));
   }
 
   /**
@@ -360,6 +385,17 @@ export class Extractor implements DocumentExtractor {
     source: DocumentSource,
     tree: ClassificationTree,
     options?: RunOptions,
+  ): Promise<{
+    readonly leaf: ClassificationResponse;
+    readonly path: readonly ClassificationResponse[];
+  }> {
+    return this.#withinCall(options, (bounded) => this.#descend(source, tree, bounded));
+  }
+
+  async #descend(
+    source: DocumentSource,
+    tree: ClassificationTree,
+    options: RunOptions | undefined,
   ): Promise<{
     readonly leaf: ClassificationResponse;
     readonly path: readonly ClassificationResponse[];
@@ -399,6 +435,12 @@ export class Extractor implements DocumentExtractor {
   }
 
   // ── Internals ─────────────────────────────────────────────────────────────────
+
+  #withinCall<O extends RunOptions<never>, R>(options: O | undefined, work: (options: O | undefined) => Promise<R>): Promise<R> {
+    const ms = options?.timeoutMs ?? this.#timeoutMs;
+    return withCallDeadline(ms, options?.signal, (signal) =>
+      work(ms === undefined || signal === undefined ? options : { ...snapshotRunOptions(options ?? {}), signal } as O));
+  }
 
   #components() {
     if (this.#loaders.length === 0) {
@@ -452,6 +494,7 @@ export class Extractor implements DocumentExtractor {
   ): Promise<ClassificationResponse<C>> {
     const signal = options?.signal ?? new AbortController().signal;
     const logger = options?.logger ?? this.#logger;
+    const emit = isolatedListener(options?.onEvent, logger);
 
     let document;
     let features;
@@ -464,9 +507,12 @@ export class Extractor implements DocumentExtractor {
     } else {
       const raw = await this.#sourceResolver(source, signal);
       const mimeType = raw.mimeType ?? "application/octet-stream";
+      const loadStarted = Date.now();
       const loaded = await readDocument(
-        this.#loaders, raw, logger, signal, options?.stageTimeoutMs ?? this.#stageTimeoutMs,
+        this.#loaders, raw, logger, signal, options?.stageTimeoutMs ?? this.#stageTimeoutMs, undefined,
+        (attempt) => { if (attempt.status === "failed") emit({ type: "attempt", attempt }); },
       );
+      emit({ type: "load", loader: loaded.loader.name, pages: loaded.document.pages.length, ms: Date.now() - loadStarted });
       document = loaded.document;
       features = documentFeatures(document, loaded.loader, mimeType);
       documentLabel = raw.fileName;
@@ -483,6 +529,7 @@ export class Extractor implements DocumentExtractor {
       options?.classify ?? this.#classify ?? {},
       documentLabel,
     );
+    emit({ type: "classify", result });
 
     const matched = candidates.find((candidate) => candidate.name === result.name);
     return {
@@ -494,10 +541,10 @@ export class Extractor implements DocumentExtractor {
   }
 }
 
-function assertUnique(kind: string, named: readonly { readonly name: string }[]): void {
+function assertUnique(kind: string, named: readonly { readonly name: string }[], fix?: string): void {
   const seen = new Set<string>();
   for (const item of named) {
-    if (seen.has(item.name)) throw new DuplicateComponentError(kind, item.name);
+    if (seen.has(item.name)) throw new DuplicateComponentError(kind, item.name, fix);
     seen.add(item.name);
   }
 }

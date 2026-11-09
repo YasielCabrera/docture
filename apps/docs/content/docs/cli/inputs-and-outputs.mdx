@@ -12,8 +12,9 @@ These commands use the project-local CLI installed in [Run your first CLI comman
 
 `extract`, `convert`, `classify`, `inspect`, and `eval run` accept `--format json|ndjson|text`. `extract` defaults to JSON;
 the others default to text. These commands do not accept `--json`. Only the help route
-does. `convert --to md|html|txt|json` selects the
-document format, independently of the result format.
+does. `convert --to markdown|html|text|json` selects the
+document format, independently of the result format. `md` and `txt` are accepted
+as short forms of `markdown` and `text`.
 
 JSON always prints one envelope, including for a single failed input:
 
@@ -29,6 +30,28 @@ JSON always prints one envelope, including for a single failed input:
 Every result names `file` and has either `ok: true` with command data or `ok: false`
 with `error: { code, message, hint? }`. JSON keeps input order. NDJSON streams the
 same result items in completion order, one per line without an envelope.
+
+A wrong invocation exits 2 before any document is read. When you pass `--format json`
+or `--format ndjson` explicitly, it also prints an envelope with no results and a
+top-level `error`, as one line for NDJSON:
+
+```json
+{
+  "version": 1,
+  "command": "extract",
+  "ok": false,
+  "results": [],
+  "error": {
+    "code": "USAGE",
+    "message": "`docture extract` needs a schema.",
+    "hint": "Pass --schema ./invoice.ts, or set `schema` in docture.config.ts."
+  }
+}
+```
+
+With `extract --out`, stdout stays empty and a wrong invocation writes no output file.
+A file left by an earlier run is stale, so check the exit code before reading it.
+Without an explicit `--format`, stdout also stays empty and the error appears only on stderr.
 
 | Command | Successful result fields |
 | --- | --- |

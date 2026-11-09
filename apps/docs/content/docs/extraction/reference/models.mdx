@@ -35,7 +35,7 @@ class LLM implements ModelBackend {
 }
 ```
 
-`id` is `options.name`, or `modelIdOf(model)` when `name` is absent. Each method returns a new component built from the shared options and the matching override object. Pass an `LLM` to [`Extractor.loadLlm()`](/docs/extraction/reference/extractor#extractor).
+`id` is `options.name`, or `modelIdOf(model)` when `name` is absent. Each method returns a new component built from the shared options and the matching override object. Component names derive from `id`: `extraction()` is named `id`, and `vision()`, `classifier()`, `layout()`, and `splitter()` are `id:vision`, `id:classifier`, `id:layout`, and `id:splitter`. Two different models therefore load side by side as a fallback chain. A `name` in a per-capability override object wins. Pass an `LLM` to [`Extractor.loadLlm()`](/docs/extraction/reference/extractor#extractor).
 
 Model provider errors reject strategy and splitter calls. The pipeline records strategy failures and may continue. The LLM classifier converts its own failures to abstentions.
 

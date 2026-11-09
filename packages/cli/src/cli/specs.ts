@@ -11,7 +11,7 @@ import type { ConversionAssetMode, CompletionStrategy } from "docture";
 import type { ChoiceFlagSpec, CommandSpec, FlagSpec, PositionalSpec } from "./args.js";
 
 const OUTPUT_FORMATS = ["json", "ndjson", "text"] as const;
-export const CONVERSION_TARGETS = ["md", "html", "txt", "json"] as const;
+export const CONVERSION_TARGETS = ["md", "markdown", "html", "txt", "text", "json"] as const;
 export const OCR_ENGINES = ["tesseract", "paddleocr"] as const;
 const ASSET_MODES = ["referenced", "embedded", "omit"] as const satisfies readonly ConversionAssetMode[];
 const COMPLETIONS = ["forbidden", "paginate", "concatenate"] as const satisfies readonly CompletionStrategy[];
@@ -69,7 +69,7 @@ export const CONVERSION_TARGET: ChoiceFlagSpec<(typeof CONVERSION_TARGETS)[numbe
   type: "string",
   placeholder: "<fmt>",
   choices: CONVERSION_TARGETS,
-  describe: "Document format to write",
+  describe: "Document format to write. md and markdown are the same format, as are txt and text",
   defaultLabel: "md",
 };
 
@@ -157,7 +157,7 @@ const RUN: readonly FlagSpec[] = [
     name: "timeout",
     type: "string",
     placeholder: "<ms>",
-    describe: "Per-stage deadline. Omit for none",
+    describe: "Deadline for each document, across every stage. Omit for none",
   },
   {
     name: "concurrency",
@@ -190,6 +190,7 @@ export const EXTRACT: CommandSpec = {
   name: "extract",
   summary: "Extract structured data from one or many documents",
   positionals: FILES,
+  envelopeFileFlag: "out",
   description:
     "Runs the pipeline over every input and writes a JSON envelope to stdout.\n" +
     "Diagnostics go to stderr, so the output stays pipeable.",
@@ -254,14 +255,14 @@ export const CONVERT: CommandSpec = {
     OUTPUT_FORMAT,
     CONVERSION_TARGET,
     ASSETS,
-    { name: "pages", type: "string", placeholder: "<n,n,...>", describe: "Convert selected one-based pages, keeping original page numbers" },
+    { name: "pages", type: "string", placeholder: "<list>", describe: "Convert selected one-based pages and ranges, such as 2,4-6, keeping original page numbers" },
     OCR,
     {
       name: "assist-layout",
       type: "boolean",
       describe: "Use --model to refine roles and reading order without changing text",
     },
-    { name: "timeout", type: "string", placeholder: "<ms>", describe: "Per-stage deadline. Omit for none" },
+    { name: "timeout", type: "string", placeholder: "<ms>", describe: "Deadline for each document, across every stage. Omit for none" },
     { name: "concurrency", type: "string", placeholder: "<n>", describe: "Overlaps model calls and I/O; local PDF work uses one thread", defaultLabel: "4" },
     ...MODEL,
     DRY_RUN,
@@ -296,7 +297,7 @@ export const CLASSIFY: CommandSpec = {
     },
     OUTPUT_FORMAT,
     ...MODEL.filter((f) => f.name !== "instructions"),
-    { name: "timeout", type: "string", placeholder: "<ms>", describe: "Per-stage deadline. Omit for none" },
+    { name: "timeout", type: "string", placeholder: "<ms>", describe: "Deadline for each document, across every stage. Omit for none" },
     { name: "concurrency", type: "string", placeholder: "<n>", describe: "Overlaps model calls and I/O; local PDF work uses one thread", defaultLabel: "4" },
     DRY_RUN,
     ...COMMON,
@@ -318,11 +319,17 @@ export const INSPECT: CommandSpec = {
     {
       name: "pages",
       type: "string",
+      placeholder: "<list>",
+      describe: "Load only these one-based pages and ranges, such as 2,4-6. A single number n reports the first n pages, as --max-pages n does; write 3-3 for page 3 alone",
+    },
+    {
+      name: "max-pages",
+      type: "string",
       placeholder: "<n>",
-      describe: "Only report on the first n pages",
+      describe: "Only report on the first n loaded pages",
     },
     { name: "vision", type: "boolean", describe: "Also check that pages can be rendered" },
-    { name: "timeout", type: "string", placeholder: "<ms>", describe: "Per-stage deadline. Omit for none" },
+    { name: "timeout", type: "string", placeholder: "<ms>", describe: "Deadline for each document, across every stage. Omit for none" },
     ...COMMON,
   ],
   examples: ["docture inspect statement.pdf", "docture inspect scan.pdf --text"],
@@ -787,7 +794,7 @@ export const REVIEW: CommandSpec = {
       describe: "Character budget per request under --completion concatenate",
       defaultLabel: "24000",
     },
-    { name: "timeout", type: "string", placeholder: "<ms>", describe: "Per-stage deadline. Omit for none" },
+    { name: "timeout", type: "string", placeholder: "<ms>", describe: "Deadline for each document, across every stage. Omit for none" },
     DRY_RUN,
     ...COMMON,
   ],

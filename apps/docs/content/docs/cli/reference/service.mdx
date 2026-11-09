@@ -53,7 +53,7 @@ A host other than `127.0.0.1`, `localhost`, or `::1` requires a token, and `star
 | `maxPages` | `number` | Maximum page images per vision request |
 | `completion` | `"forbidden" \| "concatenate" \| "paginate"` | Text completion strategy |
 | `maxChars` | `number` | Character budget per concatenated request |
-| `timeoutMs` | `number` | Per-stage deadline in milliseconds |
+| `timeoutMs` | `number` | Deadline in milliseconds for each request's whole call, across every stage. Set `stageTimeoutMs` in the config for a per-stage deadline |
 | `classify` | `boolean` | Classify before extraction |
 | `assistLayout` | `boolean` | Use model layout assistance for conversion |
 | `classificationsPath` | `string` | Module containing candidate classifications |

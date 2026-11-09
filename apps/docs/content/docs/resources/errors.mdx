@@ -13,16 +13,21 @@ describes the stages that raise them.
 Import the classes and helpers from `docture`.
 
 ```ts
-import { DoctureError } from "docture";
+import { isDoctureError } from "docture";
 
 try {
   await extractor.extract("invoice.pdf", Invoice);
 } catch (error) {
-  if (error instanceof DoctureError) {
-    console.error(error.code, error.message);
+  if (isDoctureError(error, "TIMEOUT")) {
+    console.error(`${error.stage} exceeded ${error.ms} ms`);
+  } else if (isDoctureError(error)) {
+    console.error(error.code, error.message, error.hint);
   }
 }
 ```
+
+Every `DoctureError` has a `hint` that names the next step, such as the option to raise
+or the call to make.
 
 ## Error catalogue
 
@@ -33,16 +38,20 @@ try {
 | `NO_CONVERTIBLE_CONTENT` | `NoConvertibleContentError` | `features` | No eligible loader returned indexable text. For a scan, list an OCR loader after the text-layer loader. For a mixed document, wrap the text-layer loader with `withOcrFallback`. |
 | `NO_ELIGIBLE_STRATEGY` | `NoEligibleStrategyError` | `features`, `gaps` | The document loaded, but no requested strategy satisfies its runtime requirements. Add a suitable strategy or rasterizer. |
 | `EXTRACTION_FAILED` | `ExtractionFailedError` | `attempts`, `usage` when reported | Every eligible strategy failed. The attempts contain each strategy error and code. |
-| `PAGE_OUT_OF_RANGE` | `PageSelectionError` | `missingPages`, `pageCount` | The page selection is empty or names pages absent from the document. Select existing 1-based pages. |
+| `PAGE_OUT_OF_RANGE` | `PageSelectionError` | `missingPages`, `pageCount`, `maxPages?`, `loadedPages?` | The page selection is empty, names pages absent from the document, names pages past a `maxPages` limit (`maxPages` set), or names pages the loader did not return (`loadedPages` set, and `pageCount` counts those pages). Select existing 1-based pages. |
 | `MODEL_OUTPUT_FAILED` | `ModelOutputError` | `usage`, `rawOutput`, `finishReason`, `issues` when reported, `cause` | A billed model response failed its requested schema. Inspect the schema and instructions. Failed extraction attempts retain the call's usage. |
 | `CONTRACT_VIOLATION` | `ContractViolationError` | `strategy`, `issues`, `failedCheck`, `attempts`, `usage` when reported | Strategy output did not pass the requested schema (`failedCheck: "schema"`), or schema-valid output failed a validation rule in `"fail"` mode (`failedCheck: "rule"`). Adjust the schema, parser, or prompt for a schema failure. Check the document and the rule for a rule failure, or use `"report"` mode to keep the data with its issues. |
 | `UNSUPPORTED_SOURCE` | `UnsupportedSourceError` | `cause` when supplied | The source uses an unsupported protocol, a file path or `file:` URL cannot be read, an HTTP request failed, the input is empty, or a loaded source was passed to `resolveSource()`. A file read failure keeps the file-system error, with its `code`, as `cause`. |
-| `TIMEOUT` | `TimeoutError` | `stage`, `ms` | A library-owned stage deadline elapsed. A later loader or strategy may still run. |
-| `DUPLICATE_COMPONENT` | `DuplicateComponentError` | no additional public fields | Two registered components share a name. Rename or remove one component. |
-| `SPLIT_FAILED` | `SplitFailedError` | `reason`, `gaps` | Splitting was not configured or the splitter requirements were not met. |
+| `TIMEOUT` | `TimeoutError` | `stage`, `ms` | A library-owned deadline elapsed. For `stageTimeoutMs`, `stage` names the stage and component, and a later loader or strategy may still run. For a whole-call `timeoutMs`, `stage` is `"call"` and the call stops. |
+| `DUPLICATE_COMPONENT` | `DuplicateComponentError` | `kind`, `componentName` | Two registered components share a name. Rename or remove one component. A second `loadLlm()` of the same model is a duplicate; register vision and classification in the first call. |
+| `SPLIT_FAILED` | `SplitFailedError` | `reason`, `gaps`, `coverage` when groups do not cover the bundle | Splitting was not configured, the splitter requirements were not met, or the splitter's groups did not hold every page exactly once. `coverage`, a `SplitCoverage`, lists the `overlaps`, `missing` and `unknown` page numbers. |
 | `UNCLASSIFIED_GROUP` | `UnclassifiedGroupError` | `pages`, `classification`, `candidates` | A split group did not match the allowed kinds. Add the kind or handle it explicitly. |
 | `MISSING_COMPONENT` | `MissingComponentError` | `message` | Required wiring or call state is missing. Configure the named component or call loadFile first. |
 | `DISPOSED` | `DisposedError` | `component` | A `DocumentConverter` was used after `dispose()`. Create a new converter. A conversion in flight when `dispose()` runs stops before its next loader or page. |
+| `INVALID_OPTION` | `InvalidOptionError` | `option`, `expected`, `received` | An option or argument is outside the values it accepts, such as `concurrency: 0` or `maxRepairs: -1`. The hint names the option and the accepted values. The CLI exits with code 2. |
+| `DOCLING_FAILED` | `DoclingServeError` from `docture/loaders/docling` | `reason`, `outcome`, `status`, `taskId` | Docling Serve rejected the request or returned no usable conversion. In a pipeline it is a loader attempt's `errorCode`. |
+| `DOCX_FAILED` | `MammothDocumentError` from `docture/loaders/mammoth` | `cause` | Mammoth could not read the DOCX file. In a pipeline it is a loader attempt's `errorCode`. |
+| `EMAIL_INVALID` | `EmailInputError` from `docture/inputs/email` | `cause` when supplied | The input is not a readable RFC email, or it exceeds a configured limit. |
 | `MISSING_ENGINE` | `MissingEngineError` | `engine`, `range`, `entry`, `cause` | The selected integration could not initialize its engine because the optional peer is not installed. Install `engine` at a version in `range` beside `docture`. |
 | `EVAL_SPEC_INVALID` | `EvalSpecError` from `@docture/eval` | `problems` | An eval spec, rule set or metric set cannot be resolved. Each problem names a schema path or rule. Add the missing rule, segment or alignment, or remove the rule that matches nothing. |
 | `GROUND_TRUTH_INVALID` | `GroundTruthError` from `@docture/eval` | `caseIds`, `cases` (each with `caseId` and `issues`) | Expected values do not satisfy the eval spec. The error names every failing case. Correct the listed paths in the expected values, or change the spec. |
@@ -65,7 +74,9 @@ new LoadFailedError(attempts: readonly Attempt[])
 new NoConvertibleContentError(features: DocumentFeatures)
 new NoEligibleStrategyError(features: DocumentFeatures, gaps: readonly Ineligibility[])
 new ExtractionFailedError(attempts: readonly Attempt[], options?: { usage?: Usage })
-new PageSelectionError(missingPages: readonly number[], pageCount: number)
+new PageSelectionError(missingPages: readonly number[], pageCount: number, options?: {
+  maxPages?: number; loadedPages?: readonly number[];
+})
 new ModelOutputError(message: string, options?: {
   cause?: unknown; usage?: Partial<Usage>; rawOutput?: string;
   finishReason?: string; issues?: readonly ValidationIssue[];
@@ -75,7 +86,7 @@ new ContractViolationError(strategy: string, issues: readonly ValidationIssue[],
 })
 new UnsupportedSourceError(message: string, options?: { cause?: unknown })
 new TimeoutError(stage: string, ms: number)
-new DuplicateComponentError(kind: string, name: string)
+new DuplicateComponentError(kind: string, componentName: string, fix?: string)
 new SplitFailedError(reason: string, gaps?: readonly Ineligibility[])
 new UnclassifiedGroupError(
   pages: readonly number[],
@@ -154,18 +165,27 @@ includes an `AbortError`, a caller-provided `AbortSignal.timeout()` error, and a
 custom reason passed to `AbortController.abort(reason)`. The pipeline preserves the
 reason even when a component returns a value after cancellation.
 
-A `TimeoutError` is created by `stageTimeoutMs`. Loader and strategy deadlines record a
-failed attempt and allow fallback. A classifier deadline is recorded as an abstaining
-signal so the remaining classifiers can run.
+A `TimeoutError` is created by `stageTimeoutMs` or `timeoutMs`. Loader and strategy
+`stageTimeoutMs` deadlines record a failed attempt and allow fallback. A classifier
+deadline is recorded as an abstaining signal so the remaining classifiers can run.
 
-`isAbortError(error)` recognizes standard abort and timeout errors. For a custom abort
-reason, inspect the caller signal's `aborted` state and `reason`. Use `errorCodeOf(error)` to read a
+`timeoutMs` bounds the whole call. When it passes, every component's `signal` aborts with
+the `TimeoutError`, no further fallback starts, and the call rejects with that error, whose
+`stage` is `"call"`. The call rejects on time even when a component ignores its signal. A
+caller's own abort keeps its reason.
+
+`isAbortError(error)` recognizes standard abort and timeout errors by shape. The shape
+does not say who aborted: a component's own `AbortSignal.timeout()` looks the same as a
+caller's cancel. To decide whether to stop or to try the next component, use
+`isCallerAbort(error, signal)`. It is true only when `signal` is aborted and `error` is its
+reason or an abort-shaped error, so it also covers a custom reason. Use `errorCodeOf(error)` to read a
 Docture code without an `instanceof` chain. `messageOf(error)` returns an error message
 or converts a non-error value to text.
 
 ```ts
 isAbortError(error: unknown): boolean
-errorCodeOf(error: unknown): string | undefined
+isCallerAbort(error: unknown, signal: AbortSignal | undefined): boolean
+errorCodeOf(error: unknown): DoctureErrorCode | undefined
 messageOf(error: unknown): string
 ```
 
@@ -193,8 +213,30 @@ default is `"throw"` because dropping pages changes the result set.
 
 `isDoctureError(value)` narrows unknown values through docture error identity, including
 errors from another installed copy. Matching never relies on a class name or code alone.
-`DoctureError.toJSON()` returns `{ code, message, hint? }`; payload fields and causes stay
-on the in-process error. `MissingComponentError` reports missing wiring and call order
+`isDoctureError(value, code)` also checks the code and narrows to `DoctureErrorOf<code>`,
+that code's class, so its fields need no cast. A typo in `code` is a compile error.
+`safeExtract()` types its failure as `DoctureError | Error`.
+
+```ts
+isDoctureError(value: unknown): value is DoctureError
+isDoctureError<C extends DoctureErrorCode>(value: unknown, code: C): value is DoctureErrorOf<C>
+```
+
+For a core code, the check matches only an instance of that code's class, from any
+installed copy, so the narrowed fields exist at runtime. An error that copies another
+error's code does not match. For example, a failure that `@docture/eval` prices keeps its
+cause's code for `errorCodeOf()`, but `isDoctureError(failure, "EXTRACTION_FAILED")` is
+false. Check `failure.cause` instead. `PaperlessError` and `DoclingImportError` extend
+`UnsupportedSourceError`, so they match `"UNSUPPORTED_SOURCE"`.
+
+`LOAD_FAILED` narrows to `LoadFailedError`, whose `attempts` is always present. A code
+raised outside core, such as `DOCLING_FAILED` or an eval code, narrows to `DoctureError`
+with that code, and the check compares the code.
+
+`DoctureError.toJSON()` returns a `DoctureErrorJson`: `code`, `name`, `message`, `hint`,
+every diagnostic field the error carries (such as `attempts`, `issues`, `usage`,
+`features`, `gaps`, or `pages`), and `cause`. A nested error becomes
+`{ code?, name, message }`, so the result is safe for `JSON.stringify`. Those fields can hold document text or the model's answer, so drop `rawOutput`, `issues`, and `attempts` before you send an error to a log service you do not control. `MissingComponentError` reports missing wiring and call order
 with `MISSING_COMPONENT`.
 
 Model errors and attempts can retain `rawOutput`, `finishReason`, and validation `issues`.

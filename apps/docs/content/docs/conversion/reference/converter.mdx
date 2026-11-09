@@ -58,6 +58,7 @@ Construction options. Asset handling and output format are per-call options.
 | `layoutAnalyzer` | `LayoutAnalyzer` | No | Optional refinement applied after deterministic layout analysis. |
 | `logger` | `Logger` | No | Default logger for every call. |
 | `stageTimeoutMs` | `number` | No | Default per-stage deadline in milliseconds. Omit for none. |
+| `timeoutMs` | `number` | No | Default deadline in milliseconds for each whole conversion call or batch item. Omit for none. |
 | `sourceResolver` | `SourceResolver` | No | How sources are read. The `docture` default rejects local paths and file URLs. `docture/node` supplies file access. |
 
 ## Conversion calls
@@ -115,8 +116,11 @@ Returns a `SafeConversion`:
 ```ts
 type SafeConversion =
   | { readonly ok: true; readonly result: ConversionResult }
-  | { readonly ok: false; readonly error: Error };
+  | { readonly ok: false; readonly error: DoctureError | Error };
 ```
+
+`error` is a `DoctureError` for every failure the pipeline names. Narrow it with
+`isDoctureError(error, code)`.
 
 ### `convertBatch`
 
@@ -145,6 +149,8 @@ Per-call options.
 | `signal` | `AbortSignal` | No | None | Cancels the call. |
 | `logger` | `Logger` | No | Converter logger | Logger for this call. |
 | `stageTimeoutMs` | `number` | No | Converter value | Per-stage deadline in milliseconds. |
+| `timeoutMs` | `number` | No | Converter value | Deadline in milliseconds for the whole call. When it passes, every component's signal aborts and the call rejects with `TIMEOUT` at stage `"call"`. |
+| `onEvent` | `PipelineEventListener` | No | None | Receives `load`, each finished `attempt`, and a `page` event as layout analysis finishes each page. See [progress events](/docs/extraction/reference/extractor#pipelineevent). |
 
 ### `ConversionFormat`
 
@@ -176,6 +182,8 @@ See [Export images and assets](/docs/conversion/assets).
 | `signal` | `AbortSignal` | No | None | Cancels the batch. |
 | `logger` | `Logger` | No | Converter logger | Logger for each call. |
 | `stageTimeoutMs` | `number` | No | Converter value | Per-stage deadline in milliseconds. |
+| `timeoutMs` | `number` | No | Converter value | Deadline in milliseconds for each document's whole call. |
+| `onEvent` | `PipelineEventListener` | No | None | Receives the events of every document. Events from concurrent documents interleave. |
 
 ### `ConversionBatchItem`
 

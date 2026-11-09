@@ -94,15 +94,52 @@ function mostCommon(values: readonly number[]): { readonly value: number; readon
   return best;
 }
 
+const PAGE_WORDS = new Set([
+  "page", "pages", "pg", "p", "of", "seite", "von", "página", "pagina", "de", "sur", "sida", "av", "strona", "z",
+  "стр", "страница", "из", "第", "页", "頁", "共",
+]);
+
+function onlyPageWords(text: string): boolean {
+  return (text.match(/\p{L}+/gu) ?? []).every((word) => PAGE_WORDS.has(word.toLowerCase()));
+}
+
+function hasNumber(text: string, number: string): boolean {
+  return (text.match(/\d+/gu) ?? []).map(Number).map(String).includes(number);
+}
+
+function pageRun(tokens: readonly string[]): string[] {
+  const end = tokens.findIndex((token) => !onlyPageWords(token));
+  return tokens.slice(0, end === -1 ? tokens.length : end);
+}
+
+function edgeLabel(text: string, number: string): boolean {
+  const tokens = text.split(" ");
+  return [pageRun(tokens), pageRun([...tokens].reverse()).reverse()].some((run) => {
+    const start = run.findIndex((token) => /^\p{L}/u.test(token));
+    return start !== -1 && hasNumber(run.slice(start).join(" "), number);
+  });
+}
+
+function isFolio(occurrence: Occurrence, position: number): boolean {
+  if (onlyPageWords(occurrence.text)) return true;
+  const number = String(occurrence.digits[position]);
+  if (edgeLabel(occurrence.text, number)) return true;
+  const spans = occurrence.candidate.lines.flatMap((line) => line.spans);
+  return spans.length >= 2 && [spans[0], spans.at(-1)].some((span) =>
+    span !== undefined && onlyPageWords(span.text) && hasNumber(span.text, number));
+}
+
 function pageTracking(occurrences: readonly Occurrence[]): readonly Occurrence[] {
   const width = occurrences[0]?.digits.length ?? 0;
   const sameWidth = occurrences.filter((occurrence) => occurrence.digits.length === width);
   const rules = Array.from({ length: width }, (_unused, position) => {
     const constant = mostCommon(sameWidth.map((occurrence) => occurrence.digits[position] ?? Number.NaN));
     const offset = mostCommon(sameWidth.map((occurrence) => (occurrence.digits[position] ?? Number.NaN) - occurrence.pageNumber));
-    return constant.count >= offset.count
-      ? (occurrence: Occurrence) => occurrence.digits[position] === constant.value
-      : (occurrence: Occurrence) => (occurrence.digits[position] ?? Number.NaN) - occurrence.pageNumber === offset.value;
+    if (constant.count >= offset.count) {
+      return (occurrence: Occurrence) => occurrence.digits[position] === constant.value;
+    }
+    return (occurrence: Occurrence) =>
+      (occurrence.digits[position] ?? Number.NaN) - occurrence.pageNumber === offset.value && isFolio(occurrence, position);
   });
   return sameWidth.filter((occurrence) => rules.every((rule) => rule(occurrence)));
 }

@@ -198,6 +198,6 @@ describe("llmOcr", () => {
 
   it("rejects a concurrency that is not a positive integer", () => {
     expect(() => llmOcr({ model: mockOcrModel({}), rasterizer: fakeRasterizer(1), concurrency: 0 }))
-      .toThrow(new RangeError("concurrency must be a positive integer"));
+      .toThrow(expect.objectContaining({ code: "INVALID_OPTION", message: "concurrency must be a positive integer; received 0." }));
   });
 });

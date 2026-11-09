@@ -48,6 +48,11 @@ export interface Recognition {
   /** Mean confidence for the page, 0–1. */
   readonly confidence: number;
   readonly image?: Uint8Array;
+  /**
+   * Radians the engine turned the image by before recognizing. Word boxes are in
+   * that turned frame, as is `image`.
+   */
+  readonly rotateRadians: number;
 }
 
 /** Tesseract's `--psm` numbers — the documented, stable CLI interface. */
@@ -109,6 +114,8 @@ interface TesseractPage {
   readonly confidence: number;
   /** A `data:image/png;base64,` URL when the recognition asked for `imageColor`. */
   readonly imageColor?: string | null;
+  /** The deskew angle the engine applied before recognizing, with `rotateAuto`. */
+  readonly rotateRadians?: number;
   /** `null` unless the recognition asked for `blocks`. */
   readonly blocks: readonly {
     readonly paragraphs: readonly { readonly lines: readonly { readonly words: readonly TesseractWord[] }[] }[];
@@ -367,10 +374,11 @@ function toRecognition(page: TesseractPage, withImage: boolean): Recognition {
   }
   // Tesseract reports -1 for a page it recognized nothing on.
   const confidence = Math.max(0, page.confidence) / 100;
-  if (!withImage) return { words, confidence };
+  const rotateRadians = typeof page.rotateRadians === "number" && Number.isFinite(page.rotateRadians) ? page.rotateRadians : 0;
+  if (!withImage) return { words, confidence, rotateRadians };
   const url = page.imageColor;
   if (typeof url !== "string" || !url.startsWith("data:image/png;base64,")) {
     throw new Error("tesseract: the engine returned no PNG for a page image that was requested.");
   }
-  return { words, confidence, image: Uint8Array.from(Buffer.from(url.slice(url.indexOf(",") + 1), "base64")) };
+  return { words, confidence, rotateRadians, image: Uint8Array.from(Buffer.from(url.slice(url.indexOf(",") + 1), "base64")) };
 }

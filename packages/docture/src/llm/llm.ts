@@ -20,7 +20,12 @@ import { VisionStrategy, type VisionStrategyOptions } from "./vision.js";
 type Shared<T> = Omit<T, "model">;
 
 export interface LlmOptions {
-  /** Strategy id prefix. Defaults to the model id, so two models never collide. */
+  /**
+   * The backend `id` and the prefix of every component name. Defaults to the model id,
+   * so two models never collide: `gpt-5` names the text strategy, and the others are
+   * `gpt-5:vision`, `gpt-5:classifier`, `gpt-5:layout` and `gpt-5:splitter`. Set it to
+   * wire the same model twice. A per-capability `name` override wins.
+   */
   readonly name?: string;
   /** Default `"forbidden"` — one request, which is what most documents need. */
   readonly completion?: CompletionStrategy;
@@ -95,21 +100,22 @@ export class LLM implements ModelBackend {
     const o = this.#options;
     return new LlmStrategy({
       ...this.#shared,
+      name: this.id,
       ...(o.completion === undefined ? {} : { completion: o.completion }),
       ...o.extraction,
     });
   }
 
   vision(): ExtractionStrategy {
-    return new VisionStrategy({ ...this.#shared, ...this.#options.vision });
+    return new VisionStrategy({ ...this.#shared, name: `${this.id}:vision`, ...this.#options.vision });
   }
 
   classifier(): Classifier {
-    return new LlmClassifier({ ...this.#shared, ...this.#options.classifier });
+    return new LlmClassifier({ ...this.#shared, name: `${this.id}:classifier`, ...this.#options.classifier });
   }
 
   layout(): LayoutAnalyzer {
-    return new LlmLayoutAnalyzer({ ...this.#shared, ...this.#options.layout });
+    return new LlmLayoutAnalyzer({ ...this.#shared, name: `${this.id}:layout`, ...this.#options.layout });
   }
 
   /**
@@ -119,7 +125,7 @@ export class LLM implements ModelBackend {
    */
   splitter(): Splitter {
     const { mode, ...rest } = this.#options.splitter ?? {};
-    const options = { ...this.#shared, ...rest };
+    const options = { ...this.#shared, name: `${this.id}:splitter`, ...rest };
     return mode === "image" ? new ImageSplitter(options) : new TextSplitter(options);
   }
 }

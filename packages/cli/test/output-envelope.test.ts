@@ -110,7 +110,8 @@ describe("uniform output contract", () => {
           if (item.file === "bad.pdf") {
             expect(item).toEqual({ file: "bad.pdf", ok: false, error: {
                 code: "LOAD_FAILED", message: "Every loader failed: fake (broken document).",
-                hint: "The file could not be read — it may be corrupt, truncated, or password-protected.",
+                hint: "Read each attempt's error. A corrupt, truncated or password-protected file fails every loader: " +
+                  "repair or decrypt it, or register another loader as a fallback.",
               } });
           } else if (command === "extract") {
             expect(item).toEqual({ file: "good.pdf", ok: true, data: { total: 42 } });

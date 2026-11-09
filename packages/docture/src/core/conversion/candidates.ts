@@ -1,5 +1,6 @@
 import type { LineSourceId } from "../domain/conversion.js";
 import type { LayoutBox, LoadedPage, TextLayoutBlock, TextLine, TextSpan } from "../domain/geometry.js";
+import { isTurned } from "../domain/lines.js";
 import { lineIdsOf, lineSourceId } from "./source-lines.js";
 
 export interface Candidate {
@@ -16,6 +17,23 @@ export interface Candidate {
 }
 
 export type CandidateSource = "blocks" | "lines" | "text";
+
+export const UNORDERED_MARKER = /^\s*[•◦▪●*-]\s+/u;
+export const ORDERED_MARKER = /^\s*\d{1,3}[.)]\s+/u;
+
+function startsListItem(text: string): boolean {
+  return ORDERED_MARKER.test(text) || UNORDERED_MARKER.test(text);
+}
+
+function listItemBlocks(block: string): string[] {
+  const groups: string[][] = [];
+  for (const value of block.split(/\r?\n/u)) {
+    const current = groups.at(-1);
+    if (current === undefined || startsListItem(value)) groups.push([value]);
+    else current.push(value);
+  }
+  return groups.map((group) => group.join("\n"));
+}
 
 export function median(values: readonly number[]): number {
   if (values.length === 0) return 0;
@@ -90,6 +108,7 @@ export function candidatesFor(page: LoadedPage): { candidates: Candidate[]; sour
     candidates: page.text
       .split(/\r?\n\s*\r?\n/u)
       .filter((text) => text.trim().length > 0)
+      .flatMap(listItemBlocks)
       .map((text, index) => ({
         id: `p${page.pageNumber}-paragraph-${index + 1}`,
         lineIds: [],
@@ -99,6 +118,11 @@ export function candidatesFor(page: LoadedPage): { candidates: Candidate[]; sour
       })),
     source: "text",
   };
+}
+
+export function isRotated(candidate: Candidate): boolean {
+  const spans = candidate.lines.flatMap((line) => line.spans);
+  return spans.length > 0 && spans.every(isTurned);
 }
 
 export function fontSizes(candidate: Candidate): number[] {
@@ -118,6 +142,24 @@ const MONOSPACE_FAMILY = /(?:mono|courier|consolas|menlo)/iu;
 export function isMonospace(span: TextSpan): boolean {
   return span.style?.monospace === true || MONOSPACE_FAMILY.test(span.style?.fontFamily ?? "");
 }
+
+/**
+ * Whether at least half of the visible characters in `spans` pass `test`.
+ * Counting spans instead would let a bold lead-in such as `Coverage.` outvote
+ * the sentence after it, since PDF.js returns one span per font run.
+ */
+export function mostCharacters(spans: readonly TextSpan[], test: (span: TextSpan) => boolean): boolean {
+  let total = 0;
+  let passing = 0;
+  for (const span of spans) {
+    const characters = span.text.replace(/\s/gu, "").length;
+    total += characters;
+    if (test(span)) passing += characters;
+  }
+  return total > 0 && passing * 2 >= total;
+}
+
+export const isBold = (span: TextSpan): boolean => span.style?.bold === true;
 
 /** The font size of most of the characters in `spans`, or 0 when none has a size. */
 export function characterFontSize(spans: readonly TextSpan[]): number {

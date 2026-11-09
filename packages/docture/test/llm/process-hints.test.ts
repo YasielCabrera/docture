@@ -64,7 +64,7 @@ it.each(["splitter", "classifier"])("keeps Process classifier calls and extracti
   expect(results.map((result) => result.result.usage.inputTokens)).toEqual([100]);
 });
 
-it.each(["extractor defaults", "caller options"])("sends Process-selected hints while preserving classification from %s", async (source) => {
+it.each(["extractor defaults", "caller options"])("extracts under the split's classification without reclassifying against %s", async (source) => {
   const extraction = mockModel([{ invoiceNumber: "INV-1" }]);
   const classification = mockModel([{ name: "receipt", confidence: 0.9, reason: "Receipt header" }]);
   const invoice = defineClassification({ name: "invoice", description: "An invoice", hints: "SELECTED_INVOICE_HINT", schema: z.object({ invoiceNumber: z.string() }) });
@@ -81,10 +81,10 @@ it.each(["extractor defaults", "caller options"])("sends Process-selected hints 
     .loadSplitter(fakeSplitter({ eager: [{ pages: [1, 2], classification: "invoice" }] }))
     .loadFile(PDF_BYTES).split([invoice, receipt], SplittingStrategy.EAGER)
     .extract(source === "caller options" ? { classifications: [receipt] } : {});
-  expect(classification.calls).toHaveLength(1);
+  expect(classification.calls).toHaveLength(0);
   expect(extraction.calls).toHaveLength(1);
-  expect(results[0]?.result.classification?.name).toBe("receipt");
-  expect(results[0]?.result.usage.inputTokens).toBe(200);
+  expect(results[0]?.result.classification).toEqual({ name: "invoice", confidence: 1, signals: [] });
+  expect(results[0]?.result.usage.inputTokens).toBe(100);
   expect(results[0]?.data).toEqual({ invoiceNumber: "INV-1" });
   const request = JSON.stringify(extraction.calls);
   expect(request).toContain("SELECTED_INVOICE_HINT");
@@ -124,8 +124,8 @@ it("keeps an unhinted Process selection from borrowing another candidate's hints
     .loadSplitter(fakeSplitter({ eager: [{ pages: [1, 2], classification: "invoice" }] }))
     .loadFile(PDF_BYTES).split([invoice, receipt], SplittingStrategy.EAGER).extract();
   expect(results[0]?.data).toEqual({ invoiceNumber: "INV-1" });
-  expect(classification.calls).toHaveLength(1);
-  expect(results[0]?.result.classification?.name).toBe("receipt");
-  expect(results[0]?.result.usage.inputTokens).toBe(200);
+  expect(classification.calls).toHaveLength(0);
+  expect(results[0]?.result.classification?.name).toBe("invoice");
+  expect(results[0]?.result.usage.inputTokens).toBe(100);
   expect(JSON.stringify(extraction.calls)).not.toContain("UNRELATED_RECEIPT_HINT");
 });

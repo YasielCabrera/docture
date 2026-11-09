@@ -37,7 +37,7 @@ async function readStoredText(baseUrl: string, token: string) {
 | `token` | none | API token, sent in the `Authorization: Token ...` header. |
 | `headers` | none | Extra request headers. |
 | `fetch` | global `fetch` | Transport to use. |
-| `timeoutMs` | `30000` | Deadline for each request, including the response body. |
+| `timeoutMs` | `30000` | Deadline for each request, including the response body. At most `2147483647`. |
 | `maxResponseBytes` | 32 MiB | Maximum streamed response size. |
 
 Keep credentials in application configuration. Errors never include request headers or response bodies.

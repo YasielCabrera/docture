@@ -35,6 +35,7 @@ import { toUsage, type PricingTable } from "./pricing.js";
 import { modelIdOf, providerOf } from "./model-id.js";
 import { modelOutputError } from "./failure.js";
 import { callTelemetry, type LlmTelemetryOptions } from "./telemetry.js";
+import { positiveInteger } from "../core/pipeline/options.js";
 
 export type { LlmTelemetryOptions } from "./telemetry.js";
 
@@ -109,6 +110,18 @@ function reconcile(name: string, classifications: readonly Classification[]): st
   return classifications.find((c) => c.name.toLowerCase() === wanted)?.name ?? UNCLASSIFIED;
 }
 
+function claimOnce(groups: readonly EagerGroup[]): EagerGroup[] {
+  const byConfidence = groups.map((group, index) => ({ group, index }))
+    .sort((a, b) => b.group.confidence - a.group.confidence || a.index - b.index);
+  const claimed = new Set<number>();
+  const kept = new Array<EagerGroup>(groups.length);
+  for (const { group, index } of byConfidence) {
+    kept[index] = { ...group, pages: group.pages.filter((page) => !claimed.has(page)) };
+    for (const page of group.pages) claimed.add(page);
+  }
+  return kept;
+}
+
 abstract class ModelSplitter implements Splitter {
   readonly name: string;
   abstract readonly requires: readonly string[];
@@ -150,10 +163,7 @@ abstract class ModelSplitter implements Splitter {
   }
 
   async splitEager(pages: readonly LoadedPage[], ctx: SplitContext): Promise<DocGroups> {
-    const limit = this.options.maxEagerPages ?? 40;
-    if (!Number.isInteger(limit) || limit < 1) {
-      throw new RangeError("maxEagerPages must be a positive integer");
-    }
+    const limit = positiveInteger("maxEagerPages", this.options.maxEagerPages ?? 40);
     const groups: EagerGroup[] = [];
     for (let offset = 0; offset < pages.length; offset += limit) {
       const sent = pages.slice(offset, offset + limit);
@@ -172,12 +182,12 @@ abstract class ModelSplitter implements Splitter {
       });
       const value = await this.#ask(eagerSchema, content, "eager", ctx, sent.map((page) => page.pageNumber));
       const known = new Set(sent.map((page) => page.pageNumber));
-      const normalized = this.#coverEveryPage(value.documents
+      const normalized = this.#coverEveryPage(claimOnce(value.documents
         .map((document) => ({
           pages: [...new Set(document.pages)].filter((n) => known.has(n)).sort((a, b) => a - b),
           classification: reconcile(document.classification, ctx.classifications),
           confidence: document.confidence,
-        }))
+        })))
         .filter((group) => group.pages.length > 0), sent);
 
       const previousPage = pages[offset - 1];

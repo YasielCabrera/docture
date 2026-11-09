@@ -10,9 +10,10 @@ import type { LoadedDocument } from "../domain/geometry.js";
 import type { Logger } from "../domain/logger.js";
 import type { ClassificationResult, ClassificationSignal, Usage } from "../domain/result.js";
 import type { Classification, Classifier } from "../contracts/classifier.js";
+import { abandonAfterDeadline } from "./abandon.js";
 import { withDeadline } from "./deadline.js";
 import { eligibleClassifiers } from "./eligibility.js";
-import { ModelOutputError, TimeoutError, isAbortError, messageOf } from "./errors.js";
+import { ModelOutputError, TimeoutError, isCallerAbort, messageOf } from "./errors.js";
 
 /** How to pick a winner when classifiers disagree. */
 export type ConsensusStrategy = "consensus" | "higherOrder" | "consensusWithThreshold";
@@ -109,14 +110,14 @@ export async function classifyDocument(
     const deadline = withDeadline(`classify:${classifier.name}`, stageTimeoutMs, signal);
     let returnedUsage: Partial<Usage> | undefined;
     try {
-      const verdict = await classifier.classify({
+      const verdict = await abandonAfterDeadline(classifier.classify({
         document,
         features,
         candidates,
         signal: deadline.signal,
         logger: logger.child({ classifier: classifier.name }),
         ...(documentLabel === undefined ? {} : { documentLabel }),
-      });
+      }), deadline);
       returnedUsage = verdict?.usage;
       deadline.signal.throwIfAborted();
       return verdict;
@@ -125,7 +126,7 @@ export async function classifyDocument(
       const failure = deadline.expired()
         ? new TimeoutError(`classify:${classifier.name}`, stageTimeoutMs ?? 0)
         : error;
-      if (isAbortError(failure)) throw failure;
+      if (isCallerAbort(failure, signal)) throw failure;
       const usage = returnedUsage ?? (error instanceof ModelOutputError ? error.usage : undefined);
       return {
         classifier: classifier.name,

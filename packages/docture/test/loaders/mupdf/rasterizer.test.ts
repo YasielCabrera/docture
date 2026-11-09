@@ -1,4 +1,5 @@
 import { inflateSync } from "node:zlib";
+import PDFDocument from "pdfkit";
 import { describe, expect, it } from "vitest";
 import { silentLogger, withRasterizer } from "docture";
 import { describeRasterizerConformance } from "docture/testing/conformance";
@@ -91,6 +92,52 @@ describe("MuPdfRasterizer — specifics", () => {
       // And not needlessly small — within a pixel of the cap.
       expect(Math.max(page.widthPx, page.heightPx)).toBeGreaterThanOrEqual(maxEdge - 1);
     }
+  });
+
+  it("renders a 14400pt page inside the default 40 megapixel budget, and a custom one", async () => {
+    const bytes = await new Promise<Uint8Array>((resolve, reject) => {
+      const doc = new PDFDocument({ size: [14400, 14400] });
+      const chunks: Buffer[] = [];
+      doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+      doc.on("error", reject);
+      doc.on("end", () => resolve(new Uint8Array(Buffer.concat(chunks))));
+      doc.end();
+    });
+    const source = { bytes, mimeType: "application/pdf" };
+    const size = (pages: readonly { widthPx: number; heightPx: number; scale: number }[]) =>
+      pages.map((page) => [page.widthPx, page.heightPx, Math.round(page.scale * page.widthPx)]);
+
+    expect(size(await new MuPdfRasterizer().rasterize(source, { dpi: 300 }, ctx))).toEqual([[6324, 6324, 14400]]);
+    expect(size(await new MuPdfRasterizer({ maxPixels: 1_000_000 }).rasterize(source, { dpi: 300 }, ctx)))
+      .toEqual([[1000, 1000, 14400]]);
+  }, 60_000);
+
+  it("renders past the default budget when maxPixels is Infinity", async () => {
+    const bytes = await new Promise<Uint8Array>((resolve, reject) => {
+      const doc = new PDFDocument({ size: [7200, 7200] });
+      const chunks: Buffer[] = [];
+      doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+      doc.on("error", reject);
+      doc.on("end", () => resolve(new Uint8Array(Buffer.concat(chunks))));
+      doc.end();
+    });
+    const source = { bytes, mimeType: "application/pdf" };
+    const pages = await new MuPdfRasterizer({ maxPixels: Infinity }).rasterize(source, { dpi: 66 }, ctx);
+    expect(pages.map((page) => [page.widthPx, page.heightPx])).toEqual([[6600, 6600]]);
+  }, 60_000);
+
+  it("rejects a maxPixels below one pixel or not a number", () => {
+    const rejected = (maxPixels: number) => {
+      try {
+        new MuPdfRasterizer({ maxPixels });
+      } catch (error) {
+        return [(error as Error).name, (error as Error).message];
+      }
+      return "accepted";
+    };
+    expect(rejected(0.5)).toEqual(["InvalidOptionError", "maxPixels must be a number of at least 1, or Infinity; received 0.5."]);
+    expect(rejected(Number.NaN)).toEqual(["InvalidOptionError", "maxPixels must be a number of at least 1, or Infinity; received NaN."]);
+    expect(rejected(1)).toBe("accepted");
   });
 
   it("emits JPEG when asked, and it is smaller than the PNG", async () => {
