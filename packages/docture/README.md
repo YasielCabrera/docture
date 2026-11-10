@@ -609,7 +609,14 @@ SITE_URL=https://docs.example pnpm build
 pnpm test           # or: pnpm --filter docture test
 ```
 
-Toolchain: pnpm workspaces, Turborepo, TypeScript 7, Vitest 4, Changesets.
+Toolchain: pnpm workspaces, Turborepo, TypeScript 7, Vitest 4.
+
+The four packages share one version. Record each user-facing change under
+`## Unreleased` in the changed package's `CHANGELOG.md`. To release, run
+`pnpm version-packages <version>`, commit the result, then run `pnpm release`.
+`version-packages` sets the version in the four packages and renames each
+`Unreleased` section to that version. `release` publishes the packages and tags
+the commit `docture@<version>`.
 
 The workspace build includes the documentation site. Outside Vercel, set `SITE_URL`
 to its absolute origin so the production sitemap contains canonical URLs. See the
@@ -617,9 +624,9 @@ to its absolute origin so the production sitemap contains canonical URLs. See th
 
 `pnpm --filter docture build` also generates the installed documentation without
 building the site. `pnpm docs:bundle` regenerates only the documentation.
-Packing `docture` refreshes the documentation snapshot. After `pnpm version-packages`,
-publication checks that no unreleased changesets remain and that the source checkout
-is clean with a known revision. Development builds and packs retain their `unreleased`
+Packing `docture` refreshes the documentation snapshot. Publication checks that no
+changelog has an `Unreleased` section and that the source checkout is clean with a
+known revision. Development builds and packs retain their `unreleased`
 status. `pnpm release` validates the bundled documentation before publishing the
 npm packages.
 The library build is uncached so its source revision is refreshed; Turbo still tracks

@@ -20,7 +20,7 @@ schema, exact documented versions, source revision, release status, page invento
 and file hashes. Resolving it does not import the runtime. Documentation remains
 outside the runtime graph and adds no consumer dependencies or installation hooks.
 
-The Changesets fixed group coordinates releases but does not require every installed
+The shared package version coordinates releases but does not require every installed
 peer to have the same patch version. Consumers compare the manifest's version map
 with their installed packages. A CLI-only or multi-copy installation resolves docs
 from the package whose behavior it needs, without guessing pnpm store paths.
@@ -30,12 +30,11 @@ from the package whose behavior it needs, without guessing pnpm store paths.
 The package build generates the documentation after TypeScript compilation. Its
 Turbo task is uncached because provenance includes the current Git revision; its
 inputs also cover docs, examples, generated references, package versions, and
-changesets so downstream task hashes reflect documentation changes.
+package changelogs so downstream task hashes reflect documentation changes.
 
 `prepack` regenerates the artifact, including for a docs-only edit after a prior
-build. `prepublishOnly` rejects pending changesets, dirty source checkouts, or
-unavailable source revisions. Changesets already consumed in an active prerelease
-are recognized through `.changeset/pre.json`; new changes still require versioning.
+build. `prepublishOnly` rejects a package changelog with an `Unreleased` section,
+dirty source checkouts, or unavailable source revisions.
 Development packing remains available with an explicit unreleased status. Each
 snapshot contains ordinary files that work with installation scripts disabled.
 

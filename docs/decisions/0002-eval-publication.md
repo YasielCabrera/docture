@@ -32,7 +32,7 @@ The HTML client is prebuilt into a checked-in source module. Reports work offlin
 
 Delete `docture/eval` in the same pre-1.0 minor release that first publishes `@docture/eval`. Migrate callers in that release and keep no compatibility layer. Move `checkConversion` to `@docture/eval/conversion`.
 
-Use one Changesets fixed group for all three publications. Eval's `docture` peer range tracks the current minor. Eval is public in this release.
+Release all three publications at one shared version. Eval's `docture` peer range tracks the current minor. Eval is public in this release.
 
 ## Enforcement
 

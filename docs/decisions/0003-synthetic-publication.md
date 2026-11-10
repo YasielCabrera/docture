@@ -45,7 +45,7 @@ Each entry exports `ENGINE_RANGES` for the engines it loads. An absent peer rais
 
 ## Release
 
-Add `@docture/synthetic` to the Changesets fixed group with the other three publications. The new error codes `SYNTHESIS_FAILED`, `TEMPLATE_INVALID`, and `LABEL_VERIFICATION_FAILED` join docture's error code union, so `DoctureError` consumers can switch on them.
+Release `@docture/synthetic` at the shared version of the other three publications. The new error codes `SYNTHESIS_FAILED`, `TEMPLATE_INVALID`, and `LABEL_VERIFICATION_FAILED` join docture's error code union, so `DoctureError` consumers can switch on them.
 
 ## Enforcement
 

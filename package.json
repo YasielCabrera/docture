@@ -17,15 +17,13 @@
     "lint": "node scripts/check-boundaries.mjs && node --test scripts/check-boundaries.test.mjs",
     "clean": "turbo run clean && rm -rf node_modules/.cache/turbo",
     "check": "turbo run typecheck test",
-    "changeset": "changeset",
-    "version-packages": "changeset version",
-    "release": "turbo run build && pnpm docs:bundle --release && changeset publish",
+    "version-packages": "node scripts/version-packages.mjs",
+    "release": "turbo run build && pnpm docs:bundle --release && pnpm -r publish && git tag docture@$(node -p \"require('./packages/docture/package.json').version\")",
     "docs": "turbo run dev --filter @docture/docs",
     "docs:bundle": "node scripts/build-package-docs.mjs",
     "verify:packages": "node scripts/verify-packages.mjs"
   },
   "devDependencies": {
-    "@changesets/cli": "2.31.1",
     "@types/node": "^24.13.3",
     "turbo": "2.10.8",
     "typescript": "7.0.2",

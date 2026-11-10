@@ -87,9 +87,8 @@ describe("offline documentation", () => {
     for (const folder of ["docture", "cli", "eval", "synthetic"]) {
       await mkdir(join(root, "packages", folder), { recursive: true });
       await writeFile(join(root, "packages", folder, "package.json"), JSON.stringify({ name: folder === "docture" ? folder : `@docture/${folder}`, version: "0.2.0" }));
+      await writeFile(join(root, "packages", folder, "CHANGELOG.md"), `# ${folder}\n`);
     }
-    await mkdir(join(root, ".changeset"));
-    await writeFile(join(root, ".changeset", "README.md"), "Changesets");
     expect(await documentationRelease(root, false)).toMatchObject({ sourceRevision: null, sourceDirty: null, releaseStatus: "unreleased" });
     await expect(documentationRelease(root, true)).rejects.toThrow("Git source revision");
     const git = (...args: string[]) => run("git", ["-c", "user.name=Docture test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false", "-c", `core.hooksPath=${join(root, ".git", "disabled-hooks")}`, ...args], { cwd: root });
@@ -100,26 +99,20 @@ describe("offline documentation", () => {
     const worktree = join(await directory(), "linked checkout");
     await git("worktree", "add", "--quiet", "--detach", worktree, "HEAD");
     expect(await documentationRelease(worktree, true)).toEqual(await documentationRelease(root, true));
-    for (const folder of ["docture", "cli", "eval", "synthetic"]) {
-      await writeFile(join(root, "packages", folder, "package.json"), JSON.stringify({ name: folder === "docture" ? folder : `@docture/${folder}`, version: "0.3.0-next.0" }));
-    }
-    const preState = { mode: "pre", changesets: ["consumed"] };
-    await writeFile(join(root, ".changeset", "pre.json"), JSON.stringify(preState));
-    await writeFile(join(root, ".changeset", "consumed.md"), '---\n"docture": patch\n---\nAlready versioned');
+    const changelog = join(root, "packages", "cli", "CHANGELOG.md");
+    await writeFile(changelog, "# cli\n\n## Unreleased\n\n- Pending note\n");
     await git("add", ".");
-    await git("commit", "--quiet", "-m", "Version prerelease fixture");
-    expect(await documentationRelease(root, true)).toMatchObject({ packageVersion: "0.3.0-next.0", sourceDirty: false, releaseStatus: "release" });
-    await writeFile(join(root, ".changeset", "pre.json"), JSON.stringify({ ...preState, mode: "exit" }));
-    await expect(documentationRelease(root, true)).rejects.toThrow("pending changesets");
-    await git("checkout", "--", ".changeset/pre.json");
-    await writeFile(join(root, ".changeset", "README.md"), "Changed");
+    await git("commit", "--quiet", "-m", "Unreleased notes fixture");
+    expect(await documentationRelease(root, false)).toMatchObject({ sourceDirty: false, releaseStatus: "unreleased" });
+    await expect(documentationRelease(root, true)).rejects.toThrow("Unreleased section");
+    await writeFile(changelog, "# cli\n\n## 0.2.0\n\n- Pending note\n");
     expect(await documentationRelease(root, false)).toMatchObject({ sourceDirty: true, releaseStatus: "unreleased" });
     await expect(documentationRelease(root, true)).rejects.toThrow("clean checkout");
-    await git("checkout", "--", ".changeset/README.md");
+    await git("add", ".");
+    await git("commit", "--quiet", "-m", "Versioned notes fixture");
+    expect(await documentationRelease(root, true)).toMatchObject({ sourceDirty: false, releaseStatus: "release" });
     await writeFile(join(root, "new-guide.md"), "Untracked");
     await expect(documentationRelease(root, true)).rejects.toThrow("clean checkout");
-    await writeFile(join(root, ".changeset", "pending.md"), '---\n"docture": patch\n---\nDocs');
-    await expect(documentationRelease(root, true)).rejects.toThrow("pending changesets");
     await writeFile(join(root, "packages", "eval", "package.json"), JSON.stringify({ name: "@docture/eval", version: "0.3.0" }));
     await expect(documentationRelease(root, false)).rejects.toThrow("matching versions");
   });
@@ -130,8 +123,8 @@ describe("offline documentation", () => {
     for (const folder of ["docture", "cli", "eval", "synthetic"]) {
       await mkdir(join(root, "packages", folder), { recursive: true });
       await writeFile(join(root, "packages", folder, "package.json"), JSON.stringify({ name: folder === "docture" ? folder : `@docture/${folder}`, version: "0.2.0" }));
+      await writeFile(join(root, "packages", folder, "CHANGELOG.md"), `# ${folder}\n`);
     }
-    await mkdir(join(root, ".changeset"));
     await writeFile(join(parent, ".gitignore"), "source copy/\n");
     const git = (...args: string[]) => run("git", ["-c", "user.name=Docture test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false", "-c", `core.hooksPath=${join(parent, ".git", "disabled-hooks")}`, ...args], { cwd: parent });
     await git("init", "--quiet");

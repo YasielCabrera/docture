@@ -6,7 +6,7 @@
     "docture#build": {
       "dependsOn": ["^build"],
       "cache": false,
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/LICENSE", "$TURBO_ROOT$/apps/docs/content/**", "$TURBO_ROOT$/apps/docs/examples/**", "$TURBO_ROOT$/apps/docs/lib/**", "$TURBO_ROOT$/apps/docs/scripts/**", "$TURBO_ROOT$/apps/docs/source.config.ts", "$TURBO_ROOT$/apps/docs/package.json", "$TURBO_ROOT$/apps/docs/public/api-symbols.json", "$TURBO_ROOT$/apps/docs/public/schemas/**", "$TURBO_ROOT$/apps/docs/api-reference.ts", "$TURBO_ROOT$/packages/*/package.json", "$TURBO_ROOT$/.changeset/**", "$TURBO_ROOT$/scripts/build-package-docs.mjs"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/LICENSE", "$TURBO_ROOT$/apps/docs/content/**", "$TURBO_ROOT$/apps/docs/examples/**", "$TURBO_ROOT$/apps/docs/lib/**", "$TURBO_ROOT$/apps/docs/scripts/**", "$TURBO_ROOT$/apps/docs/source.config.ts", "$TURBO_ROOT$/apps/docs/package.json", "$TURBO_ROOT$/apps/docs/public/api-symbols.json", "$TURBO_ROOT$/apps/docs/public/schemas/**", "$TURBO_ROOT$/apps/docs/api-reference.ts", "$TURBO_ROOT$/packages/*/package.json", "$TURBO_ROOT$/packages/*/CHANGELOG.md", "$TURBO_ROOT$/scripts/build-package-docs.mjs"],
       "outputs": ["dist/**", "docs/**", "*.tsbuildinfo"]
     },
     "build": {

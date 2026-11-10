@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { z } from "zod";
 import type { source, getPageMarkdown } from "../lib/source";
 import { llmsArea, llmsIndex, llmsTasks } from "../lib/llms-index";
+import { hasUnreleasedChanges, publishedPackageFolders } from "../lib/release";
 import symbols from "../public/api-symbols.json";
 import { isExternalLink, localLinkTarget, markdownReferences, offlineLink, rewriteMarkdownLinks, validateDocumentationLinks } from "./package-docs-markdown";
 
@@ -22,17 +23,12 @@ export interface DocumentationRelease {
 }
 
 export async function documentationRelease(root: string, requireRelease: boolean): Promise<DocumentationRelease> {
-  const manifests = await Promise.all(["docture", "cli", "eval", "synthetic"].map(async (name) =>
+  const manifests = await Promise.all(publishedPackageFolders.map(async (name) =>
     packageManifest.parse(JSON.parse(await readFile(join(root, "packages", name, "package.json"), "utf8")))));
   const primary = manifests.find((manifest) => manifest.name === "docture");
   if (primary === undefined) throw new Error("The documentation release requires the docture package");
   if (manifests.some((manifest) => manifest.version !== primary.version)) throw new Error("The four Docture packages must have matching versions before building documentation");
-  const changesets = await readdir(join(root, ".changeset"));
-  const prerelease = changesets.includes("pre.json")
-    ? z.object({ mode: z.enum(["pre", "exit"]), changesets: z.array(z.string()) }).parse(JSON.parse(await readFile(join(root, ".changeset/pre.json"), "utf8")))
-    : undefined;
-  const consumed = new Set(prerelease?.mode === "pre" ? prerelease.changesets : []);
-  const pending = changesets.some((name) => name.endsWith(".md") && name !== "README.md" && !consumed.has(name.slice(0, -3)));
+  const pending = hasUnreleasedChanges(root);
   let sourceRevision: string | null = null;
   let sourceDirty: boolean | null = null;
   try {
@@ -47,7 +43,7 @@ export async function documentationRelease(root: string, requireRelease: boolean
     }
   }
   catch {}
-  if (requireRelease && pending) throw new Error("Documentation has pending changesets. Run pnpm version-packages before releasing.");
+  if (requireRelease && pending) throw new Error("A package changelog has an Unreleased section. Run pnpm version-packages <version> before releasing.");
   if (requireRelease && sourceRevision === null) throw new Error("Released documentation requires a Git source revision.");
   if (requireRelease && sourceDirty) throw new Error("Released documentation requires a clean checkout. Commit the source and version changes before releasing.");
   return {

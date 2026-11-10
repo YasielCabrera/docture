@@ -25,7 +25,7 @@
         "postcss.config.mjs",
         "$TURBO_ROOT$/packages/*/package.json",
         "scripts/page-rules.ts",
-        "$TURBO_ROOT$/.changeset/**"
+        "$TURBO_ROOT$/packages/*/CHANGELOG.md"
       ]
     },
     "typecheck": {

@@ -1,10 +1,8 @@
-import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import doctureManifest from "../../../packages/docture/package.json" with { type: "json" };
+import { hasUnreleasedChanges } from "./release";
 
-const pendingChangesets = readdirSync(resolve(process.cwd(), "../../.changeset")).some((file) => file.endsWith(".md") && file !== "README.md");
-
-export const docsRelease = pendingChangesets
+export const docsRelease = hasUnreleasedChanges(resolve(process.cwd(), "../.."))
   ? `${doctureManifest.version} plus unreleased changes`
   : doctureManifest.version.replace(/\.\d+$/, ".x");
 
