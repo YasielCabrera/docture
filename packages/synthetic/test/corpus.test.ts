@@ -12,6 +12,8 @@ import { digital, scan, writeCorpus, type CorpusPlan } from "../src/node/index.j
 import { invoiceModel, type Invoice } from "./fixtures.js";
 import { classic } from "./templates.js";
 
+const { version: packageVersion } = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
+
 const overflowing = defineTemplate<Invoice>()({
   key: "overflowing",
   family: "invoice",
@@ -116,7 +118,7 @@ describe("writeCorpus", () => {
     });
     const corpus = JSON.parse(await readFile(join(reference, "corpus.json"), "utf8")) as Record<string, unknown>;
     expect(corpus).toMatchObject({
-      generator: { name: "@docture/synthetic", version: "0.2.0" },
+      generator: { name: "@docture/synthetic", version: packageVersion },
       plan: {
         templates: ["classic"],
         seeds: [1, 2],
