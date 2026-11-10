@@ -26,13 +26,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         with:
           version: 10.33.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -44,7 +44,7 @@ jobs:
         run: node --input-type=module -e 'import {readFileSync} from "node:fs";const version=JSON.parse(readFileSync("packages/cli/package.json","utf8")).version;if(process.env.IMAGE_VERSION!==version)throw new Error("Image version must equal the CLI artifact version.");'
       - run: docker build --platform linux/amd64 --tag docture:validated .
       - run: node scripts/container-smoke.mjs docture:validated
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         if: inputs.publish == true
         with:
           registry: ghcr.io

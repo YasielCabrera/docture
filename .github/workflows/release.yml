@@ -36,8 +36,8 @@ jobs:
         run: |
           echo "::error::Run a release that changes the version from main. Use bump=none to publish a tag or commit that is already versioned."
           exit 1
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - name: Set the release version
@@ -58,7 +58,7 @@ jobs:
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "Releasing $version" >> "$GITHUB_STEP_SUMMARY"
       - if: inputs.bump != 'none'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-commit
           path: ${{ runner.temp }}/release.bundle
@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/release-setup
         with:
           sha: ${{ needs.prepare.outputs.sha }}
@@ -83,7 +83,7 @@ jobs:
     env:
       SITE_URL: https://docture.test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/release-setup
         with:
           sha: ${{ needs.prepare.outputs.sha }}
@@ -96,7 +96,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/release-setup
         with:
           sha: ${{ needs.prepare.outputs.sha }}
@@ -109,14 +109,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/release-setup
         with:
           sha: ${{ needs.prepare.outputs.sha }}
           bundled: ${{ needs.prepare.outputs.bundled }}
       - run: pnpm verify:packages --output-dir "$RUNNER_TEMP/verified"
       - run: node scripts/stage-packages.mjs --verified "$RUNNER_TEMP/verified" --dry-run
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: verified-packages
           path: |
@@ -137,13 +137,13 @@ jobs:
       VERSION: ${{ needs.prepare.outputs.version }}
       TAG: docture@${{ needs.prepare.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/release-setup
         with:
           sha: ${{ needs.prepare.outputs.sha }}
           bundled: ${{ needs.prepare.outputs.bundled }}
           install: "false"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: verified-packages
           path: ${{ runner.temp }}/verified
