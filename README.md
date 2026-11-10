@@ -612,11 +612,25 @@ pnpm test           # or: pnpm --filter docture test
 Toolchain: pnpm workspaces, Turborepo, TypeScript 7, Vitest 4.
 
 The four packages share one version. Record each user-facing change under
-`## Unreleased` in the changed package's `CHANGELOG.md`. To release, run
-`pnpm version-packages <version>`, commit the result, then run `pnpm release`.
-`version-packages` sets the version in the four packages and renames each
-`Unreleased` section to that version. `release` publishes the packages and tags
-the commit `docture@<version>`.
+`## Unreleased` in the changed package's `CHANGELOG.md`: breaking changes and new
+features under `### Minor Changes`, everything else under `### Patch Changes`.
+
+To release, run the **Release packages** workflow from `main`. Versions stay below
+1.0.0. With `bump` set to `auto`, the default, the release is a minor one when any
+`Unreleased` section has a `### Minor Changes` heading and a patch one otherwise.
+Choose `minor` or `patch` to override that.
+The workflow sets the version in the four packages, renames each `Unreleased`
+section to that version, and runs the lint, typecheck, test, build, and packed
+package gates. With `publish` off it stops after a publish dry run and pushes
+nothing. With `publish` on it pushes the version commit and the
+`docture@<version>` tag, publishes to npm, and creates the GitHub release. If a
+run fails after the push, run it again with `bump` set to `none`; packages already
+on npm are skipped.
+
+The workflow authenticates to npm through trusted publishing for the `npm`
+environment, or through an `NPM_TOKEN` secret in that environment when a package
+has no trusted publisher. The same steps run locally as
+`pnpm version-packages`, a commit, then `pnpm release`.
 
 The workspace build includes the documentation site. Outside Vercel, set `SITE_URL`
 to its absolute origin so the production sitemap contains canonical URLs. See the

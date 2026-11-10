@@ -1,0 +1,115 @@
+name: Release packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: auto reads the Unreleased changelog sections; none publishes the version already committed
+        required: true
+        default: auto
+        type: choice
+        options: [auto, minor, patch, none]
+      publish:
+        description: Push the version commit and tag, then publish to npm. Leave off for a rehearsal.
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: npm
+    env:
+      SITE_URL: https://docture.test
+    steps:
+      - name: Require main for a version bump
+        if: inputs.bump != 'none' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Run a release that changes the version from main. Use bump=none to publish a tag or commit that is already versioned."
+          exit 1
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm 11.5.1 or later; Node 22 ships npm 10.
+      - run: npm install --global npm@11.9.0
+      - run: pnpm install --frozen-lockfile
+
+      - name: Set the release version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          if [ "$BUMP" = none ]; then
+            version=$(node -p "require('./packages/docture/package.json').version")
+          else
+            version=$(node scripts/version-packages.mjs "$BUMP")
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --all --message "chore: release $version"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Releasing $version" >> "$GITHUB_STEP_SUMMARY"
+
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm --filter @docture/docs exec playwright-core install --with-deps chromium
+      - run: pnpm test --concurrency=1
+      - run: pnpm build
+      - run: pnpm verify:packages
+      - run: pnpm docs:bundle --release
+      - run: pnpm -r publish --dry-run --no-git-checks --access public
+
+      - name: Push the version commit
+        if: inputs.publish && inputs.bump != 'none'
+        run: git push origin HEAD:main
+
+      - name: Tag the release
+        if: inputs.publish
+        env:
+          TAG: docture@${{ steps.version.outputs.version }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            echo "$TAG already exists."
+          else
+            git tag "$TAG"
+            git push origin "refs/tags/$TAG"
+          fi
+
+      # pnpm skips a version that is already on the registry, so a failed run can be repeated with bump=none.
+      - name: Publish to npm
+        if: inputs.publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm -r publish --no-git-checks --access public
+
+      - name: Create the GitHub release
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: docture@${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "The release for $TAG already exists."
+            exit 0
+          fi
+          notes="Published \`docture\`, \`@docture/cli\`, \`@docture/eval\`, and \`@docture/synthetic\` at $VERSION."
+          for folder in docture cli eval synthetic; do
+            notes="$notes"$'\n'"- [$folder changelog](https://github.com/$GITHUB_REPOSITORY/blob/$TAG/packages/$folder/CHANGELOG.md)"
+          done
+          gh release create "$TAG" --title "$VERSION" --notes "$notes" --verify-tag
