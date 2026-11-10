@@ -1,0 +1,51 @@
+name: Release setup
+description: Check out the release commit and install the toolchain for one release job.
+
+inputs:
+  sha:
+    description: Commit every release job must run on
+    required: true
+  bundled:
+    description: "'true' when the commit is the unpushed version commit carried by the release-commit artifact"
+    required: true
+  install:
+    description: "'false' skips pnpm and the workspace install"
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - if: inputs.bundled == 'true'
+      uses: actions/download-artifact@v4
+      with:
+        name: release-commit
+        path: ${{ runner.temp }}/release-commit
+    # A bundle carries the commit object itself, so every job sees the SHA that the packed documentation records.
+    - if: inputs.bundled == 'true'
+      shell: bash
+      run: |
+        git fetch --quiet "$RUNNER_TEMP/release-commit/release.bundle" HEAD
+        git checkout --quiet --detach FETCH_HEAD
+    - shell: bash
+      env:
+        SHA: ${{ inputs.sha }}
+      run: |
+        if [ "$(git rev-parse HEAD)" != "$SHA" ]; then
+          echo "::error::Expected release commit $SHA, found $(git rev-parse HEAD)."
+          exit 1
+        fi
+    - if: inputs.install == 'true'
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10.33.0
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: ${{ inputs.install == 'true' && 'pnpm' || '' }}
+        registry-url: https://registry.npmjs.org
+    # npm stage needs npm 11.15.0 or later; Node 22 ships npm 10.
+    - shell: bash
+      run: npm install --global npm@11.21.2
+    - if: inputs.install == 'true'
+      shell: bash
+      run: pnpm install --frozen-lockfile

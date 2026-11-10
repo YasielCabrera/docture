@@ -16,20 +16,20 @@ on:
         type: boolean
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: release
   cancel-in-progress: false
 
 jobs:
-  release:
+  prepare:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    environment: npm
-    env:
-      SITE_URL: https://docture.test
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      sha: ${{ steps.version.outputs.sha }}
+      bundled: ${{ inputs.bump != 'none' }}
     steps:
       - name: Require main for a version bump
         if: inputs.bump != 'none' && github.ref != 'refs/heads/main'
@@ -37,18 +37,9 @@ jobs:
           echo "::error::Run a release that changes the version from main. Use bump=none to publish a tag or commit that is already versioned."
           exit 1
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.33.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
-          registry-url: https://registry.npmjs.org
-      # npm stage needs npm 11.15.0 or later; Node 22 ships npm 10.
-      - run: npm install --global npm@11.21.2
-      - run: pnpm install --frozen-lockfile
-
       - name: Set the release version
         id: version
         env:
@@ -61,27 +52,107 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git commit --all --message "chore: release $version"
+            git bundle create "$RUNNER_TEMP/release.bundle" HEAD^..HEAD
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "Releasing $version" >> "$GITHUB_STEP_SUMMARY"
+      - if: inputs.bump != 'none'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-commit
+          path: ${{ runner.temp }}/release.bundle
+          retention-days: 1
 
+  lint:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/release-setup
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
+          bundled: ${{ needs.prepare.outputs.bundled }}
       - run: pnpm lint
+
+  build:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SITE_URL: https://docture.test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/release-setup
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
+          bundled: ${{ needs.prepare.outputs.bundled }}
       - run: pnpm typecheck
+      - run: pnpm build
+
+  test:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/release-setup
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
+          bundled: ${{ needs.prepare.outputs.bundled }}
       - run: pnpm --filter @docture/docs exec playwright-core install --with-deps chromium
       - run: pnpm test --concurrency=1
-      - run: pnpm build
-      - run: pnpm verify:packages
-      - run: pnpm docs:bundle --release
-      - run: node scripts/stage-packages.mjs --dry-run
+
+  verify:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/release-setup
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
+          bundled: ${{ needs.prepare.outputs.bundled }}
+      - run: pnpm verify:packages --output-dir "$RUNNER_TEMP/verified"
+      - run: node scripts/stage-packages.mjs --verified "$RUNNER_TEMP/verified" --dry-run
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-packages
+          path: |
+            ${{ runner.temp }}/verified/summary.json
+            ${{ runner.temp }}/verified/tarballs
+          retention-days: 7
+
+  stage:
+    needs: [prepare, lint, build, test, verify]
+    if: inputs.publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: npm
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TAG: docture@${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/release-setup
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
+          bundled: ${{ needs.prepare.outputs.bundled }}
+          install: "false"
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-packages
+          path: ${{ runner.temp }}/verified
 
       - name: Push the version commit
-        if: inputs.publish && inputs.bump != 'none'
+        if: inputs.bump != 'none'
         run: git push origin HEAD:main
 
       - name: Tag the release
-        if: inputs.publish
-        env:
-          TAG: docture@${{ steps.version.outputs.version }}
         run: |
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
             echo "$TAG already exists."
@@ -91,20 +162,16 @@ jobs:
           fi
 
       # A version that is already published or staged is skipped, so a failed run can be repeated with bump=none.
-      - name: Stage the packages on npm
-        if: inputs.publish
+      - name: Stage the verified packages on npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          node scripts/stage-packages.mjs --provenance
+          node scripts/stage-packages.mjs --verified "$RUNNER_TEMP/verified" --provenance
           echo "Approve the staged versions under Staged Packages on npmjs.com to publish them." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create the GitHub release
-        if: inputs.publish
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: docture@${{ steps.version.outputs.version }}
-          VERSION: ${{ steps.version.outputs.version }}
         run: |
           if gh release view "$TAG" > /dev/null 2>&1; then
             echo "The release for $TAG already exists."

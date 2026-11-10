@@ -623,8 +623,8 @@ The workflow sets the version in the four packages, renames each `Unreleased`
 section to that version, and runs the lint, typecheck, test, build, and packed
 package gates. With `publish` off it stops after a staging dry run and pushes
 nothing. With `publish` on it pushes the version commit and the
-`docture@<version>` tag, stages the four packages on npm, and creates the GitHub
-release. If a run fails after the push, run it again with `bump` set to `none`;
+`docture@<version>` tag, stages on npm the tarballs that the packed package gate
+verified, and creates the GitHub release. If a run fails after the push, run it again with `bump` set to `none`;
 packages already published or staged are skipped.
 
 A staged version is not public yet. Approve each one under **Staged Packages** on
