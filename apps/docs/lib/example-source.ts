@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
+import { transformMarkdownHtml } from "./agent-markdown";
 
 const examplesRoot = resolve(process.cwd(), "examples");
 
@@ -10,8 +11,14 @@ export async function readExampleSource(file: string): Promise<string> {
 }
 
 export async function expandSourceExamples(markdown: string): Promise<string> {
-  const tags = [...markdown.matchAll(/<SourceExample\s+file=["']([^"']+)["'][^>]*\/>/g)];
-  const examples = await Promise.all(tags.map(async (tag) => ({ tag: tag[0], lang: tag[1]?.endsWith(".tsx") ? "tsx" : "ts", source: await readExampleSource(tag[1] ?? "") })));
-  for (const example of examples) markdown = markdown.replace(example.tag, () => `\`\`\`${example.lang}\n${example.source}\n\`\`\``);
-  return markdown;
+  return transformMarkdownHtml(markdown, async (html) => {
+    const tags = [...html.matchAll(/<SourceExample\s+file=["']([^"']+)["'][^>]*\/>/g)];
+    for (const tag of tags) {
+      const file = tag[1] ?? "";
+      const source = await readExampleSource(file);
+      const fence = "`".repeat(Math.max(2, ...[...source.matchAll(/`+/g)].map((match) => match[0].length)) + 1);
+      html = html.replace(tag[0], () => `${fence}${file.endsWith(".tsx") ? "tsx" : "ts"}\n${source}\n${fence}`);
+    }
+    return html;
+  });
 }

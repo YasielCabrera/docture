@@ -69,6 +69,21 @@ test("runtime boundary checks reject every supported foreign import form", async
       assert.equal(result.status, 0, result.stdout + result.stderr);
     };
     await t.test("permits core imports and existing engine asset resolvers", control);
+    for (const [name, mutate] of [
+      ["a documentation manifest redirected to runtime code", value => { value.exports["./docs/manifest.json"] = "./dist/index.js"; }],
+      ["an undeclared data export", value => { value.exports["./private.json"] = "./private.json"; }],
+    ]) {
+      await t.test(`rejects ${name}`, async () => {
+        const path = join(directory, "packages/docture/package.json");
+        const original = await readFile(path, "utf8");
+        try {
+          const manifest = JSON.parse(original);
+          mutate(manifest);
+          await writeFile(path, JSON.stringify(manifest));
+          assert.notEqual(check().status, 0, name);
+        } finally { await writeFile(path, original); }
+      });
+    }
     await t.test("permits statically known template imports within core", async () => {
       await writeFile(probe, 'export const load = () => import(`./domain/result.js`);');
       const result = check();

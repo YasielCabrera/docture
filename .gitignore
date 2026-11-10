@@ -36,3 +36,8 @@ packages/cli/test/.tmp/
 
 # Fumadocs generated content index
 .source/
+
+# Versioned documentation generated for the runtime publication
+packages/docture/docs/
+packages/docture/.docs-*/
+apps/docs/.source-package-*/

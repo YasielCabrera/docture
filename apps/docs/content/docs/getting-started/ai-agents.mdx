@@ -4,9 +4,31 @@ description: Give a coding agent the Docture documentation as Markdown and the u
 type: how-to
 ---
 
-A coding agent's training data can predate the Docture API you install, so give it the current documentation. This site serves every page as Markdown, and each package ships an `AGENTS.md` usage guide inside `node_modules`.
+A coding agent's training data can predate the Docture API you install. Give it
+the Markdown documentation bundled in the installed `docture` package. Each
+package also ships an `AGENTS.md` usage guide. This site provides Markdown over
+the network when the agent cannot access local files.
 
-## Give an agent the documentation
+## Read the installed documentation
+
+Run this command from the workspace package that uses Docture:
+
+```sh
+node --input-type=module -e 'console.log(import.meta.resolve("docture/docs/manifest.json"))'
+```
+
+Read `llms-tasks.txt` relative to that manifest to find the relevant guide. The
+same directory contains `llms.txt` for all pages, area indexes under `llms/`, and
+`api-symbols.json` for API names. Read individual `.md` files and follow their
+local links without a network connection.
+
+Compare the manifest's `packages` versions with the application's installed
+packages. All four packages release together, but eval and synthetic allow
+compatible peer versions. Read the [package reference](/docs/getting-started/reference/packages#offline-documentation)
+to resolve documentation through the CLI when its dependency is not visible
+from your workspace root.
+
+## Use the documentation website
 
 Pick the source that fits how much context the agent can hold:
 
@@ -16,8 +38,8 @@ Pick the source that fits how much context the agent can hold:
 | `/llms/<area>.txt`, for example [`/llms/extraction.txt`](/llms/extraction.txt) | A page index for one area | The agent can fetch the relevant pages individually |
 | [`/api-symbols.json`](/api-symbols.json) | Symbol names, public imports, descriptions, and canonical reference links | The agent needs an exact API contract |
 | [`/llms.txt`](/llms.txt) | An index of every page, grouped by area, as Markdown links with each page's description | The agent fetches pages as it needs them |
-| [`/llms-full.txt`](/llms-full.txt) | Every page in one large file | The agent needs an optional bulk export |
-| `/llms-full/<area>.txt`, for example [`/llms-full/extraction.txt`](/llms-full/extraction.txt) | Every page of one area in one file | The agent needs a bulk export of that area |
+| `/llms-full.txt` on the website | Every page in one large file | The agent needs an optional bulk export |
+| `/llms-full/<area>.txt` on the website, for example `/llms-full/extraction.txt` | Every page of one area in one file | The agent needs a bulk export of that area |
 | Any page URL with `.md` appended | One page as Markdown, for example `/docs/extraction/quick-start.md` | You want the agent to read one guide |
 
 Each documentation page also has two actions at the top:
@@ -38,7 +60,10 @@ Each Docture package ships an `AGENTS.md` file that covers its imports and insta
 | `@docture/eval` | `node_modules/@docture/eval/AGENTS.md` |
 | `@docture/synthetic` | `node_modules/@docture/synthetic/AGENTS.md` |
 
-Agents do not discover these guides automatically. Name them in the instructions file your agent loads, such as `AGENTS.md` or `CLAUDE.md` at the root of your project. Replace `<docs-url>` with the address of this site and keep the lines for the packages you install:
+Agents do not discover these guides automatically. Name them in the instructions
+file your agent loads, such as `AGENTS.md` or `CLAUDE.md` at the root of your
+project. Keep the lines for the packages you install and resolve them from the
+workspace package being edited:
 
 ```md title="AGENTS.md"
 ## Docture
@@ -47,7 +72,11 @@ Before you change code that imports docture, read node_modules/docture/AGENTS.md
 Before you edit docture.config.ts or a docture command, read node_modules/@docture/cli/AGENTS.md.
 Before you change evaluation code, read node_modules/@docture/eval/AGENTS.md.
 Before you change synthetic templates or corpora, read node_modules/@docture/synthetic/AGENTS.md.
-For anything else, find the page in <docs-url>/llms.txt and read its Markdown.
+Read docture/docs/manifest.json to check the documented package versions.
+Find the task in docture/docs/llms-tasks.txt and read its linked Markdown guides.
 ```
 
-The guides match the installed version, so they stay correct after an upgrade. The site documents one release line, named at the top of `llms.txt` and of each Markdown page.
+Updating `docture` updates its bundled documentation. Its manifest records exact
+documented package versions and marks development snapshots as `unreleased`.
+The site documents one release line, named at the top of `llms.txt` and of each
+Markdown page.

@@ -14,6 +14,7 @@ The `docture` root exports core only. The CLI supplies the `docture` executable.
 | Import | Purpose | Optional peers used by that entry |
 | --- | --- | --- |
 | `docture` | Contracts, extraction, deterministic conversion, errors, classification, and `Process` | Zod through its schema helper |
+| `docture/docs/manifest.json` | Data asset locating the offline documentation and its documented package versions | None |
 | `docture/node` | Core plus `Extractor`, `DocumentConverter`, and `Process` that read file paths and `file:` URLs, and `resolveNodeSource`. Node.js only | Zod through its schema helper |
 | `docture/llm` | All model components, including the `LLM` convenience class and `model()` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
 | `docture/llm/text` | `LlmStrategy`, `LlmStrategyOptions`, `llm`, and `modelIdOf` | `ai@^7`, `zod@^3.25.76` or `zod@^4.1.8` |
@@ -51,6 +52,37 @@ The `docture` root exports core only. The CLI supplies the `docture` executable.
 Files under `src` and `dist` are internal. The [API index](/docs/api)
 documents the named exports of each supported entry point. The
 [migration guide](/docs/resources/migration) maps the removed scoped packages.
+
+## Offline documentation
+
+The `docture` package contains the complete Markdown documentation for all four
+packages under `docs/`. The other packages use this copy through their dependency
+or required peer. Each package's `AGENTS.md` points to its relevant guides.
+
+The `docture/docs/manifest.json` export resolves without loading the runtime:
+
+```sh
+node --input-type=module -e 'console.log(import.meta.resolve("docture/docs/manifest.json"))'
+```
+
+Resolution starts in the consuming workspace package. Files are relative to the
+manifest: `llms-tasks.txt` lists tasks, `llms.txt` lists pages, and
+`api-symbols.json` maps public symbols to local references. The guides and their
+internal links work offline.
+
+The manifest's `packages` field records exact versions for all four packages.
+The CLI depends on the matching `docture` release, while eval and synthetic accept
+compatible peer versions. A mixed installation can therefore differ from the
+documented versions. `releaseStatus` distinguishes `unreleased` development
+snapshots from `release` snapshots, and `sourceRevision` identifies the source
+commit. The `files` inventory supplies SHA-256 hashes of the bundled content.
+
+For a CLI-only pnpm installation, the dependency may not be visible from the
+application root. Its manifest resolves from the CLI's own package context:
+
+```sh
+node --input-type=module -e 'import { createRequire } from "node:module"; console.log(createRequire(import.meta.resolve("@docture/cli")).resolve("docture/docs/manifest.json"))'
+```
 
 ## Install recipes
 

@@ -5,7 +5,7 @@ import { defaultStringifier } from "fumadocs-core/mdx-plugins/stringifier";
 import { remarkMermaidMarkdown } from "../lib/mermaid-markdown";
 import { remarkMdxMermaid } from "fumadocs-core/mdx-plugins";
 import { unified } from "unified";
-import { toAgentMarkdown, transformMarkdownProse } from "../lib/agent-markdown";
+import { toAgentMarkdown, transformMarkdownHtml } from "../lib/agent-markdown";
 import { llmsIndex } from "../lib/llms-index";
 
 describe("agent Markdown", () => {
@@ -35,9 +35,9 @@ describe("agent Markdown", () => {
     expect(toAgentMarkdown(code)).toBe(code);
   });
 
-  it("expands symbol components while preserving their literal code examples", () => {
+  it("expands symbol components while preserving their literal code examples", async () => {
     const markdown = '<ApiIndex />\n\n```mdx\n<ApiIndex />\n```\n\n~~~mdx\n<ApiIndex />\n~~~';
-    expect(transformMarkdownProse(markdown, (prose) => prose.replace(/<ApiIndex\s*\/>/g, "Symbol list")))
+    expect(await transformMarkdownHtml(markdown, (prose) => prose.replace(/<ApiIndex\s*\/>/g, "Symbol list")))
       .toBe('Symbol list\n\n```mdx\n<ApiIndex />\n```\n\n~~~mdx\n<ApiIndex />\n~~~');
   });
   it("reduces package-manager tabs to the npm command", () => {

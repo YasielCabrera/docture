@@ -12,6 +12,7 @@ export interface LlmsIndexOptions {
   readonly page: (url: string) => IndexedPage | undefined;
   readonly link: (url: string) => string;
   readonly release: string;
+  readonly bulk?: boolean;
 }
 
 function folderUrls(folder: Folder): string[] {
@@ -24,7 +25,7 @@ function nodeUrls(node: Node): string[] {
   return [];
 }
 
-export function llmsIndex({ tree, page, link, release }: LlmsIndexOptions): string {
+export function llmsIndex({ tree, page, link, release, bulk = true }: LlmsIndexOptions): string {
   const entry = (url: string): string[] => {
     const data = page(url);
     if (data === undefined) return [];
@@ -39,7 +40,8 @@ export function llmsIndex({ tree, page, link, release }: LlmsIndexOptions): stri
     "",
     `Start with the [task index](${link("/llms-tasks.txt")}) for a goal, or the [symbol index](${link("/api-symbols.json")}) for an API name. Prefer a scoped area index and fetch individual Markdown pages as needed.`,
     "",
-    `Every page is listed below as Markdown. Add \`.md\` to any documentation URL for the same Markdown, or fetch [llms-full.txt](${link("/llms-full.txt")}) for every page in one file. Each section below also links its own full file, which is smaller.`,
+    bulk ? `Every page is listed below as Markdown. Add \`.md\` to any documentation URL for the same Markdown, or fetch [llms-full.txt](${link("/llms-full.txt")}) for every page in one file. Each section below also links its own full file, which is smaller.`
+      : "Every page is listed below as a local Markdown file. Read the task or area index, then open only the pages you need.",
     "",
     "## Overview",
     "",
@@ -48,7 +50,7 @@ export function llmsIndex({ tree, page, link, release }: LlmsIndexOptions): stri
       "",
       `## ${title}`,
       "",
-      ...area === undefined ? [] : [`Every ${title} page in one file: [${area}.txt](${link(`/llms-full/${area}.txt`)})`, ""],
+      ...area === undefined || !bulk ? [] : [`Every ${title} page in one file: [${area}.txt](${link(`/llms-full/${area}.txt`)})`, ""],
       ...urls.flatMap(entry),
       ...area === undefined ? [] : ["", `Discover this area's pages: [${area} index](${link(`/llms/${area}.txt`)})`],
     ]),
@@ -56,7 +58,7 @@ export function llmsIndex({ tree, page, link, release }: LlmsIndexOptions): stri
   ].join("\n");
 }
 
-export function llmsTasks({ tree, page, link, release }: LlmsIndexOptions): string {
+export function llmsTasks({ tree, page, link, release, bulk = true }: LlmsIndexOptions): string {
   const urls = tree.children.flatMap(nodeUrls);
   const tasks = urls.flatMap((url) => {
     const data = page(url);
@@ -66,7 +68,7 @@ export function llmsTasks({ tree, page, link, release }: LlmsIndexOptions): stri
   const areas = tree.children.flatMap((node) => node.type === "folder" && node.index !== undefined
     ? [`- [${String(node.name)}](${link(`/llms/${node.index.url.split("/")[2]}.txt`)})`]
     : []);
-  return ["# docture tasks", "", `> Task guides for docture ${release}.`, "", "Read the installed package's AGENTS.md first. Use a task guide for complete prerequisites and expected output. Fetch only the references the task needs.", "", "## Tasks", "", ...tasks, "", "## Area indexes", "", ...areas, "", `Look up exact APIs in [api-symbols.json](${link("/api-symbols.json")}). The [complete page index](${link("/llms.txt")}) and [bulk export](${link("/llms-full.txt")}) remain available.`, ""].join("\n");
+  return ["# docture tasks", "", `> Task guides for docture ${release}.`, "", "Read the installed package's AGENTS.md first. Use a task guide for complete prerequisites and expected output. Fetch only the references the task needs.", "", "## Tasks", "", ...tasks, "", "## Area indexes", "", ...areas, "", `Look up exact APIs in [api-symbols.json](${link("/api-symbols.json")}). Read the [complete page index](${link("/llms.txt")})${bulk ? ` or [bulk export](${link("/llms-full.txt")})` : ""} for more documentation.`, ""].join("\n");
 }
 
 export function llmsArea(options: LlmsIndexOptions, area: string): string | undefined {
@@ -76,5 +78,5 @@ export function llmsArea(options: LlmsIndexOptions, area: string): string | unde
     const page = options.page(url);
     return page === undefined ? [] : [`- [${page.title}](${options.link(`${url}.md`)})${page.description ? `: ${page.description}` : ""}`];
   });
-  return [`# docture ${String(folder.name)}`, "", `> Markdown page index for docture ${options.release}.`, "", "Fetch the relevant guide first, then its linked references.", "", ...entries, "", `Optional bulk export: [${area}.txt](${options.link(`/llms-full/${area}.txt`)})`, ""].join("\n");
+  return [`# docture ${String(folder.name)}`, "", `> Markdown page index for docture ${options.release}.`, "", "Fetch the relevant guide first, then its linked references.", "", ...entries, "", ...options.bulk === false ? [] : [`Optional bulk export: [${area}.txt](${options.link(`/llms-full/${area}.txt`)})`, ""]].join("\n");
 }

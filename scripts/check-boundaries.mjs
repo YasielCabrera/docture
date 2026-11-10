@@ -159,11 +159,13 @@ for (const path of await files(source)) {
 assert.deepEqual(Object.keys(manifest.dependencies), ["@ai-sdk/provider-utils", "@types/json-schema", "entities", "htmlparser2", "parse5"]);
 assert.equal(manifest.sideEffects, false);
 assert.equal(Object.keys(manifest.exports).some(key => key.includes("*")), false);
+assert.equal(manifest.exports["./docs/manifest.json"], "./docs/manifest.json", "documentation has one explicit data export");
+const runtimeExports = Object.entries(manifest.exports).filter(([key]) => key !== "./docs/manifest.json");
 for (const engine of new Set(Object.values(engines).flat())) {
   assert.ok(manifest.peerDependencies[engine], `${engine} must be a peer dependency`);
   assert.equal(manifest.peerDependenciesMeta[engine]?.optional, true, `${engine} must be optional`);
 }
-for (const [key, entry] of Object.entries(manifest.exports)) {
+for (const [key, entry] of runtimeExports) {
   const stem = entry.source.replace(/^\.\/src\//, "").replace(/\.ts$/, "");
   assert.equal(entry.types, `./dist/${stem}.d.ts`, `${key} declaration path`);
   const runtime = entry.node ?? entry;
@@ -174,7 +176,7 @@ for (const [key, entry] of Object.entries(manifest.exports)) {
 }
 const testConfig = JSON.parse(await readFile(join(root, "packages/docture/tsconfig.test.json"), "utf8"));
 assert.deepEqual(testConfig.compilerOptions.paths, Object.fromEntries(
-  Object.entries(manifest.exports).map(([key, entry]) => [key === "." ? "docture" : `docture${key.slice(1)}`, [entry.source]]),
+  runtimeExports.map(([key, entry]) => [key === "." ? "docture" : `docture${key.slice(1)}`, [entry.source]]),
 ), "Test source paths must match the public export map");
 const packages = [];
 for (const folder of await readdir(join(root, "packages"))) {
@@ -417,4 +419,4 @@ for (const node of configEntry.statements) {
 }
 
 assert.deepEqual(failures, [], "Public module boundaries must stay isolated");
-console.log(`Verified four package boundaries and ${Object.keys(manifest.exports).length} isolated ESM entries.`);
+console.log(`Verified four package boundaries, ${runtimeExports.length} isolated ESM entries and the documentation manifest.`);

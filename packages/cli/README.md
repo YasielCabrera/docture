@@ -2,6 +2,11 @@
 
 Extraction and grounded document conversion from a terminal.
 
+Offline guides ship in the `docture` dependency's `docs/` directory. Read this
+package's `AGENTS.md` for resolution under npm or pnpm, then open `llms/cli.txt`
+relative to the documentation manifest. Check the manifest's `packages` versions
+against the installed packages.
+
 ```sh
 npm install --save-dev @docture/cli @ai-sdk/openai zod
 npx docture extract invoice.pdf --schema ./invoice.ts --model openai/gpt-5

@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { cleanupConsumerInstalls } from "./verification-output.mjs";
 import { verifySyntheticPackage } from "./verify-packages-synthetic.mjs";
+import { documentationConsumer, verifyPackedDocumentation } from "./verify-package-docs.mjs";
 import {
   coreRuntime, coreTypes, llmRuntime, llmTypes, loaderRuntime, loaderTypes, conformanceTest,
   bundleConsumers, bundleRuntime, entryRuntime, missingEngineRuntime, paddleRuntimeWithoutOnnx, paddleTiffRuntime, missingCanvasRuntime,
@@ -229,7 +230,9 @@ async function checkPackedPackage(directory, manifest, ts, sourceDirectory) {
   if (manifest.name === "@docture/eval" || manifest.name === "@docture/synthetic") assert.equal(manifest.sideEffects, false, `${manifest.name} supports tree shaking`);
   if (manifest.name === "docture") {
     assert.equal(manifest.sideEffects, false, "library subpaths support tree shaking");
-    assert.deepEqual(Object.keys(manifest.exports).sort(), [...expectedExports].sort(), "the packed library exposes only explicit supported entrypoints");
+    assert.deepEqual(Object.keys(manifest.exports).sort(), [...expectedExports, "./docs/manifest.json"].sort(), "the packed library exposes only explicit supported entrypoints and its documentation manifest");
+    assert.equal(manifest.exports["./docs/manifest.json"], "./docs/manifest.json");
+    assert.ok(manifest.files.includes("docs"), "docture declares the documentation artifact");
     for (const name of optionalPeers) {
       assert.ok(manifest.peerDependencies?.[name], `${name} is a peer`);
       assert.equal(manifest.peerDependenciesMeta?.[name]?.optional, true, `${name} is optional`);
@@ -237,6 +240,7 @@ async function checkPackedPackage(directory, manifest, ts, sourceDirectory) {
       assert.equal(manifest.optionalDependencies?.[name], undefined, `${name} must not auto-install`);
     }
   }
+  if (manifest.name !== "docture") assert.ok(!(await readdir(directory)).includes("docs"), `${manifest.name} uses docture's docs rather than duplicating them`);
   for (const [name, value] of Object.entries(manifest.exports)) {
     assert.ok(!name.includes("*"), "exports are explicit");
     if (name.endsWith(".json")) {
@@ -505,6 +509,10 @@ async function main() {
     packed[manifest.name] = { target, manifest };
     summary.packages.push({ ...evidence, tarball: target, sha256: createHash("sha256").update(await readFile(target)).digest("hex") });
   }, { setup: true });
+  summary.documentation = await check("packed documentation includes all guides, exact versions and verified content hashes", () => verifyPackedDocumentation(
+    join(output, "unpacked/library/package"),
+    Object.fromEntries(Object.entries(packed).map(([name, pkg]) => [name, pkg.manifest.version])),
+  ), { setup: true });
   summary.cliResolution = await check("packed CLI depends on the packed library version", async () => {
     const dependency = packed["@docture/cli"].manifest.dependencies?.docture;
     const version = packed.docture.manifest.version;
@@ -540,6 +548,16 @@ async function main() {
     await save(join(consumer, "package.json"), { name: `verify-${name}`, version: "1.0.0", private: true, type: "module", packageManager: rootManifest.packageManager });
     return consumer;
   }
+  await check("pnpm CLI-only consumers discover documentation through the CLI's hidden dependency", async () => {
+    const consumer = await newConsumer("pnpm-cli-docs");
+    await save(join(consumer, ".npmrc"), "auto-install-peers=false\n");
+    await save(join(consumer, "pnpm-workspace.yaml"), `packages:\n  - .\noverrides:\n${Object.entries(summary.cliResolution.pnpmOverride).map(([name, path]) => `  ${JSON.stringify(name)}: ${JSON.stringify(path)}`).join("\n")}\n`);
+    await install(consumer, "pnpm", "cli-docs", [packed["@docture/cli"].target]);
+    await assert.rejects(stat(join(consumer, "node_modules/docture")), { code: "ENOENT" });
+    const nested = join(consumer, "apps/nested");
+    await save(join(nested, "docs.mjs"), documentationConsumer("@docture/cli"));
+    await run("pnpm-cli-only-documentation", "node", ["docs.mjs"], nested);
+  });
   await verifyEvalPackage({ packed, tools, check, newConsumer, install, save, run, tsc, versionSpec, assertInstalled });
   await verifySyntheticPackage({ packed, tools, check, newConsumer, install, save, run, tsc, versionSpec, assertInstalled, installedPackages });
   const versionOf = async (consumer, name) => (await installedPackages(consumer)).filter(pkg => pkg.name === name).map(pkg => pkg.version);
@@ -570,6 +588,12 @@ async function main() {
       });
       await save(join(consumer, "exports.mjs"), `import assert from "node:assert/strict";\n${resolutions.join("\n")}\n`);
       await run(`${manager}-exports`, "node", ["exports.mjs"], consumer);
+    });
+    await check(`${manager} nested consumers can read version-matched documentation offline`, async () => {
+      const nested = join(consumer, "apps/nested");
+      await mkdir(nested, { recursive: true });
+      await save(join(nested, "docs.mjs"), documentationConsumer());
+      await run(`${manager}-documentation`, "node", ["docs.mjs"], nested);
     });
     if (manager === "npm") for (const bundler of ["esbuild", "rollup"]) await check(`${bundler} core output excludes LLM and document engines`, async () => {
       const evidence = await buildBundle({ consumer, profile: "core", bundler, tools });
@@ -718,6 +742,10 @@ const email=await expandEmail({bytes:new TextEncoder().encode("From: a@example.t
     assert.deepEqual(packages.filter(pkg => pkg.name.startsWith("@docture/")).map(pkg => pkg.name).sort(), ["@docture/cli", "@docture/eval", "@docture/synthetic"]);
     assert.equal(packages.filter(pkg => pkg.name === "docture").length, 1);
     assert.equal(packages.find(pkg => pkg.name === "docture").version, library.manifest.version);
+    for (const owner of ["@docture/cli", "@docture/eval", "@docture/synthetic"]) {
+      await save(join(consumer, "docs.mjs"), documentationConsumer(owner));
+      await run(`${manager}-${owner.split("/")[1]}-documentation`, "node", ["docs.mjs"], consumer);
+    }
     const bin = join(consumer, "node_modules", ".bin", "docture");
     const version = await run(`${manager}-cli-version`, bin, ["--version"], consumer);
     assert.equal(version.trim(), cli.manifest.version);
@@ -1074,6 +1102,10 @@ export default defineSynthConfig({ model, templates: [slip], createdAt: "2025-01
     assert.deepEqual(aiVersions.sort(), [cli.manifest.dependencies.ai, applicationAiVersion].sort());
     await save(join(consumer, "probe.mjs"), cliPeerContexts.probe);
     await save(join(consumer, "peer-contexts.json"), JSON.parse(await run("pnpm-peer-contexts-probe", "node", ["probe.mjs"], consumer)));
+    for (const owner of ["docture", "@docture/cli"]) {
+      await save(join(consumer, "docs.mjs"), documentationConsumer(owner));
+      await run(`pnpm-peer-context-${owner === "docture" ? "application" : "cli"}-documentation`, "node", ["docs.mjs"], consumer);
+    }
     await save(join(consumer, "schema.json"), cliPeerContexts.schema);
     for (const name of ["usage", "noStrategy", "timeout"]) await save(join(consumer, name, "docture.config.mjs"), cliPeerContexts[name]);
     const bin = join(consumer, "node_modules", ".bin", "docture");

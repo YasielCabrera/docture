@@ -80,10 +80,17 @@ localhost by default. Non-loopback binding requires a bearer token. Configuratio
 is fixed at startup; restart to refresh it. Shutdown drains or aborts requests and
 disposes warm resources. Do not share the service as an unrestricted file reader.
 
-`node_modules/@docture/cli/README.md` ships beside this file. The full guides
-are Markdown files at
-[apps/docs/content/docs](https://github.com/YasielCabrera/docture/tree/main/apps/docs/content/docs): `cli/`
-for commands and MCP tools, `resources/troubleshooting.mdx` for symptoms, and
-`resources/errors.mdx` for each error code. They track the main branch. A
-documentation site built from that folder indexes the same pages at `/llms.txt`.
+`node_modules/@docture/cli/README.md` ships beside this file. Complete Markdown
+guides ship once in the CLI's `docture` dependency. Resolve that copy from the
+consuming workspace package, including when pnpm keeps it under the CLI:
+
+```sh
+node --input-type=module -e 'import { createRequire } from "node:module"; console.log(createRequire(import.meta.resolve("@docture/cli")).resolve("docture/docs/manifest.json"))'
+```
+
+Read `llms/cli.txt`, `cli/quick-start.md`, and the linked references relative to
+the manifest's directory. Its `packages` field identifies the exact documented
+versions. Check them against installed versions, particularly when the
+application also has its own `docture` copy. The task index is `llms-tasks.txt`,
+and `llms.txt` lists every page. Errors and troubleshooting are under `resources/`.
 Report live model, Docling and Paperless checks separately from mock tests.

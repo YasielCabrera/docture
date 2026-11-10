@@ -2,6 +2,11 @@
 
 Evaluate structured extraction with schema-driven specs, project-owned datasets and one versioned result format. Compare runs, gate changes and render saved results offline.
 
+Offline guides ship in the required `docture` peer's `docs/` directory. Read this
+package's `AGENTS.md` to locate that copy, then open `llms/evaluation.txt` relative
+to its documentation manifest. Check the manifest's `packages` versions against
+the installed packages.
+
 ## Install
 
 ```sh

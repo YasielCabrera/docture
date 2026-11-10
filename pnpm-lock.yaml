@@ -141,6 +141,9 @@ importers:
       ppu-paddle-ocr:
         specifier: 6.3.0
         version: 6.3.0(onnxruntime-node@1.27.0)
+      remark:
+        specifier: 15.0.1
+        version: 15.0.1
       sharp:
         specifier: 0.35.5
         version: 0.35.5(@types/node@24.13.3)

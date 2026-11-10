@@ -366,6 +366,7 @@ Only `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic` are pu
 | Import | Exports or purpose |
 | --- | --- |
 | `docture` | Core contracts, `Extractor`, `DocumentConverter`, `Process`, errors, and custom components |
+| `docture/docs/manifest.json` | Data asset locating offline guides, exact documented versions, and content hashes |
 | `docture/node` | The core API with local file paths and file URLs: `Extractor`, `DocumentConverter`, `Process`, `resolveNodeSource` |
 | `docture/llm` | `LLM`, `model`, and all model components and helpers |
 | `docture/llm/text` | `LlmStrategy`, `LlmStrategyOptions`, `llm`, `modelIdOf` |
@@ -548,6 +549,31 @@ the [migration guide](apps/docs/content/docs/resources/migration.mdx) for the co
 
 ## Documentation
 
+The `docture` npm package includes the complete Markdown documentation for all four
+packages under `node_modules/docture/docs/`. Start with `llms-tasks.txt`, use
+`llms.txt` to find individual pages, or look up APIs in `api-symbols.json`.
+Links between the bundled pages work offline.
+
+Resolve the installed documentation from the workspace package that uses Docture:
+
+```sh
+node --input-type=module -e 'console.log(import.meta.resolve("docture/docs/manifest.json"))'
+```
+
+Read files relative to that manifest. Its `packages` field lists the exact versions
+documented for `docture`, `@docture/cli`, `@docture/eval`, and `@docture/synthetic`.
+Compare them with installed versions when using compatible but different releases.
+The scoped packages' `AGENTS.md` files explain how to resolve their own dependency
+copy under npm and pnpm.
+
+For agents, add this instruction to your application's own `AGENTS.md`:
+
+```text
+Before changing Docture code, read the installed docture/AGENTS.md and its
+docs/llms-tasks.txt. Resolve docture from the workspace package being edited,
+check docs/manifest.json for the documented versions, and read the relevant guides.
+```
+
 - **Docs site**: [`apps/docs`](apps/docs), Fumadocs on Next.js. `pnpm docs` → http://localhost:3100
 - **Examples**: [`apps/examples`](apps/examples), runnable folders covering extraction and conversion, including offline paths.
 - **Architecture**: [`packages/docture/ARCHITECTURE.md`](packages/docture/ARCHITECTURE.md) for the layering.
@@ -588,6 +614,16 @@ Toolchain: pnpm workspaces, Turborepo, TypeScript 7, Vitest 4, Changesets.
 The workspace build includes the documentation site. Outside Vercel, set `SITE_URL`
 to its absolute origin so the production sitemap contains canonical URLs. See the
 [documentation app guide](apps/docs/README.md) for local development and build settings.
+
+`pnpm --filter docture build` also generates the installed documentation without
+building the site. `pnpm docs:bundle` regenerates only the documentation.
+Packing `docture` refreshes the documentation snapshot. After `pnpm version-packages`,
+publication checks that no unreleased changesets remain and that the source checkout
+is clean with a known revision. Development builds and packs retain their `unreleased`
+status. `pnpm release` validates the bundled documentation before publishing the
+npm packages.
+The library build is uncached so its source revision is refreshed; Turbo still tracks
+the documentation inputs for downstream tasks.
 
 Adding a loader for another library is three steps:
 

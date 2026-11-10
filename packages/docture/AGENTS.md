@@ -94,12 +94,25 @@ strings do not establish identity across installed copies.
 Fallback and errors, Error codes, and Packages and imports sections cover the
 public API of this installed version.
 
-The full guides are Markdown files in the repository at
-[apps/docs/content/docs](https://github.com/YasielCabrera/docture/tree/main/apps/docs/content/docs). Start
-with `resources/troubleshooting.mdx` for verified symptoms and
-`resources/errors.mdx` for each error code. They track the main branch, so
-check `resources/changelog.mdx` against the installed version. A documentation
-site built from that folder serves the same pages, indexed at `/llms.txt`.
+The complete documentation for all four packages ships once in
+`node_modules/docture/docs/`. Start with `llms-tasks.txt` for a task,
+`llms.txt` for the page index, or `api-symbols.json` for a symbol. Read individual
+Markdown files as needed. Internal links work offline.
+
+From the consuming workspace package, locate the installed copy without loading
+the runtime:
+
+```sh
+node --input-type=module -e 'console.log(import.meta.resolve("docture/docs/manifest.json"))'
+```
+
+Read files relative to that manifest, not a guessed path through `.pnpm`.
+Its `packages` field records the exact versions documented for all four packages.
+Check those versions against the application's installed packages before using
+package-specific APIs. `releaseStatus: "unreleased"` identifies a development
+snapshot. Prefer installed docs over the repository's moving main branch.
+`resources/troubleshooting.md` covers symptoms and `resources/errors.md` covers
+error codes.
 
 Prefer deterministic provider mocks for local tests. State separately which live
 integrations were exercised.

@@ -19,8 +19,9 @@
     "check": "turbo run typecheck test",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "turbo run build && changeset publish",
+    "release": "turbo run build && pnpm docs:bundle --release && changeset publish",
     "docs": "turbo run dev --filter @docture/docs",
+    "docs:bundle": "node scripts/build-package-docs.mjs",
     "verify:packages": "node scripts/verify-packages.mjs"
   },
   "devDependencies": {

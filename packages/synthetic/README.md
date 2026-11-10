@@ -2,6 +2,11 @@
 
 Generate labeled synthetic documents from your extraction schema. Each document comes with ground truth that is correct by construction: the value of every printed field, and the page and box where it is printed. Corpora are reproducible from a seed, and `@docture/eval` can score them with no manual labeling.
 
+Offline guides ship in the required `docture` peer's `docs/` directory. Read this
+package's `AGENTS.md` to locate that copy, then open `llms/synthetic.txt` relative
+to its documentation manifest. Check the manifest's `packages` versions against
+the installed packages.
+
 ## Install
 
 ```sh

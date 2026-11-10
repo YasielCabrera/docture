@@ -2,9 +2,18 @@
 
 Read this file explicitly before writing evaluation code for an application that
 uses `@docture/eval`. A coding agent can read `node_modules/@docture/eval/AGENTS.md`;
-automatic discovery inside dependencies is not assumed. The guides are Markdown
-files at [apps/docs/content/docs/evaluation](https://github.com/YasielCabrera/docture/tree/main/apps/docs/content/docs/evaluation),
-and a documentation site built from them indexes every page at `/llms.txt`.
+automatic discovery inside dependencies is not assumed. Complete Markdown guides
+ship once in the required `docture` peer. Locate its manifest from the consuming
+workspace package:
+
+```sh
+node --input-type=module -e 'import { createRequire } from "node:module"; console.log(createRequire(import.meta.resolve("@docture/eval")).resolve("docture/docs/manifest.json"))'
+```
+
+Read `llms/evaluation.txt` and `evaluation/quick-start.md` relative to the manifest's
+directory. Check its `packages` versions against the installed packages: the
+peer range allows compatible versions, not only the exact release documented.
+The complete task index is `llms-tasks.txt`. These files work offline.
 
 ```sh
 npm install @docture/eval docture zod
