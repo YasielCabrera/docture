@@ -1,5 +1,6 @@
 import type { ApiEntrypointInventory } from "../api-reference.js";
 import type { ApiSymbolRecord } from "../lib/api-symbol-markdown.js";
+import { markdownPageUrl } from "../lib/markdown-links.js";
 
 interface Heading {
   readonly line: number;
@@ -151,6 +152,7 @@ export function apiSymbols(inventory: readonly ApiEntrypointInventory[], pages: 
           symbol,
           importPaths: [...new Set([...(previous?.importPaths ?? []), item.importPath])].sort(),
           ...reference,
+          markdownUrl: markdownPageUrl(reference.url),
         });
       }
     }

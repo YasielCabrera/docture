@@ -7,7 +7,8 @@ import { toAgentMarkdown, transformMarkdownHtml } from "./agent-markdown";
 import { expandSourceExamples } from "./example-source";
 import { apiSymbolsMarkdown } from "./api-symbol-markdown";
 import symbols from "../public/api-symbols.json";
-import { absoluteUrl, docsRelease, docsRevision } from "./site";
+import { absoluteUrl, docsRelease, docsRevision, siteOrigin } from "./site";
+import { markdownPageUrl, rewriteMarkdownLinks, websiteMarkdownLink } from "./markdown-links";
 import { docsRoute } from "./shared";
 
 const docs = defineDocs({
@@ -25,11 +26,13 @@ export const source = loader({
 });
 
 export function getPageMarkdownUrl(page: (typeof source)["$inferPage"]): string {
-  return `${page.url}.md`;
+  return markdownPageUrl(page.url);
 }
 
 export async function getLLMText(page: (typeof source)["$inferPage"]): Promise<string> {
-  return getPageMarkdown(page, { release: docsRelease, revision: docsRevision, sourceUrl: absoluteUrl });
+  const text = await getPageMarkdown(page, { release: docsRelease, revision: docsRevision, sourceUrl: absoluteUrl });
+  const context = { origin: siteOrigin(), pageUrl: page.url, pageUrls: new Set(source.getPages().map((entry) => entry.url)) };
+  return rewriteMarkdownLinks(text, (url) => websiteMarkdownLink(url, context));
 }
 
 export async function getPageMarkdown(page: (typeof source)["$inferPage"], context: {

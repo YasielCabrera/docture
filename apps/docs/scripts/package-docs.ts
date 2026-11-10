@@ -8,7 +8,8 @@ import type { source, getPageMarkdown } from "../lib/source";
 import { llmsArea, llmsIndex, llmsTasks } from "../lib/llms-index";
 import { hasUnreleasedChanges, publishedPackageFolders } from "../lib/release";
 import symbols from "../public/api-symbols.json";
-import { isExternalLink, localLinkTarget, markdownReferences, offlineLink, rewriteMarkdownLinks, validateDocumentationLinks } from "./package-docs-markdown";
+import { rewriteMarkdownLinks } from "../lib/markdown-links";
+import { isExternalLink, localLinkTarget, markdownReferences, offlineLink, validateDocumentationLinks } from "./package-docs-markdown";
 
 const run = promisify(execFile);
 const packageManifest = z.object({ name: z.string(), version: z.string() });
@@ -119,14 +120,16 @@ export async function packageDocumentation(options: {
     if (index === undefined) throw new Error(`Missing documentation area: ${area}`);
     files.set(path, index);
   }
-  const localSymbols = symbols.map((symbol) => ({ ...symbol, url: link("api-symbols.json")(symbol.url) }));
+  const localSymbols = symbols.map((symbol) => ({ ...symbol, url: link("api-symbols.json")(symbol.url), markdownUrl: link("api-symbols.json")(symbol.markdownUrl) }));
   files.set("api-symbols.json", json(localSymbols));
   validateDocumentationLinks(files);
   for (const symbol of localSymbols) {
-    if (isExternalLink(symbol.url)) throw new Error(`API reference is not local: ${symbol.symbol}`);
-    const target = localLinkTarget(symbol.url, "api-symbols.json");
-    const page = files.get(target.path);
-    if (page === undefined || target.anchor && !markdownReferences(page).anchors.has(target.anchor)) throw new Error(`Missing API reference: ${symbol.symbol} at ${symbol.url}`);
+    for (const url of [symbol.url, symbol.markdownUrl]) {
+      if (isExternalLink(url)) throw new Error(`API reference is not local: ${symbol.symbol}`);
+      const target = localLinkTarget(url, "api-symbols.json");
+      const page = files.get(target.path);
+      if (page === undefined || target.anchor && !markdownReferences(page).anchors.has(target.anchor)) throw new Error(`Missing API reference: ${symbol.symbol} at ${url}`);
+    }
   }
   const entries = [...files].sort(([a], [b]) => compare(a, b));
   const manifest = { schemaVersion: 1, packageName: "docture", ...release, index: "llms.txt", tasks: "llms-tasks.txt", symbols: "api-symbols.json", pages: inventory, files: entries.map(([path, contents]) => ({ path, sha256: sha256(contents) })) };

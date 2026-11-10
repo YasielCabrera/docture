@@ -15,6 +15,8 @@ import { PageActions } from "@/components/page-actions";
 import { PageTOCPopover } from "@/components/page-toc";
 import { gitConfig, repositoryUrl } from "@/lib/shared";
 import { getPageMarkdownUrl, source } from "@/lib/source";
+import { docsRelease } from "@/lib/site";
+import Link from "next/link";
 
 export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   const params = await props.params;
@@ -46,6 +48,12 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
         <DocsDescription className="mb-0 mt-4 text-base leading-relaxed sm:text-lg">
           {page.data.description}
         </DocsDescription>
+        <p className="mt-3 text-sm text-fd-muted-foreground" aria-label="Documentation version">
+          Documents docture {docsRelease}.{" "}
+          <Link href="/docs/getting-started/ai-agents#read-the-installed-documentation" className="underline underline-offset-4">
+            Match your installed version
+          </Link>
+        </p>
       </header>
       <DocsBody>
         <MDX components={getMDXComponents({ a: createRelativeLink(source, page) })} />

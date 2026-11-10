@@ -1,6 +1,6 @@
 # @docture/docs
 
-The documentation site. [Fumadocs](https://fumadocs.dev) 16 on Next.js 16.
+The [documentation site](https://docture.vercel.app/docs), built with [Fumadocs](https://fumadocs.dev) 16 on Next.js 16. The [agent guide](https://docture.vercel.app/docs/getting-started/ai-agents) covers installed docs and Markdown access.
 
 ```sh
 pnpm docs                      # from the repo root → http://localhost:3100
@@ -39,7 +39,7 @@ Vercel, for example through the hosting platform's environment settings. The roo
 layout validates it with `new URL` and uses it as `metadataBase`. Vercel can use
 Next's native deployment-origin fallback. Development can fall back to localhost
 for absolute social-image URLs. Production builds reject a missing origin before
-generating the sitemap. No production domain is assumed by this repository.
+generating the sitemap. The build derives its canonical origin from these settings.
 The package-level `turbo.json` passes the origin settings to
 Next and includes them in the build cache key. Changes to the canonical kit and
 deployed public assets also invalidate their relevant checks.
@@ -87,6 +87,8 @@ Open with the task or behavior. A guide includes prerequisites, working code or 
 `SourceExample`, expected output, constraints that affect the task, and next links.
 Keep lookup details in reference. Preserve defaults, errors, capability limits, and
 engine install recipes when splitting a page. Use short sentences and plain words.
+Give each `SourceExample` a filename. Include required sibling files or link to the
+section that provides them, and state any input files and credentials the example needs.
 
 The pipeline, bundle-splitting, and architecture pages contain accessible Mermaid
 diagrams. Include `accTitle` and `accDescr`. `components/mdx/mermaid.tsx` provides zoom
@@ -128,8 +130,10 @@ Keep the [installation recipes](content/docs/getting-started/installation.mdx) a
 
 ## Keep generated documentation current
 
-`generate:api` derives symbol names, import aliases, descriptions, and real reference links from the public inventory. The same records drive the API filter, JSON export, and Markdown. `generate:fields` derives requiredness from TypeScript declarations while preserving authored meanings. `generate:installs` reads supported peer requirements and the synthetic recipe's Zod 4.2 JSON Schema floor. It uses major constraints where they cover the supported versions and keeps necessary lower floors, minor caps, and exact-only engine constraints. Broader support still requires the packed engine matrix.
+`generate:api` derives symbol names, import aliases, descriptions, and real reference links from the public inventory. The same records drive the API filter, JSON export, and Markdown. Symbol records expose `url` for HTML and `markdownUrl` for Markdown. The package exporter rewrites both to local files. `generate:fields` derives requiredness from TypeScript declarations while preserving authored meanings. `generate:installs` reads supported peer requirements and the synthetic recipe's Zod 4.2 JSON Schema floor. It uses major constraints where they cover the supported versions and keeps necessary lower floors, minor caps, and exact-only engine constraints. Broader support still requires the packed engine matrix.
 
-Declare task phrases in a page's `tasks` frontmatter. Search and `/llms-tasks.txt` use those phrases from the same canonical page. `/llms/<area>.txt` provides scoped page discovery. Markdown contains the page type and source revision. Outside GitHub or Vercel builds, set `DOCS_REVISION` before invoking Turbo so the revision participates in its cache key. Unconfigured builds label the revision unavailable. Production builds need `SITE_URL` or Vercel's production origin so the sitemap cannot be empty.
+Declare task phrases in a page's `tasks` frontmatter. Use the words a reader searches for, such as "RAG", "timeouts", or "split a PDF". Search and `/llms-tasks.txt` use those phrases from the same canonical page. `/llms/<area>.txt` provides scoped page discovery. Website Markdown links to absolute `.md` destinations and preserves section fragments. Offline pages keep local Markdown links.
+
+HTML and Markdown pages name the exact documented version and identify unreleased changes. Markdown also contains the page type and source revision. Outside GitHub or Vercel builds, set `DOCS_REVISION` before invoking Turbo so the revision participates in its cache key. Unconfigured builds label the revision unavailable. Production builds need `SITE_URL` or Vercel's production origin so the sitemap cannot be empty.
 
 Mark self-contained TypeScript fences with `check` to compile them. Use `signature` for API syntax and `expect-error` for deliberate failures. Unmarked blocks are labelled code excerpts; they do not promise a complete program. Complete source examples retain their filenames. Code labels are numbered within each page for accessible region navigation.

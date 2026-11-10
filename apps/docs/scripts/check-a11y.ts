@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import type axe from "axe-core";
 import { chromium, type Browser } from "playwright-core";
 import migration from "../lib/docs-migration.json" with { type: "json" };
+import { docsRelease } from "../lib/site";
 
 declare global {
   interface Window { axe: typeof axe }
@@ -68,6 +69,8 @@ try {
         check(await page.locator("main, [role=main]").count() === 1, `${path}: exactly one main landmark`);
         if (width === 320) check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${path}: no page-level horizontal overflow`);
         if (path.startsWith("/docs")) {
+          const version = page.locator('[aria-label="Documentation version"]');
+          check(await version.isVisible() && (await version.innerText()).includes(docsRelease), `${path}: the documented version is visible`);
           await page.keyboard.press("Tab");
           check(await page.locator(":focus").getAttribute("href") === "#nd-page", `${path}: the first Tab reaches the content bypass link`);
           await page.keyboard.press("Enter");
@@ -102,12 +105,25 @@ try {
   }
   const page = await browser.newPage();
   await page.goto(`${origin}/docs`);
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "For agents" }).click();
+  await page.waitForURL(`${origin}/docs/getting-started/ai-agents`);
+  await page.goto(`${origin}/docs`);
   await page.getByRole("button", { name: /^Search|^Open Search/ }).first().click();
   await page.getByRole("textbox", { name: "Search" }).fill("PDF to Markdown");
   const guide = page.getByRole("dialog", { name: "Search" }).getByRole("button", { name: /Convert your first PDF/ }).first();
   await guide.waitFor();
   await guide.click();
   await page.waitForURL(`${origin}/docs/conversion/quick-start`);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin });
+  await page.goto(`${origin}/docs/extraction/with-a-model`);
+  await page.getByRole("button", { name: "Copy page", exact: true }).click();
+  await page.getByRole("button", { name: "Copied!", exact: true }).waitFor();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  check(copied === await (await fetch(`${origin}/docs/extraction/with-a-model.md`)).text(), "Copy page puts the exported Markdown on the clipboard");
+  check(copied.includes('title="invoice.ts"') && copied.includes('title="extract-invoice.mts"'), "copied examples retain their filenames");
+  check(/\]\(https?:\/\/[^)]+\/docs\/extraction\/quick-start\.md#create-a-sample-invoice\)/.test(copied), "copied prerequisites keep an absolute Markdown link and section");
+  await page.getByRole("link", { name: "Match your installed version" }).click();
+  await page.waitForURL(`${origin}/docs/getting-started/ai-agents#read-the-installed-documentation`);
   const oldTypes = "/docs/evaluation/reference/types";
   const representatives = new Map(Object.entries(migration[oldTypes].anchors).map(([anchor, target]) => [target.split("#")[0], { anchor, target }]));
   for (const { anchor, target } of representatives.values()) {

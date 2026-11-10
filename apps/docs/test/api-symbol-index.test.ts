@@ -42,7 +42,7 @@ describe("public API symbol references", () => {
     const records = apiSymbols(inventory, new Map([[page, source]]));
     expect(records).toEqual([{
       packageName: "docture", symbol: "Example", importPaths: ["docture", "docture/node"],
-      url: "/docs/reference/example#example", description: "An example value with a stable identity.",
+      url: "/docs/reference/example#example", markdownUrl: "/docs/reference/example.md#example", description: "An example value with a stable identity.",
     }]);
     expect(apiSymbolsMarkdown(records)).toBe([
       "| Symbol | Import | Reference |", "| --- | --- | --- |",
@@ -87,8 +87,8 @@ describe("public API symbol references", () => {
       { packageName: "@docture/synthetic", importPath: "@docture/synthetic/llm", entrypoint: "llm.ts", pages: { [page]: ["ENGINE_RANGES"] } },
     ];
     expect(apiSymbols(inventory, new Map([[page, content]]))).toEqual([
-      { packageName: "@docture/synthetic", symbol: "ENGINE_RANGES", importPaths: ["@docture/synthetic/faker"], url: "/docs/reference/example#engine_ranges", description: "The supported Faker engine." },
-      { packageName: "@docture/synthetic", symbol: "ENGINE_RANGES", importPaths: ["@docture/synthetic/llm"], url: "/docs/reference/example#engine_ranges-1", description: "The supported AI engine." },
+      { packageName: "@docture/synthetic", symbol: "ENGINE_RANGES", importPaths: ["@docture/synthetic/faker"], url: "/docs/reference/example#engine_ranges", markdownUrl: "/docs/reference/example.md#engine_ranges", description: "The supported Faker engine." },
+      { packageName: "@docture/synthetic", symbol: "ENGINE_RANGES", importPaths: ["@docture/synthetic/llm"], url: "/docs/reference/example#engine_ranges-1", markdownUrl: "/docs/reference/example.md#engine_ranges-1", description: "The supported AI engine." },
     ]);
   });
 

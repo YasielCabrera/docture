@@ -3,6 +3,7 @@ export interface ApiSymbolRecord {
   readonly symbol: string;
   readonly importPaths: readonly string[];
   readonly url: string;
+  readonly markdownUrl: string;
   readonly description: string;
 }
 

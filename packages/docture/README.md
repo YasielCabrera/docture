@@ -12,6 +12,9 @@ Markdown, HTML, or versioned JSON. You pick the PDF or OCR library and, when nee
 It also generates labeled synthetic documents from your schema, so you can measure an
 extraction pipeline before you have a hand-labeled corpus.
 
+[Documentation](https://docture.vercel.app/docs) ·
+[For agents](https://docture.vercel.app/docs/getting-started/ai-agents)
+
 ## Features
 
 - **Typed to the leaves**: `result.data` is inferred from your schema. No casts, no `any`.
@@ -574,7 +577,8 @@ docs/llms-tasks.txt. Resolve docture from the workspace package being edited,
 check docs/manifest.json for the documented versions, and read the relevant guides.
 ```
 
-- **Docs site**: [`apps/docs`](https://github.com/YasielCabrera/docture/tree/main/apps/docs), Fumadocs on Next.js. `pnpm docs` → http://localhost:3100
+- **Documentation**: [guides and API reference](https://docture.vercel.app/docs), with [agent setup](https://docture.vercel.app/docs/getting-started/ai-agents) for installed docs and Markdown access.
+- **Docs development**: [`apps/docs`](https://github.com/YasielCabrera/docture/tree/main/apps/docs), Fumadocs on Next.js. Run `pnpm docs` and open http://localhost:3100.
 - **Examples**: [`apps/examples`](https://github.com/YasielCabrera/docture/tree/main/apps/examples), runnable folders covering extraction and conversion, including offline paths.
 - **Architecture**: [`packages/docture/ARCHITECTURE.md`](https://github.com/YasielCabrera/docture/blob/main/packages/docture/ARCHITECTURE.md) for the layering.
 

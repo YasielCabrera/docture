@@ -1,5 +1,11 @@
 # @docture/eval
 
+## Unreleased
+
+### Patch Changes
+
+- Link the package homepage to the hosted evaluation documentation.
+
 ## 0.3.0
 
 ### Minor Changes

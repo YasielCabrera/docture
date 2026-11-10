@@ -8,7 +8,7 @@
     "url": "git+https://github.com/YasielCabrera/docture.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://github.com/YasielCabrera/docture/tree/main/packages/cli#readme",
+  "homepage": "https://docture.vercel.app/docs/cli",
   "bugs": {
     "url": "https://github.com/YasielCabrera/docture/issues"
   },

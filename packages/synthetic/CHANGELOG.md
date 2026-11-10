@@ -1,5 +1,11 @@
 # @docture/synthetic
 
+## Unreleased
+
+### Patch Changes
+
+- Link the package homepage to the hosted synthetic data documentation.
+
 ## 0.3.0
 
 ### Minor Changes

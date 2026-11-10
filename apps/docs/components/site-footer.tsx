@@ -9,6 +9,7 @@ const footerLinks = [
     title: "Documentation",
     links: [
       { label: "Quick start", href: "/docs/extraction/quick-start" },
+      { label: "For agents", href: "/docs/getting-started/ai-agents" },
       { label: "How it works", href: "/docs/getting-started/how-it-works" },
       { label: "Scanned documents", href: "/docs/integrations/scanned-documents" },
       { label: "Package reference", href: "/docs/getting-started/reference/packages" },

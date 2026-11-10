@@ -87,7 +87,38 @@ example composes the PDF.js loader with a rasterizer. `classify: true` adds an L
 
 ## Complete example
 
-<SourceExample file="with-a-model.ts" title="extract-invoice.ts" />
+Use Node.js 22.18 or newer. Run this standalone example in its own directory. Create `package.json` with the following content, then run the commands from [Install](#install) in that directory:
+
+```json title="package.json"
+{
+  "private": true,
+  "type": "module"
+}
+```
+
+`"type": "module"` makes the sibling `invoice.ts` file an ES module. Put an invoice PDF with a text layer at `invoice.pdf` in the same directory. The [quick start](/docs/extraction/quick-start#create-a-sample-invoice) can generate one.
+
+Save the schema as `invoice.ts`:
+
+<SourceExample file="invoice.ts" title="invoice.ts" />
+
+Save the extractor beside it as `extract-invoice.mts`. Its `./invoice.js` import resolves to `invoice.ts` when run with `tsx`:
+
+<SourceExample file="with-a-model.ts" title="extract-invoice.mts" />
+
+Install the script runner:
+
+```sh
+npm install --save-dev tsx
+```
+
+With `OPENAI_API_KEY` set, run:
+
+```sh
+npx tsx extract-invoice.mts
+```
+
+The script prints the invoice fields and model usage. It caches unchanged requests in `.docture-cache`.
 
 ## Build strategies directly
 

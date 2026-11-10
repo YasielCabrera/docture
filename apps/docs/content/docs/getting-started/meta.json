@@ -4,13 +4,13 @@
   "defaultOpen": true,
   "pages": [
     "installation",
+    "ai-agents",
     "build-the-loop",
     "how-it-works",
     "concepts",
     "architecture",
     "sources",
     "runtime",
-    "ai-agents",
     "reference"
   ],
   "pagesIndex": "index"

@@ -1,5 +1,11 @@
 # @docture/cli
 
+## Unreleased
+
+### Patch Changes
+
+- Link the package homepage to the hosted CLI documentation.
+
 ## 0.3.0
 
 ### Minor Changes

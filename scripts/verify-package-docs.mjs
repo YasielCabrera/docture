@@ -51,8 +51,10 @@ export async function verifyPackedDocumentation(packageDirectory, versions) {
   const quickStart = await readFile(join(directory, "extraction/quick-start.md"), "utf8");
   assert.ok(quickStart.includes("makeInvoicePdf") && quickStart.includes("new Extractor"), "installed tutorials include executable source examples");
   assert.ok(!quickStart.includes("<SourceExample"), "installed tutorials do not need a component renderer");
+  assert.ok(quickStart.includes('title="make-invoice.mts"'), "installed examples retain their displayed filenames");
   const symbols = JSON.parse(await readFile(join(directory, manifest.symbols), "utf8"));
   for (const symbol of symbols) {
+    assert.equal(symbol.markdownUrl, symbol.url, "both symbol destinations resolve to the same offline Markdown contract");
     const target = new URL(symbol.url, "file:///docs/");
     assert.ok(target.href.startsWith("file:///docs/"), `symbol reference stays in the bundle: ${symbol.symbol}`);
     assert.ok(paths.includes(decodeURIComponent(target.pathname.slice("/docs/".length))), `symbol has an installed page: ${symbol.symbol}`);

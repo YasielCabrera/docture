@@ -8,7 +8,8 @@ import { z } from "zod";
 import { toAgentMarkdown } from "../lib/agent-markdown";
 import { expandSourceExamples } from "../lib/example-source";
 import { documentationRelease, writeDocumentation } from "../scripts/package-docs";
-import { offlineLink, rewriteMarkdownLinks, validateDocumentationLinks } from "../scripts/package-docs-markdown";
+import { rewriteMarkdownLinks } from "../lib/markdown-links";
+import { offlineLink, validateDocumentationLinks } from "../scripts/package-docs-markdown";
 
 const run = promisify(execFile);
 const temporary: string[] = [];
@@ -148,6 +149,16 @@ describe("offline documentation", () => {
     expect(guide).toContain("new Extractor()");
     expect(guide).not.toContain("<SourceExample");
     expect(guide).toContain("../getting-started/installation.md");
+    expect(guide).toContain('title="make-invoice.mts"');
+    const model = await readFile(join(output, "extraction/with-a-model.md"), "utf8");
+    expect(model).toContain('title="invoice.ts"');
+    expect(model).toContain('title="extract-invoice.mts"');
+    expect(model).toContain("export const Invoice = contract(");
+    const symbols = z.array(z.object({ url: z.string(), markdownUrl: z.string() })).parse(JSON.parse(await readFile(join(output, "api-symbols.json"), "utf8")));
+    for (const symbol of symbols) {
+      expect(symbol.markdownUrl).toBe(symbol.url);
+      expect(symbol.markdownUrl).not.toMatch(/^(?:\/|https?:)/);
+    }
     await writeFile(join(output, "removed.md"), "stale page");
     await build();
     expect(await readFile(join(output, "manifest.json"), "utf8")).toBe(first);

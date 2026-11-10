@@ -1,5 +1,12 @@
 # docture
 
+## Unreleased
+
+### Patch Changes
+
+- Improve documentation task discovery for retrieval, timeouts, splitting, MCP, caching, and offline use. Link to hosted documentation and agent setup from the README and package homepage.
+- Keep website Markdown links in Markdown, preserve example filenames and prerequisites, and include Markdown destinations in the API symbol index. Show the documented version and unreleased status on documentation pages.
+
 ## 0.3.0
 
 ### Minor Changes

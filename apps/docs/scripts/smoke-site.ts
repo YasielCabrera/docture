@@ -6,6 +6,8 @@ import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import migration from "../lib/docs-migration.json" with { type: "json" };
 import { z } from "zod";
+import { docsRelease } from "../lib/site";
+import { markdownReferences } from "./package-docs-markdown";
 
 const SEARCHES: ReadonlyArray<readonly [query: string, page: string]> = [
   ["PDF.js password", "/docs/integrations/pdfjs"],
@@ -34,6 +36,15 @@ const SEARCHES: ReadonlyArray<readonly [query: string, page: string]> = [
   ["evaluate my own extraction function", "/docs/evaluation/processors"],
   ["build a dataset of synthetic invoices", "/docs/synthetic/corpora"],
   ["recover from a missing optional engine", "/docs/resources/troubleshooting"],
+  ["RAG", "/docs/conversion/retrieval-chunks"],
+  ["prepare documents for RAG", "/docs/conversion/retrieval-chunks"],
+  ["timeouts", "/docs/extraction/lifecycle"],
+  ["set a timeout", "/docs/extraction/lifecycle"],
+  ["split a PDF", "/docs/extraction/splitting"],
+  ["MCP setup", "/docs/cli/mcp"],
+  ["offline documentation", "/docs/getting-started/ai-agents"],
+  ["cache model responses", "/docs/extraction/model-settings"],
+  ["batch PDFs", "/docs/extraction/batches"],
 ];
 
 async function freePort(): Promise<number> {
@@ -81,13 +92,18 @@ try {
   }
 
   const pages = markdownPages.map((path) => path.replace(/\.md$/, ""));
+  const canonicalOrigin = new URL(/\]\((https?:\/\/[^)]+\/docs\.md)\)/.exec(index)?.[1] ?? origin).origin;
   const linked = new Set<string>();
   const rendered = new Map<string, string>();
+  const markdownContent = new Map<string, string>();
+  const markdownTargets = new Map<string, ReturnType<typeof markdownReferences>>();
   for (const page of pages) {
     const html = await get(page);
     check(html.status === 200, `${page} answers ${html.status}`);
     const body = await html.text();
     rendered.set(page, body);
+    const version = /<p\b[^>]*aria-label="Documentation version"[^>]*>([\s\S]*?)<\/p>/.exec(body)?.[1];
+    check(version !== undefined && version.includes(docsRelease) && version.includes("Match your installed version"), `${page} displays its documented version and an installed-docs link`);
     check(/<article[^>]*role="main"|<main\b/.test(body), `${page} has a main landmark`);
     const metadataLinks = body.match(/<link\b[^>]*>/g) ?? [];
     check(metadataLinks.some((link) => {
@@ -101,11 +117,23 @@ try {
     check(edit !== undefined && existsSync(`../../${edit}`), `${page} links "Edit on GitHub" to its source file (${edit})`);
     const markdown = await get(`${page}.md`);
     const text = await markdown.text();
+    markdownContent.set(`${page}.md`, text);
+    markdownTargets.set(`${page}.md`, markdownReferences(text));
     check(markdown.status === 200 && text.startsWith("# "), `${page}.md serves Markdown`);
     check(!/<CodeBlockTabs|<Cards|\{\/\*|\[#[\w-]+\]$/m.test(text), `${page}.md contains no component tags or anchor suffixes`);
     check(!/^<Mermaid\b|^<ApiIndex\b/m.test(text), `${page}.md expands diagrams and symbol lookup`);
     check(/Page type: [\w-]+\. Source revision: .+\./.test(text), `${page}.md identifies its type and revision`);
   }
+  for (const [page, references] of markdownTargets) {
+    for (const link of references.links) {
+      const target = new URL(link, new URL(page, canonicalOrigin));
+      if (target.origin !== canonicalOrigin || !pages.includes(target.pathname.replace(/\.md$/, ""))) continue;
+      check(/^https?:\/\//.test(link) && target.pathname.endsWith(".md"), `${page}: ${link} stays in Markdown after copying`);
+      check(markdownTargets.has(target.pathname) && (!target.hash || markdownTargets.get(target.pathname)?.anchors.has(decodeURIComponent(target.hash.slice(1))) === true), `${page}: ${link} reaches an exported page and section`);
+    }
+  }
+  const modelExample = markdownContent.get("/docs/extraction/with-a-model.md") ?? "";
+  check(modelExample.includes('title="invoice.ts"') && modelExample.includes('title="extract-invoice.mts"') && modelExample.includes("export const Invoice = contract("), "the copied model example includes named files and its imported schema");
   for (const href of linked) {
     const status = (await get(href)).status;
     check([200, 307, 308].includes(status), `rendered link ${href} answers ${status}`);
@@ -128,15 +156,21 @@ try {
 
   const tasks = await (await get("/llms-tasks.txt")).text();
   check(tasks.includes("/docs/extraction/quick-start.md") && tasks.includes("/docs/evaluation/quick-start.md"), "task index links executable starting points");
+  for (const path of ["conversion/retrieval-chunks", "extraction/lifecycle", "extraction/splitting", "cli/mcp", "getting-started/ai-agents", "extraction/model-settings", "extraction/batches"]) {
+    check(tasks.includes(`/docs/${path}.md`), `task discovery includes ${path}`);
+  }
   for (const path of areaExports) {
     const areaIndex = await get(path.replace("/llms-full/", "/llms/"));
     check(areaIndex.ok && (await areaIndex.text()).includes(".md)"), `${path} has a scoped discovery index`);
   }
-  const symbols = z.array(z.object({ symbol: z.string(), importPaths: z.array(z.string()).min(1), url: z.string(), description: z.string() })).parse(await (await get("/api-symbols.json")).json());
+  const symbols = z.array(z.object({ symbol: z.string(), importPaths: z.array(z.string()).min(1), url: z.string(), markdownUrl: z.string(), description: z.string() })).parse(await (await get("/api-symbols.json")).json());
   for (const symbol of symbols) {
     const [path, fragment] = symbol.url.split("#", 2);
     const body = path === undefined ? undefined : rendered.get(path);
     check(body !== undefined && (fragment === undefined || body.includes(`id="${fragment}"`)), `symbol ${symbol.symbol} points to a rendered contract ${symbol.url}`);
+    const target = new URL(symbol.markdownUrl, canonicalOrigin);
+    check(target.pathname === `${path}.md` && target.hash.slice(1) === (fragment ?? ""), `symbol ${symbol.symbol} preserves its contract in Markdown`);
+    check(markdownTargets.has(target.pathname) && (!target.hash || markdownTargets.get(target.pathname)?.anchors.has(decodeURIComponent(target.hash.slice(1))) === true), `symbol ${symbol.symbol} points to an exported Markdown contract`);
   }
 
   for (const [query, page] of SEARCHES) {

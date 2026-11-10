@@ -8,7 +8,7 @@
     "url": "git+https://github.com/YasielCabrera/docture.git",
     "directory": "packages/docture"
   },
-  "homepage": "https://github.com/YasielCabrera/docture#readme",
+  "homepage": "https://docture.vercel.app/docs",
   "bugs": {
     "url": "https://github.com/YasielCabrera/docture/issues"
   },

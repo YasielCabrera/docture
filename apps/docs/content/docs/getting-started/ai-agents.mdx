@@ -2,6 +2,7 @@
 title: Use Docture with AI coding agents
 description: Give a coding agent the Docture documentation as Markdown and the usage guide each package ships.
 type: how-to
+tasks: ["Offline documentation", "Set up an AI coding agent"]
 ---
 
 A coding agent's training data can predate the Docture API you install. Give it
@@ -36,7 +37,7 @@ Pick the source that fits how much context the agent can hold:
 | --- | --- | --- |
 | [`/llms-tasks.txt`](/llms-tasks.txt) | A short list of task guides and area indexes | The agent needs a starting point for a goal |
 | `/llms/<area>.txt`, for example [`/llms/extraction.txt`](/llms/extraction.txt) | A page index for one area | The agent can fetch the relevant pages individually |
-| [`/api-symbols.json`](/api-symbols.json) | Symbol names, public imports, descriptions, and canonical reference links | The agent needs an exact API contract |
+| [`/api-symbols.json`](/api-symbols.json) | Symbol names, public imports, descriptions, and reference links in `url` and `markdownUrl` | The agent needs an exact API contract |
 | [`/llms.txt`](/llms.txt) | An index of every page, grouped by area, as Markdown links with each page's description | The agent fetches pages as it needs them |
 | `/llms-full.txt` on the website | Every page in one large file | The agent needs an optional bulk export |
 | `/llms-full/<area>.txt` on the website, for example `/llms-full/extraction.txt` | Every page of one area in one file | The agent needs a bulk export of that area |
@@ -47,7 +48,9 @@ Each documentation page also has two actions at the top:
 - **Copy page** copies the page as Markdown, ready to paste into a chat.
 - **View as Markdown** opens the same Markdown in the browser. Its URL is the page URL with `.md` appended.
 
-Each Markdown page includes its documentation type and source revision. HTML pages advertise their Markdown alternative and the documentation index. Prefer the task or scoped index before downloading bulk content. Check the page's release context against the installed package guide.
+Links between this website's Markdown pages use absolute `.md` URLs and preserve section fragments, so a copied page keeps its reference links. Source examples include their filenames. In the website's symbol index, use `markdownUrl` to fetch a contract as Markdown or `url` to open its HTML page. Resolve paths in the JSON index against the website origin.
+
+Each Markdown page includes its documentation type and source revision. HTML pages advertise their Markdown alternative and the documentation index. Prefer the task or scoped index before downloading bulk content.
 
 ## Point the agent at the package guides
 
@@ -76,7 +79,8 @@ Read docture/docs/manifest.json to check the documented package versions.
 Find the task in docture/docs/llms-tasks.txt and read its linked Markdown guides.
 ```
 
-Updating `docture` updates its bundled documentation. Its manifest records exact
-documented package versions and marks development snapshots as `unreleased`.
-The site documents one release line, named at the top of `llms.txt` and of each
-Markdown page.
+## Match documentation to your installation
+
+Each website page names the documented package version. A page marked "plus unreleased changes" includes work beyond that release. The same version context appears in `llms.txt` and each Markdown page.
+
+Compare that version with the packages installed in your application. If they differ, prefer the installed documentation and check its `manifest.json`. The manifest records exact documented package versions and marks development snapshots as `unreleased`. Updating `docture` updates its bundled documentation.

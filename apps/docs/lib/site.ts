@@ -4,7 +4,7 @@ import { hasUnreleasedChanges } from "./release";
 
 export const docsRelease = hasUnreleasedChanges(resolve(process.cwd(), "../.."))
   ? `${doctureManifest.version} plus unreleased changes`
-  : doctureManifest.version.replace(/\.\d+$/, ".x");
+  : doctureManifest.version;
 
 export const docsRevision = process.env.DOCS_REVISION ?? "unavailable";
 

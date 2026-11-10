@@ -11,17 +11,6 @@ function walk(node: Nodes, visit: (node: Nodes) => void): void {
   if ("children" in node) for (const child of node.children) walk(child, visit);
 }
 
-export function rewriteMarkdownLinks(value: string, link: (url: string) => string): string {
-  const tree = markdown.parse(value);
-  walk(tree, (node) => {
-    if (node.type === "link" || node.type === "image" || node.type === "definition") node.url = link(node.url);
-    if (node.type === "html" && !/^\s*<!--[\s\S]*-->\s*$/.test(node.value)) {
-      throw new Error(`Unsupported HTML or MDX in packaged documentation: ${node.value.slice(0, 120)}`);
-    }
-  });
-  return markdown.stringify(tree);
-}
-
 export function markdownReferences(value: string): { links: string[]; anchors: Set<string> } {
   const links: string[] = [];
   const anchors = new Set<string>();
