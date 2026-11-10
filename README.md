@@ -621,16 +621,17 @@ To release, run the **Release packages** workflow from `main`. Versions stay bel
 Choose `minor` or `patch` to override that.
 The workflow sets the version in the four packages, renames each `Unreleased`
 section to that version, and runs the lint, typecheck, test, build, and packed
-package gates. With `publish` off it stops after a publish dry run and pushes
+package gates. With `publish` off it stops after a staging dry run and pushes
 nothing. With `publish` on it pushes the version commit and the
-`docture@<version>` tag, publishes to npm, and creates the GitHub release. If a
-run fails after the push, run it again with `bump` set to `none`; packages already
-on npm are skipped.
+`docture@<version>` tag, stages the four packages on npm, and creates the GitHub
+release. If a run fails after the push, run it again with `bump` set to `none`;
+packages already published or staged are skipped.
 
-The workflow authenticates to npm through trusted publishing for the `npm`
-environment, or through an `NPM_TOKEN` secret in that environment when a package
-has no trusted publisher. The same steps run locally as
-`pnpm version-packages`, a commit, then `pnpm release`.
+A staged version is not public yet. Approve each one under **Staged Packages** on
+npmjs.com, or with `npm stage approve <stage-id>`; npm asks for two-factor
+authentication. The workflow authenticates with the `NPM_TOKEN` secret of the `npm`
+environment, a granular token with read and write access to `docture` and the
+`@docture` scope.
 
 The workspace build includes the documentation site. Outside Vercel, set `SITE_URL`
 to its absolute origin so the production sitemap contains canonical URLs. See the
