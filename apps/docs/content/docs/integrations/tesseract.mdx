@@ -26,6 +26,8 @@ new DocumentLoaderTesseract(options?: DocumentLoaderTesseractOptions)
 
 Without a rasterizer, the loader accepts PNG, JPEG, and TIFF. With one, it also accepts PDF. Each page keeps a lazy image function, and spans keep the OCR word confidence.
 
+Each span carries an estimated font size from its line's x-height, so larger lines convert to Markdown headings. Lines are grouped along the page skew measured from the words, so a row of a tilted scan stays one line without `autoRotate`.
+
 The load rejects on rasterization, language-data, worker, recognition, image, or caller abort failures. [Extract from scans and images](/docs/integrations/scanned-documents#use-tesseract-ocr) shows the loader in an extractor.
 
 ### `DocumentLoaderTesseractOptions`

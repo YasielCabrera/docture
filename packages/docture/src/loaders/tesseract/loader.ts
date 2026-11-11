@@ -389,7 +389,12 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
         : turnBack(recognition.rotateRadians, raster.widthPx, raster.heightPx);
     const words: PositionedWord[] = recognition.words
       .filter((word) => word.confidence >= floor)
-      .map((word) => ({ text: word.text, box: unturn?.(word.box) ?? word.box, confidence: word.confidence }));
+      .map((word) => ({
+        text: word.text,
+        box: unturn?.(word.box) ?? word.box,
+        confidence: word.confidence,
+        ...(word.size === undefined ? {} : { style: { fontSize: word.size } }),
+      }));
 
     /**
      * Tesseract's own block → paragraph → line grouping is deliberately discarded in
@@ -398,13 +403,15 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
      * works on the other. And it is more useful here: on a table, Tesseract's layout
      * analysis routinely puts the right-hand column in its OWN block, which splits
      * "Widget 11 216.98" from the "2,386.78" that belongs on the same row. Banding by
-     * `y` puts the row back together.
+     * `y` puts the row back together. On a tilted scan the bands follow the skew
+     * estimated from the words, so the row stays together across the page.
      *
      * `scale` is points-per-pixel, so this is also where pixel boxes become the PDF
      * points every other loader reports.
      */
     const lines = linesFromWords(words, {
       scale: raster.scale,
+      skew: "estimate",
       ...(this.options.lineTolerance === undefined
         ? {}
         : { lineTolerance: this.options.lineTolerance }),

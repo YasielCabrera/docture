@@ -466,6 +466,7 @@ Removes blank words and returns lines top to bottom with spans left to right.
 | --- | --- | --- |
 | `scale` | `1` | Multiplied into every coordinate. A 300 DPI raster passes `72 / 300` to return to PDF points. |
 | `lineTolerance` | `0.5` | Largest distance between word centers on one line, as a fraction of the median word height. |
+| `skew` | `0` | Angle of the page's text lines in radians, positive when lines descend to the right. Words are grouped along it. `"estimate"` measures it from the words. |
 
 ### `textFromLines`
 
