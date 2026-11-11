@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { linesFromWords, textFromLines, type PositionedWord } from "../../src/core/index.js";
+import { estimateSkew } from "../../src/core/domain/lines.js";
 
 /** `[text, xMin, yMin, xMax, yMax]` — terser than object literals for a grid. */
 function word(text: string, x: number, y: number, w = 30, h = 10): PositionedWord {
@@ -183,5 +184,176 @@ describe("textFromLines", () => {
   it("joins lines in reading order", () => {
     const lines = linesFromWords([word("one", 40, 100), word("two", 40, 120)]);
     expect(textFromLines(lines)).toBe("one\ntwo");
+  });
+});
+
+/**
+ * A table of `rows` x 5 cells turned `degrees` about the origin, as a tilted scan
+ * reports it: each cell's box is axis-aligned around its turned centre. `height` is
+ * the reported box height and `pitch` the distance between rows, so a padded OCR box
+ * can be taller than the row pitch, as PaddleOCR's are in a dense table.
+ */
+function tiltedTable(degrees: number, { rows = 20, pitch = 12, height = 10, jitter = 0 } = {}): PositionedWord[] {
+  const turn = (degrees * Math.PI) / 180;
+  const columns = [40, 180, 300, 420, 540];
+  return Array.from({ length: rows }, (_, row) => columns.map((x, column) => {
+    const width = column === 0 ? 90 : 50;
+    const [cx, cy] = [x + width / 2, 100 + row * pitch + height / 2];
+    const shake = jitter * Math.sin(row * 7.3 + column * 3.1);
+    const [tx, ty] = [cx * Math.cos(turn) - cy * Math.sin(turn), cx * Math.sin(turn) + cy * Math.cos(turn) + shake];
+    const tall = height + width * Math.abs(Math.sin(turn));
+    return { text: `r${row}c${column}`, box: [tx - width / 2, ty - tall / 2, tx + width / 2, ty + tall / 2] } as PositionedWord;
+  })).flat();
+}
+
+/** A `width` x `height` word centred on `(x, y)` of a page turned `degrees` about the origin, boxed as a tilted scan reports it. */
+function turned(text: string, x: number, y: number, width: number, height: number, degrees: number): PositionedWord {
+  const turn = (degrees * Math.PI) / 180;
+  const [sin, cos] = [Math.sin(turn), Math.cos(turn)];
+  const [cx, cy] = [x * cos - y * sin, x * sin + y * cos];
+  const [w, h] = [width * cos + height * Math.abs(sin), height * cos + width * Math.abs(sin)];
+  return { text, box: [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2] };
+}
+
+const rowTexts = (rows: number) => Array.from({ length: rows }, (_, row) => [0, 1, 2, 3, 4].map((column) => `r${row}c${column}`).join(" "));
+
+describe("linesFromWords on a tilted page", () => {
+  it("splits a row of a tilted dense table when it groups by height alone", () => {
+    const lines = linesFromWords(tiltedTable(2));
+    expect(lines.map((line) => line.text)).not.toEqual(rowTexts(20));
+  });
+
+  it("keeps every row of a tilted table on one line, in order, when it estimates the skew", () => {
+    const lines = linesFromWords(tiltedTable(1), { skew: "estimate" });
+    expect(lines.map((line) => line.text)).toEqual(rowTexts(20));
+  });
+
+  it("never merges adjacent rows of a dense table, whatever the tilt", () => {
+    for (const degrees of [-3, -1, -0.4, 0, 0.8, 2, 3]) {
+      // Plain words: 10-unit text, rows 12 apart, OCR jitter of a tenth of the text height.
+      const words = linesFromWords(tiltedTable(degrees, { jitter: 1 }), { skew: "estimate" });
+      expect(words.map((line) => line.text), `${degrees} degrees`).toEqual(rowTexts(20));
+      // PaddleOCR-style boxes, padded to 1.8 times the text and taller than the row pitch.
+      const padded = linesFromWords(tiltedTable(degrees, { height: 18, jitter: 1 }), { skew: "estimate", lineTolerance: 0.28 });
+      expect(padded.map((line) => line.text), `${degrees} degrees, padded`).toEqual(rowTexts(20));
+    }
+  });
+
+  it("keeps the rows of a tilted two-column table apart when its wide padded boxes are taller than the row pitch", () => {
+    // PaddleOCR-style regions: 900 wide, 30 tall text padded to 1.8 times, rows 36 apart, sized as the loader sizes them.
+    for (const degrees of [3, 4.9, 5]) {
+      const turn = (degrees * Math.PI) / 180;
+      const [sin, cos] = [Math.sin(turn), Math.cos(turn)];
+      const words = Array.from({ length: 20 }, (_, row) => [0, 1].map((column) => {
+        const [cx, cy] = [550 + column * 1100, 100 + row * 36];
+        const [x, y] = [cx * cos - cy * sin, cx * sin + cy * cos];
+        const [width, height] = [900 * cos + 30 * sin, 1.8 * (30 * cos + 900 * sin)];
+        return { text: `r${row}c${column}`, box: [x - width / 2, y - height / 2, x + width / 2, y + height / 2], style: { fontSize: 30 } } as PositionedWord;
+      })).flat();
+      const lines = linesFromWords(words, { skew: "estimate", lineTolerance: 0.5 / 1.8 });
+      expect(lines.map((line) => line.text), `${degrees} degrees`).toEqual(Array.from({ length: 20 }, (_, row) => `r${row}c0 r${row}c1`));
+    }
+  });
+
+  it("does not put two stacked lines of one column on one line of a tilted page", () => {
+    // Padded 900-wide regions 3 degrees off: each box is 138 tall against a row pitch of 36, so the band reaches the next row.
+    const slope = Math.tan((3 * Math.PI) / 180);
+    const words = Array.from({ length: 8 }, (_, row) => word(`line ${row}`, 100, 100 + row * 36, 900, 1.8 * (30 + 900 * slope)));
+    expect(linesFromWords(words, { skew: Math.atan(slope), lineTolerance: 0.5 / 1.8 }).map((line) => line.text)).toEqual(words.map((w) => w.text));
+  });
+
+  it("keeps overlapping boxes at one height on one line of a tilted page", () => {
+    const words = [word("IE", 30, 100, 30, 15), word("Certification", 31, 101, 110, 13), word("Part", 200, 103, 30, 10)];
+    expect(linesFromWords(words, { skew: (1 * Math.PI) / 180 })).toHaveLength(1);
+  });
+
+  it("keeps each item of a tilted two-column invoice on the line of its own amount", () => {
+    // Description left, amount far right: the far cell drifts a whole row pitch or more over the gap.
+    for (const degrees of [-3, -2, -1, 1, 2, 3]) {
+      const words = Array.from({ length: 20 }, (_, row) => [
+        turned(`Item${row}`, 100, 100 + row * 36, 100, 30, degrees),
+        turned(`Price${row}`, 1200, 100 + row * 36, 100, 30, degrees),
+      ]).flat();
+      expect(linesFromWords(words, { skew: "estimate" }).map((line) => line.text), `${degrees} degrees`)
+        .toEqual(Array.from({ length: 20 }, (_, row) => `Item${row} Price${row}`));
+    }
+  });
+
+  it("keeps a raised mark, a duplicate box, and a fraction part on their line of a tilted page", () => {
+    const line = [turned("before", 50, 100, 40, 10, 2), turned("base", 110, 100, 40, 10, 2), turned("after", 175, 100, 40, 10, 2)];
+    const body = Array.from({ length: 8 }, (_, row) => Array.from({ length: 6 }, (_, index) => turned("word", 50 + index * 45, 150 + row * 20, 40, 10, 2))).flat();
+    const marks = {
+      superscript: turned("2", 128, 96.5, 6, 6, 2),
+      duplicate: turned("base", 110, 103.5, 40, 10, 2),
+      denominator: turned("4", 110, 103.5, 20, 6, 2),
+    };
+    for (const [name, mark] of Object.entries(marks)) {
+      expect(linesFromWords([...line, mark], { skew: (2 * Math.PI) / 180 }), name).toHaveLength(1);
+      expect(linesFromWords([...line, mark, ...body], { skew: "estimate" }), `${name}, estimated`).toHaveLength(9);
+    }
+  });
+
+  it("follows a skew the caller already measured", () => {
+    const lines = linesFromWords(tiltedTable(1), { skew: (1 * Math.PI) / 180 });
+    expect(lines.map((line) => line.text)).toEqual(rowTexts(20));
+  });
+
+  it("groups an upright page exactly as it does without estimating", () => {
+    const page = [...tiltedTable(0), word("A caption under the table", 40, 400, 200), word("Title", 40, 60, 80, 20)];
+    expect(linesFromWords(page, { skew: "estimate" })).toEqual(linesFromWords(page));
+  });
+});
+
+describe("estimateSkew", () => {
+  it("measures the tilt of rows of words", () => {
+    for (const degrees of [-2.5, -0.8, 0.8, 4]) {
+      expect((estimateSkew(tiltedTable(degrees))! * 180) / Math.PI).toBeCloseTo(degrees, 1);
+    }
+  });
+
+  it("reports an upright page as upright", () => {
+    expect(estimateSkew(tiltedTable(0, { jitter: 1 }))).toBe(0);
+  });
+
+  it("has no estimate for a page with one region per line, whose regions never sit side by side", () => {
+    const prose = Array.from({ length: 30 }, (_, row) => word(`line ${row}`, 40, 100 + row * 12, 400 + (row % 3) * 30));
+    expect(estimateSkew(prose)).toBeUndefined();
+  });
+
+  it("does not line up stacked lines of different lengths and indents at an angle", () => {
+    const paragraph = Array.from({ length: 30 }, (_, row) => word(`line ${row}`, 40 + (row % 4) * 25, 100 + row * 12, 300 + ((row * 37) % 160)));
+    expect(estimateSkew(paragraph, { lineTolerance: 0.28 })).toBeUndefined();
+  });
+
+  it("looks no further than the caller allows", () => {
+    expect(estimateSkew(tiltedTable(2), { maxDegrees: 1 })).toBeLessThanOrEqual((1 * Math.PI) / 180);
+    expect(estimateSkew(tiltedTable(2), { maxDegrees: 0 })).toBe(0);
+  });
+
+  it("has no estimate from too few words to tell", () => {
+    expect(estimateSkew([word("one", 0, 0), word("two", 40, 3)])).toBeUndefined();
+  });
+
+  it("does not tilt an upright page to join two columns whose rows sit half a line apart", () => {
+    // Each column's rows are 24 apart and the right column's sit 12 lower: 2.29 degrees joins them row for row.
+    const columns = Array.from({ length: 10 }, (_, row) => [word(`L${row}`, 40, 100 + row * 24, 100), word(`R${row}`, 340, 112 + row * 24, 100)]).flat();
+    expect(estimateSkew(columns)).toBeUndefined();
+    expect(linesFromWords(columns, { skew: "estimate" }).map((line) => line.text)).toEqual(linesFromWords(columns).map((line) => line.text));
+  });
+
+  it("does not tilt a sparse upright form to join labels set at different heights", () => {
+    const form = [word("Name", 40, 100, 100), word("Address", 340, 112, 100), word("Date", 640, 124, 100)];
+    expect(estimateSkew(form)).toBeUndefined();
+    expect(linesFromWords(form, { skew: "estimate" }).map((line) => line.text)).toEqual(["Name", "Address", "Date"]);
+  });
+
+  it("rejects an angle that joins columns when the phrases on each line run level", () => {
+    // Two upright columns of three-word lines, the right one half a line lower and close enough to look like one row at 1 degree.
+    const columns = Array.from({ length: 12 }, (_, row) => [0, 1, 2, 3, 4, 5].map((index) => {
+      const right = index >= 3;
+      return word(`w${row}.${index}`, 40 + index * 34 + (right ? 300 : 0), 100 + row * 24 + (right ? 7 : 0), 30);
+    })).flat();
+    expect(estimateSkew(columns)).toBeUndefined();
+    expect(linesFromWords(columns, { skew: "estimate" })).toHaveLength(24);
   });
 });

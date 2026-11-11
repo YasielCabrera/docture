@@ -32,6 +32,8 @@ new DocumentLoaderPaddleOcr(options?: DocumentLoaderPaddleOcrOptions)
 
 Without a rasterizer, the loader accepts PNG, JPEG, and TIFF. With one, it also accepts PDF. `dispose()` releases the ONNX sessions. A later load creates fresh sessions.
 
+Each region of two or more characters carries an estimated font size from its box shape and text width, corrected for page tilt, so larger lines convert to Markdown headings. When neither the box heights nor the rows show how far the page is tilted, its regions carry no size rather than a wrong one. Regions are grouped along the page skew measured from the regions, so a row of a tilted scan stays one line.
+
 Model download, file, ONNX initialization, rasterization, recognition, image, and caller abort failures reject the load. A requested accelerator that cannot initialize falls back to CPU. [Extract from scans and images](/docs/integrations/scanned-documents#use-paddleocr) shows the loader in an extractor.
 
 ## Options

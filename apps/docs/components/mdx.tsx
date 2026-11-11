@@ -3,12 +3,14 @@ import type { MDXComponents } from "mdx/types";
 import { Mermaid } from "@/components/mdx/mermaid";
 import { SourceExample } from "@/components/mdx/source-example";
 import { CodeExample } from "@/components/mdx/code-example";
+import { Table } from "@/components/mdx/table";
 import { ApiIndex } from "@/components/api-index";
 
 export function getMDXComponents(components?: MDXComponents) {
   return {
     ...defaultMdxComponents,
     pre: CodeExample,
+    table: Table,
     // `remarkMermaidMarkdown` rewrites ```mermaid fences to <Mermaid />, so this is what
     // makes a plain markdown code fence render as a diagram.
     Mermaid,

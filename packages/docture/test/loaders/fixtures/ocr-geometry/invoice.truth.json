@@ -1,0 +1,63 @@
+[
+ {
+  "h": "INVOICE"
+ },
+ {
+  "p": "Invoice number INV-2026-0412"
+ },
+ {
+  "p": "Issued 2026-03-14 Due 2026-04-13"
+ },
+ {
+  "p": "Bill to: Trellis Logistics AG, Bahnhofstrasse 21, 8001 Zurich"
+ },
+ {
+  "table": [
+   [
+    "Description",
+    "Qty",
+    "Unit price",
+    "Amount"
+   ],
+   [
+    "Hydraulic coupling",
+    "4",
+    "118.40",
+    "473.60"
+   ],
+   [
+    "Steel bracket, galvanised",
+    "12",
+    "9.75",
+    "117.00"
+   ],
+   [
+    "Bearing assembly",
+    "2",
+    "264.10",
+    "528.20"
+   ],
+   [
+    "Pressure sensor",
+    "6",
+    "41.25",
+    "247.50"
+   ],
+   [
+    "Cable harness",
+    "3",
+    "77.90",
+    "233.70"
+   ]
+  ]
+ },
+ {
+  "p": "Subtotal 1,600.00"
+ },
+ {
+  "p": "VAT 8.1% 129.60"
+ },
+ {
+  "p": "Total CHF 1,729.60"
+ }
+]

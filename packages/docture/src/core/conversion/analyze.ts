@@ -212,6 +212,20 @@ function provenance(candidates: readonly Candidate[]): ElementProvenance {
   }, candidates.flatMap((candidate) => candidate.lineIds));
 }
 
+function joinedSegments(segments: readonly ProvenanceSegment[], joined: readonly number[]): ProvenanceSegment[] {
+  const rows: ProvenanceSegment[] = [];
+  segments.forEach((segment, index) => {
+    const previous = rows.at(-1);
+    if (previous === undefined || !joined.includes(index)) {
+      rows.push(segment);
+      return;
+    }
+    const lineIds = [...(previous.lineIds ?? []), ...(segment.lineIds ?? [])];
+    rows[rows.length - 1] = { ...previous, box: unionBox([previous.box, segment.box]), ...(lineIds.length === 0 ? {} : { lineIds }) };
+  });
+  return rows;
+}
+
 function rowSegments(candidate: Candidate): ProvenanceSegment[] {
   const aligned = candidate.lineIds.length === candidate.lines.length;
   return candidate.lines.map((line, index) => {
@@ -628,7 +642,7 @@ function analyzeTextCandidates(
         rows: table.rows,
         headerRows: table.headerRows,
         ...(table.spans === undefined ? {} : { spans: table.spans }),
-        rowProvenance: grouped.flatMap(rowSegments),
+        rowProvenance: joinedSegments(grouped.flatMap(rowSegments), table.joined ?? []),
         sourceText: grouped.flatMap((item) => item.lines.map((value) => value.text)).join("\n"),
         provenance: provenance(grouped),
       };

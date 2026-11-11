@@ -1,7 +1,7 @@
 import type { TableCellSpan } from "../domain/conversion.js";
 import type { LayoutBox, TextLine, TextSpan } from "../domain/geometry.js";
 import { spanSeparator } from "../domain/lines.js";
-import { boxOfLines, compatibleTableRows, HEADING_SIZE_RATIO, isTableCandidate, median, type Candidate } from "./candidates.js";
+import { boxOfLines, compatibleTableRows, HEADING_SIZE_RATIO, isTableCandidate, median, tableEm, type Candidate } from "./candidates.js";
 
 const MAX_ROW_STEP = 3;
 const SECTION_STEP = 1.5;
@@ -93,6 +93,8 @@ export interface TableGroup extends TableGrid {
   readonly candidates: readonly Candidate[];
   /** One band per column. Absent when the columns of an equal-width group overlap. */
   readonly bands?: readonly ColumnBand[];
+  /** Indices of group lines joined into the row above. */
+  readonly joined?: readonly number[];
 }
 
 interface Placement {
@@ -265,7 +267,7 @@ function bandRow(candidate: Candidate | undefined): TextLine | undefined {
   const line = candidate.lines[0];
   let row: TextLine | null = null;
   if (line !== undefined && candidate.role === undefined && candidate.lines.length === 1) {
-    const gap = median(line.spans.map((span) => span.height).filter((height) => height > 0)) || 10;
+    const gap = median(line.spans.map(tableEm).filter((height) => height > 0)) || 10;
     const separated = line.spans.every((span, index) => {
       const next = line.spans[index + 1];
       return next === undefined || next.x - (span.x + span.width) >= gap;
@@ -283,6 +285,28 @@ const loneLabel = (candidate: Candidate | undefined): boolean =>
 export function fitsBands(candidate: Candidate, bands: readonly ColumnBand[]): boolean {
   const line = bandRow(candidate);
   return line !== undefined && line.spans.length <= bands.length && placeCells(line.spans, bands) !== undefined;
+}
+
+// Wrapped text is closer than a normal row, with room before the next row.
+const MAX_WRAP_STEP = 1.5;
+
+function isWrappedContinuation(
+  line: TextLine, above: Candidate, below: Candidate, following: Candidate | undefined,
+  bands: readonly ColumnBand[], pitch: number,
+): boolean {
+  if (following === undefined || bandRow(following) === undefined || !fitsBands(following, bands)) return false;
+  const step = below.box.y - above.box.y;
+  if (step >= above.box.height * MAX_WRAP_STEP ||
+    (pitch > 0 && step >= pitch / SECTION_STEP) ||
+    following.box.y - below.box.y < step * SECTION_STEP) return false;
+  const cell = line.spans[0];
+  const placement = cell === undefined ? undefined : placeCells([cell], bands)?.[0];
+  if (cell === undefined || placement === undefined || placement.first !== placement.last) return false;
+  const band = bands[placement.first];
+  const previous = band === undefined ? undefined : above.lines[0]?.spans.find((span) => overlap(span, band) > 0);
+  return band !== undefined && previous !== undefined &&
+    cell.x >= band.left - tableEm(cell) && cell.x + cell.width <= band.right + tableEm(cell) &&
+    previous.x + previous.width >= band.right - tableEm(previous);
 }
 
 function bandGroupAt(candidates: readonly Candidate[], start: number): TableGroup | undefined {
@@ -307,7 +331,7 @@ function bandGroupAt(candidates: readonly Candidate[], start: number): TableGrou
   const bands = columnBands(candidates.slice(seed, end).flatMap((candidate) => candidate.lines));
   if (bands === undefined) return undefined;
   for (;;) {
-    const line = bandRow(candidates[end]);
+    const line = bandRow(candidates[end]) ?? (loneLabel(candidates[end]) ? candidates[end]?.lines[0] : undefined);
     const above = candidates[end - 1];
     const below = candidates[end];
     const pitch = rowPitch(candidates.slice(seed, end).map((candidate) => candidate.box));
@@ -315,7 +339,10 @@ function bandGroupAt(candidates: readonly Candidate[], start: number): TableGrou
     if (!nextRowWithin(above.box, below.box, pitch) || placeCells(line.spans, bands) === undefined) break;
     const body = candidates.slice(seed + 1, end).flatMap((candidate) => candidate.lines);
     const terminalNumeric = body.length > 0 && body.every((row) => row.spans.length < width || /\p{N}/u.test(row.spans[width - 1]?.text ?? ""));
-    if (opensSection(line, above.lines.at(-1), below.box.y - above.box.y, pitch, bands, terminalNumeric)) break;
+    if (line.spans.length === 1) {
+      if (!isWrappedContinuation(line, above, below, candidates[end + 1], bands, pitch)) break;
+    }
+    if (line.spans.length > 1 && opensSection(line, above.lines.at(-1), below.box.y - above.box.y, pitch, bands, terminalNumeric)) break;
     end += 1;
   }
   const group = candidates.slice(start, end);
@@ -324,7 +351,17 @@ function bandGroupAt(candidates: readonly Candidate[], start: number): TableGrou
   const grid = inferTableGrid(lines, bands);
   const leading = seed - start;
   if (grid === undefined || (leading > 0 && (grid.headerRows < 2 || grid.headerRows < leading))) return undefined;
-  return { rule: "bands", candidates: group, bands, ...grid };
+  const rows: string[][] = [];
+  const joined: number[] = [];
+  for (const [index, row] of grid.rows.entries()) {
+    const line = lines[index];
+    const previous = rows.at(-1);
+    if (index > 0 && line?.spans.length === 1 && previous !== undefined && grid.spans === undefined) {
+      row.forEach((cell, col) => { if (cell !== "") previous[col] = `${previous[col] ?? ""} ${cell}`.trim(); });
+      joined.push(index);
+    } else rows.push([...row]);
+  }
+  return { rule: "bands", candidates: group, bands, ...grid, rows, ...(joined.length === 0 ? {} : { joined }) };
 }
 
 function equalWidthGroupAt(candidates: readonly Candidate[], start: number): TableGroup | undefined {
@@ -354,7 +391,7 @@ function cellsOf(line: TextLine): TextSpan[] {
   const cells: TextSpan[] = [];
   for (const span of line.spans) {
     const previous = cells.at(-1);
-    const em = span.style?.fontSize ?? span.height;
+    const em = tableEm(span);
     if (previous === undefined || span.x - (previous.x + previous.width) >= em) {
       cells.push(span);
       continue;
@@ -368,14 +405,50 @@ function cellsOf(line: TextLine): TextSpan[] {
   return cells;
 }
 
+const phraseCandidates = new WeakMap<Candidate, Candidate>();
+const phraseGroups = new WeakMap<readonly Candidate[], readonly Candidate[]>();
+
+function phraseGroup(candidates: readonly Candidate[]): readonly Candidate[] {
+  const cached = phraseGroups.get(candidates);
+  if (cached !== undefined) return cached;
+  const grouped = candidates.map(phraseCandidate);
+  phraseGroups.set(candidates, grouped);
+  return grouped;
+}
+
+function phraseCandidate(candidate: Candidate): Candidate {
+  const cached = phraseCandidates.get(candidate);
+  if (cached !== undefined) return cached;
+  if (candidate.role === "table") return candidate;
+  const grouped = { ...candidate, lines: candidate.lines.map((line) => ({ ...line, spans: cellsOf(line) })) };
+  phraseCandidates.set(candidate, grouped);
+  return grouped;
+}
+
 function wrapsSentences(candidates: readonly Candidate[]): boolean {
   const rows = candidates.map((candidate) => candidate.lines.flatMap(cellsOf));
   return rows.some((row, index) => index > 0 && row.some((cell) => {
     if (!SENTENCE_END.test(cell.text.trim())) return false;
-    const em = cell.style?.fontSize ?? cell.height;
+    const em = tableEm(cell);
     const above = rows[index - 1]?.find((span) => Math.abs(span.x - cell.x) <= em);
     return above !== undefined && above.width >= PROSE_CELL_EMS * em && !SENTENCE_END.test(above.text.trim());
   }));
+}
+
+// Three rows and columns establish a grid even when one descriptive cell is long.
+const MIN_COMPACT_ROWS = 3;
+const MIN_COMPACT_COLUMNS = 3;
+const MAX_LONG_CELLS = 1;
+
+function hasCompactRowsWithWrapping(candidates: readonly Candidate[]): boolean {
+  const cells = candidates.map((candidate) => candidate.lines.flatMap(cellsOf));
+  const full = cells.filter((row) => row.length >= MIN_COMPACT_COLUMNS);
+  return full.length >= MIN_COMPACT_ROWS &&
+    full.every((row) => row.filter((cell) => cell.width >= PROSE_CELL_EMS * tableEm(cell)).length <= MAX_LONG_CELLS) &&
+    cells.every((row, index) => row.length >= MIN_COMPACT_COLUMNS ||
+      (row.length === 1 && index > 0 &&
+        (candidates[index]?.box.y ?? 0) - (candidates[index - 1]?.box.y ?? 0) <
+          (candidates[index - 1]?.box.height ?? 0) * MAX_WRAP_STEP));
 }
 
 /** Whether grouped rows read as a table rather than columns of text: the analyzer's test for every group. */
@@ -389,12 +462,14 @@ export function looksLikeTableGroup(candidates: readonly Candidate[]): boolean {
     (first.length >= 2 || (first.length === 1 && second.length >= 2 && second.every((span) => span.style?.bold === true))) &&
     first.every((span) => span.style?.bold === true) &&
     remaining.some((span) => span.style?.bold !== true);
-  if (typographicHeader) return true;
+  if (typographicHeader) return !wrapsSentences(candidates);
+
+  if (hasCompactRowsWithWrapping(candidates) && !wrapsSentences(candidates)) return true;
 
   return (
     candidates.length >= 3 &&
     candidates.every((candidate) =>
-      candidate.lines.map(cellsOf).every((cells) => cells.length >= 2 && cells.every((cell) => cell.text.trim().length <= 40)),
+      candidate.lines.map(cellsOf).every((cells) => cells.length >= 2 && cells.every((cell) => cell.text.trim().length <= 40) && cells.some((cell) => cell.width <= PROSE_CELL_EMS * (tableEm(cell)))),
     ) &&
     !wrapsSentences(candidates)
   );
@@ -410,10 +485,27 @@ export function tableGroupAt(
   start: number,
   accept: (group: TableGroup) => boolean = () => true,
 ): TableGroup | undefined {
-  const bands = bandGroupAt(candidates, start);
-  if (bands !== undefined && accept(bands)) return bands;
-  const equal = equalWidthGroupAt(candidates, start);
-  return equal !== undefined && accept(equal) ? equal : undefined;
+  const phrases = phraseGroup(candidates);
+  const restore = (group: TableGroup | undefined): TableGroup | undefined => group === undefined ? undefined : {
+    ...group, candidates: candidates.slice(start, start + group.candidates.length),
+  };
+  const firstAccepted = (input: readonly Candidate[]): TableGroup | undefined => {
+    for (const detect of [bandGroupAt, equalWidthGroupAt]) {
+      const group = restore(detect(input, start));
+      if (group !== undefined && accept(group)) return group;
+    }
+    return undefined;
+  };
+  // Raw spans keep tight columns apart, but stop at the first row whose cell spans
+  // several words; phrases continue past it. Phrases win only when they keep every
+  // column the raw spans found, so a longer group never costs a column.
+  const raw = firstAccepted(candidates);
+  const phrased = firstAccepted(phrases);
+  if (raw === undefined) return phrased;
+  const columns = (group: TableGroup): number => Math.max(0, ...group.rows.map((row) => row.length));
+  return phrased !== undefined && phrased.candidates.length > raw.candidates.length && columns(phrased) >= columns(raw)
+    ? phrased
+    : raw;
 }
 
 /** Ids of the candidates in table groups of two or more rows, scanning in the given order. */

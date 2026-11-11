@@ -26,7 +26,13 @@ const stay = (labelsAt: number): readonly FixtureLine[] => [
 describe("a form section under a table in the same columns", () => {
   it("keeps the receipt's Booking ID section out of the Check In table", async () => {
     const result = await convert(formSection.loaded);
-    expect(tables(result).map((table) => table.rows)).toEqual([]);
+    expect(tables(result).map((table) => table.rows)).toEqual([[
+      ["DESCRIPTION", "RATE", "AMOUNT"],
+      ["Room Charges", "Rs 1939 x 1 Night x 1 Room", "Rs 1939"],
+      ["Grand Total", "", "Rs 1939"],
+      ["Payment received by OYO", "Paid through Cash At Hotel (Rs 1939)", "Rs 1939"],
+      ["Balance ( if any )", "", "Rs 0"],
+    ]]);
     expect(texts(result).slice(2, 9)).toEqual([
       "Hotel Details",
       "OYO 4189 Resort Nanganallur,",

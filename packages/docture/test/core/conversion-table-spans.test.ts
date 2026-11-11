@@ -127,11 +127,12 @@ describe("spanning table cells", () => {
     expect(table?.headerRows).toBe(1);
   });
 
-  it("does not treat word-level spans as cells of a band table", async () => {
+  it("groups word spans into cells before comparing table rows", async () => {
     const result = await convert(tableDocument(wordSpanRows), "html");
-    expect(bodyOf(result.content)).toBe(
-      "<p>Drive belt #163 4</p>\n<p>Drive belt #164 13</p>\n<p>Pressure #165 6</p>\n<p>Drive belt #166 15</p>",
-    );
+    expect(tables(result.pages[0]?.elements ?? [])[0]?.rows).toEqual([
+      ["Drive belt", "#163", "4"], ["Drive belt", "#164", "13"],
+      ["Pressure", "#165", "6"], ["Drive belt", "#166", "15"],
+    ]);
   });
 
   it("joins a totals row below a table but not a two-cell footer far below it", async () => {

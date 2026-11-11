@@ -41,6 +41,8 @@ export interface RecognizedWord {
   readonly box: readonly [number, number, number, number];
   /** 0–1. Tesseract reports 0–100; normalized here. */
   readonly confidence: number;
+  /** Estimated font size of the word's line, in pixels. */
+  readonly size?: number;
 }
 
 export interface Recognition {
@@ -118,8 +120,18 @@ interface TesseractPage {
   readonly rotateRadians?: number;
   /** `null` unless the recognition asked for `blocks`. */
   readonly blocks: readonly {
-    readonly paragraphs: readonly { readonly lines: readonly { readonly words: readonly TesseractWord[] }[] }[];
+    readonly paragraphs: readonly { readonly lines: readonly TesseractLine[] }[];
   }[] | null;
+}
+
+interface TesseractLine {
+  readonly words: readonly TesseractWord[];
+  /** The line's fitted x-height plus ascender and descender room, in pixels. */
+  readonly rowAttributes?: {
+    readonly rowHeight: number;
+    readonly ascenders: number;
+    readonly descenders: number;
+  } | null;
 }
 
 interface TesseractWorker {
@@ -362,11 +374,13 @@ function toRecognition(page: TesseractPage, withImage: boolean): Recognition {
   for (const block of page.blocks ?? []) {
     for (const paragraph of block.paragraphs) {
       for (const line of paragraph.lines) {
+        const size = lineTextSize(line);
         for (const word of line.words) {
           words.push({
             text: word.text,
             box: [word.bbox.x0, word.bbox.y0, word.bbox.x1, word.bbox.y1],
             confidence: word.confidence / 100,
+            ...(size === undefined ? {} : { size }),
           });
         }
       }
@@ -381,4 +395,54 @@ function toRecognition(page: TesseractPage, withImage: boolean): Recognition {
     throw new Error("tesseract: the engine returned no PNG for a page image that was requested.");
   }
   return { words, confidence, rotateRadians, image: Uint8Array.from(Buffer.from(url.slice(url.indexOf(",") + 1), "base64")) };
+}
+
+/**
+ * x-height as a fraction of the font size, as Tesseract fits it to Helvetica scans.
+ * Text faces range from about 0.45 (Times) to 0.55 (Verdana); another face shifts
+ * every size in its document alike, so their ratios hold.
+ */
+const X_HEIGHT_EM = 0.55;
+/** Cap and ascender height, and descender depth, as fractions of the font size. */
+const ASCENDER_EM = 0.72;
+const DESCENDER_EM = 0.21;
+/** How far apart the two estimates in {@link lineTextSize} may be and still be averaged. */
+const AGREEMENT = 1.15;
+const X_HEIGHT_ONLY = /^[acegmnopqrsuvwxyz.,;:\-–—_~=+*]*$/u;
+const DESCENDS = /[gjpqyQ,;()[\]{}|@]/u;
+
+/**
+ * The font size of a line, in pixels.
+ *
+ * A word's box height alone is no measure. `a` spans the x-height, `Al` the
+ * ascender height, `gy` the descender too, so one size reads anywhere from 0.5 to
+ * 0.93 of an em. Tesseract fits an x-height to every line, which is steady to a few
+ * percent, but on a line of mostly digits it can take the digit height for the
+ * x-height and come out 30% large. The second estimate is each word's height divided
+ * by the part of the em its letters cover, which errs large where a table rule
+ * touches the words. The two are averaged when they agree within 15%, and the smaller
+ * wins when they do not.
+ *
+ * A line set vertically gets no size: its
+ * words' boxes are as tall as the words are long.
+ */
+function lineTextSize(line: TesseractLine): number | undefined {
+  const vertical = line.words.filter((word) => [...word.text.trim()].length > 2 && word.bbox.y1 - word.bbox.y0 > 1.5 * (word.bbox.x1 - word.bbox.x0));
+  if (vertical.length * 2 > line.words.length) return undefined;
+  const row = line.rowAttributes;
+  const xHeight = row === undefined || row === null ? 0 : row.rowHeight - row.ascenders - row.descenders;
+  const fromRow = xHeight > 0 ? xHeight / X_HEIGHT_EM : Infinity;
+  const heights = line.words
+    .filter((word) => word.text.trim() !== "" && word.bbox.y1 > word.bbox.y0)
+    .map((word) => (word.bbox.y1 - word.bbox.y0) / glyphExtent(word.text.trim()))
+    .sort((a, b) => a - b);
+  const fromWords = heights.length === 0 ? Infinity : heights[heights.length >> 1]!;
+  const [smaller, larger] = fromRow < fromWords ? [fromRow, fromWords] : [fromWords, fromRow];
+  const size = larger <= smaller * AGREEMENT ? (smaller + larger) / 2 : smaller;
+  return Number.isFinite(size) ? size : undefined;
+}
+
+/** The fraction of the em that the ink of `text` spans, from which letters rise or descend. */
+function glyphExtent(text: string): number {
+  return (X_HEIGHT_ONLY.test(text) ? X_HEIGHT_EM : ASCENDER_EM) + (DESCENDS.test(text) ? DESCENDER_EM : 0);
 }

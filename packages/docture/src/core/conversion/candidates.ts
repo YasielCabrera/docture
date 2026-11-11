@@ -194,12 +194,20 @@ export function bodyFontSize(candidates: readonly Candidate[], tableRows: Readon
 /** A candidate this much larger than the body font size reads as a heading. */
 export const HEADING_SIZE_RATIO = 1.18;
 
+/** Geometric em for column spacing; OCR font sizes can exceed the ink box. */
+export function tableEm(span: TextSpan): number {
+  const size = span.style?.fontSize;
+  return size !== undefined && size > 0
+    ? (span.height > 0 ? Math.min(size, span.height) : size)
+    : span.height;
+}
+
 export function isTableCandidate(candidate: Candidate): boolean {
   if (candidate.role === "table") return true;
   if (candidate.lines.length !== 1) return false;
   const spans = candidate.lines[0]?.spans ?? [];
   if (spans.length < 2) return false;
-  const typicalHeight = median(spans.map((span) => span.height).filter((height) => height > 0)) || 10;
+  const typicalHeight = median(spans.map(tableEm).filter((height) => height > 0)) || 10;
   return spans.some((span, index) => {
     const next = spans[index + 1];
     return next !== undefined && next.x - (span.x + span.width) >= typicalHeight;
@@ -211,6 +219,12 @@ export function compatibleTableRows(first: Candidate, next: Candidate): boolean 
   const a = first.lines[0]?.spans ?? [];
   const b = next.lines[0]?.spans ?? [];
   if (a.length !== b.length || a.length < 2) return false;
-  const tolerance = Math.max(4, median([...a, ...b].map((span) => span.height)) * 1.25);
-  return a.every((span, index) => Math.abs(span.x - (b[index]?.x ?? Number.POSITIVE_INFINITY)) <= tolerance);
+  const tolerance = Math.max(4, median([...a, ...b].map(tableEm)) * 1.25);
+  return a.every((span, index) => {
+    const other = b[index];
+    return other !== undefined && (
+      Math.abs(span.x - other.x) <= tolerance ||
+      (a.length >= 3 && Math.abs(span.x + span.width - other.x - other.width) <= tolerance)
+    );
+  });
 }

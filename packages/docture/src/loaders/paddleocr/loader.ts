@@ -2,6 +2,7 @@ import { requestedPageNumbers } from "../../core/pipeline/pages.js";
 import { PageSelectionError } from "../../core/pipeline/errors.js";
 import { readsAsTiff } from "../../core/pipeline/source.js";
 import { pageImageRenderer } from "../../core/contracts/page-images.js";
+import { estimateSkew } from "../../core/domain/lines.js";
 import {
   imageSize,
   inferForm,
@@ -27,6 +28,7 @@ import {
   type Recognition,
   type RecognitionStrategy,
 } from "./paddle.js";
+import { regionTextSize, tiltFromHeights, tiltGrowth } from "./region-geometry.js";
 import { readableTiffPages, tiffPagesAsPng } from "./tiff.js";
 
 const IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/tiff"] as const;
@@ -64,6 +66,9 @@ const CORE_LINE_TOLERANCE = 0.5;
 export function lineToleranceFor(paddingVertical: number): number {
   return CORE_LINE_TOLERANCE / (1 + 2 * Math.max(0, paddingVertical));
 }
+
+/** How far past the tilt the box heights show {@link estimateSkew} may look, in degrees. */
+const TILT_MARGIN_DEGREES = 0.3;
 
 type OcrPage = {
   readonly pageNumber: number;
@@ -417,11 +422,28 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
     recognition: Recognition,
     images: PageImages,
   ): LoadedPage {
-    const words: PositionedWord[] = recognition.regions.map((region) => ({
+    const located: PositionedWord[] = recognition.regions.map((region) => ({
       text: region.text,
       box: region.box,
       confidence: region.confidence,
     }));
+    const tolerance = this.lineTolerance();
+    const padding = {
+      vertical: this.options.paddingVertical ?? DEFAULT_PADDING_VERTICAL,
+      horizontal: this.options.paddingHorizontal ?? DEFAULT_PADDING_HORIZONTAL,
+    };
+    const tilt = tiltFromHeights(located.map((word) => word.box), padding);
+    const skew = estimateSkew(located, {
+      lineTolerance: tolerance,
+      ...(tilt === undefined ? {} : { maxDegrees: tilt + TILT_MARGIN_DEGREES }),
+    });
+    // Prefer the tilt the box heights show over the skew. With neither, a long line
+    // would read large by an unknown amount, so no region is sized.
+    const slope = tilt !== undefined ? Math.tan((tilt * Math.PI) / 180) : skew === undefined ? undefined : Math.tan(skew);
+    const words = slope === undefined ? located : located.map((word) => {
+      const fontSize = regionTextSize(word, slope, padding);
+      return fontSize === undefined ? word : { ...word, style: { fontSize } };
+    });
 
     /**
      * PaddleOCR's own line grouping is deliberately discarded in favour of core's
@@ -437,14 +459,16 @@ export class DocumentLoaderPaddleOcr implements DocumentLoader<LoaderCapabilitie
      * line it raises the average, widening the threshold for whatever comes next.
      * core's bands on vertical CENTRES against the median height of the page, so
      * differently-sized text on one row stays on one row and a single outlier cannot
-     * move the band.
+     * move the band. The bands follow the skew estimated from the regions, so a row of
+     * a tilted scan stays one row however far apart its cells sit.
      *
      * `scale` is points-per-pixel, so this is also where pixel boxes become the PDF
      * points every other loader reports.
      */
     const lines = linesFromWords(words, {
       scale: raster.scale,
-      lineTolerance: this.lineTolerance(),
+      lineTolerance: tolerance / tiltGrowth(located.map((word) => word.box), Math.tan(skew ?? 0), padding),
+      skew: skew ?? 0,
     });
 
     const pageNumber = raster.pageNumber;

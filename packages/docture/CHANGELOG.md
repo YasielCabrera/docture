@@ -2,8 +2,14 @@
 
 ## Unreleased
 
+### Minor Changes
+
+- Tesseract and PaddleOCR pages now report an estimated font size on each span, so Markdown conversion finds headings in scans and ranks them by size. Tesseract sizes come from each line's fitted x-height, checked against its word heights. PaddleOCR sizes combine each region's box shape and text width, corrected for the tilt the box heights show. Single characters stay unsized, and so does a page whose tilt neither its box heights nor its rows reveal.
+- Both OCR loaders group words into lines along the page skew they measure from the words, so rows of a scan tilted by up to 5 degrees stay whole. An angle that only joins the rows of two columns does not count, so upright columns offset by half a line stay apart. A tilted two-column page now reads column by column, and tilted table rows are no longer split. On a tilted invoice, each description stays on the line of its own amount, and a superscript, fraction part, or duplicate OCR box stays on its line. `linesFromWords` accepts a `skew` option, an angle or `"estimate"`. Its default of 0 leaves text-layer loaders unchanged.
+
 ### Patch Changes
 
+- Reconstruct table cells from word-level text, retain right-aligned headers, and join close wrapped cell continuations without requiring vector rulings. Preserve row provenance when joining wrapped cells, keep tight columns separate, and leave trailing notes and two-column letterheads outside inferred tables. Keep wide prose columns out of inferred tables.
 - Improve documentation task discovery for retrieval, timeouts, splitting, MCP, caching, and offline use. Link to hosted documentation and agent setup from the README and package homepage.
 - Keep website Markdown links in Markdown, preserve example filenames and prerequisites, and include Markdown destinations in the API symbol index. Show the documented version and unreleased status on documentation pages.
 
