@@ -1,6 +1,6 @@
 {
   "name": "@docture/cli",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "The Docture command line for extraction, PDF conversion, classification, inspection, and evaluation.",
   "license": "MIT",
   "repository": {

@@ -1,6 +1,6 @@
 {
   "name": "@docture/synthetic",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Generate labeled synthetic documents from an extraction schema: seeded values, typed PDFKit and React templates, field boxes, label verification and scan, photo and fax degradations.",
   "license": "MIT",
   "repository": {

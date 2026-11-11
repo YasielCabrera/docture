@@ -1,6 +1,6 @@
 # @docture/cli
 
-## Unreleased
+## 0.3.1
 
 ### Patch Changes
 

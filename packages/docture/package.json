@@ -1,6 +1,6 @@
 {
   "name": "docture",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Tree-shakeable document extraction, conversion, LLM strategies and optional PDF/OCR integrations.",
   "license": "MIT",
   "repository": {
