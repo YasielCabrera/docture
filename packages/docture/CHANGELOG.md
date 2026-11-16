@@ -1,5 +1,13 @@
 # docture
 
+## Unreleased
+
+### Minor Changes
+
+- Layout analysis is validated and applied one page at a time. When one page's annotations are invalid, that page keeps its deterministic layout and the other pages keep their valid annotations, instead of the whole analysis being dropped. Each rejected page adds its own `INVALID_LAYOUT_ANALYSIS` warning with `pageNumber`, and the message now reads `was ignored on page N: …`. Annotations that belong to no page, such as one naming an ID the document does not contain, are ignored on their own and reported together in one warning (`was ignored for N annotations: …`), instead of rejecting the analysis. The method stays `deterministic+<name>` and the layout attempt stays `ok` when any page applied, and the analyzer's usage is reported once as before. A failed layout attempt's `error` now lists up to three rejections as `page N: <reason>`, and the order reasons read `partial order` and `order is not a permutation` without the page prefix.
+- Export `applyLayoutAnnotations()` from `docture`, with its `AppliedLayoutAnnotations` and `LayoutAnnotationRejection` types, so a caller can validate an analyzer's answer and apply the valid pages without converting again. It reports malformed annotations instead of throwing.
+- `LayoutAnnotation` accepts an optional `pageNumber`, the page it answers for. Set it in an analyzer that answers page by page, so an annotation naming an unknown element rejects only that page and its warning names the page. Without it, such an annotation is rejected on its own and no page is set aside. `mockLayoutModel()` drops `pageNumber`, because the `llmLayout()` response has no such field.
+
 ## 0.3.1
 
 ### Minor Changes

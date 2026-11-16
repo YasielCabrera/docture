@@ -1104,20 +1104,29 @@ export function withoutFurniture(document: LayoutDocument): LayoutDocument {
   };
 }
 
-function restoreFurniture(original: LayoutDocument, analyzed: LayoutDocument): LayoutDocument {
+function withFurniture(page: LayoutPage, body: readonly DocumentElement[]): LayoutPage {
+  const furniture = page.elements.filter(isFurniture);
   return {
-    ...analyzed,
-    pages: analyzed.pages.map((page, index) => {
-      const furniture = original.pages[index]?.elements.filter(isFurniture) ?? [];
-      if (furniture.length === 0) return page;
-      return {
-        ...page,
-        elements: [
-          ...furniture.filter((element) => element.kind === "page-header"),
-          ...page.elements.filter((element) => element.kind !== "page-break"),
-          ...furniture.filter((element) => element.kind === "page-footer"),
-          ...page.elements.filter((element) => element.kind === "page-break"),
-        ],
+    ...page,
+    elements: furniture.length === 0 ? body : [
+      ...furniture.filter((element) => element.kind === "page-header"),
+      ...body.filter((element) => element.kind !== "page-break"),
+      ...furniture.filter((element) => element.kind === "page-footer"),
+      ...body.filter((element) => element.kind === "page-break"),
+    ],
+  };
+}
+
+function withOwnedEvidence(page: LayoutPage, owners: ReadonlyMap<string, ElementOwner>): LayoutPage {
+  if (page.evidence === undefined) return page;
+  return {
+    ...page,
+    evidence: page.evidence.map((source) => {
+      const owner = owners.get(source.elementId);
+      return owner === undefined ? source : {
+        ...source,
+        elementId: owner.elementId,
+        ...(source.granularity === "table-cell" ? { row: source.row + owner.rowOffset } : {}),
       };
     }),
   };
@@ -1146,105 +1155,120 @@ function keepContinuedLast(original: readonly DocumentElement[], ordered: readon
   return [...rest.filter((element) => !after.has(element.id)), continued, ...rest.filter((element) => after.has(element.id))];
 }
 
+/** A page, or a stray annotation, that {@link applyLayoutAnnotations} set aside. */
+export interface LayoutAnnotationRejection {
+  /** The page left as it was. Absent for an annotation that belongs to no page: it is malformed or names neither a known element nor an existing page. */
+  readonly pageNumber?: number;
+  readonly reason: string;
+}
+
+export interface AppliedLayoutAnnotations {
+  /** The layout with each valid page's annotations applied. A rejected page keeps its input elements. */
+  readonly document: LayoutDocument;
+  /** Pages whose annotations were applied, in document order. */
+  readonly appliedPages: readonly number[];
+  /** Rejected pages in document order, then annotations that belong to no page. */
+  readonly rejections: readonly LayoutAnnotationRejection[];
+}
+
 /**
- * Validate analyzer ids and order before applying any suggestion. Annotations
- * naming page furniture are ignored, and furniture keeps its slot. A table or
- * paragraph that continues onto the next page stays last in its page's text, and
- * annotations that would retype or group it are ignored.
+ * Validate and apply layout annotations one page at a time. An annotation belongs to its
+ * `pageNumber`, or else to the page of the element it names. A page with an invalid
+ * annotation keeps its input elements while the other pages apply theirs, and an annotation
+ * that belongs to no page is rejected on its own. Annotations naming page furniture are
+ * ignored, and furniture keeps its slot. A table or paragraph that continues onto the next
+ * page stays last in its page's text, and annotations that would retype or group it are ignored.
  */
 export function applyLayoutAnnotations(
   document: LayoutDocument,
-  suggested: readonly LayoutAnnotation[],
-): { document: LayoutDocument; valid: boolean; reason?: string } {
-  const annotations = forContinuedElements(document, suggested);
-  const body = withoutFurniture(document);
-  if (body === document) return applyToBody(document, annotations);
+  annotations: readonly LayoutAnnotation[],
+): AppliedLayoutAnnotations {
   const furnitureIds = new Set(document.pages.flatMap((page) => page.elements.filter(isFurniture).map((element) => element.id)));
-  const applied = applyToBody(body, annotations.filter((annotation) => !furnitureIds.has(annotation.id)));
-  return applied.valid
-    ? { document: restoreFurniture(document, applied.document), valid: true }
-    : { ...applied, document };
+  const pageOf = new Map(document.pages.flatMap((page) => page.elements
+    .filter((element) => !isFurniture(element))
+    .map((element) => [element.id, page.pageNumber] as const)));
+  const pageNumbers = new Set(document.pages.map((page) => page.pageNumber));
+  const byPage = new Map<number, LayoutAnnotation[]>();
+  const stray: LayoutAnnotationRejection[] = [];
+  const wellFormed = annotations.filter((annotation, index) => {
+    const value: unknown = annotation;
+    if (typeof value === "object" && value !== null && typeof (value as { id?: unknown }).id === "string") return true;
+    stray.push({ reason: `annotation ${index} has no string id` });
+    return false;
+  });
+  for (const annotation of forContinuedElements(document, wellFormed)) {
+    if (furnitureIds.has(annotation.id)) continue;
+    const pageNumber = annotation.pageNumber ?? pageOf.get(annotation.id);
+    if (pageNumber === undefined) {
+      stray.push({ reason: `unknown element id ${annotation.id}` });
+    } else if (!Number.isInteger(pageNumber) || pageNumber < 1) {
+      stray.push({ reason: `page number ${String(pageNumber)} for ${annotation.id} must be a positive integer` });
+    } else if (!pageNumbers.has(pageNumber)) {
+      stray.push({ reason: `page ${pageNumber} does not exist for ${annotation.id}` });
+    } else {
+      const pageAnnotations = byPage.get(pageNumber);
+      if (pageAnnotations === undefined) byPage.set(pageNumber, [annotation]);
+      else pageAnnotations.push(annotation);
+    }
+  }
+
+  const appliedPages: number[] = [];
+  const rejections: LayoutAnnotationRejection[] = [];
+  const owners = new Map<string, ElementOwner>();
+  const pages = document.pages.map((page) => {
+    const pageAnnotations = byPage.get(page.pageNumber) ?? [];
+    const applied = applyToPage(page, pageAnnotations, pageOf);
+    if ("reason" in applied) {
+      rejections.push({ pageNumber: page.pageNumber, reason: applied.reason });
+      return page;
+    }
+    if (pageAnnotations.length > 0) appliedPages.push(page.pageNumber);
+    for (const [id, owner] of applied.owners) owners.set(id, owner);
+    return withFurniture(page, applied.elements);
+  });
+  return {
+    document: { ...document, pages: owners.size === 0 ? pages : pages.map((page) => withOwnedEvidence(page, owners)) },
+    appliedPages,
+    rejections: [...rejections, ...stray],
+  };
 }
 
-function applyToBody(
-  document: LayoutDocument,
+function applyToPage(
+  page: LayoutPage,
   annotations: readonly LayoutAnnotation[],
-): { document: LayoutDocument; valid: boolean; reason?: string } {
-  const elements = document.pages.flatMap((page) => page.elements);
-  const byId = new Map(elements.map((element) => [element.id, element]));
+  pageOf: ReadonlyMap<string, number>,
+): { elements: DocumentElement[]; owners: ReadonlyMap<string, ElementOwner> } | { reason: string } {
+  const body = page.elements.filter((element) => !isFurniture(element));
+  const ids = new Set(body.map((element) => element.id));
   const seen = new Set<string>();
   for (const annotation of annotations) {
-    if (!byId.has(annotation.id)) {
-      return { document, valid: false, reason: `unknown element id ${annotation.id}` };
+    if (!ids.has(annotation.id)) {
+      const elsewhere = pageOf.get(annotation.id);
+      return { reason: elsewhere === undefined ? `unknown element id ${annotation.id}` : `element ${annotation.id} is on page ${elsewhere}` };
     }
-    if (seen.has(annotation.id)) {
-      return { document, valid: false, reason: `duplicate element id ${annotation.id}` };
-    }
+    if (seen.has(annotation.id)) return { reason: `duplicate element id ${annotation.id}` };
     const level: unknown = annotation.level;
     if (level !== undefined && !(Number.isInteger(level) && (level as number) >= 1 && (level as number) <= 6)) {
-      return { document, valid: false, reason: `heading level ${String(level)} for ${annotation.id} must be an integer from 1 to 6` };
+      return { reason: `heading level ${String(level)} for ${annotation.id} must be an integer from 1 to 6` };
     }
     seen.add(annotation.id);
   }
 
   const annotationById = new Map(annotations.map((annotation) => [annotation.id, annotation]));
-  const pages: LayoutPage[] = [];
-  const owners = new Map<string, ElementOwner>();
-  for (const page of document.pages) {
-    const transformed: DocumentElement[] = [];
-    for (const element of page.elements) {
-      const annotation = annotationById.get(element.id);
-      const next = annotation === undefined ? element : retype(element, annotation);
-      if (next === undefined) {
-        return {
-          document,
-          valid: false,
-          reason: `role ${annotation?.role ?? "unknown"} is incompatible with ${element.id}`,
-        };
-      }
-      transformed.push(next);
-    }
-
-    const ordered = transformed.filter((element) => annotationById.get(element.id)?.order !== undefined);
-    if (ordered.length > 0) {
-      if (ordered.length !== transformed.length) {
-        return { document, valid: false, reason: `page ${page.pageNumber} has a partial order` };
-      }
-      const positions = transformed.map((element) => annotationById.get(element.id)?.order);
-      const expected = transformed.map((_element, index) => index);
-      if (
-        positions.some((position) => position === undefined) ||
-        [...(positions as number[])].sort((a, b) => a - b).some((value, index) => value !== expected[index])
-      ) {
-        return { document, valid: false, reason: `page ${page.pageNumber} order is not a permutation` };
-      }
-      transformed.sort(
-        (a, b) =>
-          (annotationById.get(a.id)?.order ?? 0) - (annotationById.get(b.id)?.order ?? 0),
-      );
-    }
-    const grouped = applyGroups(keepContinuedLast(page.elements, transformed), annotationById);
-    if ("reason" in grouped) {
-      return { document, valid: false, reason: grouped.reason };
-    }
-    for (const [id, owner] of grouped.owners) owners.set(id, owner);
-    pages.push({ ...page, elements: grouped.elements });
+  const transformed: DocumentElement[] = [];
+  for (const element of body) {
+    const annotation = annotationById.get(element.id);
+    const next = annotation === undefined ? element : retype(element, annotation);
+    if (next === undefined) return { reason: `role ${annotation?.role ?? "unknown"} is incompatible with ${element.id}` };
+    transformed.push(next);
   }
-  return {
-    document: {
-      ...document,
-      pages: pages.map((page) => ({
-        ...page,
-        ...(page.evidence === undefined ? {} : { evidence: page.evidence.map((source) => {
-          const owner = owners.get(source.elementId);
-          return owner === undefined ? source : {
-            ...source,
-            elementId: owner.elementId,
-            ...(source.granularity === "table-cell" ? { row: source.row + owner.rowOffset } : {}),
-          };
-        }) }),
-      })),
-    },
-    valid: true,
-  };
+
+  const ordered = transformed.filter((element) => annotationById.get(element.id)?.order !== undefined);
+  if (ordered.length > 0) {
+    if (ordered.length !== transformed.length) return { reason: "partial order" };
+    const positions = transformed.map((element) => annotationById.get(element.id)?.order ?? -1).sort((a, b) => a - b);
+    if (positions.some((position, index) => position !== index)) return { reason: "order is not a permutation" };
+    transformed.sort((a, b) => (annotationById.get(a.id)?.order ?? 0) - (annotationById.get(b.id)?.order ?? 0));
+  }
+  return applyGroups(keepContinuedLast(body, transformed), annotationById);
 }

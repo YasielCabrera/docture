@@ -180,7 +180,8 @@ describe("DocumentConverter orchestration", () => {
     expect(result.content).not.toContain("<h9>");
     expect(result.warnings.filter((warning) => warning.code === "INVALID_LAYOUT_ANALYSIS")).toEqual([{
       code: "INVALID_LAYOUT_ANALYSIS",
-      message: `Layout analyzer "deep" was ignored: heading level 9 for ${target} must be an integer from 1 to 6.`,
+      message: `Layout analyzer "deep" was ignored on page 1: heading level 9 for ${target} must be an integer from 1 to 6.`,
+      pageNumber: 1,
     }]);
   });
 

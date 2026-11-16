@@ -111,12 +111,15 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "parseDoctureDocument"
       ],
       "content/docs/conversion/reference/analyzers.mdx": [
+        "AppliedLayoutAnnotations",
         "LayoutAnalysis",
         "LayoutAnalyzer",
         "LayoutAnalyzerContext",
         "LayoutAnnotation",
+        "LayoutAnnotationRejection",
         "LayoutDocument",
         "LayoutElementRole",
+        "applyLayoutAnnotations",
         "defineLayoutAnalyzer"
       ],
       "content/docs/conversion/reference/chunk.mdx": [
@@ -881,12 +884,15 @@ export const API_INVENTORY: readonly ApiEntrypointInventory[] = [
         "parseDoctureDocument"
       ],
       "content/docs/conversion/reference/analyzers.mdx": [
+        "AppliedLayoutAnnotations",
         "LayoutAnalysis",
         "LayoutAnalyzer",
         "LayoutAnalyzerContext",
         "LayoutAnnotation",
+        "LayoutAnnotationRejection",
         "LayoutDocument",
         "LayoutElementRole",
+        "applyLayoutAnnotations",
         "defineLayoutAnalyzer"
       ],
       "content/docs/conversion/reference/chunk.mdx": [

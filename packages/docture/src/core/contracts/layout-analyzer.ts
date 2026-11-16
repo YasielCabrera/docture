@@ -24,6 +24,12 @@ export interface LayoutAnnotation {
   readonly group?: string;
   /** Zero-based order inside the element's page. */
   readonly order?: number;
+  /**
+   * The page this annotation answers for. Defaults to the page of the element `id` names.
+   * An analyzer that answers page by page sets it, so an annotation naming an unknown
+   * element rejects that page and its warning names the page. @integer @minimum 1
+   */
+  readonly pageNumber?: number;
 }
 
 export interface LayoutAnalyzerContext {

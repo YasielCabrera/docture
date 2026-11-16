@@ -100,8 +100,9 @@ Throws:
   the source is not an already loaded document.
 - Loader errors with their own typed codes.
 
-A layout analyzer failure does not throw. It adds a `LAYOUT_ANALYZER_FAILED` or
-`INVALID_LAYOUT_ANALYSIS` warning and keeps the deterministic layout.
+A layout analyzer failure does not throw. A failed analyzer adds `LAYOUT_ANALYZER_FAILED`
+and keeps the deterministic layout. Invalid annotations add `INVALID_LAYOUT_ANALYSIS` and
+keep the deterministic layout only on the pages they affect.
 
 ### `safeConvert`
 
@@ -259,4 +260,4 @@ A non-fatal problem.
 | `UNSUPPORTED_ASSET` | An asset has a duplicate ID or an unsupported media type, or a figure references a missing asset. |
 | `UNSAFE_LINK` | A link target is unsafe. The output keeps the link text without the link. |
 | `LAYOUT_ANALYZER_FAILED` | The layout analyzer threw or timed out. The deterministic layout was kept. |
-| `INVALID_LAYOUT_ANALYSIS` | The layout analyzer returned invalid annotations. The deterministic layout was kept. |
+| `INVALID_LAYOUT_ANALYSIS` | The layout analyzer returned invalid annotations for the page in `pageNumber`, or an annotation that names no known element or page. That page kept its deterministic layout, and other pages kept their valid annotations. |

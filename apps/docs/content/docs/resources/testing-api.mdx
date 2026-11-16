@@ -231,7 +231,7 @@ mockLayoutModel(
 ): MockLanguageModel
 ```
 
-Converted element IDs are content digests. Pass a function to choose annotations from the elements the analyzer describes instead of hard-coding IDs:
+Converted element IDs are content digests. Pass a function to choose annotations from the elements the analyzer describes instead of hard-coding IDs. The mock drops `pageNumber`, because the `llmLayout()` response has no such field:
 
 ```ts check
 import { createDocumentConverter } from "docture";

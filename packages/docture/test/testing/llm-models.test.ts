@@ -39,6 +39,18 @@ describe("mockLayoutModel", () => {
     expect(result.content).toBe("<!-- page: 1 -->\n\n## Results\n\nRevenue grew in every region.");
   });
 
+  it("answers like the model, which returns no page numbers", async () => {
+    const converter = createDocumentConverter({
+      loaders: [inMemoryLoader(report)],
+      layoutAnalyzer: llmLayout({ model: mockLayoutModel([{ id: "title", role: "heading", level: 2, pageNumber: 1 }]) }),
+    });
+
+    const result = await converter.convert({ bytes: new Uint8Array([1]) });
+
+    expect(result.method).toBe("deterministic+llm-layout");
+    expect(result.content).toContain("## Results");
+  });
+
   it("chooses annotations from the elements the analyzer describes", async () => {
     const seen: (readonly LayoutModelPage[])[] = [];
     const converter = createDocumentConverter({

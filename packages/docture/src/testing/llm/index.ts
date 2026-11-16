@@ -69,17 +69,19 @@ function answering(answer: (prompt: Prompt) => unknown, options: MockModelOption
  * A model for `llmLayout` that answers with the given annotations.
  *
  * Element ids are content digests, so pass a function to choose annotations from
- * the elements the analyzer sends instead of hard-coding ids.
+ * the elements the analyzer sends instead of hard-coding ids. A `pageNumber` is dropped,
+ * because the `llmLayout` response has no such field.
  */
 export function mockLayoutModel(
   annotations: readonly LayoutAnnotation[] | ((pages: readonly LayoutModelPage[]) => readonly LayoutAnnotation[]),
   options: MockModelOptions = {},
 ): MockLanguageModel {
-  return answering((prompt) => ({
-    annotations: typeof annotations === "function"
+  return answering((prompt) => {
+    const answer = typeof annotations === "function"
       ? annotations(JSON.parse(userText(prompt)) as LayoutModelPage[])
-      : annotations,
-  }), options);
+      : annotations;
+    return { annotations: answer.map(({ pageNumber: _pageNumber, ...annotation }: LayoutAnnotation) => annotation) };
+  }, options);
 }
 
 /** A model for `llmOcr` that answers each page with its listed elements, and a blank page otherwise. */
