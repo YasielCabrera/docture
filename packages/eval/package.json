@@ -1,6 +1,6 @@
 {
   "name": "@docture/eval",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Evaluate structured extraction quality: schema-driven specs, field-level scoring, run comparison, calibration, grounding and reports.",
   "license": "MIT",
   "repository": {

@@ -1,6 +1,6 @@
 # docture
 
-## Unreleased
+## 0.3.2
 
 ### Minor Changes
 
