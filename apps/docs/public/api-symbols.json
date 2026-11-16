@@ -4930,6 +4930,28 @@
   },
   {
     "packageName": "docture",
+    "symbol": "AppliedLayoutAnnotations",
+    "importPaths": [
+      "docture",
+      "docture/node"
+    ],
+    "url": "/docs/conversion/reference/analyzers#appliedlayoutannotations",
+    "description": "What applyLayoutAnnotations() returns.",
+    "markdownUrl": "/docs/conversion/reference/analyzers.md#appliedlayoutannotations"
+  },
+  {
+    "packageName": "docture",
+    "symbol": "applyLayoutAnnotations",
+    "importPaths": [
+      "docture",
+      "docture/node"
+    ],
+    "url": "/docs/conversion/reference/analyzers#applylayoutannotations",
+    "description": "Validate annotations against a layout and apply the valid pages. The converter uses it for every layout analyzer. Call it yourself to check an analyzer's answer, or to combine answers you collected page by page.",
+    "markdownUrl": "/docs/conversion/reference/analyzers.md#applylayoutannotations"
+  },
+  {
+    "packageName": "docture",
     "symbol": "Attempt",
     "importPaths": [
       "docture",
@@ -7134,6 +7156,17 @@
     "url": "/docs/conversion/reference/analyzers#layoutannotation",
     "description": "A change to one existing element. It has no text property, so an analyzer cannot add, remove, or rewrite content.",
     "markdownUrl": "/docs/conversion/reference/analyzers.md#layoutannotation"
+  },
+  {
+    "packageName": "docture",
+    "symbol": "LayoutAnnotationRejection",
+    "importPaths": [
+      "docture",
+      "docture/node"
+    ],
+    "url": "/docs/conversion/reference/analyzers#layoutannotationrejection",
+    "description": "A page, or a stray annotation, that applyLayoutAnnotations() set aside.",
+    "markdownUrl": "/docs/conversion/reference/analyzers.md#layoutannotationrejection"
   },
   {
     "packageName": "docture",

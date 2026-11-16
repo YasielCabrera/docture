@@ -59,6 +59,8 @@ export { parseDoctureDocument } from "./conversion/parse.js";
 export { provenanceSegments } from "./conversion/provenance.js";
 export type { DoctureDocumentParse } from "./conversion/parse.js";
 export { defineLayoutAnalyzer } from "./contracts/layout-analyzer.js";
+export { applyLayoutAnnotations } from "./conversion/analyze.js";
+export type { AppliedLayoutAnnotations, LayoutAnnotationRejection } from "./conversion/analyze.js";
 export type {
   LayoutAnalysis,
   LayoutAnalyzer,

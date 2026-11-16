@@ -45,12 +45,16 @@ The model receives each element's ID, role, box, and content, without running he
 footers. It returns an annotation per element with an optional role, heading level, group
 label, and page-local order. The response schema has no text field.
 
-The converter ignores the whole analysis when an annotation names an unknown or repeated
-ID, assigns a role the element cannot take, or orders only part of a page. The
-deterministic layout stays in place, `result.warnings` gets an `INVALID_LAYOUT_ANALYSIS`
-warning, and `result.attempts` records a failed layout attempt. A model call that fails
-adds `LAYOUT_ANALYZER_FAILED` instead. A table or paragraph that continues onto the next
-page stays last on its page, and annotations that would retype or group it are ignored.
+The converter checks the answer page by page. When an annotation repeats an ID, assigns a
+role the element cannot take, or orders only part of a page, that page keeps its
+deterministic layout and the other pages keep their valid annotations. Each rejected page
+adds an `INVALID_LAYOUT_ANALYSIS` warning with its `pageNumber`. The model analyzer does not
+return page numbers, so an annotation that names an ID the document does not contain is
+ignored on its own and adds one warning without a page. When every annotated page is
+rejected, `result.attempts` records a failed layout attempt. A model call that fails adds
+`LAYOUT_ANALYZER_FAILED` instead. A table or paragraph that continues onto the next page
+stays last on its page, and annotations that would retype or group it are ignored. See
+[validation](/docs/conversion/reference/analyzers#validation) for the full rules.
 
 ## Use a direct or custom analyzer
 

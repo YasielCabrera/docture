@@ -215,6 +215,7 @@ describe("the public API is an exact list", () => {
     // strategies
     "defineStrategy",
     "defineLayoutAnalyzer",
+    "applyLayoutAnnotations",
     "resolveSchema",
     "isLineSourceId",
     "isEvidenceSourceId",

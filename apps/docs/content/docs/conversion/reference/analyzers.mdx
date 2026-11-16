@@ -101,6 +101,7 @@ remove, or rewrite content.
 | `level` | `1 \| 2 \| 3 \| 4 \| 5 \| 6` | Heading level. A paragraph or code element retyped as a heading without a level gets level 2. |
 | `group` | `string` | Elements with the same page-local label are grouped after ordering. |
 | `order` | `number` | Zero-based order inside the element's page. |
+| `pageNumber` | `number` | The page this annotation answers for. Defaults to the page of the element `id` names. An analyzer that answers page by page sets it, so an annotation naming an unknown element rejects that page and its warning names the page. |
 
 ### `LayoutElementRole`
 
@@ -112,13 +113,28 @@ type LayoutElementRole = Exclude<DocumentElement["kind"], "page-header" | "page-
 
 ## Validation
 
-Core validates an analysis before applying it. It rejects the whole analysis when an
-annotation names an unknown or repeated ID, assigns a role the element cannot take, orders
-only some elements of a page, gives a page an order that is not a permutation, or forms an
-invalid group. A rejected analysis leaves the deterministic layout in place and adds an
-`INVALID_LAYOUT_ANALYSIS` warning. An analyzer that throws or passes the stage deadline
-adds `LAYOUT_ANALYZER_FAILED`. Neither throws from `convert()`, except that cancellation
-through the caller's signal still rejects.
+Core validates and applies annotations one page at a time. An annotation belongs to its
+`pageNumber`, or else to the page of the element its `id` names. Core rejects a page's
+annotations when one of them names an element that is not on that page, repeats an ID,
+assigns a role the element cannot take, or sets a heading level outside 1 to 6. It also
+rejects them when they order only some of the page's elements, give the page an order that
+is not a permutation, or form an invalid group.
+
+A rejected page keeps its deterministic layout, and the other pages keep their valid
+annotations. Each rejected page adds an `INVALID_LAYOUT_ANALYSIS` warning with that
+`pageNumber`. An annotation that names neither a known element nor an existing page, has no
+string `id`, or has a `pageNumber` that is not a positive integer is rejected on its own,
+without rejecting a page. The converter reports all of those in one warning without a
+`pageNumber`.
+
+`ConversionResult.method` is `deterministic+<name>` when at least one page applied its
+annotations, or when the analysis had nothing to reject. When every annotated page is rejected, the
+method stays `deterministic` and `result.attempts` records a failed layout attempt. The
+analyzer runs once either way, and `usage` reports that one call.
+
+An analyzer that throws or passes the stage deadline adds `LAYOUT_ANALYZER_FAILED`. Neither
+case throws from `convert()`, except that cancellation through the caller's signal still
+rejects.
 
 Core also protects the deterministic structure:
 
@@ -126,3 +142,55 @@ Core also protects the deterministic structure:
   place.
 - A table or paragraph with `continuations` stays last in its page's text after
   reordering, and annotations that retype or group it are ignored.
+
+### `applyLayoutAnnotations`
+
+Validate annotations against a layout and apply the valid pages. The converter uses it for
+every layout analyzer. Call it yourself to check an analyzer's answer, or to combine
+answers you collected page by page.
+
+```ts
+applyLayoutAnnotations(
+  document: LayoutDocument,
+  annotations: readonly LayoutAnnotation[],
+): AppliedLayoutAnnotations
+```
+
+It never throws for invalid annotations and does not change `document`.
+
+```ts check
+import { applyLayoutAnnotations, type LayoutDocument } from "docture";
+
+declare const layout: LayoutDocument;
+
+const outcome = applyLayoutAnnotations(layout, [
+  { id: "p1-heading", role: "heading", level: 1, pageNumber: 1 },
+  { id: "p2-invented", role: "heading", pageNumber: 2 },
+]);
+
+for (const rejection of outcome.rejections) {
+  console.warn(`page ${rejection.pageNumber ?? "?"}: ${rejection.reason}`);
+}
+console.log(outcome.appliedPages);
+```
+
+### `AppliedLayoutAnnotations`
+
+What `applyLayoutAnnotations()` returns.
+
+{/* options: AppliedLayoutAnnotations */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `document` | `LayoutDocument` | The layout with each valid page's annotations applied. A rejected page keeps its input elements. |
+| `appliedPages` | `readonly number[]` | Pages whose annotations were applied, in document order. |
+| `rejections` | `readonly LayoutAnnotationRejection[]` | Rejected pages in document order, then annotations that belong to no page. |
+
+### `LayoutAnnotationRejection`
+
+A page, or a stray annotation, that `applyLayoutAnnotations()` set aside.
+
+{/* options: LayoutAnnotationRejection */}
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `pageNumber` | `number` | The page left as it was. Absent for an annotation that belongs to no page: it is malformed or names neither a known element nor an existing page. |
+| `reason` | `string` | Why the page or annotation was rejected, such as `duplicate element id p2-element-1`. |

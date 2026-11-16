@@ -8,7 +8,12 @@ import { portableBasename, portableExtension } from "./domain/filename.js";
 import type { LayoutAnalyzer } from "./contracts/layout-analyzer.js";
 import type { DocumentLoader, LoadRequest } from "./contracts/loader.js";
 import type { ModelBackend } from "./contracts/model.js";
-import { applyLayoutAnnotations, analyzeDocument, withoutFurniture } from "./conversion/analyze.js";
+import {
+  applyLayoutAnnotations,
+  analyzeDocument,
+  withoutFurniture,
+  type LayoutAnnotationRejection,
+} from "./conversion/analyze.js";
 import { conversionAssets, exportDocument } from "./conversion/export.js";
 import type {
   ConversionBatchOptions,
@@ -99,7 +104,27 @@ function usageFrom(partial: Partial<Usage> | undefined): Usage {
   }], partial?.wallMs ?? 0);
 }
 
+function describeRejections(rejections: readonly LayoutAnnotationRejection[]): string {
+  const shown = rejections.slice(0, 3)
+    .map(({ pageNumber, reason }) => (pageNumber === undefined ? reason : `page ${pageNumber}: ${reason}`))
+    .join("; ");
+  return rejections.length > 3 ? `${shown}; and ${rejections.length - 3} more` : shown;
+}
 
+function invalidAnalysisWarnings(analyzer: string, rejections: readonly LayoutAnnotationRejection[]): ConversionWarning[] {
+  const stray = rejections.filter((rejection) => rejection.pageNumber === undefined);
+  const warnings: ConversionWarning[] = rejections.flatMap(({ pageNumber, reason }) => (pageNumber === undefined ? [] : [{
+    code: "INVALID_LAYOUT_ANALYSIS" as const,
+    message: `Layout analyzer "${analyzer}" was ignored on page ${pageNumber}: ${reason}.`,
+    pageNumber,
+  }]));
+  if (stray.length === 0) return warnings;
+  const count = stray.length === 1 ? "one annotation" : `${stray.length} annotations`;
+  return [...warnings, {
+    code: "INVALID_LAYOUT_ANALYSIS",
+    message: `Layout analyzer "${analyzer}" was ignored for ${count}: ${describeRejections(stray)}.`,
+  }];
+}
 
 function snapshotConvertOptions(options: ConvertOptions): ConvertOptions {
   const { format, pages, assets, signal, logger, stageTimeoutMs, timeoutMs, onEvent, ...extra } = options;
@@ -262,32 +287,21 @@ export class DocumentConverter {
         deadline.signal.throwIfAborted();
         const applied = applyLayoutAnnotations(layout, result.annotations);
         modelUsage = usageFrom(result.usage);
-        if (applied.valid) {
+        const improved = applied.rejections.length === 0 || applied.appliedPages.length > 0;
+        if (improved) {
           layout = applied.document;
           method = `deterministic+${analyzer.name}`;
           warnings.push(...(result.warnings ?? []));
-          record({
-            stage: "layout",
-            strategy: analyzer.name,
-            status: "ok",
-            ms: Date.now() - analyzerStarted,
-            usage: modelUsage,
-          });
-        } else {
-          const reason = applied.reason ?? "invalid analyzer output";
-          warnings.push({
-            code: "INVALID_LAYOUT_ANALYSIS",
-            message: `Layout analyzer "${analyzer.name}" was ignored: ${reason}.`,
-          });
-          record({
-            stage: "layout",
-            strategy: analyzer.name,
-            status: "failed",
-            ms: Date.now() - analyzerStarted,
-            error: reason,
-            usage: modelUsage,
-          });
         }
+        warnings.push(...invalidAnalysisWarnings(analyzer.name, applied.rejections));
+        record({
+          stage: "layout",
+          strategy: analyzer.name,
+          status: improved ? "ok" : "failed",
+          ms: Date.now() - analyzerStarted,
+          ...(improved ? {} : { error: describeRejections(applied.rejections) }),
+          usage: modelUsage,
+        });
       } catch (error) {
         signal.throwIfAborted();
         const failedUsage = returnedUsage ?? (error instanceof ModelOutputError ? error.usage : undefined);
