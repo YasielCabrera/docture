@@ -357,3 +357,29 @@ describe("estimateSkew", () => {
     expect(linesFromWords(columns, { skew: "estimate" })).toHaveLength(24);
   });
 });
+
+describe("OCR word separators", () => {
+  const recognized = (text: string, x: number, w: number): PositionedWord => ({ text, box: [x, 100, x + w, 120], confidence: 0.9 });
+
+  it("keeps a space between recognized words whose boxes touch, as padded OCR regions do", () => {
+    const [line] = linesFromWords([recognized("2024", 100, 40), recognized("2,99", 140, 40), recognized("of", 190, 20), recognized("the", 210, 30)]);
+    expect(line?.text).toBe("2024 2,99 of the");
+  });
+
+  it("joins touching characters of a script written without spaces", () => {
+    const [line] = linesFromWords([recognized("纳税", 100, 40), recognized("人", 140, 20), recognized("第", 160, 20), recognized("1", 180, 10), recognized("表", 190, 20)]);
+    expect(line?.text).toBe("纳税人第1表");
+  });
+
+  it("joins touching pieces of a Korean word and keeps the space between separate words", () => {
+    const [line] = linesFromWords([
+      recognized("2023", 100, 40), recognized("년", 140, 20), recognized("한국", 180, 40), recognized("노동", 220, 40),
+    ]);
+    expect(line?.text).toBe("2023년 한국노동");
+  });
+
+  it("still joins touching runs of a text layer, which carry no confidence", () => {
+    const [line] = linesFromWords([word("Hel", 100, 100, 30, 20), word("lo", 130, 100, 20, 20)]);
+    expect(line?.text).toBe("Hello");
+  });
+});

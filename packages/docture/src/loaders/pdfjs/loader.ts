@@ -29,6 +29,7 @@ import {
   type PdfJsViewport,
 } from "./pdfjs.js";
 import { pngFromPdfJsImage } from "./png.js";
+import { clippedTextFilter, isMatrix } from "./clipped-text.js";
 import { requestedPageNumbers } from "../../core/pipeline/pages.js";
 
 export interface DocumentLoaderPdfJsOptions {
@@ -93,6 +94,9 @@ export class DocumentLoaderPdfJs implements DocumentLoader<LoaderCapabilities<tr
       isEvalSupported: false,
       // Fonts installed on the host would make extraction machine-dependent.
       useSystemFonts: false,
+      // pdf.js 6.3 and later send a font's name to the main thread only with this set,
+      // and bold and italic are read from the name.
+      fontExtraProperties: true,
       ...(this.options.password === undefined ? {} : { password: this.options.password }),
     });
 
@@ -166,6 +170,7 @@ export class DocumentLoaderPdfJs implements DocumentLoader<LoaderCapabilities<tr
     // Text content names fonts only by a generic family ("sans-serif"). Building the
     // operator list is what sends each font, with its real name, to `commonObjs`.
     const operators = ctx.request?.layout === true ? await page.getOperatorList() : undefined;
+    const clipped = operators === undefined ? undefined : clippedTextFilter(pdfjs, page, operators);
 
     const words: PositionedWord[] = [];
     const taggedAreas: TaggedArea[] = [];
@@ -179,6 +184,7 @@ export class DocumentLoaderPdfJs implements DocumentLoader<LoaderCapabilities<tr
         continue;
       }
       if (!isTextItem(item) || item.str.trim() === "") continue;
+      if (clipped?.(item) === true) continue;
 
       // `viewport.transform` maps PDF user space (bottom-left origin) into device
       // space (top-left origin), which is the convention this library standardises
@@ -347,6 +353,12 @@ const MONOSPACE_NAME = /(?:mono|courier|consolas|menlo)/iu;
 const BOLD_TOKENS = new Set(["bd", "blk", "hv", "demi", "medi"]);
 const ITALIC_TOKENS = new Set(["it", "ital", "obl", "kursiv"]);
 
+// TeX fonts code the style in the family. Bold: cmb10, cmbx10, cmbxti10, cmmib10, cmssbx10,
+// ecbi1000, ecsx1000, SFBX1000. Italic or slanted: cmti10, cmsl10, cmmi10, cmssi10, cmitt10,
+// cmbxsl10, ecbi1000, ecsi1000, SFTI1000. cmr10, cmss10, cmtt10 and cmbr10 are upright and regular.
+const TEX_BOLD = /^(?:cm|ec|sf|tc)(?:ss|tt|mi)?(?:bx|b|sx)(?:ti|sl|i|x)?\d/iu;
+const TEX_ITALIC = /^(?:cm|ec|sf|tc)(?:bx|ss|b)?(?:ti|sl|it|mi|si|i)b?(?:tt)?\d/iu;
+
 function styleTokens(name: string): readonly string[] {
   const style = name.slice(Math.max(name.lastIndexOf("-"), name.lastIndexOf(",")) + 1);
   return (style.match(/[A-Z][a-z]*|[a-z]+/gu) ?? []).map((token) => token.toLowerCase());
@@ -368,8 +380,8 @@ function fontStyle(page: PdfJsPage, fontName: string, generic: string | undefine
   const tokens = styleTokens(family);
   return {
     fontFamily: family,
-    bold: font.bold === true || font.black === true || BOLD_NAME.test(family) || tokens.some((token) => BOLD_TOKENS.has(token)),
-    italic: font.italic === true || ITALIC_NAME.test(family) || tokens.some((token) => ITALIC_TOKENS.has(token)),
+    bold: font.bold === true || font.black === true || BOLD_NAME.test(family) || TEX_BOLD.test(family) || tokens.some((token) => BOLD_TOKENS.has(token)),
+    italic: font.italic === true || ITALIC_NAME.test(family) || TEX_ITALIC.test(family) || tokens.some((token) => ITALIC_TOKENS.has(token)),
     monospace,
   };
 }
@@ -453,14 +465,6 @@ function unitBox(
   const right = Math.max(...points.map((value) => value[0]));
   const bottom = Math.max(...points.map((value) => value[1]));
   return { x, y, width: right - x, height: bottom - y };
-}
-
-function isMatrix(value: unknown): value is ArrayLike<number> {
-  return (
-    (Array.isArray(value) || ArrayBuffer.isView(value)) &&
-    (value as ArrayLike<unknown>).length >= 6 &&
-    Array.from(value as ArrayLike<unknown>).every((entry) => typeof entry === "number")
-  );
 }
 
 async function imagesFrom(

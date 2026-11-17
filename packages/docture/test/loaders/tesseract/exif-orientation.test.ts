@@ -65,7 +65,7 @@ describe.skipIf(engine.real)("Tesseract JPEG EXIF orientation", () => {
 
   it.each([[true], [false]])("reports a quarter-turned JPEG upright and has the engine read it upright (little-endian %s)", async (littleEndian) => {
     const applied = recordingEngine();
-    await using loader = new DocumentLoaderTesseract({ dpi: 72 });
+    await using loader = new DocumentLoaderTesseract({ dpi: 72, pageSegmentation: "singleBlock" });
     const document = await loader.load({ bytes: jpegHeader(6, littleEndian), mimeType: "image/jpeg" }, ctx);
     const page = document.pages[0]!;
 
@@ -77,7 +77,7 @@ describe.skipIf(engine.real)("Tesseract JPEG EXIF orientation", () => {
   it("leaves an upright JPEG and its bytes alone", async () => {
     const applied = recordingEngine();
     const bytes = jpegHeader(1, false);
-    await using loader = new DocumentLoaderTesseract({ dpi: 72 });
+    await using loader = new DocumentLoaderTesseract({ dpi: 72, pageSegmentation: "singleBlock" });
     const page = (await loader.load({ bytes, mimeType: "image/jpeg" }, ctx)).pages[0]!;
     expect(applied).toEqual([1]);
     expect({ width: page.width, height: page.height }).toEqual({ width: 150, height: 600 });
@@ -102,7 +102,7 @@ describe.skipIf(!engine.real)("Tesseract JPEG EXIF orientation, real OCR", () =>
     const jpeg = stored.encodeSync("jpeg", 95);
     const bytes = new Uint8Array([...jpeg.subarray(0, 2), ...exifSegment(6, littleEndian), ...jpeg.subarray(2)]);
 
-    await using loader = new DocumentLoaderTesseract({ dpi: 72 });
+    await using loader = new DocumentLoaderTesseract({ dpi: 72, pageSegmentation: "singleBlock" });
     const page = (await loader.load({ bytes, mimeType: "image/jpeg" }, ctx)).pages[0]!;
     const span = page.lines![0]!.spans[0]!;
     expect({ text: page.text.trim(), width: page.width, height: page.height }).toEqual({ text: "HELLO", width: 600, height: 150 });

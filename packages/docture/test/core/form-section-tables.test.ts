@@ -80,7 +80,7 @@ describe("a form section under a table in the same columns", () => {
     expect(texts(result)).toEqual(["Payment method Visa ending 1234"]);
   });
 
-  it("keeps a wrapped cell line that follows its row closely", async () => {
+  it("joins a wrapped line that follows its row closely into that row", async () => {
     const result = await convert(fixtureDocument([
       row(100, ["Item", 40], ["Qty", 300], ["Amount", 450]),
       row(120, ["Alpha", 40], ["1", 300], ["10", 450]),
@@ -89,7 +89,7 @@ describe("a form section under a table in the same columns", () => {
       row(172, ["Gamma", 40], ["3", 300], ["30", 450]),
     ]));
     expect(tables(result).map((table) => table.rows)).toEqual([[
-      ["Item", "Qty", "Amount"], ["Alpha", "1", "10"], ["Beta, imported", "2 boxes", "20"], ["from Norway", "of ten", ""], ["Gamma", "3", "30"],
+      ["Item", "Qty", "Amount"], ["Alpha", "1", "10"], ["Beta, imported from Norway", "2 boxes of ten", "20"], ["Gamma", "3", "30"],
     ]]);
   });
 });

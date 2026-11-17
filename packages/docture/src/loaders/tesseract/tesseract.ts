@@ -93,6 +93,8 @@ export interface RecognizeOptions {
   /** Let Tesseract detect and correct page skew before recognizing. */
   readonly autoRotate: boolean;
   readonly returnDecodedPng?: boolean;
+  /** Once aborted, a page is not read a second time. */
+  readonly signal?: AbortSignal;
 }
 
 // ── The slice of tesseract.js used here ─────────────────────────────────────────
@@ -204,18 +206,34 @@ export class TesseractPool {
 
   constructor(private readonly options: EngineOptions) {}
 
-  /** Recognize one image. Queues when every worker is busy. */
+  /**
+   * Recognize one image. Queues when every worker is busy.
+   *
+   * In `auto` mode a page read with low confidence, or with little confident text, is read
+   * again as one uniform block (`--psm 6`), and {@link prefersBlock} picks the reading.
+   * A page with no words, such as a blank one, is read once.
+   * Full layout analysis can split a dense table or vertical CJK headers into fragments
+   * it then misreads, or pass over columns of a scan, where the block mode reads cleanly.
+   */
   async recognize(image: Uint8Array, options: RecognizeOptions): Promise<Recognition> {
     const worker = await this.acquire();
     try {
-      const result = await worker.recognize(
-        image,
-        options.autoRotate ? { rotateAuto: true } : {},
-        // `blocks` is off by default in tesseract.js v7 and is the only source of
-        // word geometry — without it there is text but nothing positioned.
-        { text: true, blocks: true, ...(options.returnDecodedPng === true ? { imageColor: true } : {}) },
-      );
-      return toRecognition(result.data, options.returnDecodedPng === true);
+      const read = async (): Promise<Recognition> => {
+        const result = await worker.recognize(
+          image,
+          options.autoRotate ? { rotateAuto: true } : {},
+          // `blocks` is off by default in tesseract.js v7 and is the only source of
+          // word geometry — without it there is text but nothing positioned.
+          { text: true, blocks: true, ...(options.returnDecodedPng === true ? { imageColor: true } : {}) },
+        );
+        return toRecognition(result.data, options.returnDecodedPng === true);
+      };
+      const first = await read();
+      const layout = readingStats(first);
+      if (!this.retriesAsBlock() || options.signal?.aborted === true || layout.characters === 0 ||
+        (layout.confidence >= BLOCK_RETRY_CONFIDENCE && layout.sureCharacters >= BLOCK_RETRY_CHARACTERS)) return first;
+      const block = await this.readAsBlock(worker, read);
+      return block !== undefined && prefersBlock(layout, readingStats(block)) ? block : first;
     } catch (error) {
       // tesseract.js rejects with a plain string, which loses the stack and reads
       // badly anywhere a caller expects an Error.
@@ -223,6 +241,39 @@ export class TesseractPool {
     } finally {
       this.release(worker);
     }
+  }
+
+  /**
+   * The page read again in single-block mode, or undefined when that reading fails, which
+   * leaves the first reading standing. A worker whose mode cannot be set back leaves the pool.
+   */
+  private async readAsBlock(worker: TesseractWorker, read: () => Promise<Recognition>): Promise<Recognition | undefined> {
+    let block: Recognition | undefined;
+    try {
+      await worker.setParameters({ tessedit_pageseg_mode: PAGE_SEGMENTATION_MODES.singleBlock });
+      block = await read();
+    } catch {
+      block = undefined;
+    }
+    try {
+      await worker.setParameters({ tessedit_pageseg_mode: PAGE_SEGMENTATION_MODES.auto });
+    } catch {
+      this.retire(worker);
+    }
+    return block;
+  }
+
+  /** Take `worker` out of the pool, handing its next waiter a fresh worker instead. */
+  private retire(worker: TesseractWorker): void {
+    this.all.delete(worker);
+    void worker.terminate().catch(() => undefined);
+    const next = this.waiting.shift();
+    if (next !== undefined) void this.acquire().then(next.resolve, next.reject);
+  }
+
+  /** Whether low-confidence pages get a second, single-block reading: `auto` mode, unless the caller sets the mode itself. */
+  private retriesAsBlock(): boolean {
+    return this.options.pageSegmentation === "auto" && this.options.parameters?.["tessedit_pageseg_mode"] === undefined;
   }
 
   /**
@@ -366,6 +417,60 @@ async function localModelsGzipped(langPath: string, languages: readonly string[]
     `Tesseract langPath "${langPath}" is missing ${missing.join(", ")}. ` +
       "Every language needs a <lang>.traineddata file, or every language needs a <lang>.traineddata.gz file.",
   );
+}
+
+/**
+ * An `auto` reading is read again as a single block when its character-weighted word
+ * confidence is below this, or it holds fewer characters in confident words than
+ * {@link BLOCK_RETRY_CHARACTERS}. Full layout analysis can garble a dense table, as a
+ * Japanese price table read as fragments at 0.51, or pass over whole columns of a
+ * scanned clipping that it reads confidently but only in part.
+ */
+const BLOCK_RETRY_CONFIDENCE = 0.8;
+const BLOCK_RETRY_CHARACTERS = 1000;
+/** A word read with at least this confidence counts toward a reading's confident characters. */
+const SURE_WORD = 0.8;
+/** A block reading below this confidence never wins, so a page of speckle read as words does not replace an empty or garbled one. */
+const BLOCK_MIN_CONFIDENCE = 0.5;
+/** The block reading must find this many times the confident characters to replace a confident layout reading. */
+const BLOCK_GAIN = 1.5;
+/** ...and may be this much less confident at most. */
+const BLOCK_CONFIDENCE_SLACK = 0.1;
+
+interface ReadingStats {
+  /** Mean word confidence weighted by each word's length, so a page of short noise reads low. */
+  readonly confidence: number;
+  /** Characters in words read with at least {@link SURE_WORD} confidence. */
+  readonly sureCharacters: number;
+  /** Characters in all words. */
+  readonly characters: number;
+}
+
+function readingStats(recognition: Recognition): ReadingStats {
+  let total = 0;
+  let weighted = 0;
+  let sure = 0;
+  for (const word of recognition.words) {
+    const length = word.text.trim().length;
+    total += length;
+    weighted += word.confidence * length;
+    if (word.confidence >= SURE_WORD) sure += length;
+  }
+  return { confidence: total === 0 ? 0 : weighted / total, sureCharacters: sure, characters: total };
+}
+
+/**
+ * Whether the single-block reading replaces the layout reading: it is more confident
+ * than a low-confidence layout reading without losing confident text, or it reads far
+ * more confident text at about the same confidence. Either way it must reach
+ * {@link BLOCK_MIN_CONFIDENCE}. On 77 pages in 16 languages whose text layer gives reliable ground
+ * truth, this raised the mean character accuracy above both modes alone for every
+ * traineddata variant, such as 0.962 against 0.937 for `--psm 3` and 0.914 for `--psm 6`.
+ */
+function prefersBlock(layout: ReadingStats, block: ReadingStats): boolean {
+  if (block.confidence < BLOCK_MIN_CONFIDENCE) return false;
+  if (layout.confidence < BLOCK_RETRY_CONFIDENCE && block.confidence > layout.confidence && block.sureCharacters >= layout.sureCharacters) return true;
+  return block.sureCharacters > layout.sureCharacters * BLOCK_GAIN && block.confidence >= layout.confidence - BLOCK_CONFIDENCE_SLACK;
 }
 
 /** Flatten Tesseract's block → paragraph → line → word tree into words. */

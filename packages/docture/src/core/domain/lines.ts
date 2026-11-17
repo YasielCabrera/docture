@@ -89,8 +89,23 @@ export function readingOrderSpans(spans: readonly TextSpan[]): TextSpan[] {
     : [...spans].sort((a, b) => a.x - b.x);
 }
 
+/**
+ * Scripts whose touching OCR words still join: scripts written without spaces between
+ * words and their full-width punctuation, and Hangul, whose words Tesseract can split
+ * into touching pieces, as `한국` `노동`.
+ */
+const UNSPACED = /[\p{Script=Hangul}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}\p{Script=Tibetan}\u3000-\u303f\uff00-\uffef]/u;
+
+/**
+ * The separator between two adjacent spans. Text-layer runs that touch are one word.
+ * OCR spans, which carry a confidence, are words or regions the engine already parted,
+ * so they always take a space, except next to a character of a script written without
+ * spaces, or of Hangul, where touching spans still join, as `第` `1` `表` do.
+ */
 export function spanSeparator(previous: TextSpan, next: TextSpan): "" | " " {
   if (/\s$/u.test(previous.text) || /^\s/u.test(next.text)) return "";
+  if (previous.confidence !== undefined && next.confidence !== undefined &&
+    !UNSPACED.test(previous.text.at(-1) ?? "") && !UNSPACED.test(next.text.at(0) ?? "")) return " ";
   const gap = next.x >= previous.x
     ? next.x - (previous.x + previous.width)
     : previous.x - (next.x + next.width);

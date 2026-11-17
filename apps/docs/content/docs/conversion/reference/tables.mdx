@@ -39,9 +39,40 @@ Table detection is a heuristic.
 - Rows with the same cell count at matching positions form a plain table without spans,
   with `headerRows: 1`.
 - When counts differ, the first two or more matching rows set column bands from their
-  horizontal extent. A following row with no more cells joins when each cell overlaps a
-  band and no two cells claim one band. A totals row with fewer cells therefore stays with
-  its table.
+  horizontal extent. A following row joins when each cell overlaps a band and no two cells
+  claim one band. A totals row with fewer cells therefore stays with its table.
+- A cell between or beside the bands adds a band of its own when at least two of the row's
+  cells, and more than it adds, sit on known bands. A statement whose first rows are all
+  credits gains its debits column at the first debit.
+- Lines closer than 0.8 times the row spacing, measured between box centres, are one row:
+  a wrapped description, a two-line header, or short cells centred between the lines of
+  a wrapped one. Each column joins its lines top-down. A line that would put a second
+  number in a column is a row of its own. A close line under the last row's fullest line
+  stays out, because it is as often a note as a wrapped cell.
+- Words closer than one em are one cell. A narrower gap still parts two cells when it is
+  at least half an em and more of the four lines above and below have different cells on
+  both sides of it than have text across it, as a date set close to its description does.
+  Such a phrase is parted by column only when each of its words lies mostly within one
+  column, so a label such as `Total Due` that grazes a column stays whole. The digit groups
+  of a number set with spaces, as in `11 171 705`, are never parted. A narrow gap after a
+  section number such as `1.5` does not part the number from its label when more nearby
+  rows start their label at that gap with no number before it.
+- A bold first row that names three or more columns starts a table with a single body
+  row, such as an invoice with one line item. A body row is a run of lines set closer than
+  a line apart, starting within two lines of the row above, with every cell under a header
+  label.
+- A line that a tagged PDF marks only as a paragraph can still be a row.
+- Table rows run down the page. A line that starts above the line before it, as a value
+  line read after its column's labels does, ends the table.
+- A row whose words run across three or more columns, or across two and end a sentence,
+  is a note under the table, such as a footnote, and ends it.
+- A cell that reaches less than a quarter of an em into a column only touches it, and the
+  table gains a column for it, as for a year beside an indented label column. A new column
+  outside the table sits no farther from it than its columns sit apart, so text from the
+  next page column on the same OCR line stays out.
+- Rows of one table share a type size. A row more than 25% larger or smaller than the
+  table's rows so far, such as a 9-point tax summary under 12-point line items, ends the
+  table.
 - Under both rules, an untagged row joins only when it starts within three times the
   median row spacing of the table's rows so far, measured from the row above.
 - Under the band rule, a row more than 1.5 times that spacing below the row above starts a
@@ -65,8 +96,18 @@ Merged cells and header rows follow these rules:
   even when it overlaps neither.
 - A lone line in that position leads the table only when the row below it is bold.
 - The first row is a header. The next row is also a header while the row above it holds a
-  column span and its cells sit under that span or under empty slots. Rows above the band
-  rows join only as those header rows.
+  column span and its cells sit under that span or under empty slots.
+- A row above the band rows becomes the header when it names every column. A label may sit
+  within an em beside its column rather than over it, such as a centred `No. Of` over
+  right-aligned counts, and the column then widens to cover it. Rows between that header
+  and the band rows join when their cells fit the columns. When a lower row holds words
+  where the body holds figures and no figures of its own, such as `Item | Amount`, that row
+  is the header and the lines above it stay outside the table. Otherwise rows above the
+  band rows join only as group-label header rows.
+- OCR can read a vertical rule as a character. A lone `[`, `]`, `|`, `「`, or `」` at the
+  edge of a cell, beside a number, is dropped from the cell text when it is the cell's only
+  such glyph and leaves a figure with balanced parentheses. `[1]`, `[0, 10)`, and `「100」`
+  stay as they are.
 - `rowSpan` grows when the cell's box covers at least half the height of the next row's
   line and that row's slot is empty. It never crosses the header rows.
 

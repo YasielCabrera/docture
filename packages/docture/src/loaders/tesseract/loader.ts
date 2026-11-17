@@ -78,8 +78,9 @@ export interface DocumentLoaderTesseractOptions {
   readonly maxPages?: number;
   /**
    * How Tesseract should read the page's layout. Default `"auto"` — full layout
-   * analysis, the mode the tesseract CLI uses. `"sparse"` suits receipts and forms
-   * where text sits in unrelated islands.
+   * analysis, the mode the tesseract CLI uses, with a second single-block reading of a
+   * page read with low confidence or little confident text, kept when it reads better.
+   * `"sparse"` suits receipts and forms where text sits in unrelated islands.
    */
   readonly pageSegmentation?: PageSegmentation;
   /**
@@ -351,7 +352,7 @@ export class DocumentLoaderTesseract implements DocumentLoader<LoaderCapabilitie
         // cancellation, so a page already inside the engine runs to completion.
         ctx.signal.throwIfAborted();
         try {
-          const recognition = await pool.recognize(raster.loadBytes(), { autoRotate, returnDecodedPng: raster.keepDecodedPng });
+          const recognition = await pool.recognize(raster.loadBytes(), { autoRotate, returnDecodedPng: raster.keepDecodedPng, signal: ctx.signal });
           results[index] = { raster, recognition };
         } catch (error) {
           // One unreadable page ends the load rather than burning minutes on the rest.
