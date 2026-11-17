@@ -65,7 +65,7 @@ describe("Tesseract TIFF input", () => {
   it("recognizes each page of a multi-page TIFF in IFD order and serves PNG page images", async () => {
     const calls = engineCalls();
     const bytes = fixture("pages-lzw.tif");
-    await using loader = new DocumentLoaderTesseract({ concurrency: 1 });
+    await using loader = new DocumentLoaderTesseract({ concurrency: 1, pageSegmentation: "singleBlock" });
     const document = await loader.load({ bytes, mimeType: "image/tiff" }, ctx);
 
     expect(calls).toEqual([
@@ -90,7 +90,7 @@ describe("Tesseract TIFF input", () => {
     const pooled = pool.subarray(37, 37 + original.length);
     for (const bytes of [unpooled, pooled]) {
       const calls = engineCalls();
-      await using loader = new DocumentLoaderTesseract({ concurrency: 1 });
+      await using loader = new DocumentLoaderTesseract({ concurrency: 1, pageSegmentation: "singleBlock" });
       await loader.load({ bytes, mimeType: "image/tiff" }, ctx);
       expect(calls.map((call) => call.ifd)).toEqual([1682, 3792]);
       expect(Buffer.compare(bytes, original)).toBe(0);
@@ -100,7 +100,7 @@ describe("Tesseract TIFF input", () => {
 
   it("reads big-endian TIFF the same way", async () => {
     const calls = engineCalls();
-    await using loader = new DocumentLoaderTesseract({ concurrency: 1 });
+    await using loader = new DocumentLoaderTesseract({ concurrency: 1, pageSegmentation: "singleBlock" });
     const document = await loader.load({ bytes: fixture("pages-lzw-be.tif") }, ctx);
     expect(calls.map((call) => call.ifd)).toEqual([1682, 3792]);
     expect(document.pages.map((page) => page.pageNumber)).toEqual([1, 2]);
@@ -108,13 +108,13 @@ describe("Tesseract TIFF input", () => {
 
   it("recognizes only the pages maxPages and the page request allow", async () => {
     const capped = engineCalls();
-    await using first = new DocumentLoaderTesseract({ maxPages: 1 });
+    await using first = new DocumentLoaderTesseract({ maxPages: 1, pageSegmentation: "singleBlock" });
     const one = await first.load({ bytes: fixture("pages-lzw.tif"), mimeType: "image/tiff" }, ctx);
     expect(one.pages.map((page) => page.pageNumber)).toEqual([1]);
     expect(capped.map((call) => call.ifd)).toEqual([1682]);
 
     const requested = engineCalls();
-    await using second = new DocumentLoaderTesseract();
+    await using second = new DocumentLoaderTesseract({ pageSegmentation: "singleBlock" });
     const two = await second.load(
       { bytes: fixture("pages-lzw.tif"), mimeType: "image/tiff" },
       { ...ctx, request: { pages: [2] } },
@@ -133,7 +133,7 @@ describe("Tesseract TIFF input", () => {
     const calls = engineCalls();
     const looping = fixture("pages-lzw.tif");
     new DataView(looping.buffer).setUint32(3792 + 2 + 12 * new DataView(looping.buffer).getUint16(3792, true), 1682, true);
-    await using loader = new DocumentLoaderTesseract();
+    await using loader = new DocumentLoaderTesseract({ pageSegmentation: "singleBlock" });
     const malformed = await loader.load({ bytes: looping, mimeType: "image/tiff" }, ctx).then(() => null, (error: unknown) => error);
     const deflate = await loader.load({ bytes: fixture("pages-zip.tif"), mimeType: "image/tiff" }, ctx).then(() => null, (error: unknown) => error);
     expect(String(malformed)).toBe("Error: tesseract: these bytes are not a readable TIFF (image/tiff).");
@@ -147,7 +147,7 @@ describe("Tesseract TIFF input", () => {
 
   it("rejects a page over 8192 x 8192 pixels, even labelled PNG, and overlapping IFDs before starting the engine", async () => {
     const calls = engineCalls();
-    await using loader = new DocumentLoaderTesseract();
+    await using loader = new DocumentLoaderTesseract({ pageSegmentation: "singleBlock" });
     const errors = [];
     for (const bytes of [oversizedTiff(40_000, 40_000), overlappingIfds(10, 5)]) {
       errors.push(String(await loader.load({ bytes, mimeType: "image/tiff" }, ctx).then(() => null, (error: unknown) => error)));
@@ -164,7 +164,7 @@ describe("Tesseract TIFF input", () => {
   });
   it("rejects a 1x1 page with a 16000x16000 tile as unreadable before starting the engine", async () => {
     const calls = engineCalls();
-    await using loader = new DocumentLoaderTesseract();
+    await using loader = new DocumentLoaderTesseract({ pageSegmentation: "singleBlock" });
     const error = await loader.load({ bytes: tiledTiff(1, 1, 16000, 16000), mimeType: "image/tiff" }, ctx)
       .then(() => null, (failure: unknown) => failure);
     expect(String(error)).toBe("Error: tesseract: these bytes are not a readable TIFF (image/tiff).");

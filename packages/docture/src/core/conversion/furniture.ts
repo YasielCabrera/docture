@@ -1,7 +1,7 @@
 import type { FurnitureEvidence } from "../domain/conversion.js";
 import type { LayoutBox } from "../domain/geometry.js";
 import { bodyFontSize, fontSizes, HEADING_SIZE_RATIO, median, type Candidate } from "./candidates.js";
-import { continuedTableLabel, tableRowIds } from "./table-grid.js";
+import { bareContinuation, continuedTableLabel, continuedTableNumber, tableRowIds } from "./table-grid.js";
 
 export interface FurniturePage {
   readonly pageNumber: number;
@@ -180,6 +180,11 @@ function suspects(occurrences: readonly Occurrence[], confirmed: ReadonlyMap<Can
   return found;
 }
 
+/** The candidate after `candidate` in reading order that holds text. */
+function nextWithText(candidates: readonly Candidate[], candidate: Candidate): Candidate | undefined {
+  return candidates.slice(candidates.indexOf(candidate) + 1).find((other) => other.lines.some((line) => line.spans.length > 0));
+}
+
 export function detectFurniture(pages: readonly FurniturePage[]): FurnitureFindings {
   const found = new Map<Candidate, Furniture>();
   const occurrences: Occurrence[] = [];
@@ -198,7 +203,10 @@ export function detectFurniture(pages: readonly FurniturePage[]): FurnitureFindi
         continue;
       }
       const text = textOf(candidate);
-      if (text.length === 0 || headingSized(candidate, bodySize) || continuedTableLabel(text) !== undefined) continue;
+      if (text.length === 0 || headingSized(candidate, bodySize) || continuedTableNumber(text) !== undefined) continue;
+      // A continuation line over the table rows that follow it, such as `STAFF (continued)`,
+      // marks a table that runs on, however many pages repeat it.
+      if ((continuedTableLabel(text) !== undefined || bareContinuation(text)) && tableRows.has(nextWithText(page.candidates, candidate)?.id ?? "")) continue;
       const kind = band ?? outerBand;
       const outerEligible = outerBand === undefined ||
         (pageNumberLike(text) && !bold(candidate) && !tableRows.has(candidate.id) && isolated(candidate, outerBand, page.candidates));

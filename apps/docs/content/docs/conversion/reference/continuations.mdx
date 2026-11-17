@@ -59,8 +59,13 @@ A table continues with rows that meet all of these checks:
 
 - The page widths differ by no more than 2% of the wider page.
 
-- The row has the table's cell count, each cell overlaps its column, and no cell is longer
-  than 40 characters.
+- The row has the table's cell count, and each cell overlaps its column. Words are grouped
+  by the column they overlap, so OCR word boxes and a date set close to its description
+  count as one cell each. No cell of the first row is longer than 40 characters.
+- After a copy of the header rows or a continuation line, the first row may leave columns
+  empty, as a debit row leaves the credits column.
+- Lines closer than 0.8 times the table's row spacing join the row above them, as in the
+  table itself.
 - The font size is within 10% of the table body, and the font weight matches the body. A
   row in a different font weight, or rows in other columns, start a new element.
 - In a column whose body cells on the earlier page are all numbers without letters, the
@@ -81,15 +86,26 @@ Header copies and continuation captions decide the rest:
 - A table without a number-only column holds only text, and matching columns are no
   evidence that the next page continues it. It joins only after a copy of its header rows,
   or under a line that names the table's caption with `continued`, `cont.`, or `cont'd`.
-  An example is `Table 4 (continued)` below a table captioned `Table 4: Staff`. That line
+  An example is `Table 4 (continued)` below a table captioned `Table 4: Staff`. A short
+  title line above the table counts as its caption, so `TRANSACTIONS (continued)`,
+  `Transactions – continued`, and `Transactions (continued from page 1)` continue a table
+  under `TRANSACTIONS`. Punctuation and case do not count when the titles are compared. A
+  mark in another language, such as `(Fortsetzung)`, `(suite)`, `(continuación)`,
+  `(продолжение)`, or `（続き）`, counts in brackets or after a dash. A line that holds only
+  a mark, such as `Continued` or `Продолжение`, continues the table above whatever its
+  caption. That line
   is consumed and kept in `sourceText`. It counts even when it repeats at the top of every
   page, and it is never a running header. Otherwise the rows stay on their page with a
   `LAYOUT_DEGRADED` warning.
 - A line that names another table's caption with `continued`, such as
   `Table 5 (continued)`, ends the table without a warning.
 - A bold or heading-size top band line set apart from the body ends the table, unless it
-  is a continuation line or a copy of the header rows. A header copy below a section title
-  therefore starts a new table.
+  is a continuation line or a copy of the header rows, or a continuation line naming the
+  table follows it. A header copy below a section title therefore starts a new table.
+- Lines in the top quarter above a continuation line naming the table, such as
+  `Page 2 of 6` or a repeated account line that furniture detection missed, stay on their
+  page and do not stop the join. A header copy alone does not skip such lines, since a new
+  section can open with the same columns under its own title.
 - After a continued row, a row with fewer cells, such as a totals row, joins when the band
   rule places it. A later row with the full cell count meets every check above, so a bold
   header further down starts a new table.

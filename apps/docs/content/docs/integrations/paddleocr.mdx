@@ -73,6 +73,27 @@ The key union of `PADDLE_MODELS`:
 `v4EnglishMobile`, `v4Mobile`, `v4Server`, `v4ServerDocument`, `v3Mobile`, and
 `v3Japanese`.
 
+### Choosing a model
+
+The default `v6Tiny` is the fastest preset, and it reads Latin-script text well. Its dictionary has no Cyrillic, Greek, Arabic, Hebrew, Korean, Indic or Thai letters, and it reads Japanese poorly, so pick the preset for the script. Character accuracy against each page's text layer, measured on 1 to 7 pages per language at 300 DPI. The figures are the same for `ppu-paddle-ocr` run on its own and through docture:
+
+| Script | Preset | Preset accuracy | `v6Tiny` accuracy |
+| --- | --- | --- | --- |
+| English | `v5EnglishMobile` | 0.95 | 0.94 |
+| French, German, Italian, Portuguese, Spanish | `v6Tiny` or `v5Latin` | 0.94 to 1.00 | 0.96 to 1.00 |
+| Chinese | `v5Mobile` | 0.95 to 1.00 | 0.90 to 1.00 |
+| Japanese | `v5Mobile` | 1.00 | 0.39 |
+| Korean | `v5Korean` | 0.99 | 0.70 |
+| Russian, Ukrainian | `v5Cyrillic` | 0.98 to 1.00 | 0.23 to 0.61 |
+| Greek | `v5Greek` | 0.99 | 0.52 |
+| Arabic | `v5Arabic` | 0.88 | 0.35 |
+| Hindi | `v5Devanagari` | 0.94 | 0.46 |
+| Thai | `v5Thai` | 1.00 | 0.43 |
+
+`v6Tiny` also misses small, dense text. On a 25-column table of 7-point figures rendered at 300 DPI, `v6Tiny` read 166 words and `v5EnglishMobile` read 2,342. The conversion has no warning for this, because the recognized text is not wrong, only incomplete.
+
+The `v5Server`, `v5EnglishServer`, `v4Server`, and `v4ServerDocument` presets ran 6 to 250 times slower than the mobile presets on CPU and read worse: 0.64 on English scans against 0.81 for `v5EnglishMobile`. They did the same when `ppu-paddle-ocr` ran them without docture. Prefer the mobile presets until a release of `ppu-paddle-ocr` fixes them.
+
 ### `PaddleModelFiles`
 
 Explicit model files for offline or custom models.

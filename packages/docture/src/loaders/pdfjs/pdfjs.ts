@@ -67,6 +67,9 @@ export interface PdfJsFont {
   readonly bold?: boolean;
   readonly black?: boolean;
   readonly italic?: boolean;
+  readonly vertical?: boolean;
+  /** Glyph space to text space; [0.001, 0, 0, 0.001, 0, 0] unless the font says otherwise. */
+  readonly fontMatrix?: readonly number[];
 }
 
 export interface PdfJsCommonObjects {
@@ -77,6 +80,8 @@ export interface PdfJsCommonObjects {
 export interface PdfJsPage {
   readonly objs: PdfJsObjects;
   readonly commonObjs: PdfJsCommonObjects;
+  /** The visible page area in user space: the crop box clipped to the media box. */
+  readonly view: readonly number[];
   getViewport(options: { scale: number }): PdfJsViewport;
   getTextContent(options?: { includeMarkedContent?: boolean; disableNormalization?: boolean }): Promise<{
     items: readonly (PdfJsTextItem | PdfJsMarkedContent)[];

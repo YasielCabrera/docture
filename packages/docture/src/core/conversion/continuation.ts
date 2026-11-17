@@ -4,13 +4,17 @@ import { fontSizes, HEADING_SIZE_RATIO, isTableCandidate, median, type Candidate
 import { bandOf } from "./furniture.js";
 import { withContinuation } from "./provenance.js";
 import {
+  bareContinuation,
+  cellsOnBands,
   continuedTableLabel,
-  fitsBands,
   inferTableGrid,
+  isTitleLabel,
   nextRowWithin,
+  mergedRow,
   opensSection,
-  rowPitch,
-  tableLabel,
+  placesOnBands,
+  rowStep,
+  sameRow,
   type ColumnBand,
   type TableGrid,
   type TableGroup,
@@ -59,7 +63,9 @@ export interface TableContinuation {
   readonly consumed: readonly Candidate[];
   /** The candidates that become body rows, one line each. */
   readonly rows: readonly Candidate[];
-  /** Those rows on the table's columns. Its `headerRows` is meaningless here. */
+  /** Indices of `rows` joined into the row above, as the lines of one wrapped row. */
+  readonly joined?: readonly number[];
+  /** Those rows on the table's columns, one grid row per row after joining. Its `headerRows` is meaningless here. */
   readonly grid: TableGrid;
 }
 
@@ -118,14 +124,22 @@ export function tableTraits(group: TableGroup): TableTraits | undefined {
   const { bands } = group;
   if (bands === undefined) return undefined;
   const lines = group.candidates.flatMap((candidate) => candidate.lines);
-  const body = lines.length > group.headerRows ? lines.slice(group.headerRows) : lines;
+  const joined = new Set(group.joined ?? []);
+  const rows = lines.reduce<TextLine[][]>((all, line, index) => {
+    if (joined.has(index)) all.at(-1)?.push(line);
+    else all.push([line]);
+    return all;
+  }, []);
+  // The pitch comes from the body rows too, since a header set apart from them would stretch it.
+  const bodyRows = rows.slice(group.headerRows);
+  const body = bodyRows.length > 0 ? bodyRows.flat() : lines;
   const spans = body.flatMap((line) => line.spans);
   const full = body.filter((line) => line.spans.length === bands.length);
   return {
     bands,
     fontSize: median(spans.flatMap((span) => span.style?.fontSize ?? [])),
     bold: isBold(spans),
-    pitch: rowPitch(group.candidates.map((candidate) => candidate.box)),
+    pitch: rowStep(bodyRows.length >= 2 ? bodyRows : rows),
     numeric: bands.map((_band, col) => {
       const cells = full.map((line) => line.spans[col]?.text.trim() ?? "").filter((text) => text !== "");
       return cells.length > 0 && cells.every(numberLike);
@@ -137,22 +151,43 @@ function cellTexts(candidate: Candidate): string[] {
   return (candidate.lines[0]?.spans ?? []).map((span) => span.text.trim()).filter((text) => text !== "");
 }
 
-function repeatedHeaderLength(table: TableElement, body: readonly Candidate[]): number {
+/**
+ * How many of the first `body` lines repeat the table's header rows: one line per row, or
+ * two lines that give a row's labels column by column, as a header set on two lines does.
+ */
+function repeatedHeaderLength(table: TableElement, body: readonly Candidate[], bands: readonly ColumnBand[]): number {
   const header = table.rows.slice(0, table.headerRows).map((row) => row.filter((cell) => cell !== ""));
-  const repeated = header.length > 0 && header.every((labels, index) => {
-    const candidate = body[index];
-    const texts = candidate === undefined || candidate.lines.length !== 1 ? [] : cellTexts(candidate);
-    return texts.length === labels.length && texts.every((text, col) => text === labels[col]);
-  });
-  return repeated ? header.length : 0;
+  const same = (texts: readonly string[], labels: readonly string[]): boolean =>
+    texts.length === labels.length && texts.every((text, col) => text === labels[col]);
+  let used = 0;
+  for (const labels of header) {
+    const one = body[used];
+    if (one !== undefined && one.lines.length === 1 && same(cellTexts(one), labels)) {
+      used += 1;
+      continue;
+    }
+    const two = body.slice(used, used + 2);
+    const merged = two.length === 2 && two.every((candidate) => candidate.lines.length === 1)
+      ? mergedRow(two.flatMap((candidate) => candidate.lines), bands)
+      : undefined;
+    if (merged === undefined || !same(merged.spans.map((span) => span.text.trim()).filter((text) => text !== ""), labels)) return 0;
+    used += 2;
+  }
+  return used;
 }
 
-function continuesRow(tail: TableTail, candidate: Candidate): boolean {
+/** Whether `candidate` is set in the weight and size of the table's body rows. */
+function setLikeRows(tail: TableTail, candidate: Candidate): boolean {
+  const spans = candidate.lines.flatMap((line) => line.spans);
+  const size = median(fontSizes(candidate));
+  return isBold(spans) === tail.bold && (tail.fontSize <= 0 || Math.abs(size - tail.fontSize) <= tail.fontSize * FONT_TOLERANCE);
+}
+
+/** Whether `candidate` is a full row of the table. Only the `first` row on the page must also keep its cells short. */
+function continuesRow(tail: TableTail, candidate: Candidate, first: boolean): boolean {
   const spans = candidate.lines[0]?.spans ?? [];
   if (candidate.lines.length !== 1 || !isTableCandidate(candidate) || spans.length !== tail.bands.length) return false;
-  if (spans.some((span) => span.text.trim().length > MAX_CELL_LENGTH) || isBold(spans) !== tail.bold) return false;
-  const size = median(fontSizes(candidate));
-  if (tail.fontSize > 0 && Math.abs(size - tail.fontSize) > tail.fontSize * FONT_TOLERANCE) return false;
+  if ((first && spans.some((span) => span.text.trim().length > MAX_CELL_LENGTH)) || !setLikeRows(tail, candidate)) return false;
   return spans.every((span, index) => {
     const band = tail.bands[index];
     const fits = band !== undefined && Math.min(span.x + span.width, band.right) > Math.max(span.x, band.left);
@@ -165,12 +200,18 @@ function textOfCandidate(candidate: Candidate): string {
 }
 
 function continuesLabel(candidate: Candidate, label: string | undefined): boolean {
-  return label !== undefined && continuedTableLabel(textOfCandidate(candidate)) === label;
+  const text = textOfCandidate(candidate);
+  return bareContinuation(text) || (label !== undefined && continuedTableLabel(text) === label);
 }
 
+/**
+ * Whether `candidate` continues a table numbered differently from the one ending above.
+ * Only two `Table N` numbers conflict: a title above a table may be a note or an account
+ * line rather than its caption, and a continuation may shorten the title.
+ */
 function continuesOtherTable(candidate: Candidate, label: string | undefined): boolean {
   const named = continuedTableLabel(textOfCandidate(candidate));
-  return label !== undefined && named !== undefined && named !== label;
+  return label !== undefined && named !== undefined && named !== label && !isTitleLabel(label) && !isTitleLabel(named);
 }
 
 function startsSection(tail: TableTail, candidate: Candidate): boolean {
@@ -212,32 +253,83 @@ export function takeTableContinuation(
     .sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
   const banded = lines.slice(0, leadingBandLines(lines.map((candidate) => candidate.box), page.height));
   const headerRows = tail.table.headerRows;
-  const bandHeader = headerRows > 0 && repeatedHeaderLength(tail.table, banded.slice(-headerRows)) > 0 ? headerRows : 0;
+  const bandHeader = headerRows > 0 && repeatedHeaderLength(tail.table, banded.slice(-headerRows), tail.bands) > 0 ? headerRows : 0;
   const skipped = banded.slice(0, banded.length - bandHeader);
-  const body = lines.slice(skipped.length);
+  const top = lines.slice(skipped.length);
+  // Lines above a continuation line for this table near the top of the page are running
+  // lines the furniture pass missed, such as `Page 2 of 6`. A repeated header alone is not
+  // enough, since a new section can open with the same columns under its own title.
+  const anchor = top.findIndex((candidate) => candidate.box.y <= page.height * PAGE_EDGE && continuesLabel(candidate, tail.label));
+  const running = top.slice(0, Math.max(0, anchor));
+  const body = top.slice(running.length);
   if (body[0] === undefined || !meetsAtPageBreak(tail.page, tail.box, page, body[0].box)) return undefined;
-  if (skipped.some((candidate) => !continuesLabel(candidate, tail.label) && startsSection(tail, candidate))) return undefined;
-  if ([...skipped, body[0]].some((candidate) => continuesOtherTable(candidate, tail.label))) return undefined;
+  // A continuation line naming the table below them shows the top lines are the page's own, such as a letterhead.
+  const named = body[0] !== undefined && continuesLabel(body[0], tail.label);
+  if (!named && skipped.some((candidate) => !continuesLabel(candidate, tail.label) && startsSection(tail, candidate))) return undefined;
+  if ([...skipped, ...running, body[0]].some((candidate) => continuesOtherTable(candidate, tail.label))) return undefined;
   const bandMarkers = skipped.filter((candidate) => continuesLabel(candidate, tail.label));
   const marker = continuesLabel(body[0], tail.label) ? 1 : 0;
   const marked = bandMarkers.length > 0 || marker === 1;
-  const repeated = repeatedHeaderLength(tail.table, body.slice(marker));
+  const repeated = repeatedHeaderLength(tail.table, body.slice(marker), tail.bands);
   const header = marker + repeated;
   const rows: Candidate[] = [];
-  for (const candidate of body.slice(header)) {
+  const joined: number[] = [];
+  // Judged cell by cell on the table's columns: OCR reads words, and a date can sit closer to its description than an em.
+  const original = new Map<Candidate, Candidate>();
+  const candidatesAfter = body.slice(header).map((candidate) => {
+    const line = candidate.lines.length === 1 ? candidate.lines[0] : undefined;
+    const cells = line === undefined ? undefined : cellsOnBands(line, tail.bands);
+    if (cells === undefined) return candidate;
+    const onBands = { ...candidate, lines: [cells] };
+    original.set(onBands, candidate);
+    return onBands;
+  });
+  const fillsBands = (candidate: Candidate): boolean => (candidate.lines[0]?.spans.length ?? 0) >= tail.bands.length;
+  const tightBelow = (above: Candidate | undefined, below: Candidate | undefined): boolean =>
+    above !== undefined && below !== undefined && sameRow(above.box, below.box, tail.pitch);
+  for (const [index, candidate] of candidatesAfter.entries()) {
     const above = rows[rows.length - 1];
-    const sparse = above !== undefined && (candidate.lines[0]?.spans.length ?? 0) < tail.bands.length;
-    if (sparse ? !fitsBands(candidate, tail.bands) : !continuesRow(tail, candidate)) break;
-    if (above !== undefined && !nextRowWithin(above.box, candidate.box, tail.pitch)) break;
     const line = candidate.lines[0];
-    if (above !== undefined && line !== undefined &&
+    const row = rows.slice(rows.length - 1 - trailingJoined(joined, rows.length - 1));
+    // A line that fills every column is a row of its own under a row that fills them too.
+    const tight = tightBelow(above, candidate) && !(fillsBands(candidate) && row.some(fillsBands)) &&
+      mergedRow([...row, candidate].flatMap((member) => member.lines), tail.bands) !== undefined;
+    // A confirmed header lets the first row leave columns empty, as a debit row leaves the credits.
+    const sparse = (above !== undefined || header > 0) && (line?.spans.length ?? 0) < tail.bands.length;
+    // One cell of a row whose other cells sit on the line below or above it, closer than a row step.
+    // A one-cell first line of the page leads such a row only under a repeated header or a
+    // continuation line, since a note or another table's title can sit as close above the rows.
+    const partial = candidate.lines.length === 1 && line !== undefined && placesOnBands(line, tail.bands) && setLikeRows(tail, candidate) &&
+      (tight || ((above !== undefined || header > 0 || marked || line.spans.length >= 2) && tightBelow(candidate, candidatesAfter[index + 1])));
+    const fits = line !== undefined && line.spans.length >= 2 && placesOnBands(line, tail.bands);
+    if (!partial && (sparse ? !fits : !continuesRow(tail, candidate, above === undefined))) break;
+    if (above !== undefined && !nextRowWithin(above.box, candidate.box, tail.pitch)) break;
+    if (!tight && above !== undefined && line !== undefined &&
       opensSection(line, above.lines.at(-1), candidate.box.y - above.box.y, tail.pitch, tail.bands, tail.numeric.at(-1) === true)) break;
+    if (tight) joined.push(rows.length);
     rows.push(candidate);
   }
-  const grid = rows.length === 0 ? undefined : inferTableGrid(rows.flatMap((candidate) => candidate.lines), tail.bands);
+  // As in the table itself, a tight line under the last row's fullest line stays out of it,
+  // and so does a last row of a single cell.
+  const lastStart = rows.length - 1 - trailingJoined(joined, rows.length - 1);
+  const cellCounts = rows.slice(lastStart).map((candidate) => candidate.lines[0]?.spans.length ?? 0);
+  const fullest = lastStart + cellCounts.indexOf(Math.max(...cellCounts));
+  while (rows.length > 0 && (rows.length > fullest + 1 || (rows.at(-1)?.lines[0]?.spans.length ?? 0) === 1)) {
+    if (joined.at(-1) === rows.length - 1) joined.pop();
+    rows.pop();
+  }
+  const groups: TextLine[][] = [];
+  rows.forEach((candidate, index) => {
+    const row = groups.at(-1);
+    if (row !== undefined && joined.includes(index)) row.push(...candidate.lines);
+    else groups.push([...candidate.lines]);
+  });
+  const merged = groups.map((lines) => mergedRow(lines, tail.bands));
+  if (merged.some((line) => line === undefined)) return undefined;
+  const grid = merged.length === 0 ? undefined : inferTableGrid(merged as TextLine[], tail.bands);
   const first = rows[0];
   if (grid === undefined || first === undefined) return undefined;
-  const crossed = tail.suspectBelow ?? [...skipped, ...rows].find((candidate) => suspected.has(candidate));
+  const crossed = tail.suspectBelow ?? [...skipped, ...rows.map((row) => original.get(row) ?? row)].find((candidate) => suspected.has(candidate));
   if (crossed !== undefined) {
     const height = crossed === tail.suspectBelow ? tail.page.height : page.height;
     return keptSeparate(tail, page, first, suspectReason(crossed, suspected.get(crossed) ?? [], height));
@@ -245,7 +337,10 @@ export function takeTableContinuation(
   if (repeated === 0 && !marked && !tail.numeric.some(Boolean)) {
     return keptSeparate(tail, page, first, "its rows hold only text, and the page repeats neither the table's header nor a continuation line for its caption");
   }
-  return { kind: "join", consumed: [...bandMarkers, ...body.slice(0, header + rows.length)], rows, grid };
+  return {
+    kind: "join", consumed: [...bandMarkers, ...body.slice(0, header + rows.length)], rows, grid,
+    ...(joined.length === 0 ? {} : { joined }),
+  };
 }
 
 function isPageReferenceLine(text: string, line?: Pick<TextLine, "height" | "spans">): boolean {
@@ -286,4 +381,11 @@ export function appendParagraph(base: ParagraphElement, next: { readonly text: s
     runs: [...base.runs, { text: "\n" }, ...next.runs],
     provenance: withContinuation(base.provenance, next.provenance),
   };
+}
+
+/** How many rows directly above `index`, counting it, were joined into the row above them. */
+function trailingJoined(joined: readonly number[], index: number): number {
+  let count = 0;
+  while (index - count >= 0 && joined.includes(index - count)) count += 1;
+  return count;
 }

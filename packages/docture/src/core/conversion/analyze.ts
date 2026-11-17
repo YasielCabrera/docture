@@ -37,6 +37,7 @@ import {
   median,
   mostCharacters,
   ORDERED_MARKER,
+  tableEm,
   unionBox,
   UNORDERED_MARKER,
   type Candidate,
@@ -58,7 +59,7 @@ import { withElementIds } from "./element-ids.js";
 import { detectFurniture, type Furniture } from "./furniture.js";
 import { mergeCandidates, paragraphLength } from "./paragraphs.js";
 import { provenanceSegments } from "./provenance.js";
-import { looksLikeTableGroup, tableGroupAt, tableGroupIds, tableLabel, tableRowIds, unresolvedGroupLabel, type TableGroup } from "./table-grid.js";
+import { captionLabel, looksLikeTableGroup, resetTableAnalysis, tableGroupAt, tableGroupIds, tableRowIds, unresolvedGroupLabel, type TableGroup } from "./table-grid.js";
 import { appendTableRows } from "./tables.js";
 
 export interface DeterministicAnalysis {
@@ -472,11 +473,31 @@ function splitColumnCandidates(
     const minimum = group.every((item) => item.gap.atClearGutter === true) ? 1 : 2;
     if (group.length >= minimum) {
       const splittableLines = group.filter((item) => !bandTables.has(item.candidate.id));
-      if (looksLikeTableGroup(group.map((item) => item.candidate)) || splittableLines.length < minimum) {
-        output.push(...group.map((item) => item.candidate));
+      if (looksLikeTableGroup(group.map((item) => item.candidate)) || splittableLines.length < minimum ||
+        group.every((item) => labelsAmount(item.candidate, item.gap))) {
+        // A band table explains the gap for its own rows. A line beside it with words on both
+        // sides of the page's column gutter, such as a heading next to the following text
+        // column, is two columns.
+        const banded = splittableLines.length < group.length;
+        output.push(...group.flatMap((item) => banded && !bandTables.has(item.candidate.id) &&
+          item.gap.atClearGutter === true && wordsBothSides(item.candidate, item.gap)
+          ? splitCandidate(item.candidate, item.gap)
+          : [item.candidate]));
       } else {
+        // A label with its amount stays one line, unless the figure starts where the other
+        // lines' right column does, as a number standing alone in a column of text.
+        const columnStarts = group.filter((item) => !labelsAmount(item.candidate, item.gap)).map((item) => rightStart(item.candidate, item.gap));
+        const keptWhole = (item: { candidate: Candidate; gap: CandidateGap }): boolean => {
+          if (!labelsAmount(item.candidate, item.gap)) return false;
+          const start = rightStart(item.candidate, item.gap);
+          const figure = item.candidate.lines[0]?.spans[item.gap.spanBefore + 1];
+          const em = figure === undefined ? 0 : tableEm(figure);
+          return !columnStarts.some((other) => Math.abs(other - start) <= em * COLUMN_START_TOLERANCE);
+        };
         output.push(...group.flatMap((item) =>
-          bandTables.has(item.candidate.id) ? [item.candidate] : splitCandidate(item.candidate, item.gap)));
+          bandTables.has(item.candidate.id) || keptWhole(item)
+            ? [item.candidate]
+            : splitCandidate(item.candidate, item.gap)));
       }
       index += group.length;
       continue;
@@ -485,6 +506,46 @@ function splitColumnCandidates(
     index += 1;
   }
   return output;
+}
+
+/**
+ * One amount or count, such as `$99.90`, `1,887.29`, `1 234,56`, `12,50 €`, `EUR 99.90`,
+ * `1,234.56 CR`, `31.82-`, `(12.00)` or `١٢٣٫٤٥`. A space only separates thousands, so a
+ * run of figures such as a chart's axis is not one amount. It ends in a digit, `%`, a
+ * currency sign or code, `)` or a minus, never a sentence's full stop.
+ */
+const AMOUNT = /^(?:\p{Lu}{3}\s?)?[-+\u2212(]?\p{Sc}?\s?[-\u2212]?(?:\p{Nd}{1,3}(?:[\s'.,\u066c]\p{Nd}{3})+(?:[.,\u066b]\p{Nd}+)?|\p{Nd}+(?:[.,\u066b]\p{Nd}+)?)\s?%?\s?\p{Sc}?[)\-\u2212]?(?:\s?\p{Lu}{2,3})?$/u;
+
+/**
+ * Whether the line is a label on one side of `gap` and one amount on the other, rather
+ * than a line of two columns. The label leads: left of the figures, or right of them in
+ * right-to-left text. A gap at the page's column gutter is always a column break.
+ */
+function labelsAmount(candidate: Candidate, gap: CandidateGap): boolean {
+  if (gap.atClearGutter === true) return false;
+  const spans = candidate.lines[0]?.spans ?? [];
+  const left = spans.slice(0, gap.spanBefore + 1);
+  const right = spans.slice(gap.spanBefore + 1);
+  const rightToLeft = right.length > 0 && right.every((span) => span.direction === "rtl");
+  const [label, value] = (rightToLeft ? [right, left] : [left, right]).map((part) => part.map((span) => span.text).join(" ").trim());
+  return /\p{L}/u.test(label ?? "") && AMOUNT.test(value ?? "");
+}
+
+/** How far apart, in ems, two left edges still start the same column. */
+const COLUMN_START_TOLERANCE = 0.5;
+
+/** The left edge of the text right of `gap`. */
+function rightStart(candidate: Candidate, gap: CandidateGap): number {
+  return candidate.lines[0]?.spans[gap.spanBefore + 1]?.x ?? Number.NaN;
+}
+
+/** Whether both sides of `gap` read as words rather than figures. */
+function wordsBothSides(candidate: Candidate, gap: CandidateGap): boolean {
+  const spans = candidate.lines[0]?.spans ?? [];
+  return [spans.slice(0, gap.spanBefore + 1), spans.slice(gap.spanBefore + 1)].every((part) => {
+    const text = part.map((span) => span.text).join(" ");
+    return (text.match(/\p{L}/gu)?.length ?? 0) > (text.match(/\p{N}/gu)?.length ?? 0);
+  });
 }
 
 /** Code lines with the leading spaces their left edges show, measured in the listing's character width. */
@@ -736,12 +797,13 @@ function continuationRows(table: TableElement, continuation: TableContinuation):
   return appendTableRows(table, {
     rows: continuation.grid.rows,
     ...(continuation.grid.spans === undefined ? {} : { spans: continuation.grid.spans }),
-    rowProvenance: continuation.rows.flatMap(rowSegments),
+    rowProvenance: joinedSegments(continuation.rows.flatMap(rowSegments), continuation.joined ?? []),
     sourceText: continuation.consumed.flatMap((candidate) => candidate.lines.map((line) => line.text)).join("\n"),
   }, provenance(continuation.consumed));
 }
 
 export function analyzeDocument(document: LoadedDocument, onPage: (pageNumber: number) => void = () => {}): DeterministicAnalysis {
+  resetTableAnalysis();
   if (document.pages.every((page) => page.layout !== undefined)) {
     for (const page of document.pages) onPage(page.pageNumber);
     return {
@@ -878,7 +940,9 @@ export function analyzeDocument(document: LoadedDocument, onPage: (pageNumber: n
     }
 
     const texts = bodyText();
-    const last = texts[texts.length - 1 - trailingBandLines(boxes(texts), page.height)];
+    // A table at the foot of the page is body text, never a running footer.
+    const footerLines = Math.min(trailingBandLines(boxes(texts), page.height), texts.length - 1 - texts.findLastIndex((element) => element.kind === "table"));
+    const last = texts[texts.length - 1 - footerLines];
     const lastIndex = last === undefined ? -1 : elements.indexOf(last);
     if (!positioned(frame)) tail = undefined;
     else if (last !== undefined) {
@@ -886,7 +950,7 @@ export function analyzeDocument(document: LoadedDocument, onPage: (pageNumber: n
       const bottom = last.provenance.box.y + last.provenance.box.height;
       const suspectBelow = sourceCandidates.candidates.find((candidate) => suspected.has(candidate) && candidate.box.y >= bottom);
       const caption = texts[texts.indexOf(last) - 1];
-      const label = table === undefined || caption === undefined || !("text" in caption) ? undefined : tableLabel(caption.text);
+      const label = table === undefined || caption === undefined || !("text" in caption) ? undefined : captionLabel(caption.text);
       tail = {
         elements,
         elementIndex: lastIndex,

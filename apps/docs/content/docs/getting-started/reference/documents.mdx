@@ -457,7 +457,7 @@ Groups words into sorted `TextLine` values, the same geometry shape the built-in
 linesFromWords(words: readonly PositionedWord[], options?: LinesFromWordsOptions): TextLine[]
 ```
 
-Removes blank words and returns lines top to bottom with spans left to right.
+Removes blank words and returns lines top to bottom with spans left to right. Words that carry a `confidence` are OCR words, so line text keeps a space between them even when their boxes touch. Touching characters of scripts written without spaces, such as Chinese, Japanese and Thai, still join, and so do touching Korean words, since OCR can split one Korean word into pieces. Words without a confidence, such as text-layer runs, join when they touch.
 
 ### `LinesFromWordsOptions`
 

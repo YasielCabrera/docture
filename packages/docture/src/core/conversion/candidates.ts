@@ -179,16 +179,35 @@ export function characterFontSize(spans: readonly TextSpan[]): number {
   return 0;
 }
 
+/** Sizes this close, as a share of the larger, are the same type size. */
+const SAME_SIZE_TOLERANCE = 0.05;
+/** The share of the prose characters that must run on at a larger table's size to make it the body size. */
+const TABLE_SIZE_SHARE = 0.2;
+const SENTENCE_STOP = /[.!?。！？]["'”’)）」』]*$/u;
+
 /**
  * The font size of most of a page's characters outside the table rows in
  * `tableRows`, the reference for heading thresholds. Counting characters rather
  * than spans keeps many short diagram labels from outweighing the body prose,
  * and a page that is mostly a small-print table keeps its prose as the reference.
+ * A table set larger than the prose counts too when a fifth of the other text runs on at
+ * its size, so an invoice whose items and address lines are its body text does not make
+ * them headings over small print, while lone headings at that size stay headings.
  */
 export function bodyFontSize(candidates: readonly Candidate[], tableRows: ReadonlySet<string>): number {
+  const spans = (subset: readonly Candidate[]): TextSpan[] => subset.flatMap((candidate) => candidate.lines.flatMap((line) => line.spans));
   const prose = candidates.filter((candidate) => !tableRows.has(candidate.id));
-  return characterFontSize((prose.length > 0 ? prose : candidates).flatMap((candidate) =>
-    candidate.lines.flatMap((line) => line.spans))) || 10;
+  const proseSize = characterFontSize(spans(prose.length > 0 ? prose : candidates));
+  const tableSize = characterFontSize(spans(candidates.filter((candidate) => tableRows.has(candidate.id))));
+  const characters = (subset: readonly TextSpan[]): number => subset.reduce((sum, span) => sum + span.text.trim().length, 0);
+  const sized = (candidate: Candidate | undefined): boolean => candidate !== undefined && !tableRows.has(candidate.id) &&
+    Math.abs(characterFontSize(spans([candidate])) - tableSize) <= tableSize * SAME_SIZE_TOLERANCE;
+  // Body text at the table's size runs on: a block of lines, a sentence, or a line beside
+  // others of that size, as an address is. A short line on its own may be a heading.
+  const runsOn = candidates.filter((candidate, index) => sized(candidate) && (candidate.lines.length > 1 ||
+    SENTENCE_STOP.test(candidate.lines.map((line) => line.text).join(" ").trim()) || sized(candidates[index - 1]) || sized(candidates[index + 1])));
+  const atTableSize = tableSize > proseSize && characters(spans(runsOn)) >= characters(spans(prose)) * TABLE_SIZE_SHARE;
+  return (atTableSize ? characterFontSize(spans(candidates)) : proseSize) || 10;
 }
 
 /** A candidate this much larger than the body font size reads as a heading. */
